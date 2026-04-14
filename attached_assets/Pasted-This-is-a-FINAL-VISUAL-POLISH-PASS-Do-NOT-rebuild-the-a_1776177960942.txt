@@ -1,0 +1,101 @@
+This is a FINAL VISUAL POLISH PASS. Do NOT rebuild the app. Do NOT touch routing, data logic, or architecture.
+
+Only improve:
+1) background aurora depth
+2) homepage card fidelity
+3) glass + lighting quality
+
+========================
+🎨 BACKGROUND UPGRADE
+========================
+
+The current background is too flat and too green.
+
+Make it MUCH more luminous and layered:
+
+- Add a SECOND aurora layer using deep purple / violet tones
+- Blend teal + emerald + cyan with subtle purple ribbons
+- Increase contrast between light and dark regions
+- Add soft light bloom behind the center hero area
+- Add faint radial glow behind the portal grid
+
+Motion:
+- Add very slow drifting gradient movement (barely noticeable)
+- No particles, no waves, no noise
+
+Goal:
+It should feel like glowing northern lights, not a green overlay.
+
+========================
+🧊 HOMEPAGE CARD FIX (MOST IMPORTANT)
+========================
+
+The homepage cards DO NOT match the quality of the original Insight Hub.
+
+Fix this without changing layout:
+
+1. IMAGE / BANNER AREA
+- Increase height of the top visual section inside each card
+- Make it feel like a true "display panel"
+- Add layered gradients inside this area (teal → cyan → purple glow)
+- Add subtle light streaks or grid-line accents (very faint)
+- Add soft inner glow behind the icon
+- Improve icon clarity (slightly brighter, sharper)
+
+2. CARD STRUCTURE
+- Increase contrast between:
+  - card body
+  - banner area
+- Add subtle divider or gradient transition between top and bottom sections
+
+3. GLASS EFFECT
+- Increase blur slightly
+- Add inner highlight at top edge
+- Add stronger edge glow (very thin but brighter)
+- Add slight reflective sheen across card surface
+
+4. HOVER STATE
+- Slight lift (scale 1.02 max)
+- Stronger glow
+- Slight brightening of top banner
+- Smooth transition (no snapping)
+
+Goal:
+Cards should feel like premium floating panels, not flat tiles.
+
+========================
+💡 LIGHTING / DEPTH
+========================
+
+Improve overall depth:
+
+- Add subtle shadow separation between cards and background
+- Add faint glow behind cards (not around edges, but behind)
+- Increase brightness of key highlights
+- Make the center of the screen feel more illuminated than edges
+
+========================
+🎯 DO NOT CHANGE
+========================
+
+DO NOT:
+- change layout
+- change spacing
+- rebuild components
+- change routing
+- touch data logic
+- replace cards with new components
+
+Only enhance existing visuals.
+
+========================
+END STATE
+========================
+
+The app should feel:
+- more luminous
+- more dimensional
+- more premium
+- closer to the original Insight Hub quality
+- less flat and less green
+- with stronger, richer card visuals

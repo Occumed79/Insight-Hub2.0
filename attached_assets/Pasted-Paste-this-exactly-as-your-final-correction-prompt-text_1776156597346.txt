@@ -1,0 +1,481 @@
+Paste this exactly as your final correction prompt:
+
+```text
+You are NOT rebuilding this app from scratch. You are performing a HIGH-FIDELITY CORRECTION PASS on the existing Occu-Med Insight Hub build.
+
+Your job is to transform the current build from a static functional shell into a premium, dynamic, visually faithful intelligence product.
+
+The current build already has the correct routes and basic structure. KEEP the existing route structure, reusable architecture, and portal organization. DO NOT replace the app with a new simplified version. DO NOT regress functionality. DO NOT remove any existing working features. Instead, surgically upgrade fidelity, motion, interactivity, and visual hierarchy.
+
+==================================================
+PRIMARY OBJECTIVE
+==================================================
+
+The app currently feels like:
+- a clean internal dashboard
+- a static shell with charts
+- a simplified reinterpretation of the original portal
+
+It must instead feel like:
+- a premium strategic intelligence platform
+- a dynamic command center
+- a product that looks expensive, alive, and executive-ready
+- a close structural and visual match to the original Insight Hub homepage and internal portal style, but recolored into an aurora palette
+
+The biggest misses that must be corrected are:
+1. homepage card fidelity to the original portal
+2. lack of motion / lack of “alive” feeling
+3. static-looking data views
+4. weak visual depth and contrast
+5. insufficient insight/storytelling layer
+6. map and metric interactions not feeling reactive enough
+
+==================================================
+CRITICAL INSTRUCTIONS
+==================================================
+
+DO NOT:
+- rebuild the app from zero
+- simplify the architecture
+- convert this into a generic SaaS dashboard
+- remove the existing three data portals
+- remove the existing reusable company architecture
+- hardcode the app to V2X only
+- replace existing routes with placeholder screens
+- remove charts, selectors, map, or filters
+- break working navigation
+- downgrade anything that already works
+
+DO:
+- preserve the current route structure
+- preserve the current data portal architecture
+- preserve the generalized company-based architecture
+- preserve the existing dataset integration
+- significantly improve UI fidelity, motion, hierarchy, and reactivity
+- make the system feel dynamic and premium
+
+==================================================
+GLOBAL DESIGN CORRECTION
+==================================================
+
+The visual system is currently too flat, too dim, and too uniform. Fix this globally.
+
+Create a PREMIUM AURORA DESIGN SYSTEM with much more depth.
+
+BACKGROUND:
+- Keep dark base, but improve it dramatically
+- Use multiple layered aurora bands with different blur radii and opacities
+- Add soft, slow, drifting motion using Framer Motion or CSS animation
+- The aurora must feel atmospheric and premium, not like a green wash
+- Use layered tones:
+  - deep teal
+  - cyan
+  - emerald
+  - aqua
+  - restrained icy violet in very small amounts
+- Add subtle light blooms behind major content zones
+- Add more contrast between page background and card surfaces
+- Add depth so the background feels spatial, not like a flat overlay
+
+CARD SYSTEM:
+- Upgrade all cards to feel like high-end glass panels
+- Stronger border glow
+- Better inner gradient treatment
+- Slightly more visible glass tint
+- More defined hierarchy between hero cards, section cards, and supporting cards
+- Use subtle inner shadows / inner glow where appropriate
+- Increase contrast between card backgrounds and page background
+- Add polished hover behavior:
+  - slight lift
+  - stronger bloom
+  - slight edge light shift
+  - smooth transitions
+
+TYPOGRAPHY:
+- Increase visual hierarchy
+- Headlines should feel more premium and deliberate
+- Supporting text should remain muted but easier to scan
+- Improve section-title spacing and weight
+- Increase readability of important metrics and summaries
+
+ANIMATION / MOTION SYSTEM:
+This app currently feels static. Add a unified motion system.
+
+Required:
+- slow drifting aurora motion in background
+- subtle page entrance fades/slides
+- smooth hover transitions on cards
+- animated number transitions for key metrics
+- smooth chart transitions when filters/company selection changes
+- smooth accordion expand/collapse transitions
+- animated selector/filter response
+- map marker hover and active-state animations
+- smooth side panel / detail panel transitions
+- subtle focus bloom on active content
+
+Motion should feel:
+- premium
+- restrained
+- modern
+- smooth
+- expensive
+NOT:
+- bouncy
+- playful
+- flashy
+- distracting
+
+==================================================
+HOMEPAGE CORRECTION (HIGHEST PRIORITY)
+==================================================
+
+The homepage currently does NOT match the original Insight Hub closely enough. Fix the homepage to be much more structurally and visually faithful to the original portal.
+
+Match these characteristics much more closely:
+- stronger centered hero composition
+- more accurate spacing between logo, title, subtitle, and card grid
+- more faithful proportions of the portal cards
+- more premium image/banner area at the top of each portal card
+- better edge lighting and border treatment
+- more accurate visual weight of the card shell relative to the top banner section
+- richer internal layering
+- stronger contrast and focus hierarchy
+
+HOMEPAGE HERO:
+- Keep centered logo
+- Keep “Insight Hub” headline
+- Improve headline scale and balance to better match the reference
+- Subtitle should have cleaner spacing, improved line height, and better max width
+- Add very subtle fade-in / parallax-like atmosphere to hero
+
+PORTAL CARD GRID:
+- Keep 3x2 structure
+- Portal cards must feel much closer to the original first page of the reference app
+- The top image/banner area of each card should be larger and visually richer
+- The card proportions should feel more accurate to the original
+- Add a better separation between banner area and text area
+- Improve glow edges and lighting around each card
+- Improve the small icon / top-left visual ornament if used
+- Increase the feeling that the cards are premium portal entry points, not plain tiles
+
+CARD INTERACTIONS:
+Each homepage card should have:
+- hover lift
+- stronger bloom
+- border glow intensification
+- subtle banner shimmer/light pass
+- smooth title/text emphasis
+- micro-motion that makes the page feel alive
+
+Make the homepage feel like a product landing page, not a utility menu.
+
+==================================================
+SIDEBAR CORRECTION
+==================================================
+
+The sidebar structure is good but needs more premium execution.
+
+Improve:
+- logo area styling
+- spacing between groups
+- active item glow treatment
+- icon/label alignment
+- visual distinction between active and inactive items
+- hover states
+- polished transitions between selected routes
+
+The sidebar should feel like a premium system shell, not a simple nav list.
+
+==================================================
+DATA PROFILES PORTAL CORRECTION
+==================================================
+
+Keep the Data Profiles portal and route. Do not remove current content. Upgrade it substantially.
+
+CURRENT PROBLEM:
+It currently shows sections and numbers, but it does not feel insightful enough, dynamic enough, or visually powerful enough.
+
+GOAL:
+Make Data Profiles feel like a true executive intelligence dossier.
+
+REQUIRED IMPROVEMENTS:
+
+1. TOP-OF-PAGE INSIGHT STRIP
+Add a high-value “Executive Signals” or “Key Intelligence Signals” band near the top.
+This should surface the most important insights for the currently selected company.
+For V2X examples, surface things like:
+- global workforce exposure
+- workers’ comp reserve / accrual signal
+- geographic footprint concentration
+- safety or injury exposure direction
+- operating environment intensity
+
+This must not feel generic. It should feel like it is helping a user understand what matters first.
+
+2. DYNAMIC METRIC ANIMATION
+Animate important numbers on load and when company changes.
+Use smooth count-up behavior for key values such as:
+- employees
+- proxy burden
+- mapped locations
+- countries
+- modeled exposure values
+
+3. SECTION HIERARCHY
+Not all sections should have equal visual weight.
+Create stronger hierarchy:
+- hero intelligence blocks
+- primary metric cards
+- supporting evidence / interpretation panels
+- detail/footnote-level content
+
+4. BETTER VISUAL STORYTELLING
+Within Data Profiles, the experience should move from:
+overview → major signals → operational footprint → workforce/business mix → safety/risk → financial signal → evidence/source context
+
+Make the page feel sequenced and deliberate.
+
+5. MORE DYNAMIC CHART PRESENTATION
+Upgrade the current chart styling:
+- better axis styling
+- better glow/highlight styling
+- smoother transitions
+- more premium colors
+- better empty space balance
+- avoid default-looking chart presentation
+
+6. INTERPRETIVE PANELS
+For major sections, include short interpretive summaries that explain why the metric matters.
+Do not just display numbers. Add insight framing.
+Examples:
+- “This footprint indicates broad operational exposure across multiple higher-complexity environments.”
+- “Reserve/accrual intensity suggests elevated occupational-health service relevance relative to peers.”
+Make it concise, executive, and credible.
+
+7. REACTIVE COMPANY CHANGE
+If another company is selected later, the page architecture must be able to update all dependent views consistently:
+- insights
+- cards
+- charts
+- section summaries
+- supporting values
+
+Keep the system reusable.
+
+==================================================
+QUANTIFIABLE DATA PORTAL CORRECTION
+==================================================
+
+Keep the Quantifiable Data portal and route. Do not simplify it. Upgrade it into a more premium and reactive executive quant system.
+
+CURRENT PROBLEM:
+It feels like an Excel workbook translated into cards. The formulas are present, but the page does not feel sufficiently powerful, dynamic, or executive.
+
+GOAL:
+Make Quantifiable Data feel like a live executive modeling environment.
+
+REQUIRED IMPROVEMENTS:
+
+1. PRIMARY SIGNAL EMPHASIS
+The most important modeled outputs need stronger emphasis.
+The top-line modeled burden / impact values should feel important.
+Use stronger hierarchy:
+- primary total burden signal
+- secondary direct/economic components
+- tertiary assumptions and breakdowns
+
+2. LIVE REACTIVITY
+When assumptions change:
+- numbers should update smoothly
+- charts should animate to new values
+- summary text/report mode should update
+- any derived cards should react immediately
+
+The page must feel truly dynamic, not pre-rendered.
+
+3. IMPROVED ASSUMPTION PANELS
+The editable assumptions area should feel cleaner and more premium.
+Improve:
+- input styling
+- spacing
+- microcopy clarity
+- active/focus states
+- transitions when values change
+
+4. CHART QUALITY
+Upgrade chart visuals so they do not feel default.
+Improve:
+- line thickness and glow
+- bar styling
+- hover states
+- tooltip styling
+- axis legibility
+- transitions
+- chart-container composition
+
+5. CLEARER FORMULA STORYTELLING
+The formula explanation section should be much stronger.
+Right now it is too flat.
+It should visually walk the user through:
+- headcount
+- hours
+- cost/hour
+- burden multipliers
+- final modeled burden
+Use cleaner step visualization and stronger information hierarchy.
+
+6. SMARTER REPORT MODE
+Keep the report mode, but make it feel more executive and presentable.
+It should look like a polished briefing panel, not just another card.
+Use:
+- stronger layout
+- clearer summary statements
+- high-value takeaway bullets/signals
+- better visual separation
+- premium presentation styling
+
+7. PEER CONTEXT
+The peer comparison should feel more meaningful.
+Improve the styling and hierarchy of the peer comparison chart and help the user visually identify the selected company’s relative position faster.
+
+==================================================
+GEOGRAPHIC DATA PORTAL CORRECTION
+==================================================
+
+Keep the Geographic Data portal and route. Do not remove the map. Upgrade it significantly.
+
+CURRENT PROBLEM:
+The map is functional, but it lacks drama, interactivity, and strategic storytelling.
+
+GOAL:
+Make Geographic Data feel like a real intelligence geography workspace.
+
+REQUIRED IMPROVEMENTS:
+
+1. MAP VISUAL UPGRADE
+The global map needs to look more premium and alive.
+Improve:
+- map background treatment
+- region contrast
+- marker glow
+- marker hover behavior
+- active marker state
+- subtle animated pulsing or shimmer on markers
+- stronger depth between ocean/land/markers
+
+2. FILTER REACTIVITY
+When filters change:
+- counts should animate
+- map should update smoothly
+- list/register should update smoothly
+- selected/available filter states should feel more interactive
+- pills should have better active/hover states
+
+3. LOCATION REGISTER / SIDE PANEL
+The location register should feel more informative and polished.
+Improve card hierarchy, spacing, and visual scanability.
+Selecting a map marker or a register row should clearly synchronize with the detail panel.
+
+4. INTERACTION LINKAGE
+Map, filters, counts, and register must feel linked as one system.
+When the user interacts with one area, the others should visibly react.
+
+5. HOT ZONE / CLUSTER FEEL
+Without inventing fake data, improve the perception of location density and operational clusters.
+If several points are near each other, create a better visual sense of concentration.
+Use tasteful glow or clustering cues where appropriate.
+
+6. STRATEGIC FRAMING
+Add a small top insight area or context strip for the selected company geography.
+Examples:
+- number of countries
+- number of filtered sites
+- key region emphasis
+- operating context summary
+
+==================================================
+CROSS-PORTAL DYNAMIC BEHAVIOR
+==================================================
+
+The app currently feels like separate pages. Improve system-wide cohesion.
+
+Required:
+- smoother route transitions between portals
+- maintain selected company context across portals where possible
+- animate metric transitions when moving between pages
+- make the app feel like one connected intelligence product, not separate dashboards
+
+If a company is selected in one portal and the user navigates to another, preserve or intelligently carry over that selection where appropriate.
+
+==================================================
+MICRO-INTERACTION REQUIREMENTS
+==================================================
+
+Add polished micro-interactions throughout the app:
+- metric count-up on load/change
+- subtle hover shimmer on important cards
+- pill filter hover/active feedback
+- chart tooltip polish
+- sidebar active-state animations
+- accordion arrows rotate smoothly
+- section transitions should not snap open/closed
+- map markers respond clearly to hover and selection
+- dropdowns/selectors should feel premium, not default
+
+==================================================
+DATA / CONTENT INSTRUCTION
+==================================================
+
+Keep the current seed dataset architecture and existing data integration.
+Do not reduce the app to placeholders.
+Do not turn real sections into lorem ipsum.
+Do not replace real values with fake demo content.
+
+However, where current section copy feels too generic, improve it so it sounds more credible, executive, and intelligence-oriented.
+
+Use the existing V2X-seeded content as the initial working company, but preserve the reusable multi-company architecture.
+
+==================================================
+PERFORMANCE / IMPLEMENTATION
+==================================================
+
+Keep this efficient.
+This is a correction pass, not a backend rewrite.
+
+Use the current codebase and improve:
+- styling
+- animation
+- hierarchy
+- interaction
+- presentation
+- synchronization between components
+
+Preserve modularity and readability.
+
+==================================================
+SUCCESS CRITERIA
+==================================================
+
+The corrected app should feel:
+- much closer to the original homepage fidelity
+- much more dynamic
+- much more premium
+- much more “alive”
+- much more executive
+- much less like a static shell
+
+The final result should feel like:
+- a real strategic intelligence product
+- an aurora-based premium command center
+- a system that interprets and presents intelligence, not merely displays data
+
+Focus especially on:
+1. homepage card fidelity
+2. motion system
+3. stronger visual depth
+4. dynamic metric behavior
+5. improved insight framing
+6. more reactive map + dossier + quant interactions
+
+Do not give me another flat shell. Upgrade this into a premium dynamic intelligence experience using the existing working build as the base.
+```

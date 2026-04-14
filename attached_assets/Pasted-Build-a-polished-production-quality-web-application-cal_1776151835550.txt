@@ -1,0 +1,325 @@
+Build a polished, production-quality web application called “Occu-Med Insight Hub” using React + Vite + Tailwind CSS + Framer Motion + React Router.
+
+The UI, layout, spacing, and overall structure MUST closely match this reference application:
+https://insight-hub-eyza.onrender.com/
+
+However, DO NOT use the navy/blue color system. Replace it entirely with an AURORA-INSPIRED VISUAL SYSTEM while preserving the exact same layout, proportions, and premium intelligence-dashboard feel.
+
+========================
+🎨 UI / DESIGN SYSTEM
+========================
+
+GENERAL STYLE:
+- Dark, premium, futuristic intelligence dashboard
+- NOT generic SaaS
+- NOT bright
+- NOT playful
+- Executive / defense / strategy workspace feel
+
+BACKGROUND:
+- Base: extremely dark (#05070A range)
+- Add blurred, layered aurora light bands
+- Colors: teal, cyan, emerald, aqua, VERY subtle icy violet
+- No neon overload
+- No rainbow gradients
+- No floating orbs
+- No particles
+- Motion: extremely slow, subtle drifting light
+
+CARDS:
+- Large rounded rectangles (24px–30px radius feel)
+- Glassmorphism style
+- Slight transparency
+- Thin glowing border (aurora-tinted)
+- Soft inner glow
+- Subtle shadow
+- Hover:
+  - slight lift
+  - brighter glow
+  - very smooth transition
+
+TYPOGRAPHY:
+- Clean modern sans-serif
+- Bold headers
+- Muted secondary text
+- No playful fonts
+
+LANDING PAGE:
+- Centered logo/title/subtitle
+- 3x2 grid of 6 portal cards
+- Each card:
+  - image/banner top
+  - title
+  - short description
+  - glass card styling
+
+INTERNAL PAGES:
+- Fixed left sidebar
+- Main content area right
+- Large header
+- Filter pills
+- Content cards
+- Spacious layout
+- Smooth transitions
+
+IMPORTANT:
+DO NOT redesign layout.
+DO NOT change spacing system.
+DO NOT invent new UI patterns.
+Match structure EXACTLY, only recolor to aurora.
+
+========================
+📦 PORTALS (6 TOTAL)
+========================
+
+Create 6 portal cards:
+
+1. Data Profiles
+2. Quantifiable Data
+3. Geographic Data
+4. Client Intelligence
+5. Prospect Intelligence
+6. Federal Agencies
+
+ROUTING:
+- / → landing page
+- /data-profiles
+- /quantifiable-data
+- /geographic-data
+
+The last 3 portals should be CONFIG-BASED REDIRECT CARDS (open external URLs cleanly).
+
+========================
+🧠 CORE ARCHITECTURE (CRITICAL)
+========================
+
+This MUST be a reusable system, NOT a static demo.
+
+Create a clean data layer with reusable structures:
+
+- companies
+- profiles
+- metrics
+- locations
+- sources
+- reports
+
+Support:
+- PDF ingestion (basic parsing/structured extraction)
+- Excel ingestion (table parsing)
+- manual data entry
+- source/URL notes
+
+Seed the system with attached V2X data, but design it so additional companies can be added later WITHOUT rewriting components.
+
+NO heavy backend.
+Use lightweight client-side parsing + modular utilities.
+
+========================
+🔹 PORTAL 1: DATA PROFILES
+========================
+
+Build a reusable COMPANY INTELLIGENCE DOSSIER system.
+
+FEATURES:
+- company selector
+- default loaded company: V2X
+- structured sections
+- expandable panels
+- charts + cards
+- source viewer
+
+SECTIONS TO BUILD:
+- Overview
+- Workforce & Operations
+- Customer Mix
+- Global Footprint
+- Safety Metrics
+- Injury Trends
+- Geographic Risk
+- Financial / Workers’ Comp Signal
+- Source Library
+
+REQUIREMENTS:
+- Extract structured data from attached PDFs
+- Render charts (Recharts)
+- Create reusable profile components
+- Build clean executive-style layout
+
+IMPORTANT:
+Do NOT hardcode V2X only.
+Use V2X as initial dataset, but build reusable profile system.
+
+========================
+🔹 PORTAL 2: QUANTIFIABLE DATA
+========================
+
+Build a reusable QUANT ANALYSIS SYSTEM based on Excel files.
+
+FEATURES:
+- company selector
+- metric cards
+- charts
+- editable assumptions
+- formula explanation panel
+- report view
+
+CAPABILITIES:
+- Parse methodology Excel
+- Parse proxy dataset Excel
+- Map formulas into UI logic
+- Show outputs for selected company
+- Allow manual overrides
+
+DISPLAY:
+- cost estimates
+- trends
+- projections
+- comparisons
+
+REPORT MODE:
+- clean printable layout
+- futuristic executive style
+
+IMPORTANT:
+- Build reusable metric components
+- DO NOT hardcode only V2X
+
+========================
+🔹 PORTAL 3: GEOGRAPHIC DATA
+========================
+
+Build a reusable GEOGRAPHIC INTELLIGENCE MAP.
+
+USE:
+- react-simple-maps
+
+FEATURES:
+- world map
+- company selector
+- plot locations
+- filters:
+  - company
+  - country
+  - region
+  - facility type
+  - activity (if available)
+
+ON CLICK:
+- open side panel with:
+  - company
+  - city
+  - country
+  - facility type
+  - activity
+  - notes
+
+DATA:
+- parse attached geographic Excel file
+- convert into structured location objects
+
+IMPORTANT:
+- reusable for future companies
+- clean, premium map experience
+
+========================
+🔹 PORTALS 4–6 (REDIRECTS)
+========================
+
+Client Intelligence
+Prospect Intelligence
+Federal Agencies
+
+These should:
+- look identical to other cards
+- open configured external links
+- be easily editable via config
+
+========================
+📊 COMPONENT REQUIREMENTS
+========================
+
+Create reusable components:
+
+- GlassCard
+- SectionPanel
+- MetricCard
+- ChartBlock
+- Sidebar
+- HeaderBar
+- FilterPills
+- MapPanel
+- Drawer/SidePanel
+- ReportView
+
+========================
+⚙️ TECH STACK
+========================
+
+Frontend:
+- React
+- Vite
+- Tailwind
+- Framer Motion
+- React Router
+
+Charts:
+- Recharts
+
+Map:
+- react-simple-maps
+
+NO:
+- authentication
+- background jobs
+- scraping engines
+- AI agents
+- heavy backend infra
+
+========================
+📦 DATA HANDLING
+========================
+
+Attached files MUST be:
+- parsed
+- transformed into structured data
+- used to populate UI
+
+DO NOT just display files.
+
+Build utilities for:
+- PDF extraction (basic structured mapping)
+- Excel parsing
+- data normalization
+
+========================
+🚫 HARD CONSTRAINTS
+========================
+
+DO NOT:
+- build a static mockup
+- hardcode everything for V2X only
+- over-engineer backend systems
+- add unnecessary complexity
+- build unused features
+
+========================
+🎯 GOAL
+========================
+
+Deliver a WORKING, POLISHED, REUSABLE V1:
+
+- Stunning aurora UI
+- 3 fully functional data portals
+- 3 redirect portals
+- V2X fully loaded as initial dataset
+- Clean architecture for expansion
+- Professional, executive-grade experience
+
+========================
+📎 ATTACHED FILES
+========================
+
+Use ALL attached files as the seed dataset.
+
+These must be parsed into structured data and used to populate the system.
