@@ -41,7 +41,7 @@ const frontendPath = path.resolve(
 
 if (existsSync(frontendPath)) {
   app.use(express.static(frontendPath));
-  app.get("*", (_req, res) => {
+  app.get("(.*)", (_req, res) => {
     res.sendFile(path.join(frontendPath, "index.html"));
   });
 }
