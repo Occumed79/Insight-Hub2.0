@@ -20,3 +20,28 @@ services:
         fromDatabase:
           name: insight-hub-db
           property: connectionString
+      # --- Third-party API keys (set values in Render dashboard, never in code) ---
+      - key: APIFY_API_KEY
+        sync: false
+      - key: JINA_API_KEY
+        sync: false
+      - key: OCR_SPACE_API_KEY
+        sync: false
+      - key: LANGSEARCH_API_KEY
+        sync: false
+      - key: SERPER_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: EXA_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: FIRECRAWL_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OLOSTEP_API_KEY
+        sync: false
