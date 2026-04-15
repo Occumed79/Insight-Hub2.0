@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: occu-med-insight-hub
+    env: static
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @workspace/occu-med-insight-hub run build
+    staticPublishPath: ./artifacts/occu-med-insight-hub/dist/public
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BASE_PATH
+        value: /
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
