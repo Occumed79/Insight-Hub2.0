@@ -45,3 +45,5 @@ services:
         sync: false
       - key: OLOSTEP_API_KEY
         sync: false
+      - key: YOU_API_KEY
+        sync: false
