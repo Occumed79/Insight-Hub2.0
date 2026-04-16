@@ -136,7 +136,7 @@
     linear-gradient(72deg, transparent 14%, rgba(52, 211, 153, .28) 35%, rgba(125, 211, 252, .14) 49%, transparent 68%),
     linear-gradient(96deg, transparent 25%, rgba(167, 139, 250, .34) 50%, transparent 65%);
   filter: blur(72px) saturate(1.72);
-  animation: auroraDrift 28s ease-in-out infinite alternate;
+  animation: auroraDrift 18s ease-in-out infinite alternate;
 }
 
 .aurora-bg::after {
@@ -156,12 +156,13 @@
 /* Floating purple orbs layer — always visible on home */
 .aurora-home {
   background:
-    radial-gradient(ellipse at 50% -12%, rgba(34, 211, 238, .22), transparent 40%),
-    radial-gradient(ellipse at 18% 52%, rgba(15, 118, 110, .14), transparent 42%),
-    radial-gradient(ellipse at 82% 45%, rgba(109, 40, 217, .38), transparent 46%),
-    radial-gradient(ellipse at 8% 82%, rgba(124, 58, 237, .28), transparent 36%),
-    radial-gradient(ellipse at 92% 68%, rgba(109, 40, 217, .24), transparent 34%),
-    linear-gradient(180deg, rgba(4, 2, 14, .99), rgba(3, 4, 16, 1)),
+    radial-gradient(ellipse at 50% -12%, rgba(34, 211, 238, .24), transparent 40%),
+    radial-gradient(ellipse at 18% 52%, rgba(15, 118, 110, .16), transparent 42%),
+    radial-gradient(ellipse at 82% 45%, rgba(109, 40, 217, .52), transparent 46%),
+    radial-gradient(ellipse at 8% 82%, rgba(124, 58, 237, .42), transparent 36%),
+    radial-gradient(ellipse at 92% 68%, rgba(109, 40, 217, .34), transparent 34%),
+    radial-gradient(ellipse at 46% 16%, rgba(76, 29, 149, .34), transparent 38%),
+    linear-gradient(180deg, rgba(6, 2, 18, .99), rgba(3, 4, 16, 1)),
     #03020e;
 }
 
@@ -179,13 +180,13 @@
     linear-gradient(112deg, transparent 7%, rgba(45, 212, 191, .12) 20%, rgba(94, 234, 212, .46) 33%, rgba(34, 211, 238, .20) 45%, transparent 62%),
     linear-gradient(72deg, transparent 14%, rgba(52, 211, 153, .28) 35%, rgba(125, 211, 252, .14) 49%, transparent 68%),
     linear-gradient(96deg, transparent 25%, rgba(167, 139, 250, .42) 50%, transparent 65%);
-  animation: auroraDrift 28s ease-in-out infinite alternate;
+  animation: auroraDrift 18s ease-in-out infinite alternate;
 }
 
 .aurora-home::after {
   content: "";
   position: fixed;
-  inset: -5%;
+  inset: -8%;
   z-index: 0;
   pointer-events: none;
   background-image:
@@ -201,7 +202,7 @@
   background-size: auto, auto, auto, auto, auto, auto, auto, 44px 44px, 44px 44px;
   filter: blur(.2px);
   mask-image: radial-gradient(circle at center, black, transparent 78%);
-  animation: auroraVeil 42s ease-in-out infinite alternate;
+  animation: auroraVeil 20s ease-in-out infinite alternate;
 }
 
 /* Drifting purple accent orbs */
@@ -289,17 +290,17 @@
 
 .glass-card {
   position: relative;
-  border: 1px solid rgba(139, 92, 246, .28);
+  border: 1px solid rgba(167, 139, 250, .40);
   background:
-    linear-gradient(135deg, rgba(14, 8, 38, .92), rgba(5, 10, 32, .80)),
-    rgba(8, 5, 26, .82);
+    linear-gradient(135deg, rgba(20, 12, 54, .85), rgba(4, 13, 36, .62)),
+    rgba(10, 6, 30, .68);
   box-shadow:
     0 28px 96px rgba(0, 0, 0, .5),
-    0 0 44px rgba(109, 40, 217, .10),
-    0 0 22px rgba(34, 211, 238, .06),
-    inset 0 1px 0 rgba(255,255,255,.10),
-    inset 0 0 52px rgba(139, 92, 246, .08);
-  backdrop-filter: blur(28px);
+    0 0 72px rgba(109, 40, 217, .20),
+    0 0 28px rgba(34, 211, 238, .10),
+    inset 0 1px 0 rgba(255,255,255,.16),
+    inset 0 0 62px rgba(139, 92, 246, .20);
+  backdrop-filter: blur(34px) saturate(1.1);
   transition: transform .45s cubic-bezier(.2,.7,.2,1), border-color .45s ease, box-shadow .45s ease, background .45s ease, filter .45s ease;
 }
 
@@ -334,10 +335,10 @@
 .portal-card {
   box-shadow:
     0 32px 92px rgba(0,0,0,.54),
-    0 22px 70px rgba(109,40,217,.12),
-    0 0 0 1px rgba(139,92,246,.18),
-    inset 0 1px 0 rgba(255,255,255,.10),
-    inset 0 0 62px rgba(109,40,217,.10);
+    0 22px 74px rgba(109,40,217,.22),
+    0 0 0 1px rgba(167,139,250,.24),
+    inset 0 1px 0 rgba(255,255,255,.18),
+    inset 0 0 68px rgba(109,40,217,.18);
   isolation: isolate;
 }
 
@@ -495,4 +496,14 @@
 ::-webkit-scrollbar-thumb {
   background: rgba(45, 212, 191, .24);
   border-radius: 999px;
+}
+
+.portal-photo img {
+  transform: scale(1.06);
+  filter: saturate(1.08) contrast(1.06);
+}
+
+.portal-card:hover .portal-photo img {
+  transform: scale(1.12);
+  transition: transform .8s ease;
 }
