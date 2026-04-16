@@ -111,11 +111,12 @@
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(ellipse at 50% -12%, rgba(34, 211, 238, .18), transparent 40%),
-    radial-gradient(ellipse at 18% 52%, rgba(15, 118, 110, .12), transparent 42%),
-    radial-gradient(ellipse at 82% 45%, rgba(76, 29, 149, .13), transparent 46%),
-    linear-gradient(180deg, rgba(2, 5, 10, .99), rgba(2, 6, 11, 1)),
-    #05070a;
+    radial-gradient(ellipse at 50% -12%, rgba(34, 211, 238, .22), transparent 40%),
+    radial-gradient(ellipse at 18% 52%, rgba(15, 118, 110, .14), transparent 42%),
+    radial-gradient(ellipse at 82% 45%, rgba(109, 40, 217, .32), transparent 46%),
+    radial-gradient(ellipse at 10% 80%, rgba(124, 58, 237, .22), transparent 38%),
+    linear-gradient(180deg, rgba(4, 2, 14, .99), rgba(3, 4, 16, 1)),
+    #03020e;
 }
 
 .aurora-bg::before {
@@ -125,15 +126,17 @@
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(ellipse at 9% 28%, rgba(20, 184, 166, .42), transparent 31%),
-    radial-gradient(ellipse at 84% 18%, rgba(103, 232, 249, .34), transparent 30%),
-    radial-gradient(ellipse at 78% 76%, rgba(52, 211, 153, .24), transparent 34%),
-    radial-gradient(ellipse at 48% 54%, rgba(165, 180, 252, .17), transparent 38%),
-    linear-gradient(112deg, transparent 7%, rgba(45, 212, 191, .08) 20%, rgba(94, 234, 212, .37) 33%, rgba(34, 211, 238, .16) 45%, transparent 62%),
-    linear-gradient(72deg, transparent 14%, rgba(52, 211, 153, .24) 35%, rgba(125, 211, 252, .12) 49%, transparent 68%),
-    linear-gradient(96deg, transparent 25%, rgba(167, 139, 250, .15) 50%, transparent 65%);
-  filter: blur(86px) saturate(1.48);
-  animation: auroraDrift 36s ease-in-out infinite alternate;
+    radial-gradient(ellipse at 9% 28%, rgba(20, 184, 166, .52), transparent 31%),
+    radial-gradient(ellipse at 84% 18%, rgba(103, 232, 249, .44), transparent 30%),
+    radial-gradient(ellipse at 78% 76%, rgba(52, 211, 153, .28), transparent 34%),
+    radial-gradient(ellipse at 12% 72%, rgba(139, 92, 246, .52), transparent 32%),
+    radial-gradient(ellipse at 88% 58%, rgba(109, 40, 217, .46), transparent 35%),
+    radial-gradient(ellipse at 48% 54%, rgba(167, 139, 250, .38), transparent 38%),
+    linear-gradient(112deg, transparent 7%, rgba(45, 212, 191, .10) 20%, rgba(94, 234, 212, .44) 33%, rgba(34, 211, 238, .18) 45%, transparent 62%),
+    linear-gradient(72deg, transparent 14%, rgba(52, 211, 153, .28) 35%, rgba(125, 211, 252, .14) 49%, transparent 68%),
+    linear-gradient(96deg, transparent 25%, rgba(167, 139, 250, .34) 50%, transparent 65%);
+  filter: blur(72px) saturate(1.72);
+  animation: auroraDrift 28s ease-in-out infinite alternate;
 }
 
 .aurora-bg::after {
@@ -142,18 +145,41 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.014) 1px, transparent 1px);
   background-image:
-    radial-gradient(ellipse at 50% 42%, transparent 30%, rgba(0, 0, 0, .36) 82%),
+    radial-gradient(ellipse at 50% 42%, transparent 30%, rgba(0, 0, 0, .28) 82%),
     linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255,255,255,.014) 1px, transparent 1px);
   background-size: auto, 44px 44px, 44px 44px;
   mask-image: radial-gradient(circle at center, black, transparent 72%);
 }
 
+/* Floating purple orbs layer — always visible on home */
+.aurora-home {
+  background:
+    radial-gradient(ellipse at 50% -12%, rgba(34, 211, 238, .22), transparent 40%),
+    radial-gradient(ellipse at 18% 52%, rgba(15, 118, 110, .14), transparent 42%),
+    radial-gradient(ellipse at 82% 45%, rgba(109, 40, 217, .38), transparent 46%),
+    radial-gradient(ellipse at 8% 82%, rgba(124, 58, 237, .28), transparent 36%),
+    radial-gradient(ellipse at 92% 68%, rgba(109, 40, 217, .24), transparent 34%),
+    linear-gradient(180deg, rgba(4, 2, 14, .99), rgba(3, 4, 16, 1)),
+    #03020e;
+}
+
 .aurora-home::before {
-  filter: blur(78px) saturate(1.78);
-  opacity: 1.1;
+  filter: blur(64px) saturate(2.1);
+  opacity: 1;
+  background:
+    radial-gradient(ellipse at 9% 28%, rgba(20, 184, 166, .58), transparent 29%),
+    radial-gradient(ellipse at 84% 18%, rgba(103, 232, 249, .48), transparent 28%),
+    radial-gradient(ellipse at 78% 76%, rgba(52, 211, 153, .32), transparent 32%),
+    radial-gradient(ellipse at 14% 68%, rgba(139, 92, 246, .62), transparent 30%),
+    radial-gradient(ellipse at 86% 62%, rgba(109, 40, 217, .54), transparent 32%),
+    radial-gradient(ellipse at 48% 54%, rgba(167, 139, 250, .44), transparent 36%),
+    radial-gradient(ellipse at 50% 8%, rgba(88, 28, 235, .42), transparent 34%),
+    linear-gradient(112deg, transparent 7%, rgba(45, 212, 191, .12) 20%, rgba(94, 234, 212, .46) 33%, rgba(34, 211, 238, .20) 45%, transparent 62%),
+    linear-gradient(72deg, transparent 14%, rgba(52, 211, 153, .28) 35%, rgba(125, 211, 252, .14) 49%, transparent 68%),
+    linear-gradient(96deg, transparent 25%, rgba(167, 139, 250, .42) 50%, transparent 65%);
+  animation: auroraDrift 28s ease-in-out infinite alternate;
 }
 
 .aurora-home::after {
@@ -163,17 +189,50 @@
   z-index: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(ellipse at 50% 19%, rgba(125, 211, 252, .18), transparent 24%),
-    radial-gradient(ellipse at 50% 56%, rgba(45, 212, 191, .18), transparent 31%),
-    linear-gradient(118deg, transparent 8%, rgba(45, 212, 191, .06) 24%, rgba(94, 234, 212, .22) 36%, transparent 55%),
-    linear-gradient(64deg, transparent 18%, rgba(139, 92, 246, .24) 43%, rgba(103, 232, 249, .09) 55%, transparent 74%),
-    radial-gradient(ellipse at 50% 42%, transparent 32%, rgba(0, 0, 0, .52) 88%),
+    radial-gradient(ellipse at 50% 19%, rgba(125, 211, 252, .26), transparent 24%),
+    radial-gradient(ellipse at 50% 56%, rgba(45, 212, 191, .22), transparent 31%),
+    radial-gradient(ellipse at 15% 42%, rgba(139, 92, 246, .38), transparent 28%),
+    radial-gradient(ellipse at 85% 38%, rgba(109, 40, 217, .36), transparent 28%),
+    linear-gradient(118deg, transparent 8%, rgba(45, 212, 191, .08) 24%, rgba(94, 234, 212, .28) 36%, transparent 55%),
+    linear-gradient(64deg, transparent 18%, rgba(139, 92, 246, .38) 43%, rgba(103, 232, 249, .12) 55%, transparent 74%),
+    radial-gradient(ellipse at 50% 42%, transparent 32%, rgba(0, 0, 0, .44) 88%),
     linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255,255,255,.016) 1px, transparent 1px);
-  background-size: auto, auto, auto, auto, auto, 44px 44px, 44px 44px;
+  background-size: auto, auto, auto, auto, auto, auto, auto, 44px 44px, 44px 44px;
   filter: blur(.2px);
   mask-image: radial-gradient(circle at center, black, transparent 78%);
-  animation: auroraVeil 52s ease-in-out infinite alternate;
+  animation: auroraVeil 42s ease-in-out infinite alternate;
+}
+
+/* Drifting purple accent orbs */
+.aurora-home .aurora-orbs {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.aurora-home .aurora-orbs::before {
+  content: "";
+  position: absolute;
+  width: 520px; height: 520px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(124, 58, 237, .44) 0%, rgba(109, 40, 217, .22) 40%, transparent 70%);
+  filter: blur(72px);
+  top: -10%; left: -8%;
+  animation: orbDrift1 22s ease-in-out infinite alternate;
+}
+
+.aurora-home .aurora-orbs::after {
+  content: "";
+  position: absolute;
+  width: 480px; height: 480px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(109, 40, 217, .42) 0%, rgba(139, 92, 246, .20) 40%, transparent 70%);
+  filter: blur(68px);
+  bottom: -8%; right: -6%;
+  animation: orbDrift2 26s ease-in-out infinite alternate;
 }
 
 .aurora-home section::before {
@@ -182,7 +241,10 @@
   inset: -80px -100px 48%;
   z-index: -1;
   pointer-events: none;
-  background: radial-gradient(ellipse at 50% 28%, rgba(103, 232, 249, .2), transparent 42%), radial-gradient(ellipse at 50% 56%, rgba(45, 212, 191, .16), transparent 48%);
+  background:
+    radial-gradient(ellipse at 50% 28%, rgba(103, 232, 249, .28), transparent 42%),
+    radial-gradient(ellipse at 20% 56%, rgba(139, 92, 246, .24), transparent 38%),
+    radial-gradient(ellipse at 80% 56%, rgba(45, 212, 191, .20), transparent 48%);
   filter: blur(42px);
 }
 
@@ -192,33 +254,52 @@
   inset: 295px -90px -80px;
   z-index: -1;
   pointer-events: none;
-  background: radial-gradient(ellipse at 50% 30%, rgba(45, 212, 191, .18), transparent 46%), radial-gradient(ellipse at 20% 48%, rgba(34, 211, 238, .1), transparent 38%), radial-gradient(ellipse at 82% 48%, rgba(139, 92, 246, .12), transparent 40%);
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(45, 212, 191, .22), transparent 46%),
+    radial-gradient(ellipse at 20% 48%, rgba(34, 211, 238, .14), transparent 38%),
+    radial-gradient(ellipse at 82% 48%, rgba(139, 92, 246, .22), transparent 40%),
+    radial-gradient(ellipse at 50% 70%, rgba(109, 40, 217, .18), transparent 38%);
   filter: blur(52px);
 }
 
 @keyframes auroraDrift {
-  0% { transform: translate3d(-1.4%, 0, 0) scale(1); opacity: .92; }
-  50% { transform: translate3d(1.2%, 1%, 0) scale(1.035); opacity: 1; }
-  100% { transform: translate3d(-.4%, -1.1%, 0) scale(1.02); opacity: .94; }
+  0%   { transform: translate3d(-2%, 0, 0) scale(1); opacity: .88; }
+  33%  { transform: translate3d(1.5%, 1.2%, 0) scale(1.04); opacity: 1; }
+  66%  { transform: translate3d(-0.8%, -0.8%, 0) scale(1.025); opacity: .94; }
+  100% { transform: translate3d(1%, -.6%, 0) scale(1.03); opacity: .96; }
 }
 
 @keyframes auroraVeil {
-  0% { transform: translate3d(.8%, -.6%, 0) scale(1); opacity: .82; }
-  100% { transform: translate3d(-.8%, .7%, 0) scale(1.018); opacity: 1; }
+  0%   { transform: translate3d(1%, -.8%, 0) scale(1); opacity: .78; }
+  50%  { transform: translate3d(-.5%, .5%, 0) scale(1.022); opacity: 1; }
+  100% { transform: translate3d(-1%, .9%, 0) scale(1.018); opacity: .86; }
+}
+
+@keyframes orbDrift1 {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(6%, 8%) scale(1.12); }
+  100% { transform: translate(3%, 4%) scale(1.06); }
+}
+
+@keyframes orbDrift2 {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(-5%, -7%) scale(1.1); }
+  100% { transform: translate(-3%, -4%) scale(1.08); }
 }
 
 .glass-card {
   position: relative;
-  border: 1px solid rgba(125, 211, 252, .3);
+  border: 1px solid rgba(139, 92, 246, .28);
   background:
-    linear-gradient(135deg, rgba(12, 31, 48, .88), rgba(5, 15, 29, .72)),
-    rgba(5, 12, 22, .78);
+    linear-gradient(135deg, rgba(14, 8, 38, .92), rgba(5, 10, 32, .80)),
+    rgba(8, 5, 26, .82);
   box-shadow:
-    0 28px 96px rgba(0, 0, 0, .4),
-    0 0 44px rgba(34, 211, 238, .08),
-    inset 0 1px 0 rgba(255,255,255,.12),
-    inset 0 0 52px rgba(45, 212, 191, .09);
-  backdrop-filter: blur(26px);
+    0 28px 96px rgba(0, 0, 0, .5),
+    0 0 44px rgba(109, 40, 217, .10),
+    0 0 22px rgba(34, 211, 238, .06),
+    inset 0 1px 0 rgba(255,255,255,.10),
+    inset 0 0 52px rgba(139, 92, 246, .08);
+  backdrop-filter: blur(28px);
   transition: transform .45s cubic-bezier(.2,.7,.2,1), border-color .45s ease, box-shadow .45s ease, background .45s ease, filter .45s ease;
 }
 
@@ -229,9 +310,9 @@
   border-radius: inherit;
   pointer-events: none;
   background:
-    linear-gradient(115deg, rgba(255,255,255,.11), transparent 22%, transparent 68%, rgba(125,211,252,.06)),
-    radial-gradient(circle at 18% 10%, rgba(103, 232, 249, .22), transparent 34%),
-    radial-gradient(circle at 88% 92%, rgba(52, 211, 153, .17), transparent 38%);
+    linear-gradient(115deg, rgba(255,255,255,.10), transparent 22%, transparent 68%, rgba(167,139,250,.08)),
+    radial-gradient(circle at 18% 10%, rgba(103, 232, 249, .18), transparent 34%),
+    radial-gradient(circle at 88% 92%, rgba(139, 92, 246, .16), transparent 38%);
   opacity: .9;
 }
 
@@ -242,21 +323,21 @@
 
 .glass-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(103, 232, 249, .42);
+  border-color: rgba(139, 92, 246, .48);
   box-shadow:
-    0 28px 90px rgba(0, 0, 0, .32),
-    0 0 58px rgba(45, 212, 191, .19),
-    0 0 26px rgba(103, 232, 249, .16),
-    inset 0 0 48px rgba(45, 212, 191, .12);
+    0 28px 90px rgba(0, 0, 0, .42),
+    0 0 58px rgba(109, 40, 217, .22),
+    0 0 28px rgba(103, 232, 249, .14),
+    inset 0 0 48px rgba(139, 92, 246, .12);
 }
 
 .portal-card {
   box-shadow:
-    0 32px 92px rgba(0,0,0,.46),
-    0 22px 70px rgba(45,212,191,.09),
-    0 0 0 1px rgba(125,211,252,.13),
-    inset 0 1px 0 rgba(255,255,255,.12),
-    inset 0 0 62px rgba(45,212,191,.1);
+    0 32px 92px rgba(0,0,0,.54),
+    0 22px 70px rgba(109,40,217,.12),
+    0 0 0 1px rgba(139,92,246,.18),
+    inset 0 1px 0 rgba(255,255,255,.10),
+    inset 0 0 62px rgba(109,40,217,.10);
   isolation: isolate;
 }
 
@@ -267,7 +348,7 @@
   z-index: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(108deg, rgba(255,255,255,.13), transparent 18%, transparent 74%, rgba(103,232,249,.08));
+  background: linear-gradient(108deg, rgba(255,255,255,.11), transparent 18%, transparent 74%, rgba(167,139,250,.09));
   opacity: .42;
   transition: opacity .45s ease, transform .45s ease;
 }
@@ -279,14 +360,15 @@
 
 .portal-card:hover {
   transform: translateY(-5px) scale(1.015);
-  border-color: rgba(125, 211, 252, .56);
+  border-color: rgba(167, 139, 250, .58);
   box-shadow:
-    0 36px 110px rgba(0,0,0,.5),
-    0 26px 84px rgba(45,212,191,.17),
-    0 0 46px rgba(103,232,249,.16),
-    0 0 0 1px rgba(125,211,252,.2),
-    inset 0 1px 0 rgba(255,255,255,.16),
-    inset 0 0 74px rgba(45,212,191,.15);
+    0 36px 110px rgba(0,0,0,.56),
+    0 26px 84px rgba(109,40,217,.22),
+    0 0 46px rgba(139,92,246,.20),
+    0 0 24px rgba(103,232,249,.12),
+    0 0 0 1px rgba(167,139,250,.24),
+    inset 0 1px 0 rgba(255,255,255,.14),
+    inset 0 0 74px rgba(109,40,217,.16);
 }
 
 .portal-card:hover::after {
@@ -300,10 +382,10 @@
 
 .portal-banner {
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.16),
-    inset 0 -34px 54px rgba(1,8,18,.48),
-    inset 0 0 46px rgba(34,211,238,.19),
-    0 14px 38px rgba(0,0,0,.34);
+    inset 0 1px 0 rgba(255,255,255,.14),
+    inset 0 -34px 54px rgba(1,4,18,.56),
+    inset 0 0 46px rgba(109,40,217,.24),
+    0 14px 38px rgba(0,0,0,.42);
   transition: filter .45s ease, box-shadow .45s ease;
 }
 
@@ -312,8 +394,8 @@
   position: absolute;
   inset: 18% 26%;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(103,232,249,.28), rgba(45,212,191,.15) 42%, transparent 72%);
-  filter: blur(16px);
+  background: radial-gradient(circle, rgba(139,92,246,.32), rgba(103,232,249,.18) 42%, transparent 72%);
+  filter: blur(18px);
 }
 
 .portal-banner::after {
