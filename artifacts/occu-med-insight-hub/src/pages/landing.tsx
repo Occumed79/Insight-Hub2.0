@@ -44,16 +44,18 @@ function PortalCard({ portal, index }: { portal: PortalConfig; index: number }) 
       initial={{ opacity: 0, y: 22 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 + index * 0.06, duration: 0.55 }}
-      className="portal-card glass-card group relative h-full min-h-[292px] overflow-hidden rounded-[30px] p-4"
+      className="portal-card glass-card group relative h-full min-h-[300px] overflow-hidden rounded-[32px] p-[6px]"
     >
-      <div className="absolute left-5 top-5 z-10 h-7 w-7 rounded-full border border-cyan-200/40 bg-cyan-200/14 shadow-[0_0_28px_rgba(34,211,238,.34)]" />
-      <PortalArt kind={portal.imageKind} />
-      <div className="px-1 pb-2 pt-5">
-        <div className="flex items-center justify-between gap-4">
-          <h3 className="font-bold tracking-tight text-white transition group-hover:text-cyan-50">{portal.title}</h3>
-          <ArrowUpRight className="h-4 w-4 text-cyan-100/35 transition group-hover:text-cyan-100" />
+      <div className="portal-card-inner relative rounded-[26px] px-3 pb-3 pt-3">
+        <div className="absolute left-6 top-6 z-10 h-7 w-7 rounded-full border border-cyan-200/40 bg-cyan-200/14 shadow-[0_0_28px_rgba(34,211,238,.34)]" />
+        <PortalArt kind={portal.imageKind} />
+        <div className="px-3 pb-3 pt-5">
+          <div className="flex items-center justify-between gap-4">
+            <h3 className="font-bold tracking-tight text-white transition group-hover:text-cyan-50">{portal.title}</h3>
+            <ArrowUpRight className="h-4 w-4 text-cyan-100/35 transition group-hover:text-cyan-100" />
+          </div>
+          <p className="mt-3 text-sm leading-6 text-cyan-100/66 transition group-hover:text-cyan-50/78">{portal.description}</p>
         </div>
-        <p className="mt-3 text-sm leading-6 text-cyan-100/66 transition group-hover:text-cyan-50/78">{portal.description}</p>
       </div>
     </motion.div>
   );
@@ -76,6 +78,7 @@ function PortalCard({ portal, index }: { portal: PortalConfig; index: number }) 
 export default function Landing() {
   return (
     <main className="aurora-bg aurora-home min-h-screen px-6 py-8 text-white">
+      <div className="aurora-orbs" aria-hidden="true" />
       <section className="relative z-10 mx-auto max-w-[900px] pt-1">
         <motion.div
           initial={{ opacity: 0, y: 16, scale: 0.98 }}
