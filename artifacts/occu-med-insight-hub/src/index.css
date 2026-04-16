@@ -207,6 +207,7 @@
   filter: blur(.2px);
   mask-image: radial-gradient(circle at center, black, transparent 78%);
   animation: auroraVeil 14s linear infinite alternate;
+  animation: auroraVeil 20s ease-in-out infinite alternate;
 }
 
 /* Drifting purple accent orbs */
