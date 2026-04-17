@@ -229,7 +229,7 @@
   background: radial-gradient(circle, rgba(124, 58, 237, .44) 0%, rgba(109, 40, 217, .22) 40%, transparent 70%);
   filter: blur(58px) saturate(1.2);
   top: -10%; left: -8%;
-  animation: orbDrift1 26s ease-in-out infinite alternate;
+  animation: orbDrift1 26s ease-in-out infinite alternate, orbPulse1 7.2s ease-in-out infinite;
 }
 
 .aurora-home .aurora-orbs::after {
@@ -240,7 +240,7 @@
   background: radial-gradient(circle, rgba(109, 40, 217, .42) 0%, rgba(139, 92, 246, .20) 40%, transparent 70%);
   filter: blur(54px) saturate(1.2);
   bottom: -8%; right: -6%;
-  animation: orbDrift2 30s ease-in-out infinite alternate;
+  animation: orbDrift2 30s ease-in-out infinite alternate, orbPulse2 7.2s ease-in-out infinite;
 }
 
 .aurora-home section::before {
@@ -302,6 +302,19 @@
   0%   { transform: translate(0, 0) scale(1); opacity: .58; }
   50%  { transform: translate(-6%, -8%) scale(1.12); opacity: .76; }
   100% { transform: translate(-4%, -5%) scale(1.08); opacity: .66; }
+}
+
+
+@keyframes orbPulse1 {
+  0%, 18% { opacity: .08; }
+  30%, 62% { opacity: .78; }
+  78%, 100% { opacity: .14; }
+}
+
+@keyframes orbPulse2 {
+  0%, 18% { opacity: .78; }
+  30%, 62% { opacity: .12; }
+  78%, 100% { opacity: .72; }
 }
 
 @keyframes sectionGlowA {
