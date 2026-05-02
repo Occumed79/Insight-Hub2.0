@@ -1,6 +1,6 @@
-# Weatherford + Freeport Upload Pack — Metric Dictionary
+# Weatherford + Freeport + CACI Upload Pack — Metric Dictionary
 
-Use these formulas in the Data Profiles portal so both client pages remain dynamic after each refresh.
+Use these formulas in the Data Profiles portal so client pages remain dynamic after each refresh.
 
 ## Required dimensions
 - `client_id`
@@ -47,6 +47,11 @@ Use these formulas in the Data Profiles portal so both client pages remain dynam
 3. Benchmark bars: Client vs BLS vs peer set
 4. Site hotspot bars: citations/penalties by site
 5. Executive narrative tile: "What Occu-Med Should Say"
+
+## CACI-specific notes
+- Use `reporting_year=2023` for safety rate data to match CACI’s disclosed CY2023 metrics.
+- Keep CACI high-consequence trend content in narrative fields and optional supporting tables.
+- If using CACI vs Amentum comparison visuals, store those in a separate comparative dataset (not this client-level upload file).
 
 ## Data QA before publish
 - Ensure `client_id` is not null and unique per client-year.
