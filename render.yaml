@@ -9,9 +9,8 @@ services:
     name: occu-med-insight-hub
     env: node
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm run build:web && pnpm run build:api
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @workspace/occu-med-insight-hub run build && pnpm --filter @workspace/api-server run build
     startCommand: node --enable-source-maps ./artifacts/api-server/dist/index.mjs
-    healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
         value: production
