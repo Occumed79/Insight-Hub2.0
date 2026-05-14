@@ -6,6 +6,11 @@ import {
   listSearchRuns,
 } from "../lib/insightRepository";
 import { buildEnrichmentResult } from "../lib/searchProviders";
+router.get("/insight/status", (_req, res) => {
+  res.json({ status: "ok", mode: "hybrid" });
+});
+
+import { buildEnrichmentResult } from "../lib/searchProviders";
 
 const router: IRouter = Router();
 
@@ -94,6 +99,29 @@ router.get("/insight/companies/:companyId", async (req, res, next) => {
 router.get("/insight/search-runs", async (_req, res, next) => {
   try {
     res.json({ searchRuns: await listSearchRuns() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+router.post("/insight/enrich/:companyId", async (req, res, next) => {
+  try {
+    const dataset = await getInsightDataset();
+    const { companyId } = req.params;
+    const company = findCompanyInDataset(dataset, companyId) || findCompany(companyId);
+
+    if (!company) {
+      res.status(404).json({ error: "Company not found", companyId });
+      return;
+    }
+
+    const query = typeof req.body?.query === "string" && req.body.query.trim()
+      ? req.body.query.trim()
+      : `Latest strategic intelligence for ${company.name}`;
+
+    const enrichment = buildEnrichmentResult(companyId, query);
+    res.status(201).json({ enrichment });
   } catch (error) {
     next(error);
   }

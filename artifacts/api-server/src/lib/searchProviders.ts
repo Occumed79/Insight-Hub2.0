@@ -29,7 +29,9 @@ export function getProviderSignals(): ProviderSignal[] {
 
 export function buildEnrichmentResult(companyId: string, query: string): EnrichmentResult {
   const providers = getProviderSignals();
-  const configuredProviders = providers.filter((provider) => provider.configured).map((provider) => provider.provider);
+  const configuredProviders = providers
+    .filter((provider) => provider.configured)
+    .map((provider) => provider.provider);
 
   return {
     companyId,
