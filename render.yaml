@@ -9,7 +9,7 @@ services:
     name: occu-med-insight-hub
     env: node
     plan: free
-    buildCommand: corepack enable && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/occu-med-insight-hub run build && pnpm --filter @workspace/api-server run build
+    buildCommand: pnpm install --no-frozen-lockfile && pnpm --filter @workspace/occu-med-insight-hub run build && pnpm --filter @workspace/api-server run build
     startCommand: pnpm --filter @workspace/api-server run start
     healthCheckPath: /api/healthz
     envVars:
