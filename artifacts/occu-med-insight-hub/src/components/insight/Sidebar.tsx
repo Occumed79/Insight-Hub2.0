@@ -1,7 +1,7 @@
 import { BarChart3, Building2, Globe2, Home, Layers, Library, ShieldCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-const occuMedLogo = "https://base44.app/api/apps/69f08d58f2a02a258d395477/files/mp/public/69f08d58f2a02a258d395477/48fce840d_occu-med-new-logo.png"; // Updated to new Occu-Med branding
+const occuMedLogo = "https://base44.app/api/apps/69f08d58f2a02a258d395477/files/mp/public/69f08d58f2a02a258d395477/ac708dd5f_logo-transparent.png"; // Updated to new Occu-Med branding
 
 const nav = [
   { href: "/", label: "Home", icon: Home },
