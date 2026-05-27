@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { portalCards } from "@/data/portals";
 import type { PortalConfig } from "@/data/portals";
-import occuMedLogo from "@assets/OM-logo-large_1776156663807.png";
+const occuMedLogo = "https://base44.app/api/apps/69f08d58f2a02a258d395477/files/mp/public/69f08d58f2a02a258d395477/48fce840d_occu-med-new-logo.png"; // Updated to new Occu-Med branding
 
 const iconMap = { profile: Building2, quant: Sigma, geo: Globe2, client: Network, prospect: Layers, federal: Landmark };
 
