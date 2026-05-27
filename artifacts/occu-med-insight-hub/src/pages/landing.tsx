@@ -83,7 +83,7 @@ export default function Landing() {
         <motion.div
           initial={{ opacity: 0, y: 16, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          className="logo-plaque mx-auto flex h-[82px] w-[160px] items-center justify-center overflow-hidden rounded-2xl bg-white px-5 py-3 shadow-[0_0_58px_rgba(139,92,246,.4)]"
+          className="logo-plaque mx-auto flex h-[82px] w-[160px] items-center justify-center overflow-hidden rounded-2xl px-5 py-3"
         >
           <img src={occuMedLogo} alt="Occu-Med" className="h-full w-full object-contain" />
         </motion.div>
