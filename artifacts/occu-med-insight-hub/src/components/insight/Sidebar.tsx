@@ -16,10 +16,8 @@ export function Sidebar() {
   const [location] = useLocation();
   return (
     <aside className="fixed left-0 top-0 z-30 hidden h-screen w-[210px] border-r border-cyan-100/14 bg-[#030813]/91 px-4 py-5 shadow-[18px_0_70px_rgba(0,0,0,.35)] backdrop-blur-2xl lg:block">
-      <Link href="/" className="sidebar-logo block overflow-hidden rounded-2xl border border-cyan-100/20 px-4 py-2.5 shadow-[0_0_34px_rgba(45,212,191,.22)]">
-        <div className="flex h-8 items-center justify-center">
-          <img src={occuMedLogo} alt="Occu-Med" className="h-full w-full object-contain" />
-        </div>
+      <Link href="/" className="sidebar-logo block py-1">
+        <img src={occuMedLogo} alt="Occu-Med" className="h-16 w-auto object-contain drop-shadow-[0_0_14px_rgba(255,255,255,0.30)]" />
       </Link>
       <p className="mt-3 px-1 text-[10px] uppercase tracking-[0.28em] text-cyan-100/35">Insight Hub</p>
       <div className="mt-8">
