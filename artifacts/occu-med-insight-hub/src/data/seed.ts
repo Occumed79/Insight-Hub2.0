@@ -3,6 +3,7 @@ import type { Assumption, Company, CompanyProfile, InsightDataset, LocationRecor
 export const companies: Company[] = [
   { id: "v2x", name: "V2X, Inc.", shortName: "V2X", sector: "Defense services, logistics, training, and mission support", headquarters: "McLean, Virginia", employees: 16100, employeesAsOf: "2024-12-31", summary: "Global mission-support contractor with distributed field operations, aviation, logistics, facilities, and expeditionary workforce exposure.", tags: ["Federal contractor", "Global footprint", "High operational complexity"] },
   { id: "ids", name: "IDS", shortName: "IDS", sector: "Defense training, security, expeditionary support, and domestic security operations", headquarters: "Not specified in uploaded material", employees: 1300, employeesAsOf: "Worker population estimate from uploaded IDS visual model", summary: "Defense-support operator with concentrated contract-value exposure across tactical training, security guard, expeditionary support, and domestic security worker populations. Uploaded risk visuals indicate that a single preventable event could create stop-work exposure across high-value operational locations.", tags: ["Defense support", "Stop-work exposure", "Worker-risk model", "Contract value at risk"] },
+  { id: "kbr", name: "KBR", shortName: "KBR", sector: "LOGCAP, contingency support, engineering, construction, classified intelligence support, and government services", headquarters: "Not specified in uploaded material", employees: 38000, employeesAsOf: "Modeled worker categories from uploaded KBR visual set", summary: "KBR has been added as a LOGCAP-focused visual dossier connecting EUCOM hostile-environment risk, Occu-Med revenue potential, worker-risk segmentation, TRIR peer comparisons, and cumulative violation-penalty signals. The uploaded visuals position KBR as a major opportunity for pre-employment physicals, DBA pre-deployment exams, hearing conservation, respirator clearance, behavioral health, and compliance-backed occupational-health support.", tags: ["LOGCAP", "EUCOM risk", "Revenue opportunity", "Compliance history", "Worker-risk segmentation"] },
   { id: "caci-international-inc", name: "CACI International Inc.", shortName: "CACI", sector: "Defense and government technology services", headquarters: "Reston, Virginia", employees: 25000, employeesAsOf: "2025-06-30", summary: "Technology and mission-services contractor with global program support and high-clearance workforce concentration.", tags: ["Benchmark peer", "Government services"] },
   { id: "fluor-corporation", name: "Fluor Corporation", shortName: "Fluor", sector: "Engineering, construction, and government services", headquarters: "Irving, Texas", employees: 26866, employeesAsOf: "2024-12-31", summary: "Large engineering and construction operator with material self-insured liability disclosures and global project delivery footprint.", tags: ["Benchmark peer", "Industrial risk"] },
 ];
@@ -15,6 +16,11 @@ export const sources: SourceRecord[] = [
   { id: "ids-contract-risk-visual", companyId: "ids", label: "IDS contract value at risk visual", type: "Manual", note: "Uploaded IDS chart cites DoD contract W900KK24C0036 and models Iraq as sole-source, where one preventable event may trigger stop-work exposure. Visual values include Iraq Tactical Training / Camp Taji at $27.9M, Djibouti / Camp Lemonnier at $8M, Jordan / KASOTC at $6M, and DECO Domestic Security at $4M." },
   { id: "ids-injury-cost-visual", companyId: "ids", label: "IDS estimated annual injury cost visual", type: "Manual", note: "Uploaded IDS chart applies BLS benchmark assumptions and average claim cost range of $40K-$80K. Modeled worker groups include DECO Security Guards, Tactical Trainers, Expeditionary Support, and Cyber/Office populations." },
   { id: "ids-trir-benchmark-visual", companyId: "ids", label: "IDS TRIR benchmark visual", type: "Benchmark", note: "Uploaded IDS chart references BLS 2023 NAICS 561612 and law-enforcement training analogues. It states there is no public IDS TRIR and uses benchmark values by worker population." },
+  { id: "kbr-eucom-risk-visual", companyId: "kbr", label: "KBR LOGCAP EUCOM hostile environment risk visual", type: "Manual", note: "Uploaded KBR chart ranks LOGCAP EUCOM country risk on a 1-10 index. Poland, Latvia, and Lithuania are shown at 8; Romania at 7; Kosovo at 6; Bulgaria and Turkey/Türkiye at 5; Germany at 3; Italy at 2." },
+  { id: "kbr-revenue-potential-visual", companyId: "kbr", label: "KBR Occu-Med annual revenue potential visual", type: "Manual", note: "Uploaded KBR chart models annual revenue potential by exam type: Pre-Employment Physicals $1.375M, DBA Pre-Deploy / LOGCAP OCONUS $1.350M, Hearing Conservation $325K, STS Respirator Clearances $150K, DOT CDL $132K, and Behavioral Health / Classified Intel $325K." },
+  { id: "kbr-trir-segment-visual", companyId: "kbr", label: "KBR worker risk by BLS TRIR segment visual", type: "Benchmark", note: "Uploaded KBR chart models TRIR by worker category: STS Chemical Eng & Const approximately 3.5, LOGCAP Direct Hires OCONUS approximately 2.5, Government Solutions Tech/SCI approximately 0.7, Classified Intel & Cyber approximately 0.5, and HQ/Corporate approximately 0.4." },
+  { id: "kbr-trir-trend-visual", companyId: "kbr", label: "KBR TRIR trend vs portfolio peers visual", type: "Benchmark", note: "Uploaded KBR trend visual shows KBR around 0.04 in 2023, 0.05 in 2024, and 0.04 in 2025, compared against higher benchmark lines for BLS average, FCX, Amentum, Fluor, and Weatherford." },
+  { id: "kbr-violation-penalties-visual", companyId: "kbr", label: "KBR cumulative violation penalties visual", type: "Manual", note: "Uploaded KBR chart models cumulative penalties by category: FCPA $579.0M, False Claims Act $108.75M, FCA $13.67M, Wage & Hour $8.51M, and OSHA multiple $90K." },
 ];
 
 export const metrics: Metric[] = [
@@ -30,6 +36,12 @@ export const metrics: Metric[] = [
   { id: "ids-injury-cost-low", companyId: "ids", label: "Direct injury cost low", value: 830000, unit: "usd", category: "financial", trend: 5.6, sourceId: "ids-injury-cost-visual" },
   { id: "ids-injury-cost-high", companyId: "ids", label: "Estimated total injury cost high", value: 1540000, unit: "usd", category: "financial", trend: 7.1, sourceId: "ids-injury-cost-visual" },
   { id: "ids-trir-peak", companyId: "ids", label: "Highest TRIR benchmark", value: 2.5, unit: "score", category: "safety", trend: 6.7, sourceId: "ids-trir-benchmark-visual" },
+  { id: "kbr-worker-population", companyId: "kbr", label: "Modeled worker population", value: 38000, unit: "count", category: "workforce", trend: 7.9, sourceId: "kbr-trir-segment-visual" },
+  { id: "kbr-revenue-potential", companyId: "kbr", label: "Annual revenue potential", value: 3657000, unit: "usd", category: "financial", trend: 9.1, sourceId: "kbr-revenue-potential-visual" },
+  { id: "kbr-eucom-peak-risk", companyId: "kbr", label: "Peak EUCOM risk index", value: 8, unit: "score", category: "risk", trend: 8.5, sourceId: "kbr-eucom-risk-visual" },
+  { id: "kbr-trir-peak", companyId: "kbr", label: "Highest TRIR segment", value: 3.5, unit: "score", category: "safety", trend: 7.6, sourceId: "kbr-trir-segment-visual" },
+  { id: "kbr-trir-current", companyId: "kbr", label: "Modeled 2025 TRIR", value: 0.04, unit: "score", category: "safety", trend: -1.2, sourceId: "kbr-trir-trend-visual" },
+  { id: "kbr-penalties-total", companyId: "kbr", label: "Modeled cumulative penalties", value: 710020000, unit: "usd", category: "risk", trend: 8.9, sourceId: "kbr-violation-penalties-visual" },
 ];
 
 const sectionTitles = ["Overview", "Workforce & Operations", "Customer Mix", "Global Footprint", "Safety Metrics", "Injury Trends", "Geographic Risk", "Financial / Workers’ Comp Signal", "Source Library"];
@@ -46,86 +58,33 @@ const narratives = [
 ];
 
 const idsProfileSections = [
-  {
-    id: "overview",
-    title: "Overview",
-    narrative: "IDS has been added as a visual intelligence dossier centered on preventable-event risk, stop-work exposure, and worker-population injury-cost modeling. The uploaded visuals make the client profile highly presentation-ready because they connect safety events to contract value and operational disruption.",
-    bullets: ["Visual profile focuses on contract exposure, worker injury cost, and TRIR benchmark risk", "One modeled preventable event is framed as a potential stop-work trigger", "Profile is ready for additional client details, decision makers, procurement notes, and service-fit findings"],
-    metrics: ["ids-contract-value-risk", "ids-worker-population", "ids-stop-work-events"],
-  },
-  {
-    id: "workforce-operations",
-    title: "Workforce & Operations",
-    narrative: "The uploaded IDS model organizes the workforce into DECO security guards, tactical trainers, expeditionary support, and cyber/office populations. This creates a clear occupational-health segmentation for readiness, surveillance, injury-prevention, and case-management positioning.",
-    bullets: ["DECO Security Guards estimated at approximately 700 workers", "Tactical Trainers estimated at approximately 300 workers", "Expeditionary Support estimated at approximately 200 workers", "Cyber/Office estimated at approximately 100 workers"],
-    metrics: ["ids-worker-population", "ids-trir-peak"],
-  },
-  {
-    id: "customer-mix",
-    title: "Customer Mix",
-    narrative: "The available uploaded material ties IDS risk modeling to a DoD contract reference and defense-support operating locations. The profile should be expanded later with customer names, buying offices, prime/sub relationships, and known contract vehicles.",
-    bullets: ["DoD contract reference W900KK24C0036 appears in the contract-value visual", "Risk model frames Iraq as sole-source for the cited stop-work scenario", "Additional customer-mix detail should be added when client-specific information is uploaded"],
-    metrics: ["ids-contract-value-risk", "ids-stop-work-events"],
-  },
-  {
-    id: "global-footprint",
-    title: "Global Footprint",
-    narrative: "IDS visual data highlights contract or worker exposure across Iraq, Djibouti, Jordan, and domestic security operations. These locations can support geographic mapping, service coverage planning, and provider-network gap analysis.",
-    bullets: ["Iraq Tactical Training / Camp Taji is the largest modeled contract-value exposure", "Djibouti / Camp Lemonnier and Jordan / KASOTC appear as mid-tier exposure nodes", "DECO Domestic Security is included as a lower-value but worker-heavy domestic risk group"],
-    metrics: ["ids-contract-value-risk"],
-  },
-  {
-    id: "safety-metrics",
-    title: "Safety Metrics",
-    narrative: "The TRIR visual uses external benchmark analogues because no public IDS TRIR is identified in the uploaded material. Tactical trainers and expeditionary support show the highest modeled benchmark risk, while cyber/office is the lowest benchmark category.",
-    bullets: ["Tactical Trainers benchmarked at TRIR 2.5", "Expeditionary Support benchmarked at TRIR 2.0", "DECO Security Guards benchmarked at TRIR 1.1", "Cyber/Office benchmarked at TRIR 0.5"],
-    metrics: ["ids-trir-peak", "ids-worker-population"],
-  },
-  {
-    id: "injury-trends",
-    title: "Injury Trends",
-    narrative: "The injury-cost visual estimates approximately $1.1M to $1.5M in annual injury cost exposure across the modeled worker populations. DECO Security Guards and Tactical Trainers represent the largest estimated cost centers.",
-    bullets: ["Direct low estimate totals approximately $830K across modeled populations", "High estimate adds approximately $710K in additional cost exposure", "Total high estimate is approximately $1.54M across the modeled categories"],
-    metrics: ["ids-injury-cost-low", "ids-injury-cost-high"],
-  },
-  {
-    id: "geographic-risk",
-    title: "Geographic Risk",
-    narrative: "The contract-value visual frames geography as a risk amplifier because a preventable event can affect work continuity across operational locations. The largest exposure is tied to Iraq Tactical Training / Camp Taji.",
-    bullets: ["Camp Taji / Iraq Tactical Training: $27.9M value at risk", "Camp Lemonnier / Djibouti: $8M value at risk", "KASOTC / Jordan: $6M value at risk", "DECO Domestic Security: $4M value at risk"],
-    metrics: ["ids-contract-value-risk", "ids-stop-work-events"],
-  },
-  {
-    id: "financial-workers-comp-signal",
-    title: "Financial / Workers’ Comp Signal",
-    narrative: "The IDS dossier connects injury prevention directly to financial risk: annual injury-cost exposure is estimated in the seven figures, while stop-work exposure reaches approximately $45.9M across modeled contract/location groups.",
-    bullets: ["Contract value at risk totals approximately $45.9M", "Estimated annual injury cost ranges from approximately $1.1M to $1.5M based on uploaded visual labels", "Financial framing supports a prevention-focused occupational-health pitch"],
-    metrics: ["ids-contract-value-risk", "ids-injury-cost-high"],
-  },
-  {
-    id: "source-library",
-    title: "Source Library",
-    narrative: "The IDS profile is currently grounded in the uploaded visual models. Additional uploaded client documents, URLs, contract extracts, and contact notes can be added to strengthen the evidence trail.",
-    bullets: ["Uploaded contract-value risk chart", "Uploaded annual injury-cost chart", "Uploaded TRIR benchmark chart", "Pending additional client-specific source documents"],
-    metrics: [],
-  },
+  { id: "overview", title: "Overview", narrative: "IDS has been added as a visual intelligence dossier centered on preventable-event risk, stop-work exposure, and worker-population injury-cost modeling. The uploaded visuals make the client profile highly presentation-ready because they connect safety events to contract value and operational disruption.", bullets: ["Visual profile focuses on contract exposure, worker injury cost, and TRIR benchmark risk", "One modeled preventable event is framed as a potential stop-work trigger", "Profile is ready for additional company details, decision makers, procurement notes, and service-fit findings"], metrics: ["ids-contract-value-risk", "ids-worker-population", "ids-stop-work-events"] },
+  { id: "workforce-operations", title: "Workforce & Operations", narrative: "The uploaded IDS model organizes the workforce into DECO security guards, tactical trainers, expeditionary support, and cyber/office populations. This creates a clear occupational-health segmentation for readiness, surveillance, injury-prevention, and case-management positioning.", bullets: ["DECO Security Guards estimated at approximately 700 workers", "Tactical Trainers estimated at approximately 300 workers", "Expeditionary Support estimated at approximately 200 workers", "Cyber/Office estimated at approximately 100 workers"], metrics: ["ids-worker-population", "ids-trir-peak"] },
+  { id: "customer-mix", title: "Customer Mix", narrative: "The available uploaded material ties IDS risk modeling to a DoD contract reference and defense-support operating locations. The profile should be expanded later with customer names, buying offices, prime/sub relationships, and known contract vehicles.", bullets: ["DoD contract reference W900KK24C0036 appears in the contract-value visual", "Risk model frames Iraq as sole-source for the cited stop-work scenario", "Additional customer-mix detail should be added when company-specific information is uploaded"], metrics: ["ids-contract-value-risk", "ids-stop-work-events"] },
+  { id: "global-footprint", title: "Global Footprint", narrative: "IDS visual data highlights contract or worker exposure across Iraq, Djibouti, Jordan, and domestic security operations. These locations can support geographic mapping, service coverage planning, and provider-network gap analysis.", bullets: ["Iraq Tactical Training / Camp Taji is the largest modeled contract-value exposure", "Djibouti / Camp Lemonnier and Jordan / KASOTC appear as mid-tier exposure nodes", "DECO Domestic Security is included as a lower-value but worker-heavy domestic risk group"], metrics: ["ids-contract-value-risk"] },
+  { id: "safety-metrics", title: "Safety Metrics", narrative: "The TRIR visual uses external benchmark analogues because no public IDS TRIR is identified in the uploaded material. Tactical trainers and expeditionary support show the highest modeled benchmark risk, while cyber/office is the lowest benchmark category.", bullets: ["Tactical Trainers benchmarked at TRIR 2.5", "Expeditionary Support benchmarked at TRIR 2.0", "DECO Security Guards benchmarked at TRIR 1.1", "Cyber/Office benchmarked at TRIR 0.5"], metrics: ["ids-trir-peak", "ids-worker-population"] },
+  { id: "injury-trends", title: "Injury Trends", narrative: "The injury-cost visual estimates approximately $1.1M to $1.5M in annual injury cost exposure across the modeled worker populations. DECO Security Guards and Tactical Trainers represent the largest estimated cost centers.", bullets: ["Direct low estimate totals approximately $830K across modeled populations", "High estimate adds approximately $710K in additional cost exposure", "Total high estimate is approximately $1.54M across the modeled categories"], metrics: ["ids-injury-cost-low", "ids-injury-cost-high"] },
+  { id: "geographic-risk", title: "Geographic Risk", narrative: "The contract-value visual frames geography as a risk amplifier because a preventable event can affect work continuity across operational locations. The largest exposure is tied to Iraq Tactical Training / Camp Taji.", bullets: ["Camp Taji / Iraq Tactical Training: $27.9M value at risk", "Camp Lemonnier / Djibouti: $8M value at risk", "KASOTC / Jordan: $6M value at risk", "DECO Domestic Security: $4M value at risk"], metrics: ["ids-contract-value-risk", "ids-stop-work-events"] },
+  { id: "financial-workers-comp-signal", title: "Financial / Workers’ Comp Signal", narrative: "The IDS dossier connects injury prevention directly to financial risk: annual injury-cost exposure is estimated in the seven figures, while stop-work exposure reaches approximately $45.9M across modeled contract/location groups.", bullets: ["Contract value at risk totals approximately $45.9M", "Estimated annual injury cost ranges from approximately $1.1M to $1.5M based on uploaded visual labels", "Financial framing supports a prevention-focused occupational-health pitch"], metrics: ["ids-contract-value-risk", "ids-injury-cost-high"] },
+  { id: "source-library", title: "Source Library", narrative: "The IDS profile is currently grounded in the uploaded visual models. Additional uploaded client documents, URLs, contract extracts, and contact notes can be added to strengthen the evidence trail.", bullets: ["Uploaded contract-value risk chart", "Uploaded annual injury-cost chart", "Uploaded TRIR benchmark chart", "Pending additional company-specific source documents"], metrics: [] },
+];
+
+const kbrProfileSections = [
+  { id: "overview", title: "Overview", narrative: "KBR has been added as a LOGCAP EUCOM visual dossier that ties country-level hostile-environment risk, occupational-health revenue potential, workforce risk segmentation, TRIR trend positioning, and compliance-history penalties into one executive profile.", bullets: ["Profile built from five uploaded KBR visuals", "Major opportunity signal: annual Occu-Med revenue potential of approximately $3.657M", "Risk framing connects LOGCAP country exposure, worker categories, and compliance history"], metrics: ["kbr-revenue-potential", "kbr-worker-population", "kbr-eucom-peak-risk"] },
+  { id: "workforce-operations", title: "Workforce & Operations", narrative: "The uploaded segment visual breaks KBR worker exposure into STS chemical engineering/construction, LOGCAP direct hires OCONUS, government solutions technical/SCI, classified intelligence/cyber, and HQ/corporate groups. This supports targeted exam routing and service bundling.", bullets: ["STS Chemical Eng & Construction modeled at approximately 5K workers", "LOGCAP Direct Hires OCONUS modeled at approximately 6K workers", "Government Solutions Tech/SCI modeled at approximately 15K workers", "Classified Intel & Cyber modeled at approximately 8K workers", "HQ/Corporate modeled at approximately 4K workers"], metrics: ["kbr-worker-population", "kbr-trir-peak"] },
+  { id: "customer-mix", title: "Customer Mix", narrative: "The visual set is focused around LOGCAP and OCONUS support, with additional signals for STS, government solutions, classified intelligence, cyber, DOT/CDL, and behavioral-health service lanes.", bullets: ["LOGCAP OCONUS DBA pre-deploy exams are modeled as a $1.350M annual revenue lane", "Pre-employment physicals are the largest modeled revenue lane at $1.375M", "Classified intelligence behavioral-health screening is modeled at $325K annually"], metrics: ["kbr-revenue-potential"] },
+  { id: "global-footprint", title: "Global Footprint", narrative: "The EUCOM risk visual identifies Poland, Latvia, Lithuania, and Romania as the highest-risk country nodes in the model. Germany and Italy appear lower risk but remain relevant service-coverage points.", bullets: ["Highest risk: Poland, Latvia, and Lithuania at 8/10", "High risk: Romania at 7/10 and Kosovo at 6/10", "Moderate risk: Bulgaria and Turkey/Türkiye at 5/10", "Lower risk: Germany at 3/10 and Italy at 2/10"], metrics: ["kbr-eucom-peak-risk"] },
+  { id: "safety-metrics", title: "Safety Metrics", narrative: "The TRIR segment visual shows the strongest worker-risk signal in STS chemical engineering/construction and LOGCAP direct hires OCONUS. The trend visual separately positions KBR below several portfolio peer benchmark lines.", bullets: ["Highest modeled TRIR segment: STS Chemical Eng & Construction at approximately 3.5", "Second-highest modeled TRIR segment: LOGCAP Direct Hires OCONUS at approximately 2.5", "Government Solutions, classified intel/cyber, and HQ/corporate categories are modeled below 1.0", "Modeled KBR trend remains near 0.04-0.05 from 2023-2025"], metrics: ["kbr-trir-peak", "kbr-trir-current"] },
+  { id: "injury-trends", title: "Injury Trends", narrative: "KBR's worker-risk visual suggests the greatest injury-prevention targeting should be aimed at STS chemical engineering/construction and LOGCAP OCONUS direct hires, while the trend visual supports a separate peer-comparison narrative.", bullets: ["2023 modeled TRIR: approximately 0.04", "2024 modeled TRIR: approximately 0.05", "2025 modeled TRIR: approximately 0.04", "Peer benchmark lines in the uploaded visual sit above KBR's modeled trend line"], metrics: ["kbr-trir-current", "kbr-trir-peak"] },
+  { id: "geographic-risk", title: "Geographic Risk", narrative: "The LOGCAP EUCOM hostile-environment chart gives the profile a strong map-ready layer. Country-risk scores can feed geographic planning, provider-network readiness, and client-specific service recommendations.", bullets: ["Poland: 8/10", "Romania: 7/10", "Latvia: 8/10", "Lithuania: 8/10", "Kosovo: 6/10", "Germany: 3/10", "Italy: 2/10", "Turkey/Türkiye: 5/10"], metrics: ["kbr-eucom-peak-risk"] },
+  { id: "financial-workers-comp-signal", title: "Financial / Workers’ Comp Signal", narrative: "The KBR revenue-potential visual makes the profile business-development ready: pre-employment physicals and DBA pre-deployment exams account for the largest modeled annual value, while hearing conservation and behavioral health add meaningful service lanes.", bullets: ["Pre-employment physicals: $1.375M modeled annual revenue", "DBA pre-deploy / LOGCAP OCONUS: $1.350M modeled annual revenue", "Hearing conservation: $325K modeled annual revenue", "Behavioral health / classified intel: $325K modeled annual revenue", "Cumulative violation-penalty model totals approximately $710M"], metrics: ["kbr-revenue-potential", "kbr-penalties-total"] },
+  { id: "source-library", title: "Source Library", narrative: "The KBR profile is currently grounded in the uploaded visual set. Additional KBR source links, contract documents, procurement notes, and outreach history can be layered in later.", bullets: ["Uploaded EUCOM hostile-environment risk chart", "Uploaded Occu-Med revenue-potential chart", "Uploaded TRIR segment breakdown chart", "Uploaded TRIR trend vs peers chart", "Uploaded cumulative violation penalties chart"], metrics: [] },
 ];
 
 export const profiles: CompanyProfile[] = [
-  {
-    companyId: "v2x",
-    sections: sectionTitles.map((title, index) => ({
-      id: title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-      title,
-      narrative: narratives[index],
-      bullets: index === 8 ? ["SEC filing source", "BLS benchmark source", "Geographic workbook source", "Manual source note support"] : ["Reusable section model", "Seeded with V2X workbook signals", "Ready for additional company ingestion"],
-      metrics: index === 8 ? [] : ["v2x-employees", "v2x-wc-proxy", "v2x-global-locations"].slice(0, (index % 3) + 1),
-    })),
-  },
-  {
-    companyId: "ids",
-    sections: idsProfileSections,
-  },
+  { companyId: "v2x", sections: sectionTitles.map((title, index) => ({ id: title.toLowerCase().replace(/[^a-z0-9]+/g, "-"), title, narrative: narratives[index], bullets: index === 8 ? ["SEC filing source", "BLS benchmark source", "Geographic workbook source", "Manual source note support"] : ["Reusable section model", "Seeded with V2X workbook signals", "Ready for additional company ingestion"], metrics: index === 8 ? [] : ["v2x-employees", "v2x-wc-proxy", "v2x-global-locations"].slice(0, (index % 3) + 1) })) },
+  { companyId: "ids", sections: idsProfileSections },
+  { companyId: "kbr", sections: kbrProfileSections },
 ];
 
 export const locations: LocationRecord[] = [
@@ -139,6 +98,15 @@ export const locations: LocationRecord[] = [
   { id: "ids-camp-lemonnier", companyId: "ids", company: "IDS", city: "Camp Lemonnier", country: "Djibouti", region: "East Africa", facilityType: "Training / mission support", activity: "Regional support", notes: "Approximate marker based on uploaded IDS contract-risk visual listing Djibouti / Camp Lemonnier at $8M value at risk.", coordinates: [43.1481, 11.5473] },
   { id: "ids-kasotc", companyId: "ids", company: "IDS", city: "KASOTC", country: "Jordan", region: "Middle East", facilityType: "Special operations training center", activity: "Training support", notes: "Approximate marker based on uploaded IDS contract-risk visual listing Jordan / KASOTC at $6M value at risk.", coordinates: [35.8623, 31.9566] },
   { id: "ids-deco-domestic-security", companyId: "ids", company: "IDS", city: "Domestic Security", country: "USA", region: "North America", facilityType: "Domestic security operations", activity: "Security guard workforce", notes: "Representative domestic marker based on uploaded IDS visual listing DECO Domestic Security at $4M value at risk and approximately 700 workers.", coordinates: [-77.0369, 38.9072] },
+  { id: "kbr-poland", companyId: "kbr", company: "KBR", city: "Warsaw", country: "Poland", region: "Europe", facilityType: "LOGCAP EUCOM country-risk node", activity: "Contingency support planning", notes: "Country-level marker based on uploaded KBR LOGCAP EUCOM hostile-environment risk index: Poland 8/10.", coordinates: [21.0122, 52.2297] },
+  { id: "kbr-romania", companyId: "kbr", company: "KBR", city: "Bucharest", country: "Romania", region: "Europe", facilityType: "LOGCAP EUCOM country-risk node", activity: "Contingency support planning", notes: "Country-level marker based on uploaded KBR LOGCAP EUCOM hostile-environment risk index: Romania 7/10.", coordinates: [26.1025, 44.4268] },
+  { id: "kbr-latvia", companyId: "kbr", company: "KBR", city: "Riga", country: "Latvia", region: "Europe", facilityType: "LOGCAP EUCOM country-risk node", activity: "Contingency support planning", notes: "Country-level marker based on uploaded KBR LOGCAP EUCOM hostile-environment risk index: Latvia 8/10.", coordinates: [24.1052, 56.9496] },
+  { id: "kbr-lithuania", companyId: "kbr", company: "KBR", city: "Vilnius", country: "Lithuania", region: "Europe", facilityType: "LOGCAP EUCOM country-risk node", activity: "Contingency support planning", notes: "Country-level marker based on uploaded KBR LOGCAP EUCOM hostile-environment risk index: Lithuania 8/10.", coordinates: [25.2797, 54.6872] },
+  { id: "kbr-bulgaria", companyId: "kbr", company: "KBR", city: "Sofia", country: "Bulgaria", region: "Europe", facilityType: "LOGCAP EUCOM country-risk node", activity: "Contingency support planning", notes: "Country-level marker based on uploaded KBR LOGCAP EUCOM hostile-environment risk index: Bulgaria 5/10.", coordinates: [23.3219, 42.6977] },
+  { id: "kbr-kosovo", companyId: "kbr", company: "KBR", city: "Pristina", country: "Kosovo", region: "Europe", facilityType: "LOGCAP EUCOM country-risk node", activity: "Contingency support planning", notes: "Country-level marker based on uploaded KBR LOGCAP EUCOM hostile-environment risk index: Kosovo 6/10.", coordinates: [21.1655, 42.6629] },
+  { id: "kbr-germany", companyId: "kbr", company: "KBR", city: "Berlin", country: "Germany", region: "Europe", facilityType: "LOGCAP EUCOM country-risk node", activity: "Contingency support planning", notes: "Country-level marker based on uploaded KBR LOGCAP EUCOM hostile-environment risk index: Germany 3/10.", coordinates: [13.405, 52.52] },
+  { id: "kbr-italy", companyId: "kbr", company: "KBR", city: "Rome", country: "Italy", region: "Europe", facilityType: "LOGCAP EUCOM country-risk node", activity: "Contingency support planning", notes: "Country-level marker based on uploaded KBR LOGCAP EUCOM hostile-environment risk index: Italy 2/10.", coordinates: [12.4964, 41.9028] },
+  { id: "kbr-turkiye", companyId: "kbr", company: "KBR", city: "Ankara", country: "Türkiye", region: "Europe", facilityType: "LOGCAP EUCOM country-risk node", activity: "Contingency support planning", notes: "Country-level marker based on uploaded KBR LOGCAP EUCOM hostile-environment risk index labeled Turkey at 5/10.", coordinates: [32.8597, 39.9334] },
 ];
 
 export const assumptions: Assumption[] = [
@@ -151,6 +119,7 @@ export const assumptions: Assumption[] = [
 export const reports: ReportRecord[] = [
   { id: "v2x-executive-signal", companyId: "v2x", title: "V2X occupational-health urgency signal", createdAt: "2026-04-14", summary: "V2X combines a large distributed workforce, direct WC reserve signal, and global operating footprint, creating a high-priority Occu-Med account profile.", signals: ["Direct annual WC proxy above $13M", "Public reserve/accrual signal available", "80-location workbook footprint", "Defense and federal operating environments"] },
   { id: "ids-prevention-risk-signal", companyId: "ids", title: "IDS preventable-event and injury-cost risk signal", createdAt: "2026-06-03", summary: "IDS combines meaningful stop-work exposure, concentrated worker-risk categories, and seven-figure estimated annual injury-cost exposure, making prevention, readiness, and occupational-health surveillance a clear strategic opportunity.", signals: ["$45.9M modeled contract value at risk", "One preventable event modeled as stop-work trigger", "Approximately 1,300 modeled workers", "$1.1M-$1.5M estimated annual injury-cost exposure", "Highest benchmarked TRIR category: Tactical Trainers at 2.5"] },
+  { id: "kbr-logcap-eucom-signal", companyId: "kbr", title: "KBR LOGCAP EUCOM occupational-health opportunity signal", createdAt: "2026-06-03", summary: "KBR combines a strong LOGCAP EUCOM geographic-risk signal, multi-million-dollar Occu-Med revenue potential, worker-risk segmentation, and compliance-history framing that supports a highly visual business-development dossier.", signals: ["$3.657M modeled annual Occu-Med revenue potential", "Peak EUCOM hostile-environment risk score of 8/10", "Approximately 38K modeled workers across five worker categories", "Highest modeled TRIR segment: STS Chemical Eng & Construction at ~3.5", "Approximately $710M modeled cumulative violation penalties"] },
 ];
 
 export const seedDataset: InsightDataset = { companies, profiles, metrics, locations, sources, reports, assumptions, status: { proxyRows: 0, methodologyRows: 0, geographyRows: 0, loaded: false } };
