@@ -2,13 +2,26 @@ import { useEffect, useMemo, useState } from "react";
 import { loadInsightDataset } from "./ingestion";
 import { seedDataset } from "./seed";
 import type { Company, InsightDataset } from "./types";
+import { mergeVisualDossiers, visualCompanies, visualLocations, visualMetrics, visualProfiles, visualReports, visualSources } from "./visualDossiers";
+
+function withVisualDossiers(dataset: InsightDataset): InsightDataset {
+  return {
+    ...dataset,
+    companies: mergeVisualDossiers(dataset.companies, visualCompanies),
+    profiles: mergeVisualDossiers(dataset.profiles, visualProfiles),
+    metrics: mergeVisualDossiers(dataset.metrics, visualMetrics),
+    locations: mergeVisualDossiers(dataset.locations, visualLocations),
+    sources: mergeVisualDossiers(dataset.sources, visualSources),
+    reports: mergeVisualDossiers(dataset.reports, visualReports),
+  };
+}
 
 export function useInsightData() {
-  const [dataset, setDataset] = useState<InsightDataset>(seedDataset);
+  const [dataset, setDataset] = useState<InsightDataset>(withVisualDossiers(seedDataset));
   useEffect(() => {
     let active = true;
     loadInsightDataset().then((loaded) => {
-      if (active) setDataset(loaded);
+      if (active) setDataset(withVisualDossiers(loaded));
     });
     return () => {
       active = false;
