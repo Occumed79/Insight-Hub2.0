@@ -1,4 +1,4 @@
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, XAxis, YAxis } from "recharts";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { MetricCard } from "@/components/insight/MetricCard";
 import { ChartBlock } from "@/components/insight/ChartBlock";
@@ -7,19 +7,53 @@ import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
 import { useInsightData, useSelectedCompany } from "@/data/useInsightData";
 
+const idsContractRiskData = [
+  { name: "Iraq / Camp Taji", value: 27.9 },
+  { name: "Djibouti", value: 8 },
+  { name: "Jordan", value: 6 },
+  { name: "DECO", value: 4 },
+];
+
+const idsInjuryCostData = [
+  { name: "DECO Guards", direct: 320, additional: 240 },
+  { name: "Tactical Trainers", direct: 320, additional: 320 },
+  { name: "Exped. Support", direct: 160, additional: 120 },
+  { name: "Cyber / Office", direct: 30, additional: 30 },
+];
+
+const idsTrirData = [
+  { name: "DECO Guards", trir: 1.1 },
+  { name: "Tactical Trainers", trir: 2.5 },
+  { name: "Exped. Support", trir: 2.0 },
+  { name: "Cyber / Office", trir: 0.5 },
+];
+
+function formatYAxis(value: number) {
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
 export default function DataProfiles() {
   const { dataset } = useInsightData();
   const { companyId, setCompanyId, company } = useSelectedCompany(dataset.companies);
   const profile = dataset.profiles.find((item) => item.companyId === companyId) || dataset.profiles[0];
+  const isIds = companyId === "ids";
   const companyMetrics = dataset.metrics.filter((metric) => metric.companyId === companyId || (companyId !== "v2x" && metric.companyId === "v2x")).slice(0, 6);
   const chartData = companyMetrics.map((metric) => ({ name: metric.label.replace("Estimated annual ", "").slice(0, 16), value: metric.unit === "usd" ? metric.value / 1000000 : metric.value }));
   const sources = dataset.sources.filter((source) => source.companyId === companyId || source.companyId === "v2x");
-  const executiveSignals = [
+  const companyLocations = dataset.locations.filter((location) => location.companyId === companyId);
+  const idsSignals = [
+    { label: "Contract value at risk", value: "$45.9M", note: "Uploaded model connects one preventable event to stop-work exposure across four contract/location groups." },
+    { label: "Worker population", value: "~1,300 workers", note: "Modeled across DECO guards, tactical trainers, expeditionary support, and cyber/office categories." },
+    { label: "Annual injury cost", value: "$1.1M-$1.5M", note: "Estimated range from the uploaded BLS-benchmark injury-cost visual." },
+    { label: "Highest TRIR benchmark", value: "2.5", note: "Tactical trainers carry the highest benchmarked worker-risk signal in the uploaded model." },
+  ];
+  const defaultSignals = [
     { label: "Global workforce exposure", value: `${(company?.employees || 0).toLocaleString()} employees`, note: "Large distributed workforce creates a broad occupational-health service aperture." },
     { label: "WC reserve signal", value: "$9.5M", note: "Public reserve/accrual disclosure elevates claims-control relevance." },
-    { label: "Footprint intensity", value: `${dataset.locations.length} mapped sites`, note: "Workbook geography indicates multi-region operating complexity." },
+    { label: "Footprint intensity", value: `${companyLocations.length || dataset.locations.length} mapped sites`, note: "Workbook geography indicates multi-region operating complexity." },
     { label: "Operating environment", value: "High complexity", note: "Defense, aviation, logistics, and overseas support increase readiness needs." },
   ];
+  const executiveSignals = isIds ? idsSignals : defaultSignals;
   return (
     <main className="aurora-bg min-h-screen text-white">
       <Sidebar />
@@ -41,7 +75,7 @@ export default function DataProfiles() {
           {companyMetrics.slice(0, 6).map((metric) => <MetricCard key={metric.id} metric={metric} />)}
         </div>
         <div className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_.8fr]">
-          <ChartBlock title={`${company?.shortName || "Company"} exposure curve`} subtitle="Workbook values normalized for executive scanability.">
+          <ChartBlock title={isIds ? "IDS financial exposure curve" : `${company?.shortName || "Company"} exposure curve`} subtitle={isIds ? "Contract value, worker population, injury cost, and safety benchmark values normalized for executive scanning." : "Workbook values normalized for executive scanability."}>
             <AreaChart data={chartData}><defs><linearGradient id="profileGlow" x1="0" x2="0" y1="0" y2="1"><stop offset="5%" stopColor="#5eead4" stopOpacity={0.45} /><stop offset="95%" stopColor="#5eead4" stopOpacity={0} /></linearGradient></defs><CartesianGrid stroke="rgba(255,255,255,.08)" /><XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} /><YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} /><Area type="monotone" dataKey="value" stroke="#67e8f9" fill="url(#profileGlow)" strokeWidth={2} /></AreaChart>
           </ChartBlock>
           <GlassCard className="p-6">
@@ -51,6 +85,19 @@ export default function DataProfiles() {
             <div className="mt-5 flex flex-wrap gap-2">{company?.tags.map((tag) => <span key={tag} className="rounded-full border border-cyan-100/15 bg-cyan-100/5 px-3 py-1 text-xs text-cyan-50/70">{tag}</span>)}</div>
           </GlassCard>
         </div>
+        {isIds ? (
+          <div className="mt-5 grid gap-5 xl:grid-cols-3">
+            <ChartBlock title="IDS contract value at risk" subtitle="Source: uploaded IDS visual; DoD contract W900KK24C0036; 1 event = potential stop-work trigger.">
+              <BarChart data={idsContractRiskData}><CartesianGrid stroke="rgba(255,255,255,.08)" /><XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} /><YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}M`} /><Bar dataKey="value" name="Value at risk ($M)" fill="#f97316" radius={[10, 10, 0, 0]} /></BarChart>
+            </ChartBlock>
+            <ChartBlock title="IDS estimated annual injury cost" subtitle="Source: uploaded IDS visual; values shown in thousands using low direct and high additional estimate.">
+              <BarChart data={idsInjuryCostData}><CartesianGrid stroke="rgba(255,255,255,.08)" /><XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} /><YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}K`} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="direct" name="Direct low ($K)" stackId="cost" fill="#22d3ee" radius={[0, 0, 0, 0]} /><Bar dataKey="additional" name="High additional ($K)" stackId="cost" fill="#ef4444" radius={[10, 10, 0, 0]} /></BarChart>
+            </ChartBlock>
+            <ChartBlock title="IDS worker risk: TRIR benchmark" subtitle="Source: uploaded IDS visual; BLS 2023 NAICS 561612 and training analogues; no public IDS TRIR identified.">
+              <BarChart data={idsTrirData}><CartesianGrid stroke="rgba(255,255,255,.08)" /><XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} /><YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={formatYAxis} /><Bar dataKey="trir" name="TRIR benchmark" fill="#dc2626" radius={[10, 10, 0, 0]} /></BarChart>
+            </ChartBlock>
+          </div>
+        ) : null}
         <div className="mt-5 space-y-4">
           {profile.sections.map((section, index) => (
             <SectionPanel key={section.id} title={section.title} narrative={section.narrative} defaultOpen={index < 2}>
