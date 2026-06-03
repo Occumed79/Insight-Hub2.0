@@ -1,4 +1,4 @@
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { MetricCard } from "@/components/insight/MetricCard";
 import { ChartBlock } from "@/components/insight/ChartBlock";
@@ -28,6 +28,49 @@ const idsTrirData = [
   { name: "Cyber / Office", trir: 0.5 },
 ];
 
+const kbrEucomRiskData = [
+  { name: "Poland", value: 8 },
+  { name: "Romania", value: 7 },
+  { name: "Latvia", value: 8 },
+  { name: "Lithuania", value: 8 },
+  { name: "Bulgaria", value: 5 },
+  { name: "Kosovo", value: 6 },
+  { name: "Germany", value: 3 },
+  { name: "Italy", value: 2 },
+  { name: "Türkiye", value: 5 },
+];
+
+const kbrRevenueData = [
+  { name: "Pre-Employment", value: 1375 },
+  { name: "DBA Pre-Deploy", value: 1350 },
+  { name: "Hearing", value: 325 },
+  { name: "Respirator", value: 150 },
+  { name: "DOT CDL", value: 132 },
+  { name: "Behavioral", value: 325 },
+];
+
+const kbrTrirSegmentData = [
+  { name: "STS Chem/Const", trir: 3.5 },
+  { name: "LOGCAP OCONUS", trir: 2.5 },
+  { name: "Govt Tech/SCI", trir: 0.7 },
+  { name: "Intel/Cyber", trir: 0.5 },
+  { name: "HQ/Corporate", trir: 0.4 },
+];
+
+const kbrTrirTrendData = [
+  { year: "2023", kbr: 0.04 },
+  { year: "2024", kbr: 0.05 },
+  { year: "2025", kbr: 0.04 },
+];
+
+const kbrPenaltiesData = [
+  { name: "FCPA", value: 579 },
+  { name: "False Claims", value: 108.75 },
+  { name: "FCA", value: 13.67 },
+  { name: "Wage & Hour", value: 8.51 },
+  { name: "OSHA", value: 0.09 },
+];
+
 function formatYAxis(value: number) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }
@@ -37,6 +80,7 @@ export default function DataProfiles() {
   const { companyId, setCompanyId, company } = useSelectedCompany(dataset.companies);
   const profile = dataset.profiles.find((item) => item.companyId === companyId) || dataset.profiles[0];
   const isIds = companyId === "ids";
+  const isKbr = companyId === "kbr";
   const companyMetrics = dataset.metrics.filter((metric) => metric.companyId === companyId || (companyId !== "v2x" && metric.companyId === "v2x")).slice(0, 6);
   const chartData = companyMetrics.map((metric) => ({ name: metric.label.replace("Estimated annual ", "").slice(0, 16), value: metric.unit === "usd" ? metric.value / 1000000 : metric.value }));
   const sources = dataset.sources.filter((source) => source.companyId === companyId || source.companyId === "v2x");
@@ -47,13 +91,19 @@ export default function DataProfiles() {
     { label: "Annual injury cost", value: "$1.1M-$1.5M", note: "Estimated range from the uploaded BLS-benchmark injury-cost visual." },
     { label: "Highest TRIR benchmark", value: "2.5", note: "Tactical trainers carry the highest benchmarked worker-risk signal in the uploaded model." },
   ];
+  const kbrSignals = [
+    { label: "Revenue potential", value: "$3.657M", note: "Modeled annual Occu-Med revenue opportunity across pre-employment, DBA, hearing, respirator, DOT, and behavioral-health lanes." },
+    { label: "Peak EUCOM risk", value: "8/10", note: "Poland, Latvia, and Lithuania are shown as highest-risk LOGCAP EUCOM nodes in the uploaded model." },
+    { label: "Worker population", value: "~38K workers", note: "Modeled across STS, LOGCAP OCONUS, government solutions, classified intel/cyber, and HQ/corporate groups." },
+    { label: "Compliance exposure", value: "$710M", note: "Uploaded penalty model is dominated by FCPA and False Claims Act historical/compliance-risk categories." },
+  ];
   const defaultSignals = [
     { label: "Global workforce exposure", value: `${(company?.employees || 0).toLocaleString()} employees`, note: "Large distributed workforce creates a broad occupational-health service aperture." },
     { label: "WC reserve signal", value: "$9.5M", note: "Public reserve/accrual disclosure elevates claims-control relevance." },
     { label: "Footprint intensity", value: `${companyLocations.length || dataset.locations.length} mapped sites`, note: "Workbook geography indicates multi-region operating complexity." },
     { label: "Operating environment", value: "High complexity", note: "Defense, aviation, logistics, and overseas support increase readiness needs." },
   ];
-  const executiveSignals = isIds ? idsSignals : defaultSignals;
+  const executiveSignals = isIds ? idsSignals : isKbr ? kbrSignals : defaultSignals;
   return (
     <main className="aurora-bg min-h-screen text-white">
       <Sidebar />
@@ -75,7 +125,7 @@ export default function DataProfiles() {
           {companyMetrics.slice(0, 6).map((metric) => <MetricCard key={metric.id} metric={metric} />)}
         </div>
         <div className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_.8fr]">
-          <ChartBlock title={isIds ? "IDS financial exposure curve" : `${company?.shortName || "Company"} exposure curve`} subtitle={isIds ? "Contract value, worker population, injury cost, and safety benchmark values normalized for executive scanning." : "Workbook values normalized for executive scanability."}>
+          <ChartBlock title={isIds ? "IDS financial exposure curve" : isKbr ? "KBR opportunity and risk curve" : `${company?.shortName || "Company"} exposure curve`} subtitle={isIds ? "Contract value, worker population, injury cost, and safety benchmark values normalized for executive scanning." : isKbr ? "Revenue potential, country risk, worker risk, TRIR, and penalty exposure normalized for executive scanning." : "Workbook values normalized for executive scanability."}>
             <AreaChart data={chartData}><defs><linearGradient id="profileGlow" x1="0" x2="0" y1="0" y2="1"><stop offset="5%" stopColor="#5eead4" stopOpacity={0.45} /><stop offset="95%" stopColor="#5eead4" stopOpacity={0} /></linearGradient></defs><CartesianGrid stroke="rgba(255,255,255,.08)" /><XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} /><YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} /><Area type="monotone" dataKey="value" stroke="#67e8f9" fill="url(#profileGlow)" strokeWidth={2} /></AreaChart>
           </ChartBlock>
           <GlassCard className="p-6">
@@ -96,6 +146,27 @@ export default function DataProfiles() {
             <ChartBlock title="IDS worker risk: TRIR benchmark" subtitle="Source: uploaded IDS visual; BLS 2023 NAICS 561612 and training analogues; no public IDS TRIR identified.">
               <BarChart data={idsTrirData}><CartesianGrid stroke="rgba(255,255,255,.08)" /><XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} /><YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={formatYAxis} /><Bar dataKey="trir" name="TRIR benchmark" fill="#dc2626" radius={[10, 10, 0, 0]} /></BarChart>
             </ChartBlock>
+          </div>
+        ) : null}
+        {isKbr ? (
+          <div className="mt-5 grid gap-5 xl:grid-cols-2">
+            <ChartBlock title="KBR LOGCAP EUCOM hostile-environment risk" subtitle="Source: uploaded KBR visual; country risk index scored 1-10.">
+              <BarChart data={kbrEucomRiskData}><CartesianGrid stroke="rgba(255,255,255,.08)" /><XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} /><YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={[0, 10]} /><Bar dataKey="value" name="Risk index" fill="#ef4444" radius={[10, 10, 0, 0]} /></BarChart>
+            </ChartBlock>
+            <ChartBlock title="KBR Occu-Med annual revenue potential" subtitle="Source: uploaded KBR visual; annual revenue shown in $K by exam type.">
+              <BarChart data={kbrRevenueData}><CartesianGrid stroke="rgba(255,255,255,.08)" /><XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} /><YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}K`} /><Bar dataKey="value" name="Revenue potential ($K)" fill="#22d3ee" radius={[10, 10, 0, 0]} /></BarChart>
+            </ChartBlock>
+            <ChartBlock title="KBR worker risk by TRIR segment" subtitle="Source: uploaded KBR visual; segment benchmark by worker category.">
+              <BarChart data={kbrTrirSegmentData}><CartesianGrid stroke="rgba(255,255,255,.08)" /><XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} /><YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={formatYAxis} /><Bar dataKey="trir" name="TRIR benchmark" fill="#f97316" radius={[10, 10, 0, 0]} /></BarChart>
+            </ChartBlock>
+            <ChartBlock title="KBR TRIR trend vs portfolio peers" subtitle="Source: uploaded KBR visual; reference lines represent peer/benchmark comparison levels.">
+              <LineChart data={kbrTrirTrendData}><CartesianGrid stroke="rgba(255,255,255,.08)" /><XAxis dataKey="year" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} /><YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={[0, 1.5]} /><ReferenceLine y={1.4} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: "BLS Avg", fill: "#cbd5e1", fontSize: 10 }} /><ReferenceLine y={0.69} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "FCX", fill: "#fecaca", fontSize: 10 }} /><ReferenceLine y={0.33} stroke="#38bdf8" strokeDasharray="4 4" label={{ value: "Amentum", fill: "#bae6fd", fontSize: 10 }} /><ReferenceLine y={0.31} stroke="#f97316" strokeDasharray="4 4" label={{ value: "Fluor", fill: "#fed7aa", fontSize: 10 }} /><ReferenceLine y={0.12} stroke="#a855f7" strokeDasharray="4 4" label={{ value: "Weatherford", fill: "#e9d5ff", fontSize: 10 }} /><Line type="monotone" dataKey="kbr" name="KBR" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /></LineChart>
+            </ChartBlock>
+            <div className="xl:col-span-2">
+              <ChartBlock title="KBR cumulative violation penalties" subtitle="Source: uploaded KBR visual; penalty exposure shown in $M by category.">
+                <BarChart data={kbrPenaltiesData}><CartesianGrid stroke="rgba(255,255,255,.08)" /><XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} /><YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}M`} /><Bar dataKey="value" name="Penalties ($M)" fill="#dc2626" radius={[10, 10, 0, 0]} /></BarChart>
+              </ChartBlock>
+            </div>
           </div>
         ) : null}
         <div className="mt-5 space-y-4">
