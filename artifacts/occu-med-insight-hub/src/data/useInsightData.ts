@@ -5,17 +5,26 @@ import type { Company, InsightDataset } from "./types";
 import { constellisCompanies, constellisLocations, constellisMetrics, constellisProfiles, constellisReports, constellisSources } from "./constellisDossier";
 import { iapCompanies, iapLocations, iapMetrics, iapProfiles, iapReports, iapSources } from "./iapDossier";
 import { valiantCompanies, valiantLocations, valiantMetrics, valiantProfiles, valiantReports, valiantSources } from "./valiantDossier";
+import { v2xVisualLocations, v2xVisualMetrics, v2xVisualReports, v2xVisualSources } from "./v2xVisualDossier";
 import { mergeVisualDossiers, visualCompanies, visualLocations, visualMetrics, visualProfiles, visualReports, visualSources } from "./visualDossiers";
 
 function withVisualDossiers(dataset: InsightDataset): InsightDataset {
-  const withCoreVisuals = {
+  const withV2xVisuals = {
     ...dataset,
-    companies: mergeVisualDossiers(dataset.companies, visualCompanies),
-    profiles: mergeVisualDossiers(dataset.profiles, visualProfiles),
-    metrics: mergeVisualDossiers(dataset.metrics, visualMetrics),
-    locations: mergeVisualDossiers(dataset.locations, visualLocations),
-    sources: mergeVisualDossiers(dataset.sources, visualSources),
-    reports: mergeVisualDossiers(dataset.reports, visualReports),
+    metrics: mergeVisualDossiers(dataset.metrics, v2xVisualMetrics),
+    locations: mergeVisualDossiers(dataset.locations, v2xVisualLocations),
+    sources: mergeVisualDossiers(dataset.sources, v2xVisualSources),
+    reports: mergeVisualDossiers(dataset.reports, v2xVisualReports),
+  };
+
+  const withCoreVisuals = {
+    ...withV2xVisuals,
+    companies: mergeVisualDossiers(withV2xVisuals.companies, visualCompanies),
+    profiles: mergeVisualDossiers(withV2xVisuals.profiles, visualProfiles),
+    metrics: mergeVisualDossiers(withV2xVisuals.metrics, visualMetrics),
+    locations: mergeVisualDossiers(withV2xVisuals.locations, visualLocations),
+    sources: mergeVisualDossiers(withV2xVisuals.sources, visualSources),
+    reports: mergeVisualDossiers(withV2xVisuals.reports, visualReports),
   };
 
   const withValiant = {
