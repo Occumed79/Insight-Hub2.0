@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { loadInsightDataset } from "./ingestion";
 import { seedDataset } from "./seed";
 import type { Company, InsightDataset } from "./types";
+import { constellisCompanies, constellisLocations, constellisMetrics, constellisProfiles, constellisReports, constellisSources } from "./constellisDossier";
 import { iapCompanies, iapLocations, iapMetrics, iapProfiles, iapReports, iapSources } from "./iapDossier";
 import { valiantCompanies, valiantLocations, valiantMetrics, valiantProfiles, valiantReports, valiantSources } from "./valiantDossier";
 import { mergeVisualDossiers, visualCompanies, visualLocations, visualMetrics, visualProfiles, visualReports, visualSources } from "./visualDossiers";
@@ -27,7 +28,7 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     reports: mergeVisualDossiers(withCoreVisuals.reports, valiantReports),
   };
 
-  return {
+  const withIap = {
     ...withValiant,
     companies: mergeVisualDossiers(withValiant.companies, iapCompanies),
     profiles: mergeVisualDossiers(withValiant.profiles, iapProfiles),
@@ -35,6 +36,16 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     locations: mergeVisualDossiers(withValiant.locations, iapLocations),
     sources: mergeVisualDossiers(withValiant.sources, iapSources),
     reports: mergeVisualDossiers(withValiant.reports, iapReports),
+  };
+
+  return {
+    ...withIap,
+    companies: mergeVisualDossiers(withIap.companies, constellisCompanies),
+    profiles: mergeVisualDossiers(withIap.profiles, constellisProfiles),
+    metrics: mergeVisualDossiers(withIap.metrics, constellisMetrics),
+    locations: mergeVisualDossiers(withIap.locations, constellisLocations),
+    sources: mergeVisualDossiers(withIap.sources, constellisSources),
+    reports: mergeVisualDossiers(withIap.reports, constellisReports),
   };
 }
 
