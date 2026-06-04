@@ -4,6 +4,7 @@ import { seedDataset } from "./seed";
 import type { Company, InsightDataset } from "./types";
 import { constellisCompanies, constellisLocations, constellisMetrics, constellisProfiles, constellisReports, constellisSources } from "./constellisDossier";
 import { iapCompanies, iapLocations, iapMetrics, iapProfiles, iapReports, iapSources } from "./iapDossier";
+import { peratonCompanies, peratonLocations, peratonMetrics, peratonProfiles, peratonReports, peratonSources } from "./peratonDossier";
 import { valiantCompanies, valiantLocations, valiantMetrics, valiantProfiles, valiantReports, valiantSources } from "./valiantDossier";
 import { v2xVisualLocations, v2xVisualMetrics, v2xVisualReports, v2xVisualSources } from "./v2xVisualDossier";
 import { mergeVisualDossiers, visualCompanies, visualLocations, visualMetrics, visualProfiles, visualReports, visualSources } from "./visualDossiers";
@@ -47,7 +48,7 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     reports: mergeVisualDossiers(withValiant.reports, iapReports),
   };
 
-  return {
+  const withConstellis = {
     ...withIap,
     companies: mergeVisualDossiers(withIap.companies, constellisCompanies),
     profiles: mergeVisualDossiers(withIap.profiles, constellisProfiles),
@@ -55,6 +56,16 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     locations: mergeVisualDossiers(withIap.locations, constellisLocations),
     sources: mergeVisualDossiers(withIap.sources, constellisSources),
     reports: mergeVisualDossiers(withIap.reports, constellisReports),
+  };
+
+  return {
+    ...withConstellis,
+    companies: mergeVisualDossiers(withConstellis.companies, peratonCompanies),
+    profiles: mergeVisualDossiers(withConstellis.profiles, peratonProfiles),
+    metrics: mergeVisualDossiers(withConstellis.metrics, peratonMetrics),
+    locations: mergeVisualDossiers(withConstellis.locations, peratonLocations),
+    sources: mergeVisualDossiers(withConstellis.sources, peratonSources),
+    reports: mergeVisualDossiers(withConstellis.reports, peratonReports),
   };
 }
 
