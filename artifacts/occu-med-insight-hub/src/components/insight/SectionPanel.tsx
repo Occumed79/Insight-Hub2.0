@@ -1,5 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
+import { ConstellisCharts } from "./ConstellisCharts";
 import { GlassCard } from "./GlassCard";
 import { IapCharts } from "./IapCharts";
 import type { ReactNode } from "react";
@@ -7,6 +8,7 @@ import type { ReactNode } from "react";
 export function SectionPanel({ title, narrative, children, defaultOpen = false }: { title: string; narrative: string; children: ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const showIapCharts = title === "Overview" && narrative.includes("IAP Worldwide");
+  const showConstellisCharts = title === "Overview" && narrative.includes("Constellis / Centerra");
   return (
     <GlassCard className="overflow-hidden">
       <button className="flex w-full items-center justify-between gap-6 p-6 text-left" onClick={() => setOpen((value) => !value)}>
@@ -16,7 +18,7 @@ export function SectionPanel({ title, narrative, children, defaultOpen = false }
         </div>
         <ChevronDown className={open ? "shrink-0 rotate-180 text-cyan-200 transition" : "shrink-0 text-cyan-200 transition"} />
       </button>
-      {open ? <div className="border-t border-cyan-200/10 px-6 pb-6 pt-5">{children}{showIapCharts ? <IapCharts /> : null}</div> : null}
+      {open ? <div className="border-t border-cyan-200/10 px-6 pb-6 pt-5">{children}{showIapCharts ? <IapCharts /> : null}{showConstellisCharts ? <ConstellisCharts /> : null}</div> : null}
     </GlassCard>
   );
 }
