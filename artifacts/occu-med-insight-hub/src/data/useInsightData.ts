@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { loadInsightDataset } from "./ingestion";
 import { seedDataset } from "./seed";
 import type { Company, InsightDataset } from "./types";
+import { valiantCompanies, valiantLocations, valiantMetrics, valiantProfiles, valiantReports, valiantSources } from "./valiantDossier";
 import { mergeVisualDossiers, visualCompanies, visualLocations, visualMetrics, visualProfiles, visualReports, visualSources } from "./visualDossiers";
 
 function withVisualDossiers(dataset: InsightDataset): InsightDataset {
-  return {
+  const withCoreVisuals = {
     ...dataset,
     companies: mergeVisualDossiers(dataset.companies, visualCompanies),
     profiles: mergeVisualDossiers(dataset.profiles, visualProfiles),
@@ -13,6 +14,16 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     locations: mergeVisualDossiers(dataset.locations, visualLocations),
     sources: mergeVisualDossiers(dataset.sources, visualSources),
     reports: mergeVisualDossiers(dataset.reports, visualReports),
+  };
+
+  return {
+    ...withCoreVisuals,
+    companies: mergeVisualDossiers(withCoreVisuals.companies, valiantCompanies),
+    profiles: mergeVisualDossiers(withCoreVisuals.profiles, valiantProfiles),
+    metrics: mergeVisualDossiers(withCoreVisuals.metrics, valiantMetrics),
+    locations: mergeVisualDossiers(withCoreVisuals.locations, valiantLocations),
+    sources: mergeVisualDossiers(withCoreVisuals.sources, valiantSources),
+    reports: mergeVisualDossiers(withCoreVisuals.reports, valiantReports),
   };
 }
 
