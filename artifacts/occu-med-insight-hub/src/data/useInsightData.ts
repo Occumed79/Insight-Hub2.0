@@ -6,6 +6,7 @@ import { constellisCompanies, constellisLocations, constellisMetrics, constellis
 import { freeportWeatherfordCompanies, freeportWeatherfordLocations, freeportWeatherfordMetrics, freeportWeatherfordProfiles, freeportWeatherfordReports, freeportWeatherfordSources } from "./freeportWeatherfordDossier";
 import { gditCompanies, gditLocations, gditMetrics, gditProfiles, gditReports, gditSources } from "./gditDossier";
 import { iapCompanies, iapLocations, iapMetrics, iapProfiles, iapReports, iapSources } from "./iapDossier";
+import { idsInternationalCompanies, idsInternationalLocations, idsInternationalMetrics, idsInternationalProfiles, idsInternationalReports, idsInternationalSources } from "./idsInternationalDossier";
 import { peratonCompanies, peratonLocations, peratonMetrics, peratonProfiles, peratonReports, peratonSources } from "./peratonDossier";
 import { valiantCompanies, valiantLocations, valiantMetrics, valiantProfiles, valiantReports, valiantSources } from "./valiantDossier";
 import { v2xVisualLocations, v2xVisualMetrics, v2xVisualReports, v2xVisualSources } from "./v2xVisualDossier";
@@ -80,7 +81,7 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     reports: mergeVisualDossiers(withPeraton.reports, gditReports),
   };
 
-  return {
+  const withFreeportWeatherford = {
     ...withGdit,
     companies: mergeVisualDossiers(withGdit.companies, freeportWeatherfordCompanies),
     profiles: mergeVisualDossiers(withGdit.profiles, freeportWeatherfordProfiles),
@@ -88,6 +89,16 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     locations: mergeVisualDossiers(withGdit.locations, freeportWeatherfordLocations),
     sources: mergeVisualDossiers(withGdit.sources, freeportWeatherfordSources),
     reports: mergeVisualDossiers(withGdit.reports, freeportWeatherfordReports),
+  };
+
+  return {
+    ...withFreeportWeatherford,
+    companies: mergeVisualDossiers(withFreeportWeatherford.companies, idsInternationalCompanies),
+    profiles: mergeVisualDossiers(withFreeportWeatherford.profiles, idsInternationalProfiles),
+    metrics: mergeVisualDossiers(withFreeportWeatherford.metrics, idsInternationalMetrics),
+    locations: mergeVisualDossiers(withFreeportWeatherford.locations, idsInternationalLocations),
+    sources: mergeVisualDossiers(withFreeportWeatherford.sources, idsInternationalSources),
+    reports: mergeVisualDossiers(withFreeportWeatherford.reports, idsInternationalReports),
   };
 }
 
