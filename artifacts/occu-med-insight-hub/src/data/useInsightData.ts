@@ -3,6 +3,7 @@ import { loadInsightDataset } from "./ingestion";
 import { seedDataset } from "./seed";
 import type { Company, InsightDataset } from "./types";
 import { constellisCompanies, constellisLocations, constellisMetrics, constellisProfiles, constellisReports, constellisSources } from "./constellisDossier";
+import { freeportWeatherfordCompanies, freeportWeatherfordLocations, freeportWeatherfordMetrics, freeportWeatherfordProfiles, freeportWeatherfordReports, freeportWeatherfordSources } from "./freeportWeatherfordDossier";
 import { gditCompanies, gditLocations, gditMetrics, gditProfiles, gditReports, gditSources } from "./gditDossier";
 import { iapCompanies, iapLocations, iapMetrics, iapProfiles, iapReports, iapSources } from "./iapDossier";
 import { peratonCompanies, peratonLocations, peratonMetrics, peratonProfiles, peratonReports, peratonSources } from "./peratonDossier";
@@ -69,7 +70,7 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     reports: mergeVisualDossiers(withConstellis.reports, peratonReports),
   };
 
-  return {
+  const withGdit = {
     ...withPeraton,
     companies: mergeVisualDossiers(withPeraton.companies, gditCompanies),
     profiles: mergeVisualDossiers(withPeraton.profiles, gditProfiles),
@@ -77,6 +78,16 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     locations: mergeVisualDossiers(withPeraton.locations, gditLocations),
     sources: mergeVisualDossiers(withPeraton.sources, gditSources),
     reports: mergeVisualDossiers(withPeraton.reports, gditReports),
+  };
+
+  return {
+    ...withGdit,
+    companies: mergeVisualDossiers(withGdit.companies, freeportWeatherfordCompanies),
+    profiles: mergeVisualDossiers(withGdit.profiles, freeportWeatherfordProfiles),
+    metrics: mergeVisualDossiers(withGdit.metrics, freeportWeatherfordMetrics),
+    locations: mergeVisualDossiers(withGdit.locations, freeportWeatherfordLocations),
+    sources: mergeVisualDossiers(withGdit.sources, freeportWeatherfordSources),
+    reports: mergeVisualDossiers(withGdit.reports, freeportWeatherfordReports),
   };
 }
 
