@@ -3,6 +3,7 @@ import { loadInsightDataset } from "./ingestion";
 import { seedDataset } from "./seed";
 import type { Company, InsightDataset } from "./types";
 import { constellisCompanies, constellisLocations, constellisMetrics, constellisProfiles, constellisReports, constellisSources } from "./constellisDossier";
+import { gditCompanies, gditLocations, gditMetrics, gditProfiles, gditReports, gditSources } from "./gditDossier";
 import { iapCompanies, iapLocations, iapMetrics, iapProfiles, iapReports, iapSources } from "./iapDossier";
 import { peratonCompanies, peratonLocations, peratonMetrics, peratonProfiles, peratonReports, peratonSources } from "./peratonDossier";
 import { valiantCompanies, valiantLocations, valiantMetrics, valiantProfiles, valiantReports, valiantSources } from "./valiantDossier";
@@ -58,7 +59,7 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     reports: mergeVisualDossiers(withIap.reports, constellisReports),
   };
 
-  return {
+  const withPeraton = {
     ...withConstellis,
     companies: mergeVisualDossiers(withConstellis.companies, peratonCompanies),
     profiles: mergeVisualDossiers(withConstellis.profiles, peratonProfiles),
@@ -66,6 +67,16 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     locations: mergeVisualDossiers(withConstellis.locations, peratonLocations),
     sources: mergeVisualDossiers(withConstellis.sources, peratonSources),
     reports: mergeVisualDossiers(withConstellis.reports, peratonReports),
+  };
+
+  return {
+    ...withPeraton,
+    companies: mergeVisualDossiers(withPeraton.companies, gditCompanies),
+    profiles: mergeVisualDossiers(withPeraton.profiles, gditProfiles),
+    metrics: mergeVisualDossiers(withPeraton.metrics, gditMetrics),
+    locations: mergeVisualDossiers(withPeraton.locations, gditLocations),
+    sources: mergeVisualDossiers(withPeraton.sources, gditSources),
+    reports: mergeVisualDossiers(withPeraton.reports, gditReports),
   };
 }
 
