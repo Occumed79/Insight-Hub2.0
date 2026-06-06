@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { loadInsightDataset } from "./ingestion";
 import { seedDataset } from "./seed";
 import type { Company, InsightDataset } from "./types";
+import { caciCompanies, caciLocations, caciMetrics, caciProfiles, caciReports, caciSources } from "./caciDossier";
 import { clovehitchCompanies, clovehitchLocations, clovehitchMetrics, clovehitchProfiles, clovehitchReports, clovehitchSources } from "./clovehitchDossier";
 import { constellisCompanies, constellisLocations, constellisMetrics, constellisProfiles, constellisReports, constellisSources } from "./constellisDossier";
 import { fluorCompanies, fluorLocations, fluorMetrics, fluorProfiles, fluorReports, fluorSources } from "./fluorDossier";
@@ -64,14 +65,24 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     reports: mergeVisualDossiers(withIap.reports, constellisReports),
   };
 
-  const withClovehitch = {
+  const withCaci = {
     ...withConstellis,
-    companies: mergeVisualDossiers(withConstellis.companies, clovehitchCompanies),
-    profiles: mergeVisualDossiers(withConstellis.profiles, clovehitchProfiles),
-    metrics: mergeVisualDossiers(withConstellis.metrics, clovehitchMetrics),
-    locations: mergeVisualDossiers(withConstellis.locations, clovehitchLocations),
-    sources: mergeVisualDossiers(withConstellis.sources, clovehitchSources),
-    reports: mergeVisualDossiers(withConstellis.reports, clovehitchReports),
+    companies: mergeVisualDossiers(withConstellis.companies, caciCompanies),
+    profiles: mergeVisualDossiers(withConstellis.profiles, caciProfiles),
+    metrics: mergeVisualDossiers(withConstellis.metrics, caciMetrics),
+    locations: mergeVisualDossiers(withConstellis.locations, caciLocations),
+    sources: mergeVisualDossiers(withConstellis.sources, caciSources),
+    reports: mergeVisualDossiers(withConstellis.reports, caciReports),
+  };
+
+  const withClovehitch = {
+    ...withCaci,
+    companies: mergeVisualDossiers(withCaci.companies, clovehitchCompanies),
+    profiles: mergeVisualDossiers(withCaci.profiles, clovehitchProfiles),
+    metrics: mergeVisualDossiers(withCaci.metrics, clovehitchMetrics),
+    locations: mergeVisualDossiers(withCaci.locations, clovehitchLocations),
+    sources: mergeVisualDossiers(withCaci.sources, clovehitchSources),
+    reports: mergeVisualDossiers(withCaci.reports, clovehitchReports),
   };
 
   const withPeraton = {
