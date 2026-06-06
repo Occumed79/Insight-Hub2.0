@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { loadInsightDataset } from "./ingestion";
 import { seedDataset } from "./seed";
 import type { Company, InsightDataset } from "./types";
+import { clovehitchCompanies, clovehitchLocations, clovehitchMetrics, clovehitchProfiles, clovehitchReports, clovehitchSources } from "./clovehitchDossier";
 import { constellisCompanies, constellisLocations, constellisMetrics, constellisProfiles, constellisReports, constellisSources } from "./constellisDossier";
 import { fluorCompanies, fluorLocations, fluorMetrics, fluorProfiles, fluorReports, fluorSources } from "./fluorDossier";
 import { freeportWeatherfordCompanies, freeportWeatherfordLocations, freeportWeatherfordMetrics, freeportWeatherfordProfiles, freeportWeatherfordReports, freeportWeatherfordSources } from "./freeportWeatherfordDossier";
@@ -63,14 +64,24 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     reports: mergeVisualDossiers(withIap.reports, constellisReports),
   };
 
-  const withPeraton = {
+  const withClovehitch = {
     ...withConstellis,
-    companies: mergeVisualDossiers(withConstellis.companies, peratonCompanies),
-    profiles: mergeVisualDossiers(withConstellis.profiles, peratonProfiles),
-    metrics: mergeVisualDossiers(withConstellis.metrics, peratonMetrics),
-    locations: mergeVisualDossiers(withConstellis.locations, peratonLocations),
-    sources: mergeVisualDossiers(withConstellis.sources, peratonSources),
-    reports: mergeVisualDossiers(withConstellis.reports, peratonReports),
+    companies: mergeVisualDossiers(withConstellis.companies, clovehitchCompanies),
+    profiles: mergeVisualDossiers(withConstellis.profiles, clovehitchProfiles),
+    metrics: mergeVisualDossiers(withConstellis.metrics, clovehitchMetrics),
+    locations: mergeVisualDossiers(withConstellis.locations, clovehitchLocations),
+    sources: mergeVisualDossiers(withConstellis.sources, clovehitchSources),
+    reports: mergeVisualDossiers(withConstellis.reports, clovehitchReports),
+  };
+
+  const withPeraton = {
+    ...withClovehitch,
+    companies: mergeVisualDossiers(withClovehitch.companies, peratonCompanies),
+    profiles: mergeVisualDossiers(withClovehitch.profiles, peratonProfiles),
+    metrics: mergeVisualDossiers(withClovehitch.metrics, peratonMetrics),
+    locations: mergeVisualDossiers(withClovehitch.locations, peratonLocations),
+    sources: mergeVisualDossiers(withClovehitch.sources, peratonSources),
+    reports: mergeVisualDossiers(withClovehitch.reports, peratonReports),
   };
 
   const withGdit = {
