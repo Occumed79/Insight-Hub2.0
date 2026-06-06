@@ -3,6 +3,7 @@ import { loadInsightDataset } from "./ingestion";
 import { seedDataset } from "./seed";
 import type { Company, InsightDataset } from "./types";
 import { constellisCompanies, constellisLocations, constellisMetrics, constellisProfiles, constellisReports, constellisSources } from "./constellisDossier";
+import { fluorCompanies, fluorLocations, fluorMetrics, fluorProfiles, fluorReports, fluorSources } from "./fluorDossier";
 import { freeportWeatherfordCompanies, freeportWeatherfordLocations, freeportWeatherfordMetrics, freeportWeatherfordProfiles, freeportWeatherfordReports, freeportWeatherfordSources } from "./freeportWeatherfordDossier";
 import { gditCompanies, gditLocations, gditMetrics, gditProfiles, gditReports, gditSources } from "./gditDossier";
 import { iapCompanies, iapLocations, iapMetrics, iapProfiles, iapReports, iapSources } from "./iapDossier";
@@ -92,14 +93,24 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     reports: mergeVisualDossiers(withGdit.reports, freeportWeatherfordReports),
   };
 
-  const withIdsInternational = {
+  const withFluor = {
     ...withFreeportWeatherford,
-    companies: mergeVisualDossiers(withFreeportWeatherford.companies, idsInternationalCompanies),
-    profiles: mergeVisualDossiers(withFreeportWeatherford.profiles, idsInternationalProfiles),
-    metrics: mergeVisualDossiers(withFreeportWeatherford.metrics, idsInternationalMetrics),
-    locations: mergeVisualDossiers(withFreeportWeatherford.locations, idsInternationalLocations),
-    sources: mergeVisualDossiers(withFreeportWeatherford.sources, idsInternationalSources),
-    reports: mergeVisualDossiers(withFreeportWeatherford.reports, idsInternationalReports),
+    companies: mergeVisualDossiers(withFreeportWeatherford.companies, fluorCompanies),
+    profiles: mergeVisualDossiers(withFreeportWeatherford.profiles, fluorProfiles),
+    metrics: mergeVisualDossiers(withFreeportWeatherford.metrics, fluorMetrics),
+    locations: mergeVisualDossiers(withFreeportWeatherford.locations, fluorLocations),
+    sources: mergeVisualDossiers(withFreeportWeatherford.sources, fluorSources),
+    reports: mergeVisualDossiers(withFreeportWeatherford.reports, fluorReports),
+  };
+
+  const withIdsInternational = {
+    ...withFluor,
+    companies: mergeVisualDossiers(withFluor.companies, idsInternationalCompanies),
+    profiles: mergeVisualDossiers(withFluor.profiles, idsInternationalProfiles),
+    metrics: mergeVisualDossiers(withFluor.metrics, idsInternationalMetrics),
+    locations: mergeVisualDossiers(withFluor.locations, idsInternationalLocations),
+    sources: mergeVisualDossiers(withFluor.sources, idsInternationalSources),
+    reports: mergeVisualDossiers(withFluor.reports, idsInternationalReports),
   };
 
   return {
@@ -124,12 +135,7 @@ export function useInsightData() {
       active = false;
     };
   }, []);
-  const defaultCompany = useMemo(() => dataset.companies.find((company) => company.id === "v2x") || dataset.companies[0], [dataset.companies]);
-  return { dataset, defaultCompany };
-}
 
-export function useSelectedCompany(companies: Company[], defaultId = "v2x") {
-  const [companyId, setCompanyId] = useState(defaultId);
-  const company = companies.find((item) => item.id === companyId) || companies[0];
-  return { companyId: company?.id || defaultId, setCompanyId, company };
+  const companies = useMemo<Company[]>(() => dataset.companies, [dataset]);
+  return { dataset, companies };
 }
