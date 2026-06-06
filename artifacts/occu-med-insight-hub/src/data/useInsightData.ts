@@ -9,6 +9,7 @@ import { iapCompanies, iapLocations, iapMetrics, iapProfiles, iapReports, iapSou
 import { idsInternationalCompanies, idsInternationalLocations, idsInternationalMetrics, idsInternationalProfiles, idsInternationalReports, idsInternationalSources } from "./idsInternationalDossier";
 import { peratonCompanies, peratonLocations, peratonMetrics, peratonProfiles, peratonReports, peratonSources } from "./peratonDossier";
 import { valiantCompanies, valiantLocations, valiantMetrics, valiantProfiles, valiantReports, valiantSources } from "./valiantDossier";
+import { versarGlobalSolutionsCompanies, versarGlobalSolutionsLocations, versarGlobalSolutionsMetrics, versarGlobalSolutionsProfiles, versarGlobalSolutionsReports, versarGlobalSolutionsSources } from "./versarGlobalSolutionsDossier";
 import { v2xVisualLocations, v2xVisualMetrics, v2xVisualReports, v2xVisualSources } from "./v2xVisualDossier";
 import { mergeVisualDossiers, visualCompanies, visualLocations, visualMetrics, visualProfiles, visualReports, visualSources } from "./visualDossiers";
 
@@ -91,7 +92,7 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     reports: mergeVisualDossiers(withGdit.reports, freeportWeatherfordReports),
   };
 
-  return {
+  const withIdsInternational = {
     ...withFreeportWeatherford,
     companies: mergeVisualDossiers(withFreeportWeatherford.companies, idsInternationalCompanies),
     profiles: mergeVisualDossiers(withFreeportWeatherford.profiles, idsInternationalProfiles),
@@ -99,6 +100,16 @@ function withVisualDossiers(dataset: InsightDataset): InsightDataset {
     locations: mergeVisualDossiers(withFreeportWeatherford.locations, idsInternationalLocations),
     sources: mergeVisualDossiers(withFreeportWeatherford.sources, idsInternationalSources),
     reports: mergeVisualDossiers(withFreeportWeatherford.reports, idsInternationalReports),
+  };
+
+  return {
+    ...withIdsInternational,
+    companies: mergeVisualDossiers(withIdsInternational.companies, versarGlobalSolutionsCompanies),
+    profiles: mergeVisualDossiers(withIdsInternational.profiles, versarGlobalSolutionsProfiles),
+    metrics: mergeVisualDossiers(withIdsInternational.metrics, versarGlobalSolutionsMetrics),
+    locations: mergeVisualDossiers(withIdsInternational.locations, versarGlobalSolutionsLocations),
+    sources: mergeVisualDossiers(withIdsInternational.sources, versarGlobalSolutionsSources),
+    reports: mergeVisualDossiers(withIdsInternational.reports, versarGlobalSolutionsReports),
   };
 }
 
