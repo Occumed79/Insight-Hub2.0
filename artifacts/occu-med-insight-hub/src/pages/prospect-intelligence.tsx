@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "wouter";
 import {
   prospectActiveHiring,
@@ -25,7 +26,7 @@ function BarRow({ label, value, max, color = "#22d3ee" }: { label: string; value
   );
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-[28px] border border-white/10 bg-slate-950/60 p-5 shadow-[0_22px_70px_rgba(0,0,0,.42)]">
       <h2 className="mb-5 text-xl font-black tracking-[-0.03em] text-white">{title}</h2>
@@ -67,21 +68,18 @@ export default function ProspectIntelligence() {
         <section className="mt-6 grid gap-6 xl:grid-cols-2">
           <Panel title="Coverage: already served vs. new markets">
             <div className="space-y-3">
-              {prospectCoverage.map((row) => {
-                const total = row.served + row.newMarkets;
-                return (
-                  <div key={row.name}>
-                    <div className="mb-1 flex justify-between text-xs text-cyan-50/65">
-                      <span>{row.name}</span>
-                      <span>{row.served} served · {row.newMarkets} new</span>
-                    </div>
-                    <div className="flex h-4 overflow-hidden rounded-full bg-white/10">
-                      <div style={{ width: `${(row.served / maxCoverage) * 100}%` }} className="bg-[#2f9bff]" />
-                      <div style={{ width: `${(row.newMarkets / maxCoverage) * 100}%` }} className="bg-slate-300/75" />
-                    </div>
+              {prospectCoverage.map((row) => (
+                <div key={row.name}>
+                  <div className="mb-1 flex justify-between text-xs text-cyan-50/65">
+                    <span>{row.name}</span>
+                    <span>{row.served} served · {row.newMarkets} new</span>
                   </div>
-                );
-              })}
+                  <div className="flex h-4 overflow-hidden rounded-full bg-white/10">
+                    <div style={{ width: `${(row.served / maxCoverage) * 100}%` }} className="bg-[#2f9bff]" />
+                    <div style={{ width: `${(row.newMarkets / maxCoverage) * 100}%` }} className="bg-slate-300/75" />
+                  </div>
+                </div>
+              ))}
             </div>
           </Panel>
 
