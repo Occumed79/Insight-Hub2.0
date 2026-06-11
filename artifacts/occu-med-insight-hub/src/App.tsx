@@ -8,6 +8,7 @@ import Landing from "@/pages/landing";
 import DataProfiles from "@/pages/data-profiles";
 import QuantifiableData from "@/pages/quantifiable-data";
 import GeographicData from "@/pages/geographic-data";
+import ProspectIntelligence from "@/pages/prospect-intelligence";
 
 const queryClient = new QueryClient();
 
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/data-profiles" component={DataProfiles} />
       <Route path="/quantifiable-data" component={QuantifiableData} />
       <Route path="/geographic-data" component={GeographicData} />
+      <Route path="/portal/prospects" component={ProspectIntelligence} />
       <Route component={NotFound} />
     </Switch>
   );
