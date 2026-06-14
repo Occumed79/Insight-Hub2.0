@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { portalCards } from "@/data/portals";
 import type { PortalConfig } from "@/data/portals";
-const occuMedLogo = "https://base44.app/api/apps/69f08d58f2a02a258d395477/files/mp/public/69f08d58f2a02a258d395477/ac708dd5f_logo-transparent.png";
 
 // ── Portal art / banner ───────────────────────────────────────────────────────
 const iconMap = { profile: Building2, quant: Sigma, geo: Globe2, client: Network, prospect: Layers, federal: Landmark };
@@ -16,6 +15,20 @@ const portalImageMap: Record<PortalConfig["imageKind"], string> = {
   prospect: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80",
   federal: "https://images.unsplash.com/photo-1446776877081-d282a0f896e2?auto=format&fit=crop&w=1200&q=80",
 };
+
+function OccuMedWordmark() {
+  return (
+    <div className="logo-plaque mx-auto flex h-[86px] w-[260px] flex-col items-center justify-center gap-2 overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.035] shadow-[0_0_48px_rgba(125,211,252,0.18)] backdrop-blur-xl">
+      <div className="flex items-center justify-center gap-1.5 drop-shadow-[0_0_18px_rgba(255,255,255,0.36)]">
+        <span className="block h-6 w-3.5 rounded-full bg-white" />
+        <span className="block h-6 w-3.5 rounded-full bg-white" />
+      </div>
+      <div className="text-[13px] font-extrabold uppercase tracking-[0.28em] text-white drop-shadow-[0_0_16px_rgba(255,255,255,0.30)]">
+        OCCU-MED
+      </div>
+    </div>
+  );
+}
 
 function PortalArt({ kind }: { kind: PortalConfig["imageKind"] }) {
   const Icon = iconMap[kind];
@@ -89,18 +102,8 @@ export default function Landing() {
         <motion.div
           initial={{ opacity: 0, y: 16, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          className="logo-plaque mx-auto flex h-[108px] w-[260px] items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.035] px-2 py-2 shadow-[0_0_48px_rgba(125,211,252,0.18)] backdrop-blur-xl"
         >
-          <img
-            src={occuMedLogo}
-            alt="Occu-Med"
-            className="h-full w-full object-contain"
-            style={{
-              transform: "scale(2.55)",
-              transformOrigin: "center",
-              filter: "drop-shadow(0 0 16px rgba(255,255,255,0.28)) drop-shadow(0 0 28px rgba(103,232,249,0.16))",
-            }}
-          />
+          <OccuMedWordmark />
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-7 text-center">
           <h1 className="text-6xl font-black tracking-[-0.065em] text-white drop-shadow-[0_0_34px_rgba(167,139,250,.26)] md:text-7xl">Insight Hub</h1>
