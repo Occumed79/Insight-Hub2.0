@@ -4,7 +4,6 @@ import { Link } from "wouter";
 import { portalCards } from "@/data/portals";
 import type { PortalConfig } from "@/data/portals";
 
-// ── Portal art / banner ───────────────────────────────────────────────────────
 const iconMap = { profile: Building2, quant: Sigma, geo: Globe2, client: Network, prospect: Layers, federal: Landmark };
 
 const portalImageMap: Record<PortalConfig["imageKind"], string> = {
@@ -18,12 +17,35 @@ const portalImageMap: Record<PortalConfig["imageKind"], string> = {
 
 function OccuMedWordmark() {
   return (
-    <div className="mx-auto mb-2 flex w-[440px] max-w-[88vw] items-center justify-center overflow-visible rounded-[32px] border border-white/10 bg-white/[0.025] px-5 py-4 shadow-[0_0_58px_rgba(125,211,252,0.18)] backdrop-blur-xl">
+    <div
+      style={{
+        width: "520px",
+        maxWidth: "92vw",
+        height: "210px",
+        margin: "0 auto 2px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: "34px",
+        border: "1px solid rgba(255,255,255,0.12)",
+        background: "rgba(255,255,255,0.025)",
+        boxShadow: "0 0 58px rgba(125,211,252,0.18)",
+        backdropFilter: "blur(18px)",
+        overflow: "visible",
+      }}
+    >
       <svg
-        viewBox="0 0 760 330"
+        viewBox="120 20 520 330"
         role="img"
         aria-label="Occu-Med"
-        className="block h-auto w-full overflow-visible drop-shadow-[0_0_22px_rgba(255,255,255,0.34)]"
+        style={{
+          width: "500px",
+          maxWidth: "88vw",
+          height: "190px",
+          display: "block",
+          overflow: "visible",
+          filter: "drop-shadow(0 0 24px rgba(255,255,255,0.34))",
+        }}
       >
         <g fill="#ffffff">
           <path d="M254 28 C187 28 133 82 133 149 C133 216 187 270 254 270 H332 V149 C332 82 307 28 254 28 Z" />
@@ -32,7 +54,7 @@ function OccuMedWordmark() {
         </g>
         <text
           x="380"
-          y="326"
+          y="330"
           textAnchor="middle"
           fill="#ffffff"
           fontFamily="Georgia, 'Times New Roman', serif"
@@ -68,7 +90,6 @@ function PortalArt({ kind }: { kind: PortalConfig["imageKind"] }) {
   );
 }
 
-// ── Card ──────────────────────────────────────────────────────────────────────
 function PortalCard({ portal, index }: { portal: PortalConfig; index: number }) {
   const missingExternalUrl = portal.mode === "external" && !portal.href;
 
@@ -110,7 +131,6 @@ function PortalCard({ portal, index }: { portal: PortalConfig; index: number }) 
   return <Link href={portal.href} className="block h-full">{body}</Link>;
 }
 
-// ── Landing page ──────────────────────────────────────────────────────────────
 export default function Landing() {
   return (
     <main className="aurora-bg aurora-home min-h-screen px-6 py-8 text-white">
@@ -122,7 +142,7 @@ export default function Landing() {
         >
           <OccuMedWordmark />
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-4 text-center">
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-2 text-center">
           <h1 className="text-6xl font-black tracking-[-0.065em] text-white drop-shadow-[0_0_34px_rgba(167,139,250,.26)] md:text-7xl">Insight Hub</h1>
           <p className="mx-auto mt-5 max-w-[620px] text-base leading-8 text-cyan-50/72">
             The strategic intelligence command center for Occu-Med — surfacing occupational health opportunities, quantifying workforce risk, and mapping the competitive landscape.
