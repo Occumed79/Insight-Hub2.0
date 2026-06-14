@@ -89,9 +89,18 @@ export default function Landing() {
         <motion.div
           initial={{ opacity: 0, y: 16, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          className="logo-plaque mx-auto flex h-[82px] w-[160px] items-center justify-center overflow-hidden rounded-2xl px-5 py-3"
+          className="logo-plaque mx-auto flex h-[108px] w-[260px] items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.035] px-2 py-2 shadow-[0_0_48px_rgba(125,211,252,0.18)] backdrop-blur-xl"
         >
-          <img src={occuMedLogo} alt="Occu-Med" className="h-full w-full object-contain" />
+          <img
+            src={occuMedLogo}
+            alt="Occu-Med"
+            className="h-full w-full object-contain"
+            style={{
+              transform: "scale(2.55)",
+              transformOrigin: "center",
+              filter: "drop-shadow(0 0 16px rgba(255,255,255,0.28)) drop-shadow(0 0 28px rgba(103,232,249,0.16))",
+            }}
+          />
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-7 text-center">
           <h1 className="text-6xl font-black tracking-[-0.065em] text-white drop-shadow-[0_0_34px_rgba(167,139,250,.26)] md:text-7xl">Insight Hub</h1>
