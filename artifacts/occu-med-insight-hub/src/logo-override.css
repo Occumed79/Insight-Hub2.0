@@ -1,0 +1,20 @@
+.aurora-home section > div:first-of-type {
+  width: 440px !important;
+  max-width: 84vw !important;
+  height: 172px !important;
+  margin: 0 auto 8px !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.aurora-home section > div:first-of-type img[alt="Occu-Med"] {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  object-fit: contain !important;
+  transform: scale(5.5) !important;
+  transform-origin: center !important;
+  margin: 0 auto !important;
+}
