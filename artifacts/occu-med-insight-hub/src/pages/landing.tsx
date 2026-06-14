@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { portalCards } from "@/data/portals";
 import type { PortalConfig } from "@/data/portals";
+import occuMedLogoDataUrl from "@/assets/occu-med-logo-data";
 
 const iconMap = { profile: Building2, quant: Sigma, geo: Globe2, client: Network, prospect: Layers, federal: Landmark };
 
@@ -17,55 +18,18 @@ const portalImageMap: Record<PortalConfig["imageKind"], string> = {
 
 function OccuMedWordmark() {
   return (
-    <div
+    <img
+      src={occuMedLogoDataUrl}
+      alt="Occu-Med"
       style={{
-        width: "520px",
-        maxWidth: "92vw",
-        height: "210px",
-        margin: "0 auto 2px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: "34px",
-        border: "1px solid rgba(255,255,255,0.12)",
-        background: "rgba(255,255,255,0.025)",
-        boxShadow: "0 0 58px rgba(125,211,252,0.18)",
-        backdropFilter: "blur(18px)",
-        overflow: "visible",
+        width: "420px",
+        maxWidth: "82vw",
+        height: "auto",
+        display: "block",
+        margin: "0 auto 4px",
+        filter: "drop-shadow(0 0 22px rgba(255,255,255,0.30)) drop-shadow(0 0 34px rgba(125,211,252,0.12))",
       }}
-    >
-      <svg
-        viewBox="120 20 520 330"
-        role="img"
-        aria-label="Occu-Med"
-        style={{
-          width: "500px",
-          maxWidth: "88vw",
-          height: "190px",
-          display: "block",
-          overflow: "visible",
-          filter: "drop-shadow(0 0 24px rgba(255,255,255,0.34))",
-        }}
-      >
-        <g fill="#ffffff">
-          <path d="M254 28 C187 28 133 82 133 149 C133 216 187 270 254 270 H332 V149 C332 82 307 28 254 28 Z" />
-          <path d="M346 28 C413 28 467 82 467 149 V270 H346 Z" />
-          <path d="M486 270 H626 V28 C548 28 486 90 486 168 Z" />
-        </g>
-        <text
-          x="380"
-          y="330"
-          textAnchor="middle"
-          fill="#ffffff"
-          fontFamily="Georgia, 'Times New Roman', serif"
-          fontSize="72"
-          fontWeight="800"
-          letterSpacing="8"
-        >
-          OCCU-MED
-        </text>
-      </svg>
-    </div>
+    />
   );
 }
 
