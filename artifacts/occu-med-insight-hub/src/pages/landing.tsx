@@ -18,33 +18,27 @@ const portalImageMap: Record<PortalConfig["imageKind"], string> = {
 
 function OccuMedWordmark() {
   return (
-    <div className="logo-plaque mx-auto flex h-[168px] w-[360px] items-center justify-center overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.035] px-7 py-5 shadow-[0_0_48px_rgba(125,211,252,0.18)] backdrop-blur-xl">
+    <div className="mx-auto mb-2 flex w-[440px] max-w-[88vw] items-center justify-center overflow-visible rounded-[32px] border border-white/10 bg-white/[0.025] px-5 py-4 shadow-[0_0_58px_rgba(125,211,252,0.18)] backdrop-blur-xl">
       <svg
-        viewBox="0 0 1024 520"
+        viewBox="0 0 760 330"
         role="img"
         aria-label="Occu-Med"
-        className="h-full w-full overflow-visible drop-shadow-[0_0_18px_rgba(255,255,255,0.30)]"
+        className="block h-auto w-full overflow-visible drop-shadow-[0_0_22px_rgba(255,255,255,0.34)]"
       >
-        <defs>
-          <linearGradient id="omLogoWhite" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#f5f7fb" />
-          </linearGradient>
-        </defs>
-        <g fill="url(#omLogoWhite)">
-          <path d="M340 48 C276 48 224 100 224 164 C224 228 276 280 340 280 H448 V164 C448 100 404 48 340 48 Z" />
-          <path d="M462 48 C526 48 578 100 578 164 V280 H462 Z" />
-          <path d="M596 280 H704 V48 C644 48 596 96 596 156 Z" />
+        <g fill="#ffffff">
+          <path d="M254 28 C187 28 133 82 133 149 C133 216 187 270 254 270 H332 V149 C332 82 307 28 254 28 Z" />
+          <path d="M346 28 C413 28 467 82 467 149 V270 H346 Z" />
+          <path d="M486 270 H626 V28 C548 28 486 90 486 168 Z" />
         </g>
         <text
-          x="512"
-          y="448"
+          x="380"
+          y="326"
           textAnchor="middle"
           fill="#ffffff"
           fontFamily="Georgia, 'Times New Roman', serif"
-          fontSize="92"
-          fontWeight="700"
-          letterSpacing="10"
+          fontSize="72"
+          fontWeight="800"
+          letterSpacing="8"
         >
           OCCU-MED
         </text>
@@ -128,7 +122,7 @@ export default function Landing() {
         >
           <OccuMedWordmark />
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-7 text-center">
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-4 text-center">
           <h1 className="text-6xl font-black tracking-[-0.065em] text-white drop-shadow-[0_0_34px_rgba(167,139,250,.26)] md:text-7xl">Insight Hub</h1>
           <p className="mx-auto mt-5 max-w-[620px] text-base leading-8 text-cyan-50/72">
             The strategic intelligence command center for Occu-Med — surfacing occupational health opportunities, quantifying workforce risk, and mapping the competitive landscape.
