@@ -18,14 +18,37 @@ const portalImageMap: Record<PortalConfig["imageKind"], string> = {
 
 function OccuMedWordmark() {
   return (
-    <div className="logo-plaque mx-auto flex h-[86px] w-[260px] flex-col items-center justify-center gap-2 overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.035] shadow-[0_0_48px_rgba(125,211,252,0.18)] backdrop-blur-xl">
-      <div className="flex items-center justify-center gap-1.5 drop-shadow-[0_0_18px_rgba(255,255,255,0.36)]">
-        <span className="block h-6 w-3.5 rounded-full bg-white" />
-        <span className="block h-6 w-3.5 rounded-full bg-white" />
-      </div>
-      <div className="text-[13px] font-extrabold uppercase tracking-[0.28em] text-white drop-shadow-[0_0_16px_rgba(255,255,255,0.30)]">
-        OCCU-MED
-      </div>
+    <div className="logo-plaque mx-auto flex h-[168px] w-[360px] items-center justify-center overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.035] px-7 py-5 shadow-[0_0_48px_rgba(125,211,252,0.18)] backdrop-blur-xl">
+      <svg
+        viewBox="0 0 1024 520"
+        role="img"
+        aria-label="Occu-Med"
+        className="h-full w-full overflow-visible drop-shadow-[0_0_18px_rgba(255,255,255,0.30)]"
+      >
+        <defs>
+          <linearGradient id="omLogoWhite" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="100%" stopColor="#f5f7fb" />
+          </linearGradient>
+        </defs>
+        <g fill="url(#omLogoWhite)">
+          <path d="M340 48 C276 48 224 100 224 164 C224 228 276 280 340 280 H448 V164 C448 100 404 48 340 48 Z" />
+          <path d="M462 48 C526 48 578 100 578 164 V280 H462 Z" />
+          <path d="M596 280 H704 V48 C644 48 596 96 596 156 Z" />
+        </g>
+        <text
+          x="512"
+          y="448"
+          textAnchor="middle"
+          fill="#ffffff"
+          fontFamily="Georgia, 'Times New Roman', serif"
+          fontSize="92"
+          fontWeight="700"
+          letterSpacing="10"
+        >
+          OCCU-MED
+        </text>
+      </svg>
     </div>
   );
 }
