@@ -32,6 +32,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ ok: true, service: "insight-hub-2", awake: true });
+});
+
+app.head("/api/health", (_req, res) => {
+  res.status(200).end();
+});
+
 app.use("/api", router);
 
 // Serve the built React frontend for all non-API routes
