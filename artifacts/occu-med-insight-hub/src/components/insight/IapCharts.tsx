@@ -1,5 +1,6 @@
-import { Bar, BarChart, CartesianGrid, Legend, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Legend, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartBlock } from "./ChartBlock";
+import { LuminousChartTooltip } from "./LuminousChartTooltip";
 
 const contractData = [
   { name: "NSA Souda Bay", value: 9 },
@@ -44,6 +45,13 @@ function y(value: number) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }
 
+function getTooltipFormat(formatter?: "$K" | "$M" | "%") {
+  if (formatter === "$K") return "currencyK" as const;
+  if (formatter === "$M") return "currencyM" as const;
+  if (formatter === "%") return "percent" as const;
+  return "plain" as const;
+}
+
 function BarPanel({ title, subtitle, data, dataKey, formatter, domain }: { title: string; subtitle: string; data: any[]; dataKey: string; formatter?: "$K" | "$M" | "%"; domain?: [number, number] }) {
   return (
     <ChartBlock title={title} subtitle={subtitle}>
@@ -56,6 +64,7 @@ function BarPanel({ title, subtitle, data, dataKey, formatter, domain }: { title
           domain={domain}
           tickFormatter={(value) => formatter === "$K" || formatter === "$M" ? `$${value}${formatter.slice(1)}` : formatter === "%" ? `${value}%` : y(value as number)}
         />
+        <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter={getTooltipFormat(formatter)} headline="IAP metric" />} />
         <Bar dataKey={dataKey} fill="#22d3ee" radius={[10, 10, 0, 0]} />
       </BarChart>
     </ChartBlock>
@@ -73,6 +82,7 @@ export function IapCharts() {
           <XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}K`} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter="currencyK" headline="DBA cost stack" />} />
           <Bar dataKey="low" name="Low DBA avg" stackId="cost" fill="#22d3ee" />
           <Bar dataKey="additional" name="Additional" stackId="cost" fill="#ef4444" radius={[10, 10, 0, 0]} />
         </BarChart>
