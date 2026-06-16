@@ -1,4 +1,4 @@
-export type { CompanyConfig, ChartDefinition, SignalDefinition, ChartSeriesDefinition, ReferenceLineDefinition, SourceFilterDefinition, DossierSectionType, DossierSectionDefinition, RiskMatrixPoint, OpportunityMatrixPoint, MetricDefinition, TooltipFormat } from "./types";
+export type { CompanyConfig, ChartDefinition, SignalDefinition, ChartSeriesDefinition, ReferenceLineDefinition, SourceFilterDefinition, DossierSectionType, DossierSectionDefinition, RiskMatrixPoint, OpportunityMatrixPoint, MetricDefinition, TooltipFormat, ChartInteractionConfig, CompanyInteractionConfig, TooltipBehavior, DrillDownDefinition, ChartFilterDefinition, LinkedChartDefinition, DetailPanelDefinition, TransitionConfig } from "./types";
 
 import { v2xConfig } from "./v2x";
 import { idsConfig } from "./ids";

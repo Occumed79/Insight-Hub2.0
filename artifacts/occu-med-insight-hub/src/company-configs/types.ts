@@ -15,6 +15,61 @@ export type ReferenceLineDefinition = {
   label?: { value: string; fill: string; fontSize: number };
 };
 
+export type TooltipBehavior = {
+  mode?: "hover" | "click" | "focus";
+  showCrosshair?: boolean;
+  persistOnClick?: boolean;
+  customFields?: { label: string; dataKey: string; formatter?: TooltipFormat }[];
+};
+
+export type DrillDownDefinition = {
+  targetChartId?: string;
+  targetPanel?: string;
+  dataKey: string;
+  label?: string;
+  detailData?: Record<string, string | number>[];
+};
+
+export type ChartFilterDefinition = {
+  id: string;
+  label: string;
+  type: "select" | "multi-select" | "range" | "toggle";
+  dataKey: string;
+  options?: string[];
+  defaultValue?: string | string[] | [number, number] | boolean;
+};
+
+export type LinkedChartDefinition = {
+  targetChartIds: string[];
+  highlightKey: string;
+  syncTooltip?: boolean;
+  syncSelection?: boolean;
+};
+
+export type DetailPanelDefinition = {
+  title: string;
+  triggerOn: "click" | "hover" | "select";
+  position: "right" | "bottom" | "modal";
+  fields: { label: string; dataKey: string; formatter?: TooltipFormat }[];
+  narrative?: string;
+};
+
+export type TransitionConfig = {
+  enter?: "fade" | "slide" | "scale" | "none";
+  duration?: number;
+  staggerChildren?: boolean;
+  animateData?: boolean;
+};
+
+export type ChartInteractionConfig = {
+  tooltip?: TooltipBehavior;
+  drillDown?: DrillDownDefinition;
+  filters?: ChartFilterDefinition[];
+  linkedCharts?: LinkedChartDefinition;
+  detailPanel?: DetailPanelDefinition;
+  transition?: TransitionConfig;
+};
+
 export type ChartDefinition = {
   id: string;
   title: string;
@@ -28,6 +83,7 @@ export type ChartDefinition = {
   domain?: [number, number];
   referenceLines?: ReferenceLineDefinition[];
   fullWidth?: boolean;
+  interaction?: ChartInteractionConfig;
 };
 
 export type SignalDefinition = {
@@ -89,6 +145,14 @@ export type DossierSectionDefinition = {
   metricIds: string[];
 };
 
+export type CompanyInteractionConfig = {
+  defaultTransition?: TransitionConfig;
+  enableLinkedHighlighting?: boolean;
+  enableDrillDown?: boolean;
+  enableFilters?: boolean;
+  detailPanelPosition?: "right" | "bottom" | "modal";
+};
+
 export type CompanyConfig = {
   companyId: string;
   displayName: string;
@@ -109,4 +173,5 @@ export type CompanyConfig = {
   dossierSections?: DossierSectionDefinition[];
   curveTitle?: string;
   curveSubtitle?: string;
+  interactionConfig?: CompanyInteractionConfig;
 };
