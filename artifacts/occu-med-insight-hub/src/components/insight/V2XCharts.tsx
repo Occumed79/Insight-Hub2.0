@@ -1,5 +1,6 @@
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, LineChart, Scatter, ScatterChart, XAxis, YAxis, ZAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, LineChart, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
 import { ChartBlock } from "./ChartBlock";
+import { LuminousChartTooltip } from "./LuminousChartTooltip";
 
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -88,12 +89,15 @@ const riskMatrix = [
 ];
 
 function BarPanel({ title, subtitle, data, dataKey, formatter, domain }: { title: string; subtitle: string; data: any[]; dataKey: string; formatter?: "$M" | "%" | "M hrs"; domain?: [number, number] }) {
+  const tooltipFormat = formatter === "$M" ? "currencyM" : formatter === "%" ? "percent" : formatter === "M hrs" ? "hoursM" : "plain";
+
   return (
     <ChartBlock title={title} subtitle={subtitle}>
       <BarChart data={data}>
         <CartesianGrid stroke="rgba(255,255,255,.08)" />
         <XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
         <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={domain} tickFormatter={(value) => formatter === "$M" ? `$${value}M` : formatter === "%" ? `${value}%` : formatter === "M hrs" ? `${value}M` : `${value}`} />
+        <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter={tooltipFormat} headline="V2X metric" />} />
         <Bar dataKey={dataKey} fill="#22d3ee" radius={[10, 10, 0, 0]} />
       </BarChart>
     </ChartBlock>
@@ -109,6 +113,7 @@ export function V2XCharts() {
           <XAxis dataKey="month" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={[0, 1.6]} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Tooltip content={<LuminousChartTooltip headline="safety metrics" />} />
           <Area type="monotone" dataKey="nearMiss" name="Near Miss" stroke="#22c55e" fill="rgba(34,197,94,.25)" />
           <Area type="monotone" dataKey="trir" name="TRIR" stroke="#ef4444" fill="rgba(239,68,68,.22)" />
           <Area type="monotone" dataKey="dart" name="DART" stroke="#f97316" fill="rgba(249,115,22,.22)" />
@@ -120,6 +125,7 @@ export function V2XCharts() {
           <XAxis dataKey="year" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={[0, 1]} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip headline="annual safety" />} />
           <Bar dataKey="dart" name="DART" fill="#22d3ee" radius={[8, 8, 0, 0]} />
           <Bar dataKey="trir" name="TRIR" fill="#ef4444" radius={[8, 8, 0, 0]} />
           <Bar dataKey="nearMiss" name="Near Miss" fill="#22c55e" radius={[8, 8, 0, 0]} />
@@ -131,6 +137,7 @@ export function V2XCharts() {
           <CartesianGrid stroke="rgba(255,255,255,.08)" />
           <XAxis dataKey="year" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}M`} />
+          <Tooltip content={<LuminousChartTooltip formatter="currencyM" headline="revenue growth" />} />
           <Area type="monotone" dataKey="revenue" stroke="#22d3ee" fill="rgba(34,211,238,.25)" strokeWidth={3} />
         </AreaChart>
       </ChartBlock>
@@ -140,6 +147,7 @@ export function V2XCharts() {
           <XAxis dataKey="region" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}M`} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter="currencyM" headline="regional revenue" />} />
           <Bar dataKey="fy2022" name="FY2022" fill="#22d3ee" radius={[8, 8, 0, 0]} />
           <Bar dataKey="fy2023" name="FY2023" fill="#ef4444" radius={[8, 8, 0, 0]} />
           <Bar dataKey="fy2024" name="FY2024" fill="#22c55e" radius={[8, 8, 0, 0]} />
@@ -151,6 +159,7 @@ export function V2XCharts() {
           <XAxis dataKey="region" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `${value}%`} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter="percent" headline="regional growth" />} />
           <Bar dataKey="old" name="FY2022-FY2023" fill="#22d3ee" radius={[8, 8, 0, 0]} />
           <Bar dataKey="latest" name="FY2023-FY2024" fill="#ef4444" radius={[8, 8, 0, 0]} />
         </BarChart>
@@ -161,6 +170,7 @@ export function V2XCharts() {
           <XAxis dataKey="type" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `${value}%`} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter="percent" headline="injury mix" />} />
           <Bar dataKey="y2022" name="2022" fill="#22d3ee" radius={[8, 8, 0, 0]} />
           <Bar dataKey="y2023" name="2023" fill="#ef4444" radius={[8, 8, 0, 0]} />
           <Bar dataKey="y2024" name="2024" fill="#22c55e" radius={[8, 8, 0, 0]} />
@@ -171,27 +181,32 @@ export function V2XCharts() {
           <CartesianGrid stroke="rgba(255,255,255,.08)" />
           <XAxis dataKey="year" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={[0, 1]} />
+          <Tooltip content={<LuminousChartTooltip headline="near miss trend" />} />
           <Area type="monotone" dataKey="value" stroke="#22c55e" fill="rgba(34,197,94,.3)" strokeWidth={3} />
         </AreaChart>
       </ChartBlock>
-      <BarPanel title="V2X total hours worked" subtitle="Source: uploaded V2X EHS metrics visual; 2024 excludes training sites and classified programs." data={hoursData.map((item) => ({ name: item.year, value: item.hours }))} dataKey="value" formatter="M hrs" />
-      <ChartBlock title="V2X injury risk matrix by region" subtitle="Source: uploaded V2X risk matrix visual; bubble size reflects workforce estimate.">
-        <ScatterChart>
-          <CartesianGrid stroke="rgba(255,255,255,.08)" />
-          <XAxis type="number" dataKey="revenue" name="Revenue" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}B`} domain={[0, 1.6]} />
-          <YAxis type="number" dataKey="risk" name="Risk" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={[0, 10]} />
-          <ZAxis type="number" dataKey="workers" range={[80, 700]} />
-          <Scatter data={riskMatrix} fill="#ef4444" />
-        </ScatterChart>
-      </ChartBlock>
-      <ChartBlock title="V2X workers' comp reserves rising" subtitle="Source: uploaded SEC 10-K visual; current accrued liabilities up 240% since 2022.">
-        <AreaChart data={wcReserve}>
+      <BarPanel title="V2X total hours worked" subtitle="Source: uploaded V2X EHS metrics visual; 2024 excludes training sites and classified operations." data={hoursData} dataKey="hours" formatter="M hrs" domain={[0, 120]} />
+      <ChartBlock title="V2X workers compensation reserve trend" subtitle="Source: uploaded SEC 10-K visual; reserve grew from $2.8M to $9.5M.">
+        <LineChart data={wcReserve}>
           <CartesianGrid stroke="rgba(255,255,255,.08)" />
           <XAxis dataKey="period" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
-          <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}M`} domain={[0, 10]} />
-          <Area type="monotone" dataKey="value" stroke="#ef4444" fill="rgba(239,68,68,.3)" strokeWidth={3} />
-        </AreaChart>
+          <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}M`} />
+          <Tooltip content={<LuminousChartTooltip formatter="currencyM" headline="reserve trend" />} />
+          <Line type="monotone" dataKey="value" name="Reserve" stroke="#22d3ee" strokeWidth={3} dot={{ r: 5 }} />
+        </LineChart>
       </ChartBlock>
+      <div className="xl:col-span-2">
+        <ChartBlock title="V2X opportunity/risk matrix" subtitle="Source: uploaded V2X synthesis; revenue opportunity plotted against worker risk with worker count bubble size.">
+          <ScatterChart>
+            <CartesianGrid stroke="rgba(255,255,255,.08)" />
+            <XAxis dataKey="revenue" name="Revenue" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} tickFormatter={(value) => `$${value}M`} />
+            <YAxis dataKey="risk" name="Risk score" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={[0, 10]} />
+            <ZAxis dataKey="workers" range={[80, 520]} />
+            <Tooltip cursor={{ stroke: "rgba(34,211,238,.35)", strokeDasharray: "4 4" }} content={<LuminousChartTooltip headline="risk matrix" />} />
+            <Scatter name="Region" data={riskMatrix} fill="#22d3ee" />
+          </ScatterChart>
+        </ChartBlock>
+      </div>
     </div>
   );
 }
