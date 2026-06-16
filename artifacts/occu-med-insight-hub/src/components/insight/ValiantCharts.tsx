@@ -1,5 +1,6 @@
-import { Bar, BarChart, CartesianGrid, Legend, ReferenceLine, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Legend, ReferenceLine, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartBlock } from "./ChartBlock";
+import { LuminousChartTooltip } from "./LuminousChartTooltip";
 
 const blastNoiseData = [
   { name: "OSHA Action", value: 85 },
@@ -52,6 +53,12 @@ function y(value: number) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }
 
+function getTooltipFormat(formatter?: "$K" | "$M" | "°F" | "dB") {
+  if (formatter === "$K") return "currencyK" as const;
+  if (formatter === "$M") return "currencyM" as const;
+  return "plain" as const;
+}
+
 function BarPanel({ title, subtitle, data, dataKey, formatter, domain }: { title: string; subtitle: string; data: any[]; dataKey: string; formatter?: "$K" | "$M" | "°F" | "dB"; domain?: [number, number] }) {
   return (
     <ChartBlock title={title} subtitle={subtitle}>
@@ -59,6 +66,7 @@ function BarPanel({ title, subtitle, data, dataKey, formatter, domain }: { title
         <CartesianGrid stroke="rgba(255,255,255,.08)" />
         <XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
         <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={domain} tickFormatter={(value) => formatter === "$K" || formatter === "$M" ? `$${value}${formatter.slice(1)}` : formatter === "°F" ? `${value}°F` : formatter === "dB" ? `${value} dB` : y(value as number)} />
+        <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter={getTooltipFormat(formatter)} headline="Valiant metric" />} />
         {dataKey === "temp" ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null}
         {dataKey === "temp" ? <Bar dataKey="risk" name="Risk score" fill="#ef4444" radius={[10, 10, 0, 0]} /> : null}
         <Bar dataKey={dataKey} name={dataKey === "temp" ? "Peak temp" : undefined} fill="#22d3ee" radius={[10, 10, 0, 0]} />
@@ -75,6 +83,7 @@ export function ValiantCharts() {
           <CartesianGrid stroke="rgba(255,255,255,.08)" />
           <XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={[0, 185]} tickFormatter={(value) => `${value} dB`} />
+          <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip headline="noise exposure" />} />
           <ReferenceLine y={85} stroke="#22c55e" strokeDasharray="4 4" label={{ value: "85 dB OSHA action", fill: "#bbf7d0", fontSize: 10 }} />
           <ReferenceLine y={90} stroke="#16a34a" strokeDasharray="4 4" label={{ value: "90 dB OSHA permissible", fill: "#bbf7d0", fontSize: 10 }} />
           <ReferenceLine y={140} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: "140 dB NIH", fill: "#fde68a", fontSize: 10 }} />
