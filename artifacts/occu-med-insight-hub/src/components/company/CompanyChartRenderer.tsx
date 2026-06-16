@@ -1,9 +1,13 @@
 import { useState, useCallback, createContext, useContext, useMemo } from "react";
+import type { ReactNode } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ReferenceLine, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChartBlock } from "../insight/ChartBlock";
 import { LuminousChartTooltip } from "../insight/LuminousChartTooltip";
-import type { ChartDefinition, ChartInteractionConfig, CompanyInteractionConfig, DetailPanelDefinition, ChartFilterDefinition, RiskMatrixPoint, TooltipFormat, TransitionConfig } from "../../company-configs/types";
+import type { ChartDefinition, CompanyInteractionConfig, DetailPanelDefinition, ChartFilterDefinition, RiskMatrixPoint, TooltipFormat, TransitionConfig } from "../../company-configs/types";
+
+type ChartDatum = Record<string, string | number>;
+type FilterValue = string | string[] | [number, number] | boolean;
 
 /* ─── Transition helpers ─── */
 
@@ -14,9 +18,20 @@ function getMotionProps(transition?: TransitionConfig, companyTransition?: Trans
   switch (t.enter) {
     case "slide": return { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -8 }, transition: { duration } };
     case "scale": return { initial: { opacity: 0, scale: 0.95 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.95 }, transition: { duration } };
+    case "kinetic": return { initial: { opacity: 0, x: -12, filter: "blur(4px)" }, animate: { opacity: 1, x: 0, filter: "blur(0px)" }, exit: { opacity: 0, x: 12 }, transition: { duration } };
+    case "morph": return { initial: { opacity: 0, scaleX: 0.96, scaleY: 1.02 }, animate: { opacity: 1, scaleX: 1, scaleY: 1 }, exit: { opacity: 0, scale: 0.98 }, transition: { duration } };
     case "fade":
     default: return { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration } };
   }
+}
+
+function getVisualFrameClass(chart: ChartDefinition) {
+  const visual = chart.interaction?.visualization;
+  const classes = ["relative"];
+  if (visual?.depthLayers) classes.push("before:pointer-events-none before:absolute before:-inset-1 before:rounded-[1.6rem] before:border before:border-cyan-200/10 before:bg-cyan-200/[0.015] before:blur-[1px]");
+  if (visual?.focusEffect?.type === "radiant-gradient") classes.push("after:pointer-events-none after:absolute after:-inset-2 after:rounded-[1.75rem] after:bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,.14),transparent_55%)]");
+  if (visual?.gridEffect?.type === "procedural-resonance" || visual?.gridEffect?.type === "concentric-ripple") classes.push("shadow-[0_0_38px_rgba(34,211,238,.08)]");
+  return classes.join(" ");
 }
 
 /* ─── Linked chart context ─── */
@@ -27,20 +42,70 @@ const LinkedChartContext = createContext<{
   setHighlight: (chartId: string, key: string | null) => void;
 }>({ state: { highlightedKey: null, activeChartId: null }, setHighlight: () => {} });
 
+/* ─── Filtering and activation helpers ─── */
+
+function toDatum(input: unknown): ChartDatum | null {
+  if (!input || typeof input !== "object") return null;
+  const record = input as Record<string, unknown>;
+  const payload = record.payload;
+  if (payload && typeof payload === "object") return toDatum(payload);
+  const activePayload = record.activePayload;
+  if (Array.isArray(activePayload) && activePayload.length > 0) {
+    const firstPayload = (activePayload[0] as Record<string, unknown> | undefined)?.payload;
+    if (firstPayload && typeof firstPayload === "object") return toDatum(firstPayload);
+  }
+
+  const datum: ChartDatum = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (typeof value === "string" || typeof value === "number") datum[key] = value;
+  }
+  return Object.keys(datum).length ? datum : null;
+}
+
+function rowMatchesFilter(row: ChartDatum, filter: ChartFilterDefinition, value: FilterValue | undefined) {
+  if (value === undefined || value === "" || (Array.isArray(value) && value.length === 0)) return true;
+  const raw = row[filter.dataKey];
+
+  if (filter.type === "toggle") {
+    if (!value) return true;
+    return raw === true || raw === "true" || raw === 1 || raw === "1";
+  }
+
+  if (filter.type === "range" && Array.isArray(value) && value.length === 2) {
+    const numeric = typeof raw === "number" ? raw : Number(raw);
+    if (!Number.isFinite(numeric)) return false;
+    const [min, max] = value as [number, number];
+    return numeric >= min && numeric <= max;
+  }
+
+  if (filter.type === "multi-select" && Array.isArray(value)) {
+    return value.map(String).includes(String(raw));
+  }
+
+  return String(raw) === String(value);
+}
+
+function applyFilters(chart: ChartDefinition, values: Record<string, FilterValue>): ChartDefinition {
+  const filters = chart.interaction?.filters;
+  if (!filters?.length) return chart;
+  const filteredData = chart.data.filter((row) => filters.every((filter) => rowMatchesFilter(row, filter, values[filter.id])));
+  return { ...chart, data: filteredData };
+}
+
 /* ─── Filter UI ─── */
 
 function ChartFilterBar({ filters, values, onChange }: {
   filters: ChartFilterDefinition[];
-  values: Record<string, string | string[] | [number, number] | boolean>;
-  onChange: (filterId: string, value: string | string[] | [number, number] | boolean) => void;
+  values: Record<string, FilterValue>;
+  onChange: (filterId: string, value: FilterValue) => void;
 }) {
   return (
     <div className="mb-3 flex flex-wrap gap-2">
       {filters.map((f) => {
         if (f.type === "toggle") {
-          const checked = values[f.id] as boolean ?? false;
+          const checked = Boolean(values[f.id]);
           return (
-            <button key={f.id} onClick={() => onChange(f.id, !checked)}
+            <button key={f.id} type="button" onClick={() => onChange(f.id, !checked)}
               className={`rounded-full px-3 py-1 text-[10px] font-medium backdrop-blur-md border transition-all ${
                 checked ? "border-cyan-400/60 bg-cyan-500/20 text-cyan-100" : "border-white/10 bg-white/5 text-white/50"
               }`}>
@@ -48,17 +113,38 @@ function ChartFilterBar({ filters, values, onChange }: {
             </button>
           );
         }
-        if (f.type === "select" || f.type === "multi-select") {
+
+        if (f.type === "range") {
+          const current = Array.isArray(values[f.id]) ? values[f.id] as [number, number] : [0, 100];
           return (
-            <select key={f.id} value={(values[f.id] as string) ?? ""}
-              onChange={(e) => onChange(f.id, e.target.value)}
-              className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-[10px] text-cyan-100 backdrop-blur-md focus:border-cyan-400/50 focus:outline-none">
-              <option value="">{f.label}</option>
+            <div key={f.id} className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] text-cyan-100 backdrop-blur-md">
+              <span className="text-cyan-100/55">{f.label}</span>
+              <input aria-label={`${f.label} minimum`} type="number" value={current[0]} onChange={(event) => onChange(f.id, [Number(event.target.value), current[1]])} className="w-14 bg-transparent text-right text-cyan-50 outline-none" />
+              <span className="text-cyan-100/35">–</span>
+              <input aria-label={`${f.label} maximum`} type="number" value={current[1]} onChange={(event) => onChange(f.id, [current[0], Number(event.target.value)])} className="w-14 bg-transparent text-right text-cyan-50 outline-none" />
+            </div>
+          );
+        }
+
+        if (f.type === "multi-select") {
+          const selected = Array.isArray(values[f.id]) ? values[f.id].map(String) : [];
+          return (
+            <select key={f.id} multiple value={selected}
+              onChange={(event) => onChange(f.id, Array.from(event.target.selectedOptions).map((option) => option.value))}
+              className="rounded-lg bg-[#07111d] border border-white/10 px-2 py-1 text-[10px] text-cyan-100 backdrop-blur-md focus:border-cyan-400/50 focus:outline-none">
               {f.options?.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
             </select>
           );
         }
-        return null;
+
+        return (
+          <select key={f.id} value={(values[f.id] as string) ?? ""}
+            onChange={(event) => onChange(f.id, event.target.value)}
+            className="rounded-lg bg-[#07111d] border border-white/10 px-2 py-1 text-[10px] text-cyan-100 backdrop-blur-md focus:border-cyan-400/50 focus:outline-none">
+            <option value="">{f.label}</option>
+            {f.options?.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
+        );
       })}
     </div>
   );
@@ -68,12 +154,12 @@ function ChartFilterBar({ filters, values, onChange }: {
 
 function DetailPanel({ panel, data, onClose }: {
   panel: DetailPanelDefinition;
-  data: Record<string, string | number> | null;
+  data: ChartDatum | null;
   onClose: () => void;
 }) {
   if (!data) return null;
   const positionCls = panel.position === "modal"
-    ? "fixed inset-0 z-50 flex items-center justify-center"
+    ? "fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 backdrop-blur-sm"
     : panel.position === "right"
       ? "absolute right-0 top-0 h-full w-72 z-40"
       : "w-full mt-3";
@@ -86,14 +172,14 @@ function DetailPanel({ panel, data, onClose }: {
         <div className={`rounded-2xl border border-cyan-400/20 bg-[#0a1628]/90 backdrop-blur-xl p-4 shadow-[0_0_40px_rgba(34,211,238,.08)] ${panel.position === "modal" ? "w-96 max-h-[80vh] overflow-y-auto" : ""}`}>
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-xs font-semibold text-cyan-100 tracking-wide uppercase">{panel.title}</h4>
-            <button onClick={onClose} className="text-white/40 hover:text-white/80 text-xs">✕</button>
+            <button type="button" onClick={onClose} className="text-white/40 hover:text-white/80 text-xs">×</button>
           </div>
           {panel.narrative && <p className="text-[10px] text-white/50 mb-3">{panel.narrative}</p>}
           <div className="space-y-2">
             {panel.fields.map((field) => (
-              <div key={field.dataKey} className="flex justify-between text-[11px]">
+              <div key={field.dataKey} className="flex justify-between gap-4 text-[11px]">
                 <span className="text-white/60">{field.label}</span>
-                <span className="text-cyan-200 font-medium">{formatValue(data[field.dataKey], field.formatter)}</span>
+                <span className="text-cyan-200 font-medium text-right">{formatValue(data[field.dataKey], field.formatter)}</span>
               </div>
             ))}
           </div>
@@ -127,77 +213,28 @@ function formatTickByType(formatter: TooltipFormat | undefined) {
   }
 }
 
-/* ─── Interactive chart wrapper ─── */
-
-function InteractiveChartWrapper({ chart, children, companyInteraction }: {
-  chart: ChartDefinition;
-  children: React.ReactNode;
-  companyInteraction?: CompanyInteractionConfig;
-}) {
-  const interaction = chart.interaction;
-  const [filterValues, setFilterValues] = useState<Record<string, string | string[] | [number, number] | boolean>>(() => {
-    const init: Record<string, string | string[] | [number, number] | boolean> = {};
-    interaction?.filters?.forEach((f) => { if (f.defaultValue !== undefined) init[f.id] = f.defaultValue; });
-    return init;
-  });
-  const [detailData, setDetailData] = useState<Record<string, string | number> | null>(null);
-  const { setHighlight } = useContext(LinkedChartContext);
-  const motionProps = getMotionProps(interaction?.transition, companyInteraction?.defaultTransition);
-
-  const handleChartClick = useCallback((data: Record<string, string | number> | null) => {
-    if (!data) return;
-    if (interaction?.detailPanel && interaction.detailPanel.triggerOn === "click") {
-      setDetailData(data);
-    }
-    if (interaction?.linkedCharts) {
-      const key = data[interaction.linkedCharts.highlightKey];
-      setHighlight(chart.id, key != null ? String(key) : null);
-    }
-  }, [interaction, chart.id, setHighlight]);
-
-  const showFilters = (companyInteraction?.enableFilters !== false) && interaction?.filters?.length;
-
-  return (
-    <motion.div className="relative" {...motionProps}>
-      {showFilters && (
-        <ChartFilterBar
-          filters={interaction!.filters!}
-          values={filterValues}
-          onChange={(id, val) => setFilterValues((prev) => ({ ...prev, [id]: val }))}
-        />
-      )}
-      <div onClick={() => handleChartClick(null)}>
-        {children}
-      </div>
-      {interaction?.detailPanel && (
-        <DetailPanel panel={interaction.detailPanel} data={detailData} onClose={() => setDetailData(null)} />
-      )}
-    </motion.div>
-  );
-}
-
 /* ─── Chart renderers ─── */
 
-function RenderBarChart({ chart }: { chart: ChartDefinition }) {
+function RenderBarChart({ chart, onActivate }: { chart: ChartDefinition; onActivate: (datum: ChartDatum | null) => void }) {
   return (
     <ChartBlock title={chart.title} subtitle={chart.subtitle}>
-      <BarChart data={chart.data}>
+      <BarChart data={chart.data} onClick={(event: unknown) => onActivate(toDatum(event))}>
         <CartesianGrid stroke="rgba(255,255,255,.08)" />
         <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
         <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatTickByType(chart.formatter)} />
         {chart.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
         <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? "data focus"} />} />
         {chart.referenceLines?.map((ref, i) => <ReferenceLine key={i} y={ref.y} stroke={ref.stroke} strokeDasharray={ref.strokeDasharray} label={ref.label} />)}
-        {chart.series.map((s) => <Bar key={s.dataKey} dataKey={s.dataKey} name={s.name ?? s.dataKey} fill={s.color ?? "#22d3ee"} radius={s.radius ?? [10, 10, 0, 0]} stackId={s.stackId} />)}
+        {chart.series.map((s) => <Bar key={s.dataKey} dataKey={s.dataKey} name={s.name ?? s.dataKey} fill={s.color ?? "#22d3ee"} radius={s.radius ?? [10, 10, 0, 0]} stackId={s.stackId} onClick={(datum: unknown) => onActivate(toDatum(datum))} />)}
       </BarChart>
     </ChartBlock>
   );
 }
 
-function RenderAreaChart({ chart }: { chart: ChartDefinition }) {
+function RenderAreaChart({ chart, onActivate }: { chart: ChartDefinition; onActivate: (datum: ChartDatum | null) => void }) {
   return (
     <ChartBlock title={chart.title} subtitle={chart.subtitle}>
-      <AreaChart data={chart.data}>
+      <AreaChart data={chart.data} onClick={(event: unknown) => onActivate(toDatum(event))}>
         <CartesianGrid stroke="rgba(255,255,255,.08)" />
         <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
         <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatTickByType(chart.formatter)} />
@@ -209,10 +246,10 @@ function RenderAreaChart({ chart }: { chart: ChartDefinition }) {
   );
 }
 
-function RenderLineChart({ chart }: { chart: ChartDefinition }) {
+function RenderLineChart({ chart, onActivate }: { chart: ChartDefinition; onActivate: (datum: ChartDatum | null) => void }) {
   return (
     <ChartBlock title={chart.title} subtitle={chart.subtitle}>
-      <LineChart data={chart.data}>
+      <LineChart data={chart.data} onClick={(event: unknown) => onActivate(toDatum(event))}>
         <CartesianGrid stroke="rgba(255,255,255,.08)" />
         <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
         <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatTickByType(chart.formatter)} />
@@ -225,16 +262,16 @@ function RenderLineChart({ chart }: { chart: ChartDefinition }) {
   );
 }
 
-function RenderScatterChart({ chart }: { chart: ChartDefinition }) {
+function RenderScatterChart({ chart, onActivate }: { chart: ChartDefinition; onActivate: (datum: ChartDatum | null) => void }) {
   return (
     <ChartBlock title={chart.title} subtitle={chart.subtitle}>
-      <ScatterChart>
+      <ScatterChart onClick={(event: unknown) => onActivate(toDatum(event))}>
         <CartesianGrid stroke="rgba(255,255,255,.08)" />
         <XAxis dataKey={chart.series[0]?.dataKey ?? "x"} name={chart.series[0]?.name ?? "X"} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} tickFormatter={formatTickByType(chart.formatter)} />
         <YAxis dataKey={chart.series[1]?.dataKey ?? "y"} name={chart.series[1]?.name ?? "Y"} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={chart.domain} />
         {chart.series.length > 2 && <ZAxis dataKey={chart.series[2]?.dataKey ?? "z"} range={[80, 520]} />}
         <Tooltip cursor={{ stroke: "rgba(34,211,238,.35)", strokeDasharray: "4 4" }} content={<LuminousChartTooltip headline={chart.headline ?? "data focus"} />} />
-        <Scatter name="Data" data={chart.data} fill={chart.series[0]?.color ?? "#22d3ee"} />
+        <Scatter name="Data" data={chart.data} fill={chart.series[0]?.color ?? "#22d3ee"} onClick={(datum: unknown) => onActivate(toDatum(datum))} />
       </ScatterChart>
     </ChartBlock>
   );
@@ -242,16 +279,72 @@ function RenderScatterChart({ chart }: { chart: ChartDefinition }) {
 
 /* ─── Chart Router ─── */
 
-function ChartRouter({ chart }: { chart: ChartDefinition }) {
+function ChartRouter({ chart, onActivate }: { chart: ChartDefinition; onActivate: (datum: ChartDatum | null) => void }) {
   switch (chart.type) {
-    case "area": return <RenderAreaChart chart={chart} />;
-    case "line": return <RenderLineChart chart={chart} />;
-    case "scatter": return <RenderScatterChart chart={chart} />;
+    case "area": return <RenderAreaChart chart={chart} onActivate={onActivate} />;
+    case "line": return <RenderLineChart chart={chart} onActivate={onActivate} />;
+    case "scatter": return <RenderScatterChart chart={chart} onActivate={onActivate} />;
     case "bar":
     case "stacked":
     case "grouped":
-    default: return <RenderBarChart chart={chart} />;
+    default: return <RenderBarChart chart={chart} onActivate={onActivate} />;
   }
+}
+
+/* ─── Interactive chart wrapper ─── */
+
+function InteractiveChartWrapper({ chart, companyInteraction }: {
+  chart: ChartDefinition;
+  companyInteraction?: CompanyInteractionConfig;
+}) {
+  const interaction = chart.interaction;
+  const [filterValues, setFilterValues] = useState<Record<string, FilterValue>>(() => {
+    const init: Record<string, FilterValue> = {};
+    interaction?.filters?.forEach((f) => { if (f.defaultValue !== undefined) init[f.id] = f.defaultValue; });
+    return init;
+  });
+  const [detailData, setDetailData] = useState<ChartDatum | null>(null);
+  const { state, setHighlight } = useContext(LinkedChartContext);
+  const motionProps = getMotionProps(interaction?.transition, companyInteraction?.defaultTransition);
+
+  const filteredChart = useMemo(() => applyFilters(chart, filterValues), [chart, filterValues]);
+
+  const handleChartActivate = useCallback((data: ChartDatum | null) => {
+    if (!data) return;
+    if (interaction?.detailPanel && interaction.detailPanel.triggerOn !== "hover") {
+      setDetailData(data);
+    }
+    if (interaction?.linkedCharts && companyInteraction?.enableLinkedHighlighting !== false) {
+      const key = data[interaction.linkedCharts.highlightKey];
+      setHighlight(chart.id, key != null ? String(key) : null);
+    }
+  }, [interaction, chart.id, setHighlight, companyInteraction?.enableLinkedHighlighting]);
+
+  const showFilters = Boolean((companyInteraction?.enableFilters !== false) && interaction?.filters?.length);
+  const isLinkedTarget = Boolean(state.highlightedKey && state.activeChartId !== chart.id && companyInteraction?.enableLinkedHighlighting !== false);
+  const activeFrameClass = isLinkedTarget ? "ring-1 ring-cyan-300/35 shadow-[0_0_34px_rgba(34,211,238,.12)]" : "";
+
+  return (
+    <motion.div className={`${getVisualFrameClass(chart)} ${activeFrameClass}`} {...motionProps}>
+      {showFilters && (
+        <ChartFilterBar
+          filters={interaction!.filters!}
+          values={filterValues}
+          onChange={(id, val) => setFilterValues((prev) => ({ ...prev, [id]: val }))}
+        />
+      )}
+      {showFilters && filteredChart.data.length !== chart.data.length ? (
+        <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Filtered view: {filteredChart.data.length} of {chart.data.length} records</p>
+      ) : null}
+      {isLinkedTarget ? (
+        <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-cyan-100/50">Linked focus: {state.highlightedKey}</p>
+      ) : null}
+      <ChartRouter chart={filteredChart} onActivate={handleChartActivate} />
+      {interaction?.detailPanel && (
+        <DetailPanel panel={interaction.detailPanel} data={detailData} onClose={() => setDetailData(null)} />
+      )}
+    </motion.div>
+  );
 }
 
 /* ─── Main exported renderer ─── */
@@ -260,8 +353,6 @@ export function CompanyChartRenderer({ charts, companyInteraction }: {
   charts: ChartDefinition[];
   companyInteraction?: CompanyInteractionConfig;
 }) {
-  if (!charts.length) return null;
-
   const [linkedState, setLinkedState] = useState<LinkedChartState>({ highlightedKey: null, activeChartId: null });
   const setHighlight = useCallback((chartId: string, key: string | null) => {
     setLinkedState({ highlightedKey: key, activeChartId: chartId });
@@ -269,6 +360,8 @@ export function CompanyChartRenderer({ charts, companyInteraction }: {
   const contextValue = useMemo(() => ({ state: linkedState, setHighlight }), [linkedState, setHighlight]);
 
   const stagger = companyInteraction?.defaultTransition?.staggerChildren;
+
+  if (!charts.length) return null;
 
   return (
     <LinkedChartContext.Provider value={contextValue}>
@@ -278,9 +371,7 @@ export function CompanyChartRenderer({ charts, companyInteraction }: {
             initial={stagger ? { opacity: 0, y: 12 } : undefined}
             animate={stagger ? { opacity: 1, y: 0 } : undefined}
             transition={stagger ? { delay: idx * 0.06 } : undefined}>
-            <InteractiveChartWrapper chart={chart} companyInteraction={companyInteraction}>
-              <ChartRouter chart={chart} />
-            </InteractiveChartWrapper>
+            <InteractiveChartWrapper chart={chart} companyInteraction={companyInteraction} />
           </motion.div>
         ))}
       </div>
