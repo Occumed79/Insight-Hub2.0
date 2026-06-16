@@ -1,5 +1,6 @@
-import { Bar, BarChart, CartesianGrid, Legend, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Legend, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartBlock } from "./ChartBlock";
+import { LuminousChartTooltip } from "./LuminousChartTooltip";
 
 const contractData = [
   { name: "GPS MATOC", value: 10.3 },
@@ -41,6 +42,12 @@ function y(value: number) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }
 
+function getTooltipFormat(formatter?: "$K" | "$M" | "$B") {
+  if (formatter === "$K") return "currencyK" as const;
+  if (formatter === "$M" || formatter === "$B") return "currencyM" as const;
+  return "plain" as const;
+}
+
 function BarPanel({ title, subtitle, data, dataKey, formatter, domain }: { title: string; subtitle: string; data: any[]; dataKey: string; formatter?: "$K" | "$M" | "$B"; domain?: [number, number] }) {
   return (
     <ChartBlock title={title} subtitle={subtitle}>
@@ -53,6 +60,7 @@ function BarPanel({ title, subtitle, data, dataKey, formatter, domain }: { title
           domain={domain}
           tickFormatter={(value) => formatter ? `$${value}${formatter.slice(1)}` : y(value as number)}
         />
+        <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter={getTooltipFormat(formatter)} headline="Constellis metric" />} />
         <Bar dataKey={dataKey} fill="#22d3ee" radius={[10, 10, 0, 0]} />
       </BarChart>
     </ChartBlock>
@@ -69,6 +77,7 @@ export function ConstellisCharts() {
           <XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}M`} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter="currencyM" headline="injury cost stack" />} />
           <Bar dataKey="direct" name="Direct low" stackId="cost" fill="#22d3ee" />
           <Bar dataKey="additional" name="Additional high" stackId="cost" fill="#ef4444" radius={[10, 10, 0, 0]} />
         </BarChart>
@@ -79,6 +88,7 @@ export function ConstellisCharts() {
           <XAxis dataKey="name" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}K`} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter="currencyK" headline="exam revenue stack" />} />
           <Bar dataKey="low" name="Low" stackId="rev" fill="#22d3ee" />
           <Bar dataKey="additional" name="Additional" stackId="rev" fill="#ef4444" radius={[10, 10, 0, 0]} />
         </BarChart>
