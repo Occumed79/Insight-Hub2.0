@@ -1,5 +1,6 @@
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartBlock } from "./ChartBlock";
+import { LuminousChartTooltip } from "./LuminousChartTooltip";
 
 const classifiedAwards = [
   { year: "2022", awards: 0.36 },
@@ -49,6 +50,7 @@ export function PeratonCharts() {
           <CartesianGrid stroke="rgba(255,255,255,.08)" />
           <XAxis dataKey="year" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}B`} domain={[0, 1.3]} />
+          <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter="currencyM" headline="classified awards" />} />
           <Bar dataKey="awards" name="Classified Awards" fill="#22d3ee" radius={[10, 10, 0, 0]} />
         </BarChart>
       </ChartBlock>
@@ -59,6 +61,7 @@ export function PeratonCharts() {
           <XAxis dataKey="metric" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 9 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={[0, 5]} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip headline="IPO readiness" />} />
           <Bar dataKey="peer" name="Public Peer Avg" fill="#22d3ee" radius={[8, 8, 0, 0]} />
           <Bar dataKey="peraton" name="Peraton Current" fill="#ef4444" radius={[8, 8, 0, 0]} />
         </BarChart>
@@ -69,6 +72,7 @@ export function PeratonCharts() {
           <CartesianGrid stroke="rgba(255,255,255,.08)" />
           <XAxis dataKey="exam" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 9 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}K`} />
+          <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter="currencyK" headline="revenue potential" />} />
           <Bar dataKey="revenue" name="Annual Revenue" fill="#22d3ee" radius={[10, 10, 0, 0]} />
         </BarChart>
       </ChartBlock>
@@ -78,6 +82,7 @@ export function PeratonCharts() {
           <CartesianGrid stroke="rgba(255,255,255,.08)" />
           <XAxis dataKey="year" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={(value) => `$${value}B`} domain={[0, 9]} />
+          <Tooltip content={<LuminousChartTooltip formatter="currencyM" headline="revenue build" />} />
           <Area type="monotone" dataKey="revenue" stroke="#38bdf8" fill="rgba(56,189,248,.25)" strokeWidth={3} />
         </AreaChart>
       </ChartBlock>
@@ -87,6 +92,7 @@ export function PeratonCharts() {
           <CartesianGrid stroke="rgba(255,255,255,.08)" />
           <XAxis dataKey="category" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 9 }} />
           <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={[0, 2.5]} />
+          <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip headline="worker risk" />} />
           <Bar dataKey="trir" name="BLS TRIR Benchmark" fill="#ef4444" radius={[10, 10, 0, 0]} />
         </BarChart>
       </ChartBlock>
