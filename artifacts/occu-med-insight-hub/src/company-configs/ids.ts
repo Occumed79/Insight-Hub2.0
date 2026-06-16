@@ -1,0 +1,63 @@
+import type { CompanyConfig } from "./types";
+
+export const idsConfig: CompanyConfig = {
+  companyId: "ids",
+  displayName: "IDS International",
+  shortName: "IDS",
+  sector: "Defense training, security, expeditionary support, and domestic security operations",
+  headquarters: "Arlington, Virginia",
+  employees: 1300,
+  employeesAsOf: "Worker population estimate from uploaded IDS visual model",
+  summary: "Defense-support operator with concentrated contract-value exposure across tactical training, security guard, expeditionary support, and domestic security worker populations.",
+  tags: ["Defense support", "Stop-work exposure", "Worker-risk model", "Contract value at risk"],
+  aliases: ["IDS International"],
+  sourceFilters: {
+    sam: { legalNames: ["IDS International"] },
+    usaSpending: { recipientNames: ["IDS International"] },
+    newsSources: { aliases: ["IDS International", "IDS"] },
+  },
+  executiveSignals: [
+    { label: "Contract value at risk", value: "$45.9M", note: "One preventable event may trigger stop-work exposure across four contract/location groups." },
+    { label: "Worker population", value: "~1,300", note: "Modeled across guards, trainers, expeditionary support, and cyber/office." },
+    { label: "Annual injury cost", value: "$1.1M-$1.5M", note: "Estimated annual injury cost exposure from uploaded visual." },
+    { label: "Highest TRIR", value: "2.5", note: "Tactical trainers carry the highest benchmarked risk." },
+  ],
+  curveTitle: "IDS financial exposure curve",
+  curveSubtitle: "Contract value, worker population, injury cost, and safety benchmark values normalized for executive scanning.",
+  chartDefinitions: [
+    {
+      id: "ids-contract-risk",
+      title: "IDS contract value at risk",
+      subtitle: "Source: uploaded IDS visual; value at risk shown in $M.",
+      type: "bar",
+      xKey: "name",
+      data: [{ name: "Iraq / Camp Taji", value: 27.9 }, { name: "Djibouti", value: 8 }, { name: "Jordan", value: 6 }, { name: "DECO", value: 4 }],
+      series: [{ dataKey: "value", color: "#f97316", radius: [10, 10, 0, 0] }],
+      formatter: "currencyM",
+      headline: "contract risk",
+    },
+    {
+      id: "ids-injury-cost",
+      title: "IDS estimated annual injury cost",
+      subtitle: "Source: uploaded IDS visual; values shown in $K.",
+      type: "stacked",
+      xKey: "name",
+      data: [{ name: "DECO Guards", direct: 320, additional: 240 }, { name: "Tactical Trainers", direct: 320, additional: 320 }, { name: "Exped. Support", direct: 160, additional: 120 }, { name: "Cyber / Office", direct: 30, additional: 30 }],
+      series: [
+        { dataKey: "direct", name: "Direct low", color: "#22d3ee", stackId: "stack" },
+        { dataKey: "additional", name: "High additional", color: "#ef4444", stackId: "stack", radius: [10, 10, 0, 0] },
+      ],
+      headline: "injury cost",
+    },
+    {
+      id: "ids-trir",
+      title: "IDS worker risk: TRIR benchmark",
+      subtitle: "Source: uploaded IDS visual; TRIR benchmark.",
+      type: "bar",
+      xKey: "name",
+      data: [{ name: "DECO Guards", trir: 1.1 }, { name: "Tactical Trainers", trir: 2.5 }, { name: "Exped. Support", trir: 2.0 }, { name: "Cyber / Office", trir: 0.5 }],
+      series: [{ dataKey: "trir", color: "#dc2626", radius: [10, 10, 0, 0] }],
+      headline: "TRIR benchmark",
+    },
+  ],
+};
