@@ -99,7 +99,11 @@ export const visualReports: ReportRecord[] = [
   { id: "wfrd-safety-global-signal", companyId: "weatherford", title: "Weatherford global safety and international workforce signal", createdAt: "2026-06-03", summary: "Weatherford combines record-low TRIR, high near-miss reporting volume, a heavily international workforce, and multi-billion-dollar revenue exposure across MENA/Asia, Latin America, North America, and Europe/SSA/Russia.", signals: ["WFRD 2024 TRIR shown at 0.12", "Global workforce shown at approximately 19,000", "81% of workforce outside North America", "2024 near misses shown at approximately 6,380", "2024 revenue peak shown at approximately $5.5B"] },
 ];
 
-export function mergeVisualDossiers<T extends { id: string }>(base: T[], additions: T[]) {
-  const existing = new Set(base.map((item) => item.id));
-  return [...base, ...additions.filter((item) => !existing.has(item.id))];
+type HasKey = { id: string } | { companyId: string };
+function getKey(item: HasKey): string {
+  return "id" in item ? item.id : item.companyId;
+}
+export function mergeVisualDossiers<T extends HasKey>(base: T[], additions: T[]): T[] {
+  const existing = new Set(base.map(getKey));
+  return [...base, ...additions.filter((item) => !existing.has(getKey(item)))];
 }
