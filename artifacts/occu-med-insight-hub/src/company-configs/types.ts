@@ -55,10 +55,56 @@ export type DetailPanelDefinition = {
 };
 
 export type TransitionConfig = {
-  enter?: "fade" | "slide" | "scale" | "none";
+  enter?: "fade" | "slide" | "scale" | "kinetic" | "morph" | "none";
   duration?: number;
   staggerChildren?: boolean;
   animateData?: boolean;
+};
+
+export type SemanticZoomLevel = {
+  threshold: number;
+  visibleSeries?: string[];
+  labelDetail?: "minimal" | "standard" | "full";
+  aggregation?: "none" | "average" | "sum";
+};
+
+export type DepthLayerConfig = {
+  layer: "foreground" | "midground" | "background";
+  parallaxFactor?: number;
+  blur?: number;
+  opacity?: number;
+};
+
+export type FocusEffectConfig = {
+  type: "radiant-gradient" | "chromatic-highlight" | "displacement-lens" | "color-shift" | "negative-inversion" | "subtractive-mask";
+  intensity?: number;
+  radius?: number;
+  color?: string;
+};
+
+export type GridEffectConfig = {
+  type: "procedural-resonance" | "lattice-distortion" | "concentric-ripple" | "isometric-slice" | "algorithmic-edge-trace";
+  amplitude?: number;
+  frequency?: number;
+  animate?: boolean;
+};
+
+export type PathEffectConfig = {
+  type: "synchronous-illumination" | "vector-node-expansion" | "anchor-snapping";
+  color?: string;
+  trailLength?: number;
+  speed?: number;
+};
+
+export type AdvancedVisualizationConfig = {
+  semanticZoom?: SemanticZoomLevel[];
+  depthLayers?: DepthLayerConfig;
+  focusEffect?: FocusEffectConfig;
+  gridEffect?: GridEffectConfig;
+  pathEffect?: PathEffectConfig;
+  enableZoomPan?: boolean;
+  enableBrushing?: boolean;
+  contextualMorph?: { triggerKey: string; morphType: "reshape" | "recolor" | "redistribute" };
 };
 
 export type ChartInteractionConfig = {
@@ -68,6 +114,7 @@ export type ChartInteractionConfig = {
   linkedCharts?: LinkedChartDefinition;
   detailPanel?: DetailPanelDefinition;
   transition?: TransitionConfig;
+  visualization?: AdvancedVisualizationConfig;
 };
 
 export type ChartDefinition = {
@@ -145,12 +192,28 @@ export type DossierSectionDefinition = {
   metricIds: string[];
 };
 
+export type InteractionPreset =
+  | "executive-summary"
+  | "deep-analysis"
+  | "real-time-monitor"
+  | "comparative-benchmark"
+  | "holographic-detail"
+  | "kinetic-flow"
+  | "minimal-static";
+
 export type CompanyInteractionConfig = {
+  preset?: InteractionPreset;
   defaultTransition?: TransitionConfig;
   enableLinkedHighlighting?: boolean;
   enableDrillDown?: boolean;
   enableFilters?: boolean;
+  enableZoomPan?: boolean;
+  enableBrushing?: boolean;
+  enableSemanticZoom?: boolean;
   detailPanelPosition?: "right" | "bottom" | "modal";
+  defaultFocusEffect?: FocusEffectConfig;
+  defaultGridEffect?: GridEffectConfig;
+  defaultDepthLayers?: boolean;
 };
 
 export type CompanyConfig = {
