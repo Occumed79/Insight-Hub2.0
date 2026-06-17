@@ -26,3 +26,7 @@ Thumbs.db
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Test artifacts
+artifacts/occu-med-insight-hub/test-results/
+artifacts/occu-med-insight-hub/playwright-report/
