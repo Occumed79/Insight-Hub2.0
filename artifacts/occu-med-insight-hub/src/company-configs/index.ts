@@ -14,6 +14,7 @@ import { constellisConfig } from "./constellis";
 import { parsonsConfig } from "./parsons";
 import { peckhamConfig } from "./peckham";
 import { dbaCarrierNetworkConfig } from "./dba-carrier-network";
+import { qinetiqConfig } from "./qinetiq";
 import {
   caciConfig,
   fluorConfig,
@@ -27,7 +28,6 @@ import {
 import {
   jacobsConfig,
   baeConfig,
-  qinetiqConfig,
   asrcFederalConfig,
   alutiiqConfig,
   internationalSosConfig,
@@ -58,6 +58,7 @@ const allConfigs: CompanyConfig[] = [
   parsonsConfig,
   peckhamConfig,
   dbaCarrierNetworkConfig,
+  qinetiqConfig,
   caciConfig,
   fluorConfig,
   gditConfig,
@@ -68,7 +69,6 @@ const allConfigs: CompanyConfig[] = [
   idsInternationalConfig,
   jacobsConfig,
   baeConfig,
-  qinetiqConfig,
   asrcFederalConfig,
   alutiiqConfig,
   internationalSosConfig,
