@@ -1,5 +1,46 @@
 export type TooltipFormat = "currencyM" | "currencyK" | "percent" | "hoursM" | "plain";
 
+export type EntityType =
+  | "company"
+  | "parent-company"
+  | "subsidiary"
+  | "joint-venture"
+  | "government-agency"
+  | "military-installation"
+  | "ngo"
+  | "contract-vehicle"
+  | "program"
+  | "facility"
+  | "benchmark-entity"
+  | "source-only"
+  | "ambiguous";
+
+export type EntityStatus =
+  | "tracked"
+  | "target"
+  | "related"
+  | "benchmark"
+  | "source-only"
+  | "ambiguous"
+  | "inactive";
+
+export type Entity = {
+  id: string;
+  name: string;
+  shortName: string;
+  entityType: EntityType;
+  entityStatus?: EntityStatus;
+  aliases?: string[];
+  parentEntityIds?: string[];
+  childEntityIds?: string[];
+  sector?: string;
+  headquarters?: string;
+  employees?: number;
+  employeesAsOf?: string;
+  summary: string;
+  tags: string[];
+};
+
 export type ChartSeriesDefinition = {
   dataKey: string;
   name?: string;
@@ -238,3 +279,6 @@ export type CompanyConfig = {
   curveSubtitle?: string;
   interactionConfig?: CompanyInteractionConfig;
 };
+
+// Backwards compatibility aliases for entity model migration
+export type EntityConfig = CompanyConfig;

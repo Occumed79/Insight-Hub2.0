@@ -98,7 +98,7 @@ export function getCompanyConfigOrDefault(companyId: string): CompanyConfig {
     headquarters: "Unknown",
     employees: 0,
     employeesAsOf: "Unknown",
-    summary: "Company profile pending.",
+    summary: "Entity profile pending.",
     tags: [],
     executiveSignals: [
       { label: "Status", value: "Pending", note: "Detailed intelligence report not yet uploaded." },
