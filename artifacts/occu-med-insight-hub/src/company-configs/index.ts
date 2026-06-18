@@ -13,6 +13,7 @@ import { iapConfig } from "./iap";
 import { constellisConfig } from "./constellis";
 import { parsonsConfig } from "./parsons";
 import { peckhamConfig } from "./peckham";
+import { dbaCarrierNetworkConfig } from "./dba-carrier-network";
 import {
   caciConfig,
   fluorConfig,
@@ -56,6 +57,7 @@ const allConfigs: CompanyConfig[] = [
   constellisConfig,
   parsonsConfig,
   peckhamConfig,
+  dbaCarrierNetworkConfig,
   caciConfig,
   fluorConfig,
   gditConfig,
