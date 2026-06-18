@@ -19,12 +19,14 @@ import { sercoConfig } from "./serco";
 import { magAerospaceConfig } from "./mag-aerospace";
 import { maximusFederalConfig } from "./maximus-federal";
 import { northropGrummanConfig } from "./northrop-grumman";
+import { masterPortfolioIntelligenceConfig } from "./master-portfolio-intelligence";
 import { caciConfig, fluorConfig, gditConfig, clovehitchConfig, freeportConfig, versarConfig, dynamicAviationConfig, idsInternationalConfig } from "./dossier-companies";
 import { jacobsConfig, baeConfig, asrcFederalConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, sosiConfig, sierraConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig, celConfig } from "./stub-companies";
 
 import type { CompanyConfig } from "./types";
 
 const allConfigs: CompanyConfig[] = [
+  masterPortfolioIntelligenceConfig,
   v2xConfig,
   idsConfig,
   kbrConfig,
