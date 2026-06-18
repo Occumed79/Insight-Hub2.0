@@ -16,6 +16,7 @@ import { peckhamConfig } from "./peckham";
 import { dbaCarrierNetworkConfig } from "./dba-carrier-network";
 import { qinetiqConfig } from "./qinetiq";
 import { sercoConfig } from "./serco";
+import { magAerospaceConfig } from "./mag-aerospace";
 import { caciConfig, fluorConfig, gditConfig, clovehitchConfig, freeportConfig, versarConfig, dynamicAviationConfig, idsInternationalConfig } from "./dossier-companies";
 import { jacobsConfig, baeConfig, asrcFederalConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, sosiConfig, sierraConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig, celConfig } from "./stub-companies";
 
@@ -38,6 +39,7 @@ const allConfigs: CompanyConfig[] = [
   dbaCarrierNetworkConfig,
   qinetiqConfig,
   sercoConfig,
+  magAerospaceConfig,
   caciConfig,
   fluorConfig,
   gditConfig,
