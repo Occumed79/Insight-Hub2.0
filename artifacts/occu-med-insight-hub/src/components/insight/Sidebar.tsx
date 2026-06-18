@@ -10,7 +10,7 @@ const nav = [
   { href: "/geographic-data", label: "Geographic Data", icon: Globe2 },
 ];
 
-const aux = ["Client Intelligence", "Prospect Intelligence", "Federal Agencies"];
+const aux = ["Entity Intelligence", "Entity Discovery", "Federal Agencies"];
 
 export function Sidebar() {
   const [location] = useLocation();
