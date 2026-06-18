@@ -12,6 +12,7 @@ import { peratonConfig } from "./peraton";
 import { iapConfig } from "./iap";
 import { constellisConfig } from "./constellis";
 import { parsonsConfig } from "./parsons";
+import { peckhamConfig } from "./peckham";
 import {
   caciConfig,
   fluorConfig,
@@ -54,6 +55,7 @@ const allConfigs: CompanyConfig[] = [
   iapConfig,
   constellisConfig,
   parsonsConfig,
+  peckhamConfig,
   caciConfig,
   fluorConfig,
   gditConfig,
