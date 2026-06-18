@@ -15,31 +15,9 @@ import { parsonsConfig } from "./parsons";
 import { peckhamConfig } from "./peckham";
 import { dbaCarrierNetworkConfig } from "./dba-carrier-network";
 import { qinetiqConfig } from "./qinetiq";
-import {
-  caciConfig,
-  fluorConfig,
-  gditConfig,
-  clovehitchConfig,
-  freeportConfig,
-  versarConfig,
-  dynamicAviationConfig,
-  idsInternationalConfig,
-} from "./dossier-companies";
-import {
-  jacobsConfig,
-  baeConfig,
-  asrcFederalConfig,
-  alutiiqConfig,
-  internationalSosConfig,
-  hiiMissionTechConfig,
-  sosiConfig,
-  sierraConfig,
-  datapathConfig,
-  omniplexConfig,
-  ssiConfig,
-  platformAerospaceConfig,
-  celConfig,
-} from "./stub-companies";
+import { sercoConfig } from "./serco";
+import { caciConfig, fluorConfig, gditConfig, clovehitchConfig, freeportConfig, versarConfig, dynamicAviationConfig, idsInternationalConfig } from "./dossier-companies";
+import { jacobsConfig, baeConfig, asrcFederalConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, sosiConfig, sierraConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig, celConfig } from "./stub-companies";
 
 import type { CompanyConfig } from "./types";
 
@@ -59,6 +37,7 @@ const allConfigs: CompanyConfig[] = [
   peckhamConfig,
   dbaCarrierNetworkConfig,
   qinetiqConfig,
+  sercoConfig,
   caciConfig,
   fluorConfig,
   gditConfig,
