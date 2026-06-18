@@ -18,6 +18,7 @@ import { qinetiqConfig } from "./qinetiq";
 import { sercoConfig } from "./serco";
 import { magAerospaceConfig } from "./mag-aerospace";
 import { maximusFederalConfig } from "./maximus-federal";
+import { northropGrummanConfig } from "./northrop-grumman";
 import { caciConfig, fluorConfig, gditConfig, clovehitchConfig, freeportConfig, versarConfig, dynamicAviationConfig, idsInternationalConfig } from "./dossier-companies";
 import { jacobsConfig, baeConfig, asrcFederalConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, sosiConfig, sierraConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig, celConfig } from "./stub-companies";
 
@@ -42,6 +43,7 @@ const allConfigs: CompanyConfig[] = [
   sercoConfig,
   magAerospaceConfig,
   maximusFederalConfig,
+  northropGrummanConfig,
   caciConfig,
   fluorConfig,
   gditConfig,
