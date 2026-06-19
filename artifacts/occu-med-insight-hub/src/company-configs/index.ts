@@ -37,6 +37,10 @@ import { asrcFederalConfig } from "./asrc-federal";
 import { referralDemandIntelligenceConfig } from "./referral-demand-intelligence";
 import { multiClientLocationIntelligenceConfig } from "./multi-client-location-intelligence";
 import { missingFederalProspectsConfig } from "./missing-federal-prospects";
+import { prospectNetworkIntelligenceConfig } from "./prospect-network-intelligence";
+import { networkGapResearchIntelligenceConfig } from "./network-gap-research-intelligence";
+import { globalOperationalSitesIntelligenceConfig } from "./global-operational-sites-intelligence";
+import { coreClientStatsDashboardConfig } from "./core-client-stats-dashboard";
 import { v2xDbaCarrierAccessConfig } from "./v2x-dba-carrier-access";
 import { perfectCoverageProspectsConfig } from "./perfect-coverage-prospects";
 import { sierraNevadaConfig } from "./sierra-nevada";
@@ -59,12 +63,16 @@ import type { CompanyConfig } from "./types";
 
 const allConfigs: CompanyConfig[] = [
   masterPortfolioIntelligenceConfig,
+  coreClientStatsDashboardConfig,
   networkExpansionIntelligenceConfig,
   multiClientLocationIntelligenceConfig,
+  prospectNetworkIntelligenceConfig,
   referralDemandIntelligenceConfig,
   prospectPipelineIntelligenceConfig,
   perfectCoverageProspectsConfig,
   missingFederalProspectsConfig,
+  networkGapResearchIntelligenceConfig,
+  globalOperationalSitesIntelligenceConfig,
   dbaCarrierNetworkConfig,
   insuranceCarrierMappingConfig,
   v2xDbaCarrierAccessConfig,
