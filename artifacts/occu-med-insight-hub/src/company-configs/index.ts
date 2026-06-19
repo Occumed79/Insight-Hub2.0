@@ -30,6 +30,7 @@ import { leonardoConfig } from "./leonardo";
 import { fluorConfig } from "./fluor";
 import { dynamicAviationConfig } from "./dynamic-aviation";
 import { masterPortfolioIntelligenceConfig } from "./master-portfolio-intelligence";
+import { networkExpansionIntelligenceConfig } from "./network-expansion-intelligence";
 import { versarConfig } from "./versar";
 import { clovehitchConfig } from "./clovehitch";
 import { caciConfig, gditConfig } from "./dossier-companies";
@@ -39,6 +40,7 @@ import type { CompanyConfig } from "./types";
 
 const allConfigs: CompanyConfig[] = [
   masterPortfolioIntelligenceConfig,
+  networkExpansionIntelligenceConfig,
   v2xConfig,
   idsConfig,
   kbrConfig,
