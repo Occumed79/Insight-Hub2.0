@@ -21,7 +21,8 @@ import { maximusFederalConfig } from "./maximus-federal";
 import { northropGrummanConfig } from "./northrop-grumman";
 import { masterPortfolioIntelligenceConfig } from "./master-portfolio-intelligence";
 import { versarConfig } from "./versar";
-import { caciConfig, fluorConfig, gditConfig, clovehitchConfig, freeportConfig, dynamicAviationConfig } from "./dossier-companies";
+import { clovehitchConfig } from "./clovehitch";
+import { caciConfig, fluorConfig, gditConfig, freeportConfig, dynamicAviationConfig } from "./dossier-companies";
 import { jacobsConfig, baeConfig, asrcFederalConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, sosiConfig, sierraConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig, celConfig } from "./stub-companies";
 
 import type { CompanyConfig } from "./types";
