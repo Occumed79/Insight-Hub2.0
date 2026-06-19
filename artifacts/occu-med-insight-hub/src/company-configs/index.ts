@@ -43,6 +43,7 @@ import { globalOperationalSitesIntelligenceConfig } from "./global-operational-s
 import { coreClientStatsDashboardConfig } from "./core-client-stats-dashboard";
 import { uploadedChartPackIntelligenceConfig } from "./uploaded-chart-pack-intelligence";
 import { uploadedChartPackAddendumIntelligenceConfig } from "./uploaded-chart-pack-addendum-intelligence";
+import { uploadedChartPackThirdIntelligenceConfig } from "./uploaded-chart-pack-third-intelligence";
 import { v2xDbaCarrierAccessConfig } from "./v2x-dba-carrier-access";
 import { perfectCoverageProspectsConfig } from "./perfect-coverage-prospects";
 import { sierraNevadaConfig } from "./sierra-nevada";
@@ -68,6 +69,7 @@ const allConfigs: CompanyConfig[] = [
   coreClientStatsDashboardConfig,
   uploadedChartPackIntelligenceConfig,
   uploadedChartPackAddendumIntelligenceConfig,
+  uploadedChartPackThirdIntelligenceConfig,
   networkExpansionIntelligenceConfig,
   multiClientLocationIntelligenceConfig,
   prospectNetworkIntelligenceConfig,
