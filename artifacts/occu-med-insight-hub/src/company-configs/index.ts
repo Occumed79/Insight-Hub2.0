@@ -27,6 +27,9 @@ import { leidosConfig } from "./leidos";
 import { kongsbergConfig } from "./kongsberg";
 import { kapsuunConfig } from "./kapsuun";
 import { missionEssentialConfig } from "./mission-essential";
+import { sourceGroupConfig } from "./source-group";
+import { thalesConfig } from "./thales";
+import { tecmotivConfig } from "./tecmotiv";
 import { freeportConfig } from "./freeport";
 import { leonardoConfig } from "./leonardo";
 import { fluorConfig } from "./fluor";
@@ -74,6 +77,9 @@ const allConfigs: CompanyConfig[] = [
   kongsbergConfig,
   kapsuunConfig,
   missionEssentialConfig,
+  sourceGroupConfig,
+  thalesConfig,
+  tecmotivConfig,
   freeportConfig,
   leonardoConfig,
   fluorConfig,
