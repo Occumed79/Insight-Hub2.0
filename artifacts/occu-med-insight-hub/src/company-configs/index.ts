@@ -10,6 +10,7 @@ import { traceSystemsConfig } from "./trace-systems";
 import { weatherfordConfig } from "./weatherford";
 import { valiantConfig } from "./valiant";
 import { peratonConfig } from "./peraton";
+import { caciConfig } from "./caci";
 import { iapConfig } from "./iap";
 import { constellisConfig } from "./constellis";
 import { parsonsConfig } from "./parsons";
@@ -32,6 +33,9 @@ import { thalesConfig } from "./thales";
 import { tecmotivConfig } from "./tecmotiv";
 import { c3elConfig } from "./c3el";
 import { asrcFederalConfig } from "./asrc-federal";
+import { referralDemandIntelligenceConfig } from "./referral-demand-intelligence";
+import { v2xDbaCarrierAccessConfig } from "./v2x-dba-carrier-access";
+import { perfectCoverageProspectsConfig } from "./perfect-coverage-prospects";
 import { freeportConfig } from "./freeport";
 import { leonardoConfig } from "./leonardo";
 import { fluorConfig } from "./fluor";
@@ -42,7 +46,7 @@ import { prospectPipelineIntelligenceConfig } from "./prospect-pipeline-intellig
 import { worldVisionConfig } from "./world-vision";
 import { versarConfig } from "./versar";
 import { clovehitchConfig } from "./clovehitch";
-import { caciConfig, gditConfig } from "./dossier-companies";
+import { gditConfig } from "./dossier-companies";
 import { jacobsConfig, baeConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, sosiConfig, sierraConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig } from "./stub-companies";
 
 import type { CompanyConfig } from "./types";
@@ -50,7 +54,10 @@ import type { CompanyConfig } from "./types";
 const allConfigs: CompanyConfig[] = [
   masterPortfolioIntelligenceConfig,
   networkExpansionIntelligenceConfig,
+  referralDemandIntelligenceConfig,
   prospectPipelineIntelligenceConfig,
+  perfectCoverageProspectsConfig,
+  v2xDbaCarrierAccessConfig,
   worldVisionConfig,
   v2xConfig,
   idsConfig,
@@ -62,6 +69,7 @@ const allConfigs: CompanyConfig[] = [
   weatherfordConfig,
   valiantConfig,
   peratonConfig,
+  caciConfig,
   iapConfig,
   constellisConfig,
   parsonsConfig,
