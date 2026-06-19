@@ -19,6 +19,9 @@ import { sercoConfig } from "./serco";
 import { magAerospaceConfig } from "./mag-aerospace";
 import { maximusFederalConfig } from "./maximus-federal";
 import { northropGrummanConfig } from "./northrop-grumman";
+import { rheinmetallConfig } from "./rheinmetall";
+import { rtxConfig } from "./rtx";
+import { saicConfig } from "./saic";
 import { masterPortfolioIntelligenceConfig } from "./master-portfolio-intelligence";
 import { versarConfig } from "./versar";
 import { clovehitchConfig } from "./clovehitch";
@@ -48,6 +51,9 @@ const allConfigs: CompanyConfig[] = [
   magAerospaceConfig,
   maximusFederalConfig,
   northropGrummanConfig,
+  rheinmetallConfig,
+  rtxConfig,
+  saicConfig,
   caciConfig,
   fluorConfig,
   gditConfig,
