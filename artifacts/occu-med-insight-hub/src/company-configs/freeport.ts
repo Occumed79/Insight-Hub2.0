@@ -1,0 +1,162 @@
+import type { CompanyConfig } from "./types";
+
+export const freeportConfig: CompanyConfig = {
+  companyId: "freeport-mcmoran",
+  displayName: "Freeport-McMoRan",
+  shortName: "FCX",
+  sector: "Copper mining, molybdenum, gold, open-pit mining, underground mining, contractor safety, MSHA-regulated operations, and hearing conservation",
+  headquarters: "Phoenix, Arizona",
+  employees: 26700,
+  employeesAsOf: "Uploaded Freeport-McMoRan Occu-Med intelligence report: 2024 safety dataset",
+  summary:
+    "Freeport-McMoRan is a global copper, molybdenum, and gold mining entity with a nuanced 2024 safety story. The uploaded Occu-Med report argues that FCX's headline TRIR looks strong at 0.69, about 62% below the BLS copper mining benchmark, while the underlying leading indicators still require attention: employee TRIR increased, near-miss frequency rose 73%, and serious 2024 events were concentrated heavily among contractor personnel. The account frame is contractor screening, MSHA surveillance, hearing conservation, and TRIR protection because executive compensation includes a 15% safety-performance weighting tied to TRIR.",
+  tags: ["Entity profile", "Freeport-McMoRan", "FCX", "Copper mining", "MSHA", "Contractor safety", "Near misses", "CEO bonus TRIR", "Hearing conservation", "Sierrita Mine"],
+  aliases: ["FCX", "Freeport McMoRan", "Freeport-McMoRan", "Freeport-McMoRan Inc."],
+  sourceFilters: {
+    sec: { ticker: "FCX", legalEntities: ["Freeport-McMoRan Inc."] },
+    sam: { legalNames: ["Freeport-McMoRan"] },
+    usaSpending: { recipientNames: ["Freeport-McMoRan", "FCX"] },
+    newsSources: { aliases: ["Freeport-McMoRan", "FCX", "Sierrita", "Morenci", "Bagdad Mine", "Safford Mine"] },
+  },
+  executiveSignals: [
+    { label: "2024 TRIR", value: "0.69", note: "Headline total TRIR is flat and 62% below the BLS copper mining benchmark of 1.80." },
+    { label: "Near misses", value: "+73%", note: "Near Miss Frequency Rate increased from 0.93 to 1.61 year over year." },
+    { label: "Contractor gap", value: "High", note: "Uploaded report identifies contractor personnel as the most actionable safety-control gap." },
+    { label: "Economic value", value: "$28M-$42M", note: "Modeled North America direct injury cost avoided annually versus BLS copper mining benchmark." },
+  ],
+  curveTitle: "Freeport contractor-safety, near-miss, and TRIR-protection curve",
+  curveSubtitle:
+    "Uploaded Freeport Occu-Med report normalized into entity-profile charts; modeled savings and injury avoidance values are strategic estimates, not audited FCX financial disclosures.",
+  chartDefinitions: [
+    {
+      id: "freeport-safety-two-stories",
+      title: "FCX 2024 safety data tells two stories",
+      subtitle: "Headline TRIR is strong, but employee TRIR and near-miss indicators moved the wrong direction.",
+      type: "bar",
+      xKey: "metric",
+      data: [
+        { metric: "Total TRIR", value2024: 0.69, value2023: 0.70 },
+        { metric: "Employee TRIR", value2024: 0.77, value2023: 0.75 },
+        { metric: "Contractor TRIR", value2024: 0.57, value2023: 0.62 },
+        { metric: "Near miss rate", value2024: 1.61, value2023: 0.93 },
+        { metric: "LTIR employees", value2024: 0.33, value2023: 0.31 },
+      ],
+      series: [
+        { dataKey: "value2023", name: "2023", color: "#22d3ee", radius: [8, 8, 0, 0] },
+        { dataKey: "value2024", name: "2024", color: "#ef4444", radius: [8, 8, 0, 0] },
+      ],
+      headline: "two stories",
+      fullWidth: true,
+    },
+    {
+      id: "freeport-economic-value",
+      title: "North America injury avoidance value",
+      subtitle: "Uploaded report: FCX performance vs BLS copper mining benchmark protects major direct and total economic value.",
+      type: "bar",
+      xKey: "valueType",
+      data: [
+        { valueType: "Direct low", value: 28 },
+        { valueType: "Direct high", value: 42 },
+        { valueType: "Total low", value: 56 },
+        { valueType: "Total high", value: 210 },
+        { valueType: "10% Occu-Med share low", value: 2.8 },
+        { valueType: "10% Occu-Med share high", value: 21 },
+      ],
+      series: [{ dataKey: "value", name: "Annual value", color: "#22c55e", radius: [10, 10, 0, 0] }],
+      formatter: "currencyM",
+      headline: "economic value",
+      fullWidth: true,
+    },
+    {
+      id: "freeport-near-miss-warning",
+      title: "Near-miss leading indicator",
+      subtitle: "Near Miss Frequency Rate rose 73% from 0.93 to 1.61.",
+      type: "bar",
+      xKey: "year",
+      data: [
+        { year: "2023", nmfr: 0.93 },
+        { year: "2024", nmfr: 1.61 },
+      ],
+      series: [{ dataKey: "nmfr", name: "Near miss frequency rate", color: "#f97316", radius: [10, 10, 0, 0] }],
+      headline: "near-miss jump",
+    },
+    {
+      id: "freeport-occumed-priority",
+      title: "Freeport Occu-Med priority map",
+      subtitle: "Service lanes from contractor risk, MSHA enforcement, hearing conservation, and executive TRIR incentives.",
+      type: "bar",
+      xKey: "lane",
+      data: [
+        { lane: "Contractor screening", priority: 10 },
+        { lane: "MSHA hearing surveillance", priority: 9 },
+        { lane: "Fit-for-duty", priority: 9 },
+        { lane: "Near-miss medical analytics", priority: 8 },
+        { lane: "Sierrita MSHA hotspot", priority: 8 },
+        { lane: "Executive TRIR protection", priority: 10 },
+      ],
+      series: [{ dataKey: "priority", name: "Priority", color: "#a78bfa", radius: [10, 10, 0, 0] }],
+      domain: [0, 10],
+      headline: "priority map",
+    },
+  ],
+  metricDefinitions: [
+    { id: "freeport-employees", label: "Employees", value: 26700, unit: "count", category: "workforce" },
+    { id: "freeport-trir", label: "2024 total TRIR", value: 0.69, unit: "score", category: "safety" },
+    { id: "freeport-near-miss-rate", label: "2024 near miss rate", value: 1.61, unit: "score", category: "safety" },
+    { id: "freeport-na-direct-value-low", label: "NA direct value low", value: 28, unit: "usd", category: "financial" },
+    { id: "freeport-na-direct-value-high", label: "NA direct value high", value: 42, unit: "usd", category: "financial" },
+  ],
+  riskMatrix: [
+    { name: "Contractor workforce", revenue: 42, risk: 10.0, workers: 5000 },
+    { name: "Sierrita MSHA hotspot", revenue: 10, risk: 9.0, workers: 800 },
+    { name: "Hearing conservation", revenue: 20, risk: 8.5, workers: 12000 },
+    { name: "Employee TRIR trend", revenue: 15, risk: 8.0, workers: 26700 },
+    { name: "Near-miss conversion", revenue: 21, risk: 8.5, workers: 26700 },
+  ],
+  opportunityMatrix: [
+    { name: "Contractor medical screening", revenuePotential: 1200, implementationComplexity: 8, strategicValue: 10 },
+    { name: "MSHA hearing conservation", revenuePotential: 900, implementationComplexity: 5, strategicValue: 9 },
+    { name: "Fitness-for-duty / return-to-work", revenuePotential: 750, implementationComplexity: 6, strategicValue: 9 },
+    { name: "Near-miss medical analytics", revenuePotential: 450, implementationComplexity: 8, strategicValue: 8 },
+    { name: "Executive TRIR-protection program", revenuePotential: 600, implementationComplexity: 7, strategicValue: 10 },
+  ],
+  dossierSections: [
+    {
+      type: "overview",
+      title: "Entity overview",
+      narrative:
+        "Freeport's headline safety performance is strong, but the uploaded report argues the underlying picture is not simple: employee TRIR worsened and near misses rose sharply.",
+      bullets: [
+        "Total TRIR was 0.69 in 2024, down slightly from 0.70 in 2023.",
+        "Employee TRIR worsened from 0.75 to 0.77 while contractor TRIR improved from 0.62 to 0.57.",
+        "Near Miss Frequency Rate increased 73% from 0.93 to 1.61.",
+        "Contractor screening is framed as the most actionable medical-control gap.",
+      ],
+      metricIds: ["freeport-trir", "freeport-near-miss-rate"],
+    },
+    {
+      type: "financial",
+      title: "Executive compensation and economic value",
+      narrative:
+        "The uploaded report says FCX's annual incentive plan allocates 15% of every named executive officer's annual bonus to safety/TRIR performance. That creates a direct executive-value story for incremental injury prevention.",
+      bullets: [
+        "At North America scale, the report models $28M-$42M in direct injury cost avoided annually versus BLS copper mining benchmarks.",
+        "Including indirect costs, total economic value is modeled at $56M-$210M.",
+        "If occupational medicine contributes even 10% of that avoidance, the protected value is modeled at $2.8M-$21M annually.",
+      ],
+      metricIds: ["freeport-na-direct-value-low", "freeport-na-direct-value-high"],
+    },
+    {
+      type: "medical-opportunities",
+      title: "Occu-Med service opportunity",
+      narrative:
+        "The Freeport conversation should be framed as contractor risk reduction, TRIR protection, MSHA surveillance, and executive-value protection, not generic mining physicals.",
+      bullets: [
+        "Contractor screening and fit-for-duty should be prioritized because the uploaded report identifies contractor personnel as the key actionable gap.",
+        "MSHA Part 62 hearing conservation and Part 56/57 medical-record quality are important compliance lanes.",
+        "Sierrita Mine should be treated as an enforcement hotspot because the uploaded report flags high 2025 MSHA penalties.",
+      ],
+      metricIds: [],
+    },
+  ],
+};
