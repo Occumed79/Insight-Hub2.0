@@ -45,6 +45,7 @@ import { uploadedChartPackIntelligenceConfig } from "./uploaded-chart-pack-intel
 import { uploadedChartPackAddendumIntelligenceConfig } from "./uploaded-chart-pack-addendum-intelligence";
 import { uploadedChartPackThirdIntelligenceConfig } from "./uploaded-chart-pack-third-intelligence";
 import { uploadedChartPackFourthIntelligenceConfig } from "./uploaded-chart-pack-fourth-intelligence";
+import { uploadedPdfFifthIntelligenceConfig } from "./uploaded-pdf-fifth-intelligence";
 import { v2xDbaCarrierAccessConfig } from "./v2x-dba-carrier-access";
 import { perfectCoverageProspectsConfig } from "./perfect-coverage-prospects";
 import { sierraNevadaConfig } from "./sierra-nevada";
@@ -72,6 +73,7 @@ const allConfigs: CompanyConfig[] = [
   uploadedChartPackAddendumIntelligenceConfig,
   uploadedChartPackThirdIntelligenceConfig,
   uploadedChartPackFourthIntelligenceConfig,
+  uploadedPdfFifthIntelligenceConfig,
   networkExpansionIntelligenceConfig,
   multiClientLocationIntelligenceConfig,
   prospectNetworkIntelligenceConfig,
