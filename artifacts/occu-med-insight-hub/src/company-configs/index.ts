@@ -30,6 +30,8 @@ import { missionEssentialConfig } from "./mission-essential";
 import { sourceGroupConfig } from "./source-group";
 import { thalesConfig } from "./thales";
 import { tecmotivConfig } from "./tecmotiv";
+import { c3elConfig } from "./c3el";
+import { asrcFederalConfig } from "./asrc-federal";
 import { freeportConfig } from "./freeport";
 import { leonardoConfig } from "./leonardo";
 import { fluorConfig } from "./fluor";
@@ -41,7 +43,7 @@ import { worldVisionConfig } from "./world-vision";
 import { versarConfig } from "./versar";
 import { clovehitchConfig } from "./clovehitch";
 import { caciConfig, gditConfig } from "./dossier-companies";
-import { jacobsConfig, baeConfig, asrcFederalConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, sosiConfig, sierraConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig, celConfig } from "./stub-companies";
+import { jacobsConfig, baeConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, sosiConfig, sierraConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig } from "./stub-companies";
 
 import type { CompanyConfig } from "./types";
 
@@ -80,6 +82,8 @@ const allConfigs: CompanyConfig[] = [
   sourceGroupConfig,
   thalesConfig,
   tecmotivConfig,
+  c3elConfig,
+  asrcFederalConfig,
   freeportConfig,
   leonardoConfig,
   fluorConfig,
@@ -90,7 +94,6 @@ const allConfigs: CompanyConfig[] = [
   versarConfig,
   jacobsConfig,
   baeConfig,
-  asrcFederalConfig,
   alutiiqConfig,
   internationalSosConfig,
   hiiMissionTechConfig,
@@ -100,7 +103,6 @@ const allConfigs: CompanyConfig[] = [
   omniplexConfig,
   ssiConfig,
   platformAerospaceConfig,
-  celConfig,
 ];
 
 const configMap = new Map<string, CompanyConfig>();
