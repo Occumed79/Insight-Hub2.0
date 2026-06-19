@@ -22,10 +22,14 @@ import { northropGrummanConfig } from "./northrop-grumman";
 import { rheinmetallConfig } from "./rheinmetall";
 import { rtxConfig } from "./rtx";
 import { saicConfig } from "./saic";
+import { leidosConfig } from "./leidos";
+import { kongsbergConfig } from "./kongsberg";
+import { kapsuunConfig } from "./kapsuun";
+import { freeportConfig } from "./freeport";
 import { masterPortfolioIntelligenceConfig } from "./master-portfolio-intelligence";
 import { versarConfig } from "./versar";
 import { clovehitchConfig } from "./clovehitch";
-import { caciConfig, fluorConfig, gditConfig, freeportConfig, dynamicAviationConfig } from "./dossier-companies";
+import { caciConfig, fluorConfig, gditConfig, dynamicAviationConfig } from "./dossier-companies";
 import { jacobsConfig, baeConfig, asrcFederalConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, sosiConfig, sierraConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig, celConfig } from "./stub-companies";
 
 import type { CompanyConfig } from "./types";
@@ -54,11 +58,14 @@ const allConfigs: CompanyConfig[] = [
   rheinmetallConfig,
   rtxConfig,
   saicConfig,
+  leidosConfig,
+  kongsbergConfig,
+  kapsuunConfig,
+  freeportConfig,
   caciConfig,
   fluorConfig,
   gditConfig,
   clovehitchConfig,
-  freeportConfig,
   versarConfig,
   dynamicAviationConfig,
   jacobsConfig,
