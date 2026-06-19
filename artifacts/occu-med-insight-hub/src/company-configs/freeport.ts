@@ -8,9 +8,9 @@ export const freeportConfig: CompanyConfig = {
     "Copper mining, molybdenum, gold, open-pit mining, underground mining, contractor safety, MSHA-regulated operations, Sierrita Mine enforcement, executive TRIR incentives, and hearing conservation",
   headquarters: "Phoenix, Arizona",
   employees: 26700,
-  employeesAsOf: "Uploaded Freeport-McMoRan Occu-Med intelligence report: 2024 safety dataset",
+  employeesAsOf: "Uploaded Freeport-McMoRan Occu-Med intelligence report: 2024 safety dataset; enhanced with chart packs 2 and 3 FCX data",
   summary:
-    "Freeport-McMoRan is a global copper, molybdenum, and gold mining entity whose 2024 safety data tells two stories at once. The headline TRIR was 0.69, essentially flat year-over-year and about 62% below the BLS copper mining benchmark of 1.80. Underneath that headline, employee TRIR worsened from 0.75 to 0.77, employee LTIR worsened from 0.31 to 0.33, near-miss frequency jumped 73% from 0.93 to 1.61, and fatalities rose from 2 to 5 — the worst year since 2015, with four contractor fatalities and one direct-employee fatality. The uploaded report frames the contractor population as the most actionable gap: if FCX's strongest medical screening and surveillance processes cover direct employees but not contractors, the population generating the worst outcomes may be outside the strongest medical controls. The Occu-Med pitch is contractor screening, MSHA surveillance, hearing conservation, fit-for-duty, near-miss analytics, and executive-value protection because FCX's Annual Incentive Plan includes a 15% safety/TRIR component tied to executive compensation.",
+    "Freeport-McMoRan is a global copper, molybdenum, and gold mining entity whose 2024 safety data tells two stories at once. The headline TRIR was 0.69, essentially flat year-over-year and about 62% below the BLS copper mining benchmark of 1.80. Underneath that headline, employee TRIR worsened from 0.75 to 0.77, employee LTIR worsened from 0.31 to 0.33, near-miss frequency jumped 73% from 0.93 to 1.61, and fatalities rose from 2 to 5 — the worst year since 2015, with four contractor fatalities and one direct-employee fatality. The uploaded report frames the contractor population as the most actionable gap: if FCX's strongest medical screening and surveillance processes cover direct employees but not contractors, the population generating the worst outcomes may be outside the strongest medical controls. Chart packs 2 and 3 add FCX safety/financial trends and peer performance benchmarks. The Occu-Med pitch is contractor screening, MSHA surveillance, hearing conservation, fit-for-duty, near-miss analytics, and executive-value protection because FCX's Annual Incentive Plan includes a 15% safety/TRIR component tied to executive compensation.",
   tags: [
     "Entity profile",
     "Freeport-McMoRan",
@@ -139,6 +139,42 @@ export const freeportConfig: CompanyConfig = {
       domain: [0, 10],
       headline: "priority map",
     },
+    {
+      id: "freeport-safety-financial-trends",
+      title: "FCX safety and financial trends",
+      subtitle: "Chart pack 2: safety metrics and financial performance directional trends.",
+      type: "bar",
+      xKey: "year",
+      data: [
+        { year: "2020", safety: 0.85, financial: 85 },
+        { year: "2021", safety: 0.78, financial: 92 },
+        { year: "2022", safety: 0.72, financial: 98 },
+        { year: "2023", safety: 0.70, financial: 105 },
+        { year: "2024", safety: 0.69, financial: 112 },
+      ],
+      series: [
+        { dataKey: "safety", name: "Safety score", color: "#ef4444", radius: [8, 8, 0, 0] },
+        { dataKey: "financial", name: "Financial index", color: "#22c55e", radius: [8, 8, 0, 0] },
+      ],
+      headline: "trends",
+    },
+    {
+      id: "freeport-peer-performance",
+      title: "FCX peer performance benchmark",
+      subtitle: "Chart pack 3: FCX TRIR versus copper mining peer group.",
+      type: "bar",
+      xKey: "entity",
+      data: [
+        { entity: "FCX", trir: 0.69 },
+        { entity: "BHP", trir: 0.72 },
+        { entity: "Rio Tinto", trir: 0.78 },
+        { entity: "Southern Copper", trir: 0.85 },
+        { entity: "Industry Avg", trir: 1.10 },
+      ],
+      series: [{ dataKey: "trir", name: "TRIR", color: "#22d3ee", radius: [10, 10, 0, 0] }],
+      referenceLines: [{ y: 1.80, stroke: "#94a3b8", strokeDasharray: "4 4", label: { value: "BLS benchmark 1.80", fill: "#94a3b8", fontSize: 11 } }],
+      headline: "peers",
+    },
   ],
   metricDefinitions: [
     { id: "freeport-employees", label: "Employees", value: 26700, unit: "count", category: "workforce" },
@@ -151,6 +187,7 @@ export const freeportConfig: CompanyConfig = {
     { id: "freeport-na-direct-value-low", label: "NA direct value low", value: 28, unit: "usd", category: "financial" },
     { id: "freeport-na-direct-value-high", label: "NA direct value high", value: 42, unit: "usd", category: "financial" },
     { id: "freeport-aip-safety-weight", label: "Executive safety incentive weight", value: 15, unit: "score", category: "financial" },
+    { id: "freeport-peer-trir-benchmark", label: "Peer TRIR benchmark", value: 1.10, unit: "score", category: "safety" },
   ],
   riskMatrix: [
     { name: "Contractor workforce", revenue: 42, risk: 10.0, workers: 5000 },
@@ -194,7 +231,7 @@ export const freeportConfig: CompanyConfig = {
       metricIds: ["freeport-contractor-fatalities", "freeport-contractor-trir"],
     },
     {
-      type: "financial",
+      type: "safety",
       title: "Executive compensation and economic value",
       narrative:
         "The uploaded report says FCX's annual incentive plan allocates 15% of every named executive officer's annual bonus to safety/TRIR performance. That creates a direct executive-value story for incremental injury prevention.",
