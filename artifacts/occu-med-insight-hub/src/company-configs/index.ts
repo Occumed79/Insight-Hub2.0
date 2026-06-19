@@ -26,10 +26,13 @@ import { leidosConfig } from "./leidos";
 import { kongsbergConfig } from "./kongsberg";
 import { kapsuunConfig } from "./kapsuun";
 import { freeportConfig } from "./freeport";
+import { leonardoConfig } from "./leonardo";
+import { fluorConfig } from "./fluor";
+import { dynamicAviationConfig } from "./dynamic-aviation";
 import { masterPortfolioIntelligenceConfig } from "./master-portfolio-intelligence";
 import { versarConfig } from "./versar";
 import { clovehitchConfig } from "./clovehitch";
-import { caciConfig, fluorConfig, gditConfig, dynamicAviationConfig } from "./dossier-companies";
+import { caciConfig, gditConfig } from "./dossier-companies";
 import { jacobsConfig, baeConfig, asrcFederalConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, sosiConfig, sierraConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig, celConfig } from "./stub-companies";
 
 import type { CompanyConfig } from "./types";
@@ -62,12 +65,13 @@ const allConfigs: CompanyConfig[] = [
   kongsbergConfig,
   kapsuunConfig,
   freeportConfig,
-  caciConfig,
+  leonardoConfig,
   fluorConfig,
+  dynamicAviationConfig,
+  caciConfig,
   gditConfig,
   clovehitchConfig,
   versarConfig,
-  dynamicAviationConfig,
   jacobsConfig,
   baeConfig,
   asrcFederalConfig,
