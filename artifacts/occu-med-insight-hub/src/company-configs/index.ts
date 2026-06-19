@@ -42,6 +42,7 @@ import { networkGapResearchIntelligenceConfig } from "./network-gap-research-int
 import { globalOperationalSitesIntelligenceConfig } from "./global-operational-sites-intelligence";
 import { coreClientStatsDashboardConfig } from "./core-client-stats-dashboard";
 import { uploadedChartPackIntelligenceConfig } from "./uploaded-chart-pack-intelligence";
+import { uploadedChartPackAddendumIntelligenceConfig } from "./uploaded-chart-pack-addendum-intelligence";
 import { v2xDbaCarrierAccessConfig } from "./v2x-dba-carrier-access";
 import { perfectCoverageProspectsConfig } from "./perfect-coverage-prospects";
 import { sierraNevadaConfig } from "./sierra-nevada";
@@ -66,6 +67,7 @@ const allConfigs: CompanyConfig[] = [
   masterPortfolioIntelligenceConfig,
   coreClientStatsDashboardConfig,
   uploadedChartPackIntelligenceConfig,
+  uploadedChartPackAddendumIntelligenceConfig,
   networkExpansionIntelligenceConfig,
   multiClientLocationIntelligenceConfig,
   prospectNetworkIntelligenceConfig,
