@@ -26,6 +26,7 @@ import { saicConfig } from "./saic";
 import { leidosConfig } from "./leidos";
 import { kongsbergConfig } from "./kongsberg";
 import { kapsuunConfig } from "./kapsuun";
+import { missionEssentialConfig } from "./mission-essential";
 import { freeportConfig } from "./freeport";
 import { leonardoConfig } from "./leonardo";
 import { fluorConfig } from "./fluor";
@@ -33,6 +34,7 @@ import { dynamicAviationConfig } from "./dynamic-aviation";
 import { masterPortfolioIntelligenceConfig } from "./master-portfolio-intelligence";
 import { networkExpansionIntelligenceConfig } from "./network-expansion-intelligence";
 import { prospectPipelineIntelligenceConfig } from "./prospect-pipeline-intelligence";
+import { worldVisionConfig } from "./world-vision";
 import { versarConfig } from "./versar";
 import { clovehitchConfig } from "./clovehitch";
 import { caciConfig, gditConfig } from "./dossier-companies";
@@ -44,6 +46,7 @@ const allConfigs: CompanyConfig[] = [
   masterPortfolioIntelligenceConfig,
   networkExpansionIntelligenceConfig,
   prospectPipelineIntelligenceConfig,
+  worldVisionConfig,
   v2xConfig,
   idsConfig,
   kbrConfig,
@@ -70,6 +73,7 @@ const allConfigs: CompanyConfig[] = [
   leidosConfig,
   kongsbergConfig,
   kapsuunConfig,
+  missionEssentialConfig,
   freeportConfig,
   leonardoConfig,
   fluorConfig,
