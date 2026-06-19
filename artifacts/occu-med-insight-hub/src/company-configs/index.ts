@@ -96,7 +96,6 @@ const allConfigs: CompanyConfig[] = [
   leonardoConfig,
   fluorConfig,
   dynamicAviationConfig,
-  caciConfig,
   gditConfig,
   clovehitchConfig,
   versarConfig,
