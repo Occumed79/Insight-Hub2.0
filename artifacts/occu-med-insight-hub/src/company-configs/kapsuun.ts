@@ -1,0 +1,143 @@
+import type { CompanyConfig } from "./types";
+
+export const kapsuunConfig: CompanyConfig = {
+  companyId: "kapsuun-group",
+  displayName: "Kapsuun Group, LLC",
+  shortName: "Kapsuun",
+  sector:
+    "8(a) small disadvantaged business, Chenega MIOS subsidiary, intelligence analysis, linguistics, OSINT/dark web training, English language training, IT systems engineering, and program management",
+  headquarters: "Lorton, Virginia",
+  employees: 62,
+  employeesAsOf: "Uploaded Kapsuun city-by-city hiring activity analysis: 2026 company context",
+  summary:
+    "Kapsuun Group, LLC is a small 8(a) Small Disadvantaged Business and Chenega Corporation / MIOS subsidiary founded in 2014. The uploaded hiring analysis lists 62 employees, $8.1M revenue in 2026, and $350M+ cumulative federal contract revenue. Although it is small, its activity map spans intelligence analysis, Chinese linguists, cyber support, English Language Training, OSINT/dark web/law enforcement training, records management, and program management across Lorton, Lackland AFB, Sheppard AFB, Shaw AFB, Oak Ridge, INDOPACOM, and CENTCOM locations.",
+  tags: [
+    "Entity profile",
+    "Kapsuun Group",
+    "Chenega MIOS",
+    "8(a)",
+    "Small disadvantaged business",
+    "Linguistics",
+    "Intelligence analysis",
+    "English Language Training",
+    "OSINT training",
+    "CENTCOM",
+    "INDOPACOM",
+  ],
+  aliases: ["Kapsuun", "Kapsuun Group", "Kapsuun Group LLC", "Chenega MIOS Kapsuun"],
+  sourceFilters: {
+    sam: { legalNames: ["Kapsuun Group, LLC", "Kapsuun Group LLC"] },
+    usaSpending: { recipientNames: ["Kapsuun Group", "Kapsuun"] },
+    jobSources: { linkedin: "kapsuun-group", careerSite: "https://www.chenega.com/careers/" },
+    newsSources: { aliases: ["Kapsuun", "Kapsuun Group", "Chenega MIOS", "Lackland", "Sheppard AFB", "Shaw AFB"] },
+  },
+  executiveSignals: [
+    { label: "Employees", value: "62", note: "Uploaded company context lists 62 employees." },
+    { label: "Revenue", value: "$8.1M", note: "Uploaded context lists 2026 revenue of $8.1M." },
+    { label: "Cumulative federal", value: "$350M+", note: "Uploaded file lists $350M+ cumulative federal contract revenue." },
+    { label: "Moderate locations", value: "5", note: "Lorton, Lackland, Sheppard, Shaw, and Jordan are moderate activity or sustained operation locations." },
+  ],
+  curveTitle: "Kapsuun small-entity intelligence, linguistics, and OCONUS training curve",
+  curveSubtitle:
+    "Uploaded city-by-city hiring activity normalized into entity-profile charts; Kapsuun is small in headcount but high in mission dispersion and OCONUS training relevance.",
+  chartDefinitions: [
+    {
+      id: "kapsuun-moderate-hubs",
+      title: "Kapsuun moderate activity locations",
+      subtitle: "Uploaded summary identifies five moderate posting or sustained-operation locations.",
+      type: "bar",
+      xKey: "location",
+      data: [
+        { location: "Lorton VA", postings: 6 },
+        { location: "San Antonio / Lackland", postings: 6 },
+        { location: "Wichita Falls / Sheppard", postings: 6 },
+        { location: "Sumter / Shaw", postings: 6 },
+        { location: "Jordan sites", postings: 6 },
+      ],
+      series: [{ dataKey: "postings", name: "Posting / activity midpoint", color: "#22d3ee", radius: [10, 10, 0, 0] }],
+      headline: "moderate hubs",
+      fullWidth: true,
+    },
+    {
+      id: "kapsuun-capability-priority",
+      title: "Kapsuun capability priority map",
+      subtitle: "Capability areas from uploaded company context and location tables.",
+      type: "bar",
+      xKey: "capability",
+      data: [
+        { capability: "Intelligence analysis", priority: 10 },
+        { capability: "Linguistics", priority: 9 },
+        { capability: "English language training", priority: 8 },
+        { capability: "OSINT / dark web training", priority: 8 },
+        { capability: "IT systems engineering", priority: 7 },
+        { capability: "Records management", priority: 5 },
+      ],
+      series: [{ dataKey: "priority", name: "Priority", color: "#a78bfa", radius: [10, 10, 0, 0] }],
+      domain: [0, 10],
+      headline: "capabilities",
+    },
+    {
+      id: "kapsuun-regional-footprint",
+      title: "Kapsuun regional footprint",
+      subtitle: "Uploaded table shows distributed quiet/sustained operations across INDOPACOM and CENTCOM.",
+      type: "bar",
+      xKey: "region",
+      data: [
+        { region: "United States", locations: 6 },
+        { region: "INDOPACOM", locations: 8 },
+        { region: "CENTCOM / Middle East", locations: 8 },
+        { region: "EUCOM-adjacent", locations: 1 },
+      ],
+      series: [{ dataKey: "locations", name: "Locations", color: "#22c55e", radius: [10, 10, 0, 0] }],
+      headline: "regional map",
+    },
+  ],
+  metricDefinitions: [
+    { id: "kapsuun-employees", label: "Employees", value: 62, unit: "count", category: "workforce" },
+    { id: "kapsuun-revenue", label: "Revenue", value: 8.1, unit: "usd", category: "financial" },
+    { id: "kapsuun-cumulative-federal", label: "Cumulative federal contract revenue", value: 350, unit: "usd", category: "financial" },
+    { id: "kapsuun-moderate-locations", label: "Moderate activity locations", value: 5, unit: "count", category: "workforce" },
+  ],
+  riskMatrix: [
+    { name: "Lackland linguist/intel", revenue: 70, risk: 4.5, workers: 15 },
+    { name: "Sheppard ELT", revenue: 60, risk: 4.0, workers: 12 },
+    { name: "Shaw ISR support", revenue: 50, risk: 5.0, workers: 10 },
+    { name: "Jordan security cooperation", revenue: 45, risk: 7.0, workers: 10 },
+    { name: "INDOPACOM support", revenue: 30, risk: 6.5, workers: 8 },
+  ],
+  opportunityMatrix: [
+    { name: "Pre-deployment baseline", revenuePotential: 60, implementationComplexity: 5, strategicValue: 8 },
+    { name: "Linguist behavioral-health readiness", revenuePotential: 45, implementationComplexity: 7, strategicValue: 8 },
+    { name: "Training cadre FFD", revenuePotential: 35, implementationComplexity: 4, strategicValue: 7 },
+    { name: "CONUS pre-employment", revenuePotential: 30, implementationComplexity: 3, strategicValue: 5 },
+  ],
+  dossierSections: [
+    {
+      type: "overview",
+      title: "Entity overview",
+      narrative:
+        "Kapsuun is small, but it should not be ignored because the uploaded footprint map shows intelligence, linguistics, training, and OCONUS support signals across several military theaters.",
+      bullets: [
+        "8(a) Small Disadvantaged Business and Chenega Corporation subsidiary within the MIOS SBU.",
+        "Company context lists 62 employees and $8.1M revenue for 2026.",
+        "Core capabilities include IT/systems engineering, intelligence analysis, linguistics, training, records management, and program management.",
+        "The uploaded map shows $350M+ cumulative federal contract revenue despite the small direct headcount.",
+      ],
+      metricIds: ["kapsuun-employees", "kapsuun-revenue", "kapsuun-cumulative-federal"],
+    },
+    {
+      type: "locations",
+      title: "Distributed mission footprint",
+      narrative:
+        "The profile should preserve the distributed footprint instead of treating Kapsuun as only a Lorton headquarters entity.",
+      bullets: [
+        "Lorton, Virginia is the headquarters and operations/program management office.",
+        "San Antonio / Lackland AFB supports Air Force ISR/cyberspace and linguist work.",
+        "Wichita Falls / Sheppard AFB supports English Language Training for international military students.",
+        "Sumter / Shaw AFB supports intelligence operations, linguists, analysts, and 16th Air Force ISR Wing activity.",
+        "Jordan appears as a moderate CENTCOM security-cooperation/training location.",
+      ],
+      metricIds: ["kapsuun-moderate-locations"],
+    },
+  ],
+};
