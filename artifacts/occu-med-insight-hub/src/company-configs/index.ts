@@ -4,6 +4,7 @@ import { v2xConfig } from "./v2x";
 import { idsConfig } from "./ids";
 import { kbrConfig } from "./kbr";
 import { paeAmentumConfig } from "./pae-amentum";
+import { amentumClaimsDbaConfig } from "./amentum-claims-dba";
 import { s3InternationalConfig } from "./s3-international";
 import { traceSystemsConfig } from "./trace-systems";
 import { weatherfordConfig } from "./weatherford";
@@ -31,6 +32,7 @@ import { fluorConfig } from "./fluor";
 import { dynamicAviationConfig } from "./dynamic-aviation";
 import { masterPortfolioIntelligenceConfig } from "./master-portfolio-intelligence";
 import { networkExpansionIntelligenceConfig } from "./network-expansion-intelligence";
+import { prospectPipelineIntelligenceConfig } from "./prospect-pipeline-intelligence";
 import { versarConfig } from "./versar";
 import { clovehitchConfig } from "./clovehitch";
 import { caciConfig, gditConfig } from "./dossier-companies";
@@ -41,10 +43,12 @@ import type { CompanyConfig } from "./types";
 const allConfigs: CompanyConfig[] = [
   masterPortfolioIntelligenceConfig,
   networkExpansionIntelligenceConfig,
+  prospectPipelineIntelligenceConfig,
   v2xConfig,
   idsConfig,
   kbrConfig,
   paeAmentumConfig,
+  amentumClaimsDbaConfig,
   s3InternationalConfig,
   traceSystemsConfig,
   weatherfordConfig,
