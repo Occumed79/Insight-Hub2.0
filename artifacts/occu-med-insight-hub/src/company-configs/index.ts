@@ -16,6 +16,7 @@ import { constellisConfig } from "./constellis";
 import { parsonsConfig } from "./parsons";
 import { peckhamConfig } from "./peckham";
 import { dbaCarrierNetworkConfig } from "./dba-carrier-network";
+import { insuranceCarrierMappingConfig } from "./insurance-carrier-mapping";
 import { qinetiqConfig } from "./qinetiq";
 import { sercoConfig } from "./serco";
 import { magAerospaceConfig } from "./mag-aerospace";
@@ -34,8 +35,13 @@ import { tecmotivConfig } from "./tecmotiv";
 import { c3elConfig } from "./c3el";
 import { asrcFederalConfig } from "./asrc-federal";
 import { referralDemandIntelligenceConfig } from "./referral-demand-intelligence";
+import { multiClientLocationIntelligenceConfig } from "./multi-client-location-intelligence";
+import { missingFederalProspectsConfig } from "./missing-federal-prospects";
 import { v2xDbaCarrierAccessConfig } from "./v2x-dba-carrier-access";
 import { perfectCoverageProspectsConfig } from "./perfect-coverage-prospects";
+import { sierraNevadaConfig } from "./sierra-nevada";
+import { skybridgeTacticalConfig } from "./skybridge-tactical";
+import { sosiConfig } from "./sosi";
 import { freeportConfig } from "./freeport";
 import { leonardoConfig } from "./leonardo";
 import { fluorConfig } from "./fluor";
@@ -47,16 +53,20 @@ import { worldVisionConfig } from "./world-vision";
 import { versarConfig } from "./versar";
 import { clovehitchConfig } from "./clovehitch";
 import { gditConfig } from "./dossier-companies";
-import { jacobsConfig, baeConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, sosiConfig, sierraConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig } from "./stub-companies";
+import { jacobsConfig, baeConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig } from "./stub-companies";
 
 import type { CompanyConfig } from "./types";
 
 const allConfigs: CompanyConfig[] = [
   masterPortfolioIntelligenceConfig,
   networkExpansionIntelligenceConfig,
+  multiClientLocationIntelligenceConfig,
   referralDemandIntelligenceConfig,
   prospectPipelineIntelligenceConfig,
   perfectCoverageProspectsConfig,
+  missingFederalProspectsConfig,
+  dbaCarrierNetworkConfig,
+  insuranceCarrierMappingConfig,
   v2xDbaCarrierAccessConfig,
   worldVisionConfig,
   v2xConfig,
@@ -74,7 +84,6 @@ const allConfigs: CompanyConfig[] = [
   constellisConfig,
   parsonsConfig,
   peckhamConfig,
-  dbaCarrierNetworkConfig,
   qinetiqConfig,
   sercoConfig,
   magAerospaceConfig,
@@ -92,6 +101,9 @@ const allConfigs: CompanyConfig[] = [
   tecmotivConfig,
   c3elConfig,
   asrcFederalConfig,
+  sierraNevadaConfig,
+  skybridgeTacticalConfig,
+  sosiConfig,
   freeportConfig,
   leonardoConfig,
   fluorConfig,
@@ -104,8 +116,6 @@ const allConfigs: CompanyConfig[] = [
   alutiiqConfig,
   internationalSosConfig,
   hiiMissionTechConfig,
-  sosiConfig,
-  sierraConfig,
   datapathConfig,
   omniplexConfig,
   ssiConfig,
