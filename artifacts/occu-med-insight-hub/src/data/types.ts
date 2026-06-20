@@ -60,7 +60,7 @@ export type LocationRecord = {
   addressLine2?: string;
   formattedAddress?: string;
   placeName?: string;
-  geocodeSource?: "manual" | "uploaded" | "osm" | "google" | "mapbox" | "estimated";
+  geocodeSource?: "manual" | "uploaded" | "osm" | "photon" | "google" | "mapbox" | "estimated";
   geocodeConfidence?: "exact" | "place" | "city" | "country" | "unknown";
 };
 
