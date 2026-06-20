@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { Plus } from "lucide-react";
+import { Plus, Search, WifiOff } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { FilterPills } from "@/components/insight/FilterPills";
@@ -35,6 +35,8 @@ type VerifiedEntity = {
   }>;
 };
 
+type DbStatus = "checking" | "available" | "unavailable";
+
 const databaseCompanyId = (id: number) => `db-${id}`;
 const isDatabaseCompanyId = (id: string) => id.startsWith("db-");
 
@@ -61,17 +63,34 @@ function toLocationRecord(entity: VerifiedEntity, loc: VerifiedEntity["locations
   };
 }
 
+function locationMatchesSearch(location: LocationRecord, search: string) {
+  if (!search.trim()) return true;
+  const haystack = [location.placeName, location.city, location.state, location.country, location.region, location.facilityType, location.activity, location.formattedAddress, location.addressLine1, location.notes].filter(Boolean).join(" ").toLowerCase();
+  return haystack.includes(search.toLowerCase().trim());
+}
+
 export default function GeographicData() {
   const { dataset } = useInsightData();
   const [verifiedEntities, setVerifiedEntities] = useState<VerifiedEntity[]>([]);
+  const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
   const [selected, setSelected] = useState<LocationRecord | undefined>();
   const [country, setCountry] = useState("All");
   const [region, setRegion] = useState("All");
   const [facility, setFacility] = useState("All");
   const [activity, setActivity] = useState("All");
+  const [locationSearch, setLocationSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
+    fetch("/api/entities/health")
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Entity database unavailable")))
+      .then(() => {
+        if (!cancelled) setDbStatus("available");
+      })
+      .catch(() => {
+        if (!cancelled) setDbStatus("unavailable");
+      });
+
     fetch("/api/entities/verified")
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Verified entity endpoint unavailable")))
       .then((payload) => {
@@ -80,8 +99,12 @@ export default function GeographicData() {
         }
       })
       .catch(() => {
-        if (!cancelled) setVerifiedEntities([]);
+        if (!cancelled) {
+          setVerifiedEntities([]);
+          setDbStatus("unavailable");
+        }
       });
+
     return () => { cancelled = true; };
   }, []);
 
@@ -121,6 +144,7 @@ export default function GeographicData() {
     setRegion("All");
     setFacility("All");
     setActivity("All");
+    setLocationSearch("");
   };
 
   const countryOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.country))).slice(0, 12)], [companyLocations]);
@@ -128,7 +152,7 @@ export default function GeographicData() {
   const facilityOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.facilityType))).slice(0, 8)], [companyLocations]);
   const activityOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.activity))).slice(0, 8)], [companyLocations]);
 
-  const filtered = companyLocations.filter((location) => (country === "All" || location.country === country) && (region === "All" || location.region === region) && (facility === "All" || location.facilityType === facility) && (activity === "All" || location.activity === activity));
+  const filtered = companyLocations.filter((location) => (country === "All" || location.country === country) && (region === "All" || location.region === region) && (facility === "All" || location.facilityType === facility) && (activity === "All" || location.activity === activity) && locationMatchesSearch(location, locationSearch));
   const countries = new Set(filtered.map((location) => location.country)).size;
 
   const geoMetrics = [
@@ -153,13 +177,22 @@ export default function GeographicData() {
               </Link>
               <select value={companyId} onChange={(event) => resetFiltersForCompany(event.target.value)} className="rounded-full border border-cyan-100/15 bg-[#07111d] px-4 py-2 text-sm text-cyan-50 outline-none">
                 <option value="">Select company</option>
-                {companies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                {companies.map((item) => <option key={item.id} value={item.id}>{item.name}{item.tags?.includes("Verified DB") ? " · Verified" : ""}</option>)}
               </select>
             </div>
           }
         />
+        {dbStatus === "unavailable" ? (
+          <GlassCard className="mb-5 border border-amber-200/20 p-4">
+            <div className="flex items-start gap-3 text-amber-100"><WifiOff size={18} className="mt-0.5" /><div><p className="font-semibold">Verified entity database unavailable</p><p className="mt-1 text-sm text-cyan-100/60">Workbook data is still available. Added entities will reappear when the database/API is reachable.</p></div></div>
+          </GlassCard>
+        ) : null}
         <div className="grid gap-4 md:grid-cols-3">{geoMetrics.map((metric) => <MetricCard key={metric.id} metric={metric} />)}</div>
         <GlassCard className="mt-5 p-5">
+          <div className="mb-5 flex items-center gap-3 rounded-2xl border border-cyan-100/10 bg-white/[0.03] px-4 py-3">
+            <Search size={15} className="text-cyan-100/45" />
+            <input value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search locations, address, country, activity..." className="w-full bg-transparent text-sm text-cyan-50 outline-none placeholder:text-cyan-100/35" />
+          </div>
           <div className="grid gap-5 xl:grid-cols-4">
             <div><p className="mb-2 text-xs uppercase tracking-[0.22em] text-cyan-100/38">Country</p><FilterPills options={countryOptions as string[]} value={country} onChange={setCountry} /></div>
             <div><p className="mb-2 text-xs uppercase tracking-[0.22em] text-cyan-100/38">Region</p><FilterPills options={regionOptions as string[]} value={region} onChange={setRegion} /></div>
