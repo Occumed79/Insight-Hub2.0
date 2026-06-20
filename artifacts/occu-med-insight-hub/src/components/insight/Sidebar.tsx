@@ -1,4 +1,4 @@
-import { BarChart3, Building2, Globe2, Home, Layers, Library, Search, ShieldCheck } from "lucide-react";
+import { BarChart3, Building2, Globe2, Home, Layers, Library, Search, ShieldCheck, CheckCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 const occuMedLogo = "https://base44.app/api/apps/69f08d58f2a02a258d395477/files/mp/public/69f08d58f2a02a258d395477/ac708dd5f_logo-transparent.png"; // Updated to new Occu-Med branding
@@ -9,6 +9,7 @@ const nav = [
   { href: "/quantifiable-data", label: "Quantifiable Data", icon: BarChart3 },
   { href: "/geographic-data", label: "Geographic Data", icon: Globe2 },
   { href: "/entity-discovery", label: "Add Entity", icon: Search },
+  { href: "/entity-review", label: "Entity Review", icon: CheckCircle },
 ];
 
 const aux = ["Entity Intelligence", "Entity Discovery", "Federal Agencies"];
