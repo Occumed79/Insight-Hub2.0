@@ -113,14 +113,7 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
                   click: () => onSelect(location),
                 }}
               >
-                <Popup
-                  className="custom-popup"
-                  style={{
-                    background: "#06111d",
-                    border: "1px solid rgba(45, 212, 191, 0.3)",
-                    color: "#a7fff3",
-                  }}
-                >
+                <Popup className="custom-popup">
                   <div style={{ color: "#a7fff3" }}>
                     <strong>{location.city}</strong>
                     <br />
