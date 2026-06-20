@@ -1,4 +1,4 @@
-import { BarChart3, Building2, Globe2, Home, Layers, Library } from "lucide-react";
+import { BarChart3, Building2, Globe2, Home } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
@@ -8,8 +8,6 @@ const nav = [
   { href: "/quantifiable-data", label: "Quantifiable Data", icon: BarChart3 },
   { href: "/geographic-data", label: "Geographic Data", icon: Globe2 },
 ];
-
-const aux = ["Entity Intelligence", "Federal Agencies"];
 
 export function Sidebar() {
   const [location] = useLocation();
@@ -40,15 +38,6 @@ export function Sidebar() {
             );
           })}
         </nav>
-      </div>
-      <div className="mt-8">
-        <p className="mb-2 px-1 text-[10px] uppercase tracking-[0.25em] text-cyan-100/35">Configured Links</p>
-        <div className="space-y-2">
-          {aux.map((label, index) => {
-            const Icon = [Layers, Library][index];
-            return <div key={label} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-cyan-100/42"><Icon size={15} />{label}</div>;
-          })}
-        </div>
       </div>
     </aside>
   );
