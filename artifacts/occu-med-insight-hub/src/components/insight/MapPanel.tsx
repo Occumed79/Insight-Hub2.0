@@ -54,7 +54,7 @@ function MapAutoFit({ locations }: { locations: LocationRecord[] }) {
       map.setView(positions[0], 8, { animate: true });
       return;
     }
-    map.fitBounds(positions, { padding: [64, 64], maxZoom: 8, animate: true });
+    map.fitBounds(positions, { padding: [56, 56], maxZoom: 8, animate: true });
   }, [map, signature, locations]);
 
   return null;
@@ -76,7 +76,7 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
           </div>
           <span className="rounded-full border border-cyan-100/15 bg-cyan-200/10 px-3 py-1 text-xs text-cyan-50">0 sites</span>
         </div>
-        <div className="map-shell relative h-[500px] rounded-[24px] border border-cyan-100/16 bg-[#020710]/78 flex items-center justify-center">
+        <div className="map-shell relative h-[430px] rounded-[24px] border border-cyan-100/16 bg-[#020710]/78 flex items-center justify-center">
           <p className="text-sm text-cyan-100/40">Select a company to view locations</p>
         </div>
       </GlassCard>
@@ -97,7 +97,7 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
           <span className="rounded-full border border-cyan-100/15 bg-white/[0.04] px-3 py-1 text-xs text-cyan-100/65">{regionCount} regions</span>
         </div>
       </div>
-      <div className="map-shell insight-leaflet-map relative h-[500px] overflow-hidden rounded-[24px] border border-cyan-100/16 bg-[#020710]/78 shadow-[inset_0_0_70px_rgba(45,212,191,.08)]">
+      <div className="map-shell insight-leaflet-map relative h-[430px] overflow-hidden rounded-[24px] border border-cyan-100/16 bg-[#020710]/78 shadow-[inset_0_0_70px_rgba(45,212,191,.08)]">
         <MapContainer center={DEFAULT_CENTER} zoom={2} minZoom={1} maxZoom={18} maxBounds={WORLD_BOUNDS} maxBoundsViscosity={0.95} style={{ width: "100%", height: "100%", background: "#020710" }} zoomControl={false} scrollWheelZoom worldCopyJump={false}>
           <MapAutoFit locations={mappableLocations} />
           <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" maxZoom={19} noWrap bounds={WORLD_BOUNDS} />
