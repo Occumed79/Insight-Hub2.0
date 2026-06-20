@@ -1,7 +1,7 @@
 import { GlassCard } from "../insight/GlassCard";
 import type { SourceFilterDefinition } from "../../company-configs/types";
 
-function FilterRow({ label, value }: { label: string; value: string | string[] | undefined }) {
+function FilterRow({ label, value }: { label: string | string[] | undefined; value?: string | string[] }) {
   if (!value || (Array.isArray(value) && !value.length)) return null;
   const display = Array.isArray(value) ? value.join(", ") : value;
   return (
@@ -31,8 +31,8 @@ export function CompanySourceFilters({ filters }: { filters: SourceFilterDefinit
   if (!hasSec && !hasSam && !hasUsa && !hasJobs && !hasNews) return null;
   return (
     <GlassCard className="mt-5 p-5">
-      <h3 className="text-lg font-bold text-white">Source filters</h3>
-      <p className="mt-1 text-xs text-cyan-100/55">Configured identifiers for live data ingestion readiness.</p>
+      <h3 className="text-lg font-bold text-white">Configured source identifiers</h3>
+      <p className="mt-1 text-xs text-cyan-100/55">Configured identifiers for matching and source lookup. This is separate from source freshness status.</p>
       <div className="mt-4 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {hasSec && (
           <SourceCategory title="SEC">
