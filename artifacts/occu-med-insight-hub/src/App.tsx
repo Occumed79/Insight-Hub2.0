@@ -8,10 +8,9 @@ import Landing from "@/pages/landing";
 import DataProfiles from "@/pages/data-profiles";
 import QuantifiableData from "@/pages/quantifiable-data";
 import GeographicData from "@/pages/geographic-data";
-import EntityDiscovery from "@/pages/entity-discovery";
-import EntityReview from "@/pages/entity-review";
 
 const queryClient = new QueryClient();
+const basePath = import.meta.env.BASE_URL === "/" ? "" : import.meta.env.BASE_URL;
 
 function Router() {
   return (
@@ -20,15 +19,12 @@ function Router() {
       <Route path="/data-profiles" component={DataProfiles} />
       <Route path="/quantifiable-data" component={QuantifiableData} />
       <Route path="/geographic-data" component={GeographicData} />
-      <Route path="/entity-discovery" component={EntityDiscovery} />
-      <Route path="/entity-review" component={EntityReview} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
 function App() {
-  // Force dark mode on body
   React.useEffect(() => {
     document.documentElement.classList.add("dark");
   }, []);
@@ -36,7 +32,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <WouterRouter base={basePath}>
           <Router />
         </WouterRouter>
         <Toaster />
