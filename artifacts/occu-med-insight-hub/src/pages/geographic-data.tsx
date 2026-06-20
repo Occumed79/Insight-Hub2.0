@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { Plus, Search, WifiOff } from "lucide-react";
+import { Plus, WifiOff } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
-import { FilterPills } from "@/components/insight/FilterPills";
 import { MapPanel } from "@/components/insight/MapPanel";
 import { SidePanel } from "@/components/insight/SidePanel";
 import { MetricCard } from "@/components/insight/MetricCard";
@@ -63,22 +62,11 @@ function toLocationRecord(entity: VerifiedEntity, loc: VerifiedEntity["locations
   };
 }
 
-function locationMatchesSearch(location: LocationRecord, search: string) {
-  if (!search.trim()) return true;
-  const haystack = [location.placeName, location.city, location.state, location.country, location.region, location.facilityType, location.activity, location.formattedAddress, location.addressLine1, location.notes].filter(Boolean).join(" ").toLowerCase();
-  return haystack.includes(search.toLowerCase().trim());
-}
-
 export default function GeographicData() {
   const { dataset } = useInsightData();
   const [verifiedEntities, setVerifiedEntities] = useState<VerifiedEntity[]>([]);
   const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
   const [selected, setSelected] = useState<LocationRecord | undefined>();
-  const [country, setCountry] = useState("All");
-  const [region, setRegion] = useState("All");
-  const [facility, setFacility] = useState("All");
-  const [activity, setActivity] = useState("All");
-  const [locationSearch, setLocationSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -122,7 +110,7 @@ export default function GeographicData() {
   const companies = useMemo(() => [...workbookCompanies, ...databaseCompanies], [workbookCompanies, databaseCompanies]);
   const { companyId, setCompanyId, company } = useSelectedCompany(companies);
 
-  const companyLocations = useMemo(() => {
+  const locations = useMemo(() => {
     if (isDatabaseCompanyId(companyId)) {
       const entityId = Number(companyId.replace("db-", ""));
       const entity = verifiedEntities.find((item) => item.id === entityId);
@@ -131,28 +119,18 @@ export default function GeographicData() {
     return dataset.locations.filter((location) => location.companyId === companyId);
   }, [companyId, dataset.locations, verifiedEntities]);
 
-  const resetFiltersForCompany = (nextCompanyId: string) => {
+  const resetCompany = (nextCompanyId: string) => {
     setCompanyId(nextCompanyId);
     setSelected(undefined);
-    setCountry("All");
-    setRegion("All");
-    setFacility("All");
-    setActivity("All");
-    setLocationSearch("");
   };
 
-  const countryOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.country))).slice(0, 10)], [companyLocations]);
-  const regionOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.region))).slice(0, 8)], [companyLocations]);
-  const facilityOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.facilityType))).slice(0, 6)], [companyLocations]);
-  const activityOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.activity))).slice(0, 6)], [companyLocations]);
-
-  const filtered = companyLocations.filter((location) => (country === "All" || location.country === country) && (region === "All" || location.region === region) && (facility === "All" || location.facilityType === facility) && (activity === "All" || location.activity === activity) && locationMatchesSearch(location, locationSearch));
-  const countries = new Set(filtered.map((location) => location.country)).size;
+  const countryCount = new Set(locations.map((location) => location.country)).size;
+  const regionCount = new Set(locations.map((location) => location.region)).size;
 
   const geoMetrics = [
-    { id: "geo-sites", companyId, label: "Filtered locations", value: filtered.length, unit: "count" as const, category: "risk" as const, trend: 8.2 },
-    { id: "geo-countries", companyId, label: "Countries", value: countries, unit: "count" as const, category: "risk" as const, trend: 4.1 },
-    { id: "geo-regions", companyId, label: "Regions", value: new Set(filtered.map((location) => location.region)).size, unit: "count" as const, category: "workforce" as const, trend: 3.6 },
+    { id: "geo-sites", companyId, label: "Locations", value: locations.length, unit: "count" as const, category: "risk" as const, trend: 8.2 },
+    { id: "geo-countries", companyId, label: "Countries", value: countryCount, unit: "count" as const, category: "risk" as const, trend: 4.1 },
+    { id: "geo-regions", companyId, label: "Regions", value: regionCount, unit: "count" as const, category: "workforce" as const, trend: 3.6 },
   ];
 
   return (
@@ -162,14 +140,14 @@ export default function GeographicData() {
         <HeaderBar
           eyebrow="Portal 03"
           title="Geographic Data"
-          subtitle="Verified and workbook location intelligence in one filterable company map."
+          subtitle="Verified and workbook location intelligence in one company map."
           actions={
             <div className="flex flex-wrap items-center gap-3">
               <Link href="/entity-discovery" className="inline-flex items-center gap-2 rounded-full border border-cyan-100/15 bg-cyan-100/5 px-4 py-2 text-sm font-semibold text-cyan-50 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]">
                 <Plus size={14} />
                 Add Entity
               </Link>
-              <select value={companyId} onChange={(event) => resetFiltersForCompany(event.target.value)} className="rounded-full border border-cyan-100/15 bg-[#07111d] px-4 py-2 text-sm text-cyan-50 outline-none">
+              <select value={companyId} onChange={(event) => resetCompany(event.target.value)} className="rounded-full border border-cyan-100/15 bg-[#07111d] px-4 py-2 text-sm text-cyan-50 outline-none">
                 <option value="">Select company</option>
                 {companies.map((item) => <option key={item.id} value={item.id}>{item.name}{item.tags?.includes("Verified DB") ? " · Verified" : ""}</option>)}
               </select>
@@ -182,20 +160,8 @@ export default function GeographicData() {
           </GlassCard>
         ) : null}
         <div className="grid gap-3 md:grid-cols-3">{geoMetrics.map((metric) => <MetricCard key={metric.id} metric={metric} />)}</div>
-        <GlassCard className="mt-4 p-4">
-          <div className="flex items-center gap-3 rounded-2xl border border-cyan-100/10 bg-white/[0.03] px-4 py-3">
-            <Search size={15} className="shrink-0 text-cyan-100/45" />
-            <input value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search locations, address, country, activity..." className="w-full bg-transparent text-sm text-cyan-50 outline-none placeholder:text-cyan-100/35" />
-          </div>
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
-            <div className="min-w-0"><p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-cyan-100/38">Country</p><FilterPills options={countryOptions as string[]} value={country} onChange={setCountry} /></div>
-            <div className="min-w-0"><p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-cyan-100/38">Region</p><FilterPills options={regionOptions as string[]} value={region} onChange={setRegion} /></div>
-            <div className="min-w-0"><p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-cyan-100/38">Facility</p><FilterPills options={facilityOptions as string[]} value={facility} onChange={setFacility} /></div>
-            <div className="min-w-0"><p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-cyan-100/38">Activity</p><FilterPills options={activityOptions as string[]} value={activity} onChange={setActivity} /></div>
-          </div>
-        </GlassCard>
         <div className="mt-4 grid gap-4 xl:grid-cols-[1.45fr_.55fr]">
-          <MapPanel locations={filtered} onSelect={setSelected} />
+          <MapPanel locations={locations} onSelect={setSelected} />
           <GlassCard className="p-5">
             <p className="text-xs uppercase tracking-[0.25em] text-emerald-200/60">Location register</p>
             <h2 className="mt-2 text-2xl font-black text-white">{company?.shortName ? `${company.shortName} footprint` : "Select a company"}</h2>
@@ -203,9 +169,9 @@ export default function GeographicData() {
             <div className="mt-4 max-h-[620px] overflow-auto pr-1">
               <SidePanel location={selected} onClose={() => setSelected(undefined)} />
               <div className="space-y-2">
-                {filtered.length === 0 ? (
-                  <p className="rounded-2xl border border-cyan-100/10 bg-white/[0.03] p-4 text-sm text-cyan-100/50">No locations to display for the selected company and filters.</p>
-                ) : filtered.slice(0, 42).map((location) => (
+                {locations.length === 0 ? (
+                  <p className="rounded-2xl border border-cyan-100/10 bg-white/[0.03] p-4 text-sm text-cyan-100/50">No locations to display for the selected company.</p>
+                ) : locations.slice(0, 42).map((location) => (
                   <button key={location.id} onClick={() => setSelected(location)} className="w-full rounded-2xl border border-cyan-100/10 bg-white/[0.03] p-4 text-left transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.06]">
                     <p className="font-semibold text-cyan-50">{location.placeName || location.city}</p>
                     <p className="mt-1 text-xs text-cyan-100/48">{location.country} · {location.region}</p>
