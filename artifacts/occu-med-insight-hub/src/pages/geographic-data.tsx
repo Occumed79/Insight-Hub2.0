@@ -39,7 +39,7 @@ export default function GeographicData() {
     <main className="aurora-bg min-h-screen text-white">
       <Sidebar />
       <section className="relative z-10 px-5 py-8 lg:ml-[210px] lg:px-12">
-        <HeaderBar eyebrow="Portal 03" title="Geographic Data" subtitle="A reusable geographic intelligence map that parses workbook location presence into filterable company, country, region, facility, and activity records." actions={<select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="rounded-full border border-cyan-100/15 bg-[#07111d] px-4 py-2 text-sm text-cyan-50 outline-none">{geographicCompanies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>} />
+        <HeaderBar eyebrow="Portal 03" title="Geographic Data" subtitle="A reusable geographic intelligence map that parses workbook location presence into filterable company, country, region, facility, and activity records." actions={<select value={companyId} onChange={(event) => { setCompanyId(event.target.value); setSelected(undefined); }} className="rounded-full border border-cyan-100/15 bg-[#07111d] px-4 py-2 text-sm text-cyan-50 outline-none">{geographicCompanies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>} />
         <div className="grid gap-4 md:grid-cols-3">{geoMetrics.map((metric) => <MetricCard key={metric.id} metric={metric} />)}</div>
         <GlassCard className="mt-5 p-5">
           <div className="grid gap-5 xl:grid-cols-4">
@@ -49,19 +49,21 @@ export default function GeographicData() {
             <div><p className="mb-2 text-xs uppercase tracking-[0.22em] text-cyan-100/38">Activity</p><FilterPills options={activityOptions as string[]} value={activity} onChange={setActivity} /></div>
           </div>
         </GlassCard>
-        <div className="mt-5 grid gap-5 xl:grid-cols-[1.4fr_.6fr]">
+        <div className="mt-5 grid gap-5 xl:grid-cols-[1.45fr_.55fr]">
           <MapPanel locations={filtered} onSelect={setSelected} />
           <GlassCard className="p-6">
             <p className="text-xs uppercase tracking-[0.25em] text-emerald-200/60">Location register</p>
             <h2 className="mt-2 text-2xl font-black text-white">{company?.shortName} footprint</h2>
-            <p className="mt-2 text-sm leading-6 text-cyan-100/55">Workbook rows are normalized as reusable location objects. Clicking a row or map marker opens the same side-panel detail model.</p>
-            <div className="mt-5 max-h-[520px] space-y-2 overflow-auto pr-1">
-              {filtered.slice(0, 42).map((location) => <button key={location.id} onClick={() => setSelected(location)} className="w-full rounded-2xl border border-cyan-100/10 bg-white/[0.03] p-4 text-left transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.06]"><p className="font-semibold text-cyan-50">{location.city}</p><p className="mt-1 text-xs text-cyan-100/48">{location.country} · {location.region}</p><p className="mt-2 text-xs leading-5 text-cyan-100/55">{location.facilityType}</p></button>)}
+            <p className="mt-2 text-sm leading-6 text-cyan-100/55">Workbook rows are normalized as reusable location objects. Clicking a row or map marker opens detail inside this register.</p>
+            <div className="mt-5 max-h-[620px] overflow-auto pr-1">
+              <SidePanel location={selected} onClose={() => setSelected(undefined)} />
+              <div className="space-y-2">
+                {filtered.slice(0, 42).map((location) => <button key={location.id} onClick={() => setSelected(location)} className="w-full rounded-2xl border border-cyan-100/10 bg-white/[0.03] p-4 text-left transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.06]"><p className="font-semibold text-cyan-50">{location.city}</p><p className="mt-1 text-xs text-cyan-100/48">{location.country} · {location.region}</p><p className="mt-2 text-xs leading-5 text-cyan-100/55">{location.facilityType}</p></button>)}
+              </div>
             </div>
           </GlassCard>
         </div>
       </section>
-      <SidePanel location={selected} onClose={() => setSelected(undefined)} />
     </main>
   );
 }
