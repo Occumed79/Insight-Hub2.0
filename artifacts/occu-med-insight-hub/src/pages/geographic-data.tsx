@@ -11,13 +11,19 @@ import type { LocationRecord } from "@/data/types";
 
 export default function GeographicData() {
   const { dataset } = useInsightData();
-  const { companyId, setCompanyId, company } = useSelectedCompany(dataset.companies);
+  const companyIdsWithLocations = new Set(
+    dataset.locations.map((location) => location.companyId)
+  );
+  const geographicCompanies = dataset.companies
+    .filter((company) => companyIdsWithLocations.has(company.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const { companyId, setCompanyId, company } = useSelectedCompany(geographicCompanies);
   const [country, setCountry] = useState("All");
   const [region, setRegion] = useState("All");
   const [facility, setFacility] = useState("All");
   const [activity, setActivity] = useState("All");
   const [selected, setSelected] = useState<LocationRecord | undefined>();
-  const companyLocations = dataset.locations.filter((location) => location.companyId === companyId || companyId === "v2x");
+  const companyLocations = dataset.locations.filter((location) => location.companyId === companyId);
   const countryOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.country))).slice(0, 12)], [companyLocations]);
   const regionOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.region))).slice(0, 12)], [companyLocations]);
   const facilityOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.facilityType))).slice(0, 8)], [companyLocations]);
@@ -33,7 +39,7 @@ export default function GeographicData() {
     <main className="aurora-bg min-h-screen text-white">
       <Sidebar />
       <section className="relative z-10 px-5 py-8 lg:ml-[210px] lg:px-12">
-        <HeaderBar eyebrow="Portal 03" title="Geographic Data" subtitle="A reusable geographic intelligence map that parses workbook location presence into filterable company, country, region, facility, and activity records." actions={<select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="rounded-full border border-cyan-100/15 bg-[#07111d] px-4 py-2 text-sm text-cyan-50 outline-none">{dataset.companies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>} />
+        <HeaderBar eyebrow="Portal 03" title="Geographic Data" subtitle="A reusable geographic intelligence map that parses workbook location presence into filterable company, country, region, facility, and activity records." actions={<select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="rounded-full border border-cyan-100/15 bg-[#07111d] px-4 py-2 text-sm text-cyan-50 outline-none">{geographicCompanies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>} />
         <div className="grid gap-4 md:grid-cols-3">{geoMetrics.map((metric) => <MetricCard key={metric.id} metric={metric} />)}</div>
         <GlassCard className="mt-5 p-5">
           <div className="grid gap-5 xl:grid-cols-4">
