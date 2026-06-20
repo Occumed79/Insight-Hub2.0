@@ -4,14 +4,21 @@ import type { LocationRecord } from "@/data/types";
 
 export function SidePanel({ location, onClose }: { location?: LocationRecord; onClose: () => void }) {
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {location ? (
-        <motion.aside initial={{ x: 360, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 360, opacity: 0 }} transition={{ duration: 0.28 }} className="fixed right-5 top-5 z-50 w-[340px] rounded-[28px] border border-cyan-100/20 bg-[#06111d]/90 p-6 shadow-[0_24px_90px_rgba(0,0,0,.45)] backdrop-blur-2xl">
-          <button onClick={onClose} className="absolute right-4 top-4 rounded-full border border-cyan-100/10 p-2 text-cyan-100/60 hover:text-white"><X size={16} /></button>
+        <motion.aside
+          key={location.id}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.22 }}
+          className="mb-4 rounded-[24px] border border-cyan-100/16 bg-[#06111d]/72 p-5 shadow-[inset_0_0_44px_rgba(45,212,191,.06)] backdrop-blur-xl"
+        >
+          <button onClick={onClose} className="float-right rounded-full border border-cyan-100/10 p-2 text-cyan-100/60 hover:text-white"><X size={15} /></button>
           <p className="text-xs uppercase tracking-[0.25em] text-emerald-200/60">Location detail</p>
-          <h3 className="mt-3 text-2xl font-black text-white">{location.city}</h3>
+          <h3 className="mt-3 pr-8 text-2xl font-black text-white">{location.city}</h3>
           <p className="mt-1 text-sm text-cyan-100/55">{location.country}</p>
-          <div className="mt-6 space-y-4 text-sm">
+          <div className="mt-5 space-y-3 text-sm">
             <Info label="Company" value={location.company} />
             <Info label="Region" value={location.region} />
             <Info label="Facility Type" value={location.facilityType} />
