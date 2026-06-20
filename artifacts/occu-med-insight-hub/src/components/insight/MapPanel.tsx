@@ -6,6 +6,7 @@ import { GlassCard } from "./GlassCard";
 
 const WORLD_BOUNDS: [[number, number], [number, number]] = [[-85, -180], [85, 180]];
 const DEFAULT_CENTER: [number, number] = [24, 18];
+const MAPPABLE_CONFIDENCE = new Set<LocationRecord["geocodeConfidence"]>(["exact", "place", "city"]);
 
 const customIcon = L.divIcon({
   className: "custom-marker",
@@ -26,11 +27,19 @@ const customIcon = L.divIcon({
   iconAnchor: [15, 15],
 });
 
+function isMappable(location: LocationRecord) {
+  const [lng, lat] = location.coordinates;
+  const hasValidCoordinate = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+  return hasValidCoordinate && MAPPABLE_CONFIDENCE.has(location.geocodeConfidence);
+}
+
 function getMarkerKey(location: LocationRecord, index: number) {
   return `${location.id}-${location.coordinates[0]}-${location.coordinates[1]}-${index}`;
 }
 
 export function MapPanel({ locations, onSelect }: { locations: LocationRecord[]; onSelect: (location: LocationRecord) => void }) {
+  const mappableLocations = useMemo(() => locations.filter(isMappable), [locations]);
+  const unresolvedCount = locations.length - mappableLocations.length;
   const countryCount = useMemo(() => new Set(locations.map((location) => location.country)).size, [locations]);
   const regionCount = useMemo(() => new Set(locations.map((location) => location.region)).size, [locations]);
 
@@ -56,10 +65,11 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3 px-2">
         <div>
           <h3 className="font-bold text-white">Global intelligence map</h3>
-          <p className="text-xs text-cyan-100/50">Zoom, pan, and click a location glow to open operational context.</p>
+          <p className="text-xs text-cyan-100/50">Only exact, place, and city-confidence locations are plotted. Low-confidence rows stay in the register.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-cyan-100/15 bg-cyan-200/10 px-3 py-1 text-xs text-cyan-50">{locations.length} sites</span>
+          <span className="rounded-full border border-cyan-100/15 bg-cyan-200/10 px-3 py-1 text-xs text-cyan-50">{mappableLocations.length} mapped</span>
+          <span className="rounded-full border border-cyan-100/15 bg-white/[0.04] px-3 py-1 text-xs text-cyan-100/65">{locations.length} rows</span>
           <span className="rounded-full border border-cyan-100/15 bg-white/[0.04] px-3 py-1 text-xs text-cyan-100/65">{countryCount} countries</span>
           <span className="rounded-full border border-cyan-100/15 bg-white/[0.04] px-3 py-1 text-xs text-cyan-100/65">{regionCount} regions</span>
         </div>
@@ -84,7 +94,7 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
             noWrap
             bounds={WORLD_BOUNDS}
           />
-          {locations.map((location, index) => {
+          {mappableLocations.map((location, index) => {
             const [lng, lat] = location.coordinates;
             return (
               <Marker
@@ -106,7 +116,7 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
         </MapContainer>
         <div className="pointer-events-none absolute bottom-4 left-4 z-[500] rounded-2xl border border-cyan-100/10 bg-[#07111d]/70 px-4 py-3 text-xs text-cyan-100/60 backdrop-blur-xl">
           <p className="font-semibold text-cyan-50">Operational address map</p>
-          <p className="mt-1">Free dark tiles with Insight Hub teal/cyan overlay styling.</p>
+          <p className="mt-1">{unresolvedCount > 0 ? `${unresolvedCount} low-confidence rows are hidden from map pins.` : "All rows have mappable coordinates."}</p>
         </div>
       </div>
     </GlassCard>
