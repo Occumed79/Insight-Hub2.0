@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { portalCards } from "@/data/portals";
 import type { PortalConfig } from "@/data/portals";
+import occuMedLogoDataUrl from "@/assets/occu-med-logo-data";
 
 const iconMap = { profile: Building2, quant: Sigma, geo: Globe2, entity: Network, discovery: Layers, federal: Landmark };
 
@@ -17,14 +18,12 @@ const portalImageMap: Record<PortalConfig["imageKind"], string> = {
 
 function OccuMedWordmark() {
   return (
-    <div className="mx-auto inline-flex items-center gap-3 rounded-[24px] border border-cyan-100/14 bg-[#030813]/62 px-5 py-3 shadow-[0_0_42px_rgba(34,211,238,.10),inset_0_0_30px_rgba(255,255,255,.025)] backdrop-blur-xl">
-      <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-100/18 bg-white/[0.045] shadow-[0_0_24px_rgba(255,255,255,.12)]">
-        <span className="h-3 w-7 rounded-full bg-white shadow-[0_0_18px_rgba(255,255,255,.42)]" />
-      </div>
-      <div className="text-left">
-        <p className="text-sm font-black uppercase tracking-[0.32em] text-white">Occu-Med</p>
-        <p className="mt-1 text-[10px] uppercase tracking-[0.30em] text-cyan-100/45">Insight Hub</p>
-      </div>
+    <div className="mx-auto flex h-[96px] w-full max-w-[430px] items-center justify-center overflow-visible rounded-[28px] border border-cyan-100/10 bg-[#030813]/45 px-7 py-4 shadow-[0_0_48px_rgba(34,211,238,.10),inset_0_0_30px_rgba(255,255,255,.025)] backdrop-blur-xl">
+      <img
+        src={occuMedLogoDataUrl}
+        alt="Occu-Med"
+        className="block max-h-[72px] w-auto max-w-full object-contain drop-shadow-[0_0_18px_rgba(255,255,255,.24)]"
+      />
     </div>
   );
 }
