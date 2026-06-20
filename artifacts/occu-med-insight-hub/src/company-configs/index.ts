@@ -1,4 +1,5 @@
 export type { CompanyConfig, ChartDefinition, SignalDefinition, ChartSeriesDefinition, ReferenceLineDefinition, SourceFilterDefinition, DossierSectionType, DossierSectionDefinition, RiskMatrixPoint, OpportunityMatrixPoint, MetricDefinition, TooltipFormat, ChartInteractionConfig, CompanyInteractionConfig, TooltipBehavior, DrillDownDefinition, ChartFilterDefinition, LinkedChartDefinition, DetailPanelDefinition, TransitionConfig, AdvancedVisualizationConfig, SemanticZoomLevel, DepthLayerConfig, FocusEffectConfig, GridEffectConfig, PathEffectConfig, InteractionPreset } from "./types";
+export { resolveConfigCompanyId, getConfigIdAliases } from "./configIds";
 
 import { v2xConfig } from "./v2x";
 import { idsConfig } from "./ids";
@@ -41,6 +42,7 @@ import { prospectNetworkIntelligenceConfig } from "./prospect-network-intelligen
 import { networkGapResearchIntelligenceConfig } from "./network-gap-research-intelligence";
 import { globalOperationalSitesIntelligenceConfig } from "./global-operational-sites-intelligence";
 import { coreClientStatsDashboardConfig } from "./core-client-stats-dashboard";
+import { reportMethodologyIntelligenceConfig } from "./report-methodology-intelligence";
 import { uploadedPdfFifthIntelligenceConfig } from "./uploaded-pdf-fifth-intelligence";
 import { v2xDbaCarrierAccessConfig } from "./v2x-dba-carrier-access";
 import { eccConfig } from "./ecc";
@@ -62,10 +64,12 @@ import { gditConfig } from "./dossier-companies";
 import { jacobsConfig, baeConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig } from "./stub-companies";
 
 import type { CompanyConfig } from "./types";
+import { resolveConfigCompanyId } from "./configIds";
 
 const allConfigs: CompanyConfig[] = [
   masterPortfolioIntelligenceConfig,
   coreClientStatsDashboardConfig,
+  reportMethodologyIntelligenceConfig,
   uploadedPdfFifthIntelligenceConfig,
   networkExpansionIntelligenceConfig,
   multiClientLocationIntelligenceConfig,
@@ -140,7 +144,7 @@ for (const config of allConfigs) {
 }
 
 export function getCompanyConfig(companyId: string): CompanyConfig | undefined {
-  return configMap.get(companyId);
+  return configMap.get(resolveConfigCompanyId(companyId));
 }
 
 export function getAllCompanyConfigs(): CompanyConfig[] {
@@ -148,10 +152,11 @@ export function getAllCompanyConfigs(): CompanyConfig[] {
 }
 
 export function getCompanyConfigOrDefault(companyId: string): CompanyConfig {
-  return configMap.get(companyId) ?? {
-    companyId,
-    displayName: companyId,
-    shortName: companyId,
+  const resolvedId = resolveConfigCompanyId(companyId);
+  return configMap.get(resolvedId) ?? {
+    companyId: resolvedId,
+    displayName: resolvedId,
+    shortName: resolvedId,
     sector: "Unknown",
     headquarters: "Unknown",
     employees: 0,
