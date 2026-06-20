@@ -2,6 +2,8 @@ import { X, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LocationRecord } from "@/data/types";
 
+const LINKABLE_CONFIDENCE = new Set<LocationRecord["geocodeConfidence"]>(["exact", "place", "city"]);
+
 function getBestAddress(location: LocationRecord): string {
   if (location.formattedAddress) return location.formattedAddress;
   if (location.addressLine1) {
@@ -26,6 +28,12 @@ function getGeocodeLabel(location: LocationRecord): string {
   return `${confidence}${source}`;
 }
 
+function canOpenExternalMap(location: LocationRecord) {
+  const [lng, lat] = location.coordinates;
+  const validCoordinate = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+  return validCoordinate && LINKABLE_CONFIDENCE.has(location.geocodeConfidence);
+}
+
 export function SidePanel({ location, onClose }: { location?: LocationRecord; onClose: () => void }) {
   if (!location) return null;
 
@@ -34,6 +42,7 @@ export function SidePanel({ location, onClose }: { location?: LocationRecord; on
   const osmUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=14/${lat}/${lng}`;
   const bestAddress = getBestAddress(location);
   const geocodeLabel = getGeocodeLabel(location);
+  const showMapLinks = canOpenExternalMap(location);
 
   return (
     <AnimatePresence mode="wait">
@@ -63,28 +72,18 @@ export function SidePanel({ location, onClose }: { location?: LocationRecord; on
             </div>
             <div className="pt-2">
               <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/35">Coordinates</p>
-              <p className="mt-1 leading-6 text-cyan-50/82 font-mono text-xs">{lat.toFixed(6)}, {lng.toFixed(6)}</p>
+              <p className="mt-1 leading-6 text-cyan-50/82 font-mono text-xs">{showMapLinks ? `${lat.toFixed(6)}, ${lng.toFixed(6)}` : "Not shown until location is place/city-confidence or better"}</p>
             </div>
-            <div className="pt-4 flex gap-2">
-              <a
-                href={googleMapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex flex-1 items-center justify-center gap-2 rounded-full border border-cyan-100/15 bg-cyan-100/5 px-4 py-2 text-xs font-semibold text-cyan-50 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]"
-              >
-                <ExternalLink size={12} />
-                Google Maps
-              </a>
-              <a
-                href={osmUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex flex-1 items-center justify-center gap-2 rounded-full border border-cyan-100/15 bg-cyan-100/5 px-4 py-2 text-xs font-semibold text-cyan-50 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]"
-              >
-                <ExternalLink size={12} />
-                OpenStreetMap
-              </a>
-            </div>
+            {showMapLinks ? (
+              <div className="pt-4 flex gap-2">
+                <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center gap-2 rounded-full border border-cyan-100/15 bg-cyan-100/5 px-4 py-2 text-xs font-semibold text-cyan-50 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]"><ExternalLink size={12} />Google Maps</a>
+                <a href={osmUrl} target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center gap-2 rounded-full border border-cyan-100/15 bg-cyan-100/5 px-4 py-2 text-xs font-semibold text-cyan-50 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]"><ExternalLink size={12} />OpenStreetMap</a>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-amber-200/20 bg-amber-200/8 px-4 py-3 text-xs leading-5 text-amber-100/80">
+                Map links are hidden because this row is not geocoded to a city/place-level coordinate yet.
+              </div>
+            )}
           </div>
         </motion.aside>
       ) : null}
