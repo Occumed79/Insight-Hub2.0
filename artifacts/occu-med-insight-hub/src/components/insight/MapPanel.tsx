@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { useEffect, useMemo } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { LocationRecord } from "@/data/types";
 import { GlassCard } from "./GlassCard";
@@ -37,6 +37,29 @@ function getMarkerKey(location: LocationRecord, index: number) {
   return `${location.id}-${location.coordinates[0]}-${location.coordinates[1]}-${index}`;
 }
 
+function MapAutoFit({ locations }: { locations: LocationRecord[] }) {
+  const map = useMap();
+  const signature = locations.map((location) => location.id).join("|");
+
+  useEffect(() => {
+    if (locations.length === 0) {
+      map.setView(DEFAULT_CENTER, 2);
+      return;
+    }
+    const positions = locations.map((location) => {
+      const [lng, lat] = location.coordinates;
+      return [lat, lng] as [number, number];
+    });
+    if (positions.length === 1) {
+      map.setView(positions[0], 8, { animate: true });
+      return;
+    }
+    map.fitBounds(positions, { padding: [64, 64], maxZoom: 8, animate: true });
+  }, [map, signature, locations]);
+
+  return null;
+}
+
 export function MapPanel({ locations, onSelect }: { locations: LocationRecord[]; onSelect: (location: LocationRecord) => void }) {
   const mappableLocations = useMemo(() => locations.filter(isMappable), [locations]);
   const unresolvedCount = locations.length - mappableLocations.length;
@@ -65,7 +88,7 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3 px-2">
         <div>
           <h3 className="font-bold text-white">Global intelligence map</h3>
-          <p className="text-xs text-cyan-100/50">Only exact, place, and city-confidence locations are plotted. Low-confidence rows stay in the register.</p>
+          <p className="text-xs text-cyan-100/50">Auto-fits to the selected company. Only exact, place, and city-confidence locations are plotted.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-cyan-100/15 bg-cyan-200/10 px-3 py-1 text-xs text-cyan-50">{mappableLocations.length} mapped</span>
@@ -75,40 +98,15 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
         </div>
       </div>
       <div className="map-shell insight-leaflet-map relative h-[500px] overflow-hidden rounded-[24px] border border-cyan-100/16 bg-[#020710]/78 shadow-[inset_0_0_70px_rgba(45,212,191,.08)]">
-        <MapContainer
-          center={DEFAULT_CENTER}
-          zoom={2}
-          minZoom={1}
-          maxZoom={18}
-          maxBounds={WORLD_BOUNDS}
-          maxBoundsViscosity={0.95}
-          style={{ width: "100%", height: "100%", background: "#020710" }}
-          zoomControl={false}
-          scrollWheelZoom
-          worldCopyJump={false}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            maxZoom={19}
-            noWrap
-            bounds={WORLD_BOUNDS}
-          />
+        <MapContainer center={DEFAULT_CENTER} zoom={2} minZoom={1} maxZoom={18} maxBounds={WORLD_BOUNDS} maxBoundsViscosity={0.95} style={{ width: "100%", height: "100%", background: "#020710" }} zoomControl={false} scrollWheelZoom worldCopyJump={false}>
+          <MapAutoFit locations={mappableLocations} />
+          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" maxZoom={19} noWrap bounds={WORLD_BOUNDS} />
           {mappableLocations.map((location, index) => {
             const [lng, lat] = location.coordinates;
             return (
-              <Marker
-                key={getMarkerKey(location, index)}
-                position={[lat, lng]}
-                icon={customIcon}
-                eventHandlers={{ click: () => onSelect(location) }}
-              >
+              <Marker key={getMarkerKey(location, index)} position={[lat, lng]} icon={customIcon} eventHandlers={{ click: () => onSelect(location) }}>
                 <Popup className="custom-popup">
-                  <div className="text-cyan-50">
-                    <strong>{location.placeName ?? location.city}</strong>
-                    <br />
-                    <span className="text-cyan-100/70">{location.country}</span>
-                  </div>
+                  <div className="text-cyan-50"><strong>{location.placeName ?? location.city}</strong><br /><span className="text-cyan-100/70">{location.country}</span></div>
                 </Popup>
               </Marker>
             );
