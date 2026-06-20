@@ -157,7 +157,7 @@ export const referralDemandIntelligenceConfig: CompanyConfig = {
       fullWidth: true,
     },
     {
-      id: "referral-client-concentration",
+      id: "referral-chartpack-client-concentration",
       title: "Referral concentration by client",
       subtitle: "Chart pack 1: V2X alone is roughly 49% of all defense referrals; top concentration creates account-retention risk.",
       type: "bar",

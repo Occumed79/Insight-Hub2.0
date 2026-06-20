@@ -18,13 +18,21 @@ function configToCompany(config: ReturnType<typeof getAllCompanyConfigs>[number]
 function configToProfile(config: ReturnType<typeof getAllCompanyConfigs>[number]): CompanyProfile {
   return {
     companyId: config.companyId,
-    sections: [{
-      id: `${config.companyId}-overview`,
-      title: "Overview",
-      narrative: config.summary,
-      bullets: config.tags.map((tag) => tag),
-      metrics: [],
-    }],
+    sections: config.dossierSections && config.dossierSections.length > 0
+      ? config.dossierSections.map((section, index) => ({
+          id: section.type || `${config.companyId}-section-${index}`,
+          title: section.title,
+          narrative: section.narrative,
+          bullets: section.bullets,
+          metrics: section.metricIds || [],
+        }))
+      : [{
+          id: `${config.companyId}-overview`,
+          title: "Overview",
+          narrative: config.summary,
+          bullets: config.tags.map((tag) => tag),
+          metrics: [],
+        }],
   };
 }
 
