@@ -1,7 +1,7 @@
 import { GlassCard } from "../insight/GlassCard";
 import type { SourceFilterDefinition } from "../../company-configs/types";
 
-function FilterRow({ label, value }: { label: string | string[] | undefined; value?: string | string[] }) {
+function FilterRow({ label, value }: { label: string; value: string | string[] | undefined }) {
   if (!value || (Array.isArray(value) && !value.length)) return null;
   const display = Array.isArray(value) ? value.join(", ") : value;
   return (
