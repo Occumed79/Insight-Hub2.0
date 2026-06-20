@@ -11,20 +11,13 @@ const MAPPABLE_CONFIDENCE = new Set<LocationRecord["geocodeConfidence"]>(["exact
 const customIcon = L.divIcon({
   className: "custom-marker",
   html: `
-    <div style="position: relative; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
-      <div style="position: absolute; width: 30px; height: 30px; background: rgba(45, 212, 191, 0.13); border-radius: 50%; animation: pulse 2s ease-in-out infinite;"></div>
-      <div style="position: absolute; width: 21px; height: 21px; background: rgba(45, 212, 191, 0.22); border-radius: 50%; box-shadow: 0 0 22px rgba(45, 212, 191, 0.38);"></div>
-      <div style="position: relative; width: 11px; height: 11px; background: #a7fff3; border: 2px solid rgba(255, 255, 255, 0.92); border-radius: 50%; box-shadow: 0 0 14px rgba(45, 212, 191, 0.72);"></div>
+    <div style="position: relative; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+      <div style="position: absolute; width: 24px; height: 24px; background: rgba(20, 184, 166, 0.16); border-radius: 50%; box-shadow: 0 0 18px rgba(20, 184, 166, 0.30);"></div>
+      <div style="position: relative; width: 10px; height: 10px; background: #7ff7e8; border: 2px solid rgba(255, 255, 255, 0.96); border-radius: 50%; box-shadow: 0 0 10px rgba(20, 184, 166, 0.62);"></div>
     </div>
-    <style>
-      @keyframes pulse {
-        0%, 100% { transform: scale(1); opacity: 0.65; }
-        50% { transform: scale(1.35); opacity: 0.28; }
-      }
-    </style>
   `,
-  iconSize: [30, 30],
-  iconAnchor: [15, 15],
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
 });
 
 function isMappable(location: LocationRecord) {
@@ -54,7 +47,7 @@ function MapAutoFit({ locations }: { locations: LocationRecord[] }) {
       map.setView(positions[0], 8, { animate: true });
       return;
     }
-    map.fitBounds(positions, { padding: [56, 56], maxZoom: 8, animate: true });
+    map.fitBounds(positions, { padding: [48, 48], maxZoom: 7, animate: true });
   }, [map, signature, locations]);
 
   return null;
@@ -76,7 +69,7 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
           </div>
           <span className="rounded-full border border-cyan-100/15 bg-cyan-200/10 px-3 py-1 text-xs text-cyan-50">0 sites</span>
         </div>
-        <div className="map-shell relative h-[430px] rounded-[24px] border border-cyan-100/16 bg-[#020710]/78 flex items-center justify-center">
+        <div className="map-shell relative flex h-[430px] items-center justify-center rounded-[24px] border border-cyan-100/16 bg-[#06111f]/82">
           <p className="text-sm text-cyan-100/40">Select a company to view locations</p>
         </div>
       </GlassCard>
@@ -88,7 +81,7 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3 px-2">
         <div>
           <h3 className="font-bold text-white">Global intelligence map</h3>
-          <p className="text-xs text-cyan-100/50">Auto-fits to the selected company. Exact, place, and city-confidence locations are plotted.</p>
+          <p className="text-xs text-cyan-100/50">Readable live map tiles with operational locations plotted on top.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-cyan-100/15 bg-cyan-200/10 px-3 py-1 text-xs text-cyan-50">{mappableLocations.length} mapped</span>
@@ -97,23 +90,23 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
           <span className="rounded-full border border-cyan-100/15 bg-white/[0.04] px-3 py-1 text-xs text-cyan-100/65">{regionCount} regions</span>
         </div>
       </div>
-      <div className="map-shell insight-leaflet-map relative h-[430px] overflow-hidden rounded-[24px] border border-cyan-100/16 bg-[#020710]/78 shadow-[inset_0_0_70px_rgba(45,212,191,.08)]">
-        <MapContainer center={DEFAULT_CENTER} zoom={2} minZoom={1} maxZoom={18} maxBounds={WORLD_BOUNDS} maxBoundsViscosity={0.95} style={{ width: "100%", height: "100%", background: "#020710" }} zoomControl={false} scrollWheelZoom worldCopyJump={false}>
+      <div className="map-shell insight-leaflet-map relative h-[430px] overflow-hidden rounded-[24px] border border-cyan-100/18 bg-[#06111f]/82 shadow-[inset_0_0_48px_rgba(45,212,191,.045)]">
+        <MapContainer center={DEFAULT_CENTER} zoom={2} minZoom={1} maxZoom={18} maxBounds={WORLD_BOUNDS} maxBoundsViscosity={0.95} style={{ width: "100%", height: "100%", background: "#d9e5ea" }} zoomControl={false} scrollWheelZoom worldCopyJump={false}>
           <MapAutoFit locations={mappableLocations} />
-          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" maxZoom={19} noWrap bounds={WORLD_BOUNDS} />
+          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" maxZoom={19} noWrap bounds={WORLD_BOUNDS} />
           {mappableLocations.map((location, index) => {
             const [lng, lat] = location.coordinates;
             return (
               <Marker key={getMarkerKey(location, index)} position={[lat, lng]} icon={customIcon} eventHandlers={{ click: () => onSelect(location) }}>
                 <Popup className="custom-popup">
-                  <div className="text-cyan-50"><strong>{location.placeName ?? location.city}</strong><br /><span className="text-cyan-100/70">{location.country}</span></div>
+                  <div className="text-slate-950"><strong>{location.placeName ?? location.city}</strong><br /><span>{location.country}</span></div>
                 </Popup>
               </Marker>
             );
           })}
         </MapContainer>
-        <div className="pointer-events-none absolute bottom-4 left-4 z-[500] rounded-2xl border border-cyan-100/10 bg-[#07111d]/70 px-4 py-3 text-xs text-cyan-100/60 backdrop-blur-xl">
-          <p className="font-semibold text-cyan-50">Operational address map</p>
+        <div className="pointer-events-none absolute bottom-4 left-4 z-[500] rounded-2xl border border-slate-900/10 bg-white/86 px-4 py-3 text-xs text-slate-700 shadow-[0_18px_40px_rgba(2,6,23,.24)] backdrop-blur-xl">
+          <p className="font-semibold text-slate-950">Operational address map</p>
           <p className="mt-1">{unresolvedCount > 0 ? `${unresolvedCount} low-confidence rows are hidden from map pins.` : "Mappable rows ready."}</p>
         </div>
       </div>
