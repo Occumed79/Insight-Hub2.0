@@ -1,53 +1,81 @@
-import { useMemo, useState } from "react";
-import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps";
+import { useMemo } from "react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
 import type { LocationRecord } from "@/data/types";
 import { GlassCard } from "./GlassCard";
 
-const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
-const DEFAULT_VIEW = { coordinates: [15, 18] as [number, number], zoom: 1.05 };
-
-type LocationCluster = {
-  id: string;
-  coordinates: [number, number];
-  count: number;
-  label: string;
-  locations: LocationRecord[];
-};
-
-function buildClusters(locations: LocationRecord[]): LocationCluster[] {
-  const byCoordinate = new Map<string, LocationCluster>();
-
-  for (const location of locations) {
-    const key = `${location.coordinates[0].toFixed(2)},${location.coordinates[1].toFixed(2)}`;
-    const existing = byCoordinate.get(key);
-    if (existing) {
-      existing.count += 1;
-      existing.locations.push(location);
-      existing.label = existing.count > 1 ? `${location.city} +${existing.count - 1}` : location.city;
-      continue;
-    }
-
-    byCoordinate.set(key, {
-      id: key,
-      coordinates: location.coordinates,
-      count: 1,
-      label: location.city,
-      locations: [location],
-    });
-  }
-
-  return Array.from(byCoordinate.values());
-}
+const customIcon = L.divIcon({
+  className: "custom-marker",
+  html: `
+    <div style="
+      position: relative;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    ">
+      <div style="
+        position: absolute;
+        width: 28px;
+        height: 28px;
+        background: rgba(45, 212, 191, 0.12);
+        border-radius: 50%;
+        animation: pulse 2s ease-in-out infinite;
+      "></div>
+      <div style="
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        background: rgba(45, 212, 191, 0.2);
+        border-radius: 50%;
+      "></div>
+      <div style="
+        position: relative;
+        width: 11px;
+        height: 11px;
+        background: #a7fff3;
+        border: 2px solid rgba(255, 255, 255, 0.9);
+        border-radius: 50%;
+        box-shadow: 0 0 12px rgba(45, 212, 191, 0.6);
+      "></div>
+    </div>
+    <style>
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 0.6; }
+        50% { transform: scale(1.3); opacity: 0.3; }
+      }
+    </style>
+  `,
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+});
 
 export function MapPanel({ locations, onSelect }: { locations: LocationRecord[]; onSelect: (location: LocationRecord) => void }) {
-  const [view, setView] = useState(DEFAULT_VIEW);
-  const clusters = useMemo(() => buildClusters(locations), [locations]);
   const countryCount = useMemo(() => new Set(locations.map((location) => location.country)).size, [locations]);
   const regionCount = useMemo(() => new Set(locations.map((location) => location.region)).size, [locations]);
 
-  const setZoom = (nextZoom: number) => {
-    setView((current) => ({ ...current, zoom: Math.max(1, Math.min(5, nextZoom)) }));
-  };
+  if (locations.length === 0) {
+    return (
+      <GlassCard className="map-card overflow-hidden p-4">
+        <div className="mb-2 flex items-center justify-between px-2">
+          <div>
+            <h3 className="font-bold text-white">Global intelligence map</h3>
+            <p className="text-xs text-cyan-100/50">No locations to display.</p>
+          </div>
+          <span className="rounded-full border border-cyan-100/15 bg-cyan-200/10 px-3 py-1 text-xs text-cyan-50">0 sites</span>
+        </div>
+        <div className="map-shell h-[500px] rounded-[24px] border border-cyan-100/16 bg-[#020710]/78 flex items-center justify-center">
+          <p className="text-sm text-cyan-100/40">Select a company to view locations</p>
+        </div>
+      </GlassCard>
+    );
+  }
+
+  const bounds = locations.map((loc) => {
+    const [lng, lat] = loc.coordinates;
+    return [lat, lng] as [number, number];
+  });
 
   return (
     <GlassCard className="map-card overflow-hidden p-4">
@@ -62,63 +90,47 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
           <span className="rounded-full border border-cyan-100/15 bg-white/[0.04] px-3 py-1 text-xs text-cyan-100/65">{regionCount} regions</span>
         </div>
       </div>
-
-      <div className="map-shell relative min-h-[560px] overflow-hidden rounded-[28px] border border-cyan-100/16 bg-[#020710]/88 shadow-[inset_0_0_80px_rgba(45,212,191,.08)]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(45,212,191,.16),transparent_34%),linear-gradient(180deg,rgba(15,23,42,.16),rgba(2,6,23,.88))]" />
-        <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:linear-gradient(rgba(103,232,249,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(103,232,249,.08)_1px,transparent_1px)] [background-size:38px_38px]" />
-
-        <div className="absolute right-4 top-4 z-20 flex items-center gap-2 rounded-full border border-cyan-100/15 bg-[#07111d]/90 p-1 shadow-[0_18px_60px_rgba(0,0,0,.35)] backdrop-blur-xl">
-          <button type="button" onClick={() => setZoom(view.zoom + 0.45)} className="rounded-full px-3 py-1 text-sm font-bold text-cyan-50 hover:bg-cyan-200/10">+</button>
-          <button type="button" onClick={() => setZoom(view.zoom - 0.45)} className="rounded-full px-3 py-1 text-sm font-bold text-cyan-50 hover:bg-cyan-200/10">−</button>
-          <button type="button" onClick={() => setView(DEFAULT_VIEW)} className="rounded-full px-3 py-1 text-xs font-semibold text-cyan-100/70 hover:bg-cyan-200/10">Reset</button>
-        </div>
-
-        <ComposableMap projectionConfig={{ rotate: [-8, 0, 0], scale: 166 }} style={{ width: "100%", height: "100%", minHeight: 560 }}>
-          <defs>
-            <filter id="mapGlow" x="-60%" y="-60%" width="220%" height="220%">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <ZoomableGroup center={view.coordinates} zoom={view.zoom} minZoom={1} maxZoom={5} onMoveEnd={(position) => setView({ coordinates: position.coordinates as [number, number], zoom: position.zoom })}>
-            <Geographies geography={geoUrl}>
-              {({ geographies }) => geographies.map((geo) => (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill="rgba(22, 78, 99, .56)"
-                  stroke="rgba(165, 243, 252, .22)"
-                  strokeWidth={0.45}
+      <div className="map-shell h-[500px] rounded-[24px] border border-cyan-100/16 bg-[#020710]/78 overflow-hidden">
+        <MapContainer
+          bounds={bounds}
+          boundsOptions={{ padding: [50, 50] }}
+          style={{ width: "100%", height: "100%", background: "#020710" }}
+          zoomControl={false}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            maxZoom={19}
+          />
+          {locations.map((location) => {
+            const [lng, lat] = location.coordinates;
+            return (
+              <Marker
+                key={location.id}
+                position={[lat, lng]}
+                icon={customIcon}
+                eventHandlers={{
+                  click: () => onSelect(location),
+                }}
+              >
+                <Popup
+                  className="custom-popup"
                   style={{
-                    default: { outline: "none" },
-                    hover: { fill: "rgba(45,212,191,.44)", outline: "none" },
-                    pressed: { outline: "none" },
+                    background: "#06111d",
+                    border: "1px solid rgba(45, 212, 191, 0.3)",
+                    color: "#a7fff3",
                   }}
-                />
-              ))}
-            </Geographies>
-
-            {clusters.map((cluster) => {
-              const radius = Math.min(28, 10 + cluster.count * 3);
-              return (
-                <Marker key={cluster.id} coordinates={cluster.coordinates} onClick={() => onSelect(cluster.locations[0])}>
-                  <circle r={radius + 14} fill="rgba(45,212,191,.055)" filter="url(#mapGlow)" className="pointer-events-none" />
-                  <circle r={radius} fill="rgba(45,212,191,.12)" stroke="rgba(103,232,249,.24)" strokeWidth={1} className="pointer-events-none" />
-                  <circle r={5.5} fill="#b8fff7" stroke="rgba(255,255,255,.95)" strokeWidth={1.5} className="map-marker cursor-pointer" />
-                  {cluster.count > 1 ? <text y={-12} textAnchor="middle" className="pointer-events-none fill-cyan-50 text-[10px] font-bold">{cluster.count}</text> : null}
-                </Marker>
-              );
-            })}
-          </ZoomableGroup>
-        </ComposableMap>
-
-        <div className="pointer-events-none absolute bottom-4 left-4 rounded-2xl border border-cyan-100/10 bg-[#07111d]/70 px-4 py-3 text-xs text-cyan-100/60 backdrop-blur-xl">
-          <p className="font-semibold text-cyan-50">Operational coverage layer</p>
-          <p className="mt-1">Marker glow scales by stacked locations at the same coordinate.</p>
-        </div>
+                >
+                  <div style={{ color: "#a7fff3" }}>
+                    <strong>{location.city}</strong>
+                    <br />
+                    {location.country}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+        </MapContainer>
       </div>
     </GlassCard>
   );

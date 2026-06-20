@@ -49,12 +49,19 @@ export type LocationRecord = {
   company: string;
   city: string;
   state?: string;
+  postalCode?: string;
   country: string;
   region: string;
   facilityType: string;
   activity: string;
   notes: string;
   coordinates: [number, number];
+  addressLine1?: string;
+  addressLine2?: string;
+  formattedAddress?: string;
+  placeName?: string;
+  geocodeSource?: "manual" | "uploaded" | "osm" | "google" | "mapbox" | "estimated";
+  geocodeConfidence?: "exact" | "place" | "city" | "country" | "unknown";
 };
 
 export type Assumption = {
