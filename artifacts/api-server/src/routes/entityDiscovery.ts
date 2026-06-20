@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { db, entitiesTable, locationsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -133,9 +135,62 @@ router.post("/entity-discovery/locations", async (req, res) => {
     const locations = await queryNominatim(entityName);
     const mapped = locations.filter((location) => ["exact", "place", "city"].includes(location.geocodeConfidence)).length;
 
+    // Check if entity already exists
+    const existingEntity = await db
+      .select()
+      .from(entitiesTable)
+      .where(eq(entitiesTable.name, entityName))
+      .limit(1);
+
+    let entityId: number;
+
+    if (existingEntity.length > 0) {
+      entityId = existingEntity[0].id;
+    } else {
+      // Create new entity
+      const [newEntity] = await db
+        .insert(entitiesTable)
+        .values({
+          name: entityName,
+          displayName: entityName,
+          type: "company",
+          status: "candidate",
+          source: "discovery",
+          metadata: {},
+        })
+        .returning();
+      entityId = newEntity.id;
+    }
+
+    // Insert locations
+    const insertedLocations = await db
+      .insert(locationsTable)
+      .values(
+        locations.map((loc) => ({
+          entityId,
+          placeName: loc.placeName,
+          formattedAddress: loc.formattedAddress,
+          city: loc.city,
+          state: loc.state,
+          postalCode: loc.postalCode,
+          country: loc.country,
+          region: loc.country, // Default to country for now
+          coordinates: loc.coordinates,
+          geocodeSource: loc.geocodeSource,
+          geocodeConfidence: loc.geocodeConfidence,
+          sourceClass: loc.sourceClass,
+          sourceType: loc.sourceType,
+          sourceId: loc.sourceId,
+          reviewStatus: loc.reviewStatus,
+          metadata: {},
+        }))
+      )
+      .returning();
+
     res.status(200).json({
       ok: true,
       entityName,
+      entityId,
       source: "OpenStreetMap Nominatim",
       generatedAt: new Date().toISOString(),
       counts: {
@@ -143,10 +198,11 @@ router.post("/entity-discovery/locations", async (req, res) => {
         mappable: mapped,
         needsReview: locations.length - mapped,
       },
-      locations,
+      locations: insertedLocations,
       warning: "These are public geocoding candidates. They should be treated as candidate operating locations until verified against official company, filing, contract, or client documentation.",
     });
   } catch (error) {
+    console.error("Entity discovery error:", error);
     res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Entity discovery failed" });
   }
 });
