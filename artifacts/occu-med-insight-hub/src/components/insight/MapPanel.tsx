@@ -88,7 +88,7 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3 px-2">
         <div>
           <h3 className="font-bold text-white">Global intelligence map</h3>
-          <p className="text-xs text-cyan-100/50">Auto-fits to the selected company. Only exact, place, and city-confidence locations are plotted.</p>
+          <p className="text-xs text-cyan-100/50">Auto-fits to the selected company. Exact, place, and city-confidence locations are plotted.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-cyan-100/15 bg-cyan-200/10 px-3 py-1 text-xs text-cyan-50">{mappableLocations.length} mapped</span>
@@ -114,7 +114,7 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
         </MapContainer>
         <div className="pointer-events-none absolute bottom-4 left-4 z-[500] rounded-2xl border border-cyan-100/10 bg-[#07111d]/70 px-4 py-3 text-xs text-cyan-100/60 backdrop-blur-xl">
           <p className="font-semibold text-cyan-50">Operational address map</p>
-          <p className="mt-1">{unresolvedCount > 0 ? `${unresolvedCount} low-confidence rows are hidden from map pins.` : "All rows have mappable coordinates."}</p>
+          <p className="mt-1">{unresolvedCount > 0 ? `${unresolvedCount} low-confidence rows are hidden from map pins.` : "Mappable rows ready."}</p>
         </div>
       </div>
     </GlassCard>
