@@ -8,8 +8,11 @@ const nav = [
   { href: "/data-profiles", label: "Data Profiles", icon: Building2 },
   { href: "/quantifiable-data", label: "Quantifiable Data", icon: BarChart3 },
   { href: "/geographic-data", label: "Geographic Data", icon: Globe2 },
+];
+
+const opsNav = [
   { href: "/entity-discovery", label: "Add Entity", icon: Search },
-  { href: "/entity-review", label: "Entity Review", icon: CheckCircle },
+  { href: "/entity-review", label: "Review Queue", icon: CheckCircle },
 ];
 
 const aux = ["Entity Intelligence", "Entity Discovery", "Federal Agencies"];
@@ -31,6 +34,21 @@ export function Sidebar() {
             return (
               <Link key={item.href} href={item.href} className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition duration-300", active ? "border border-cyan-200/20 bg-cyan-300/16 text-cyan-50 shadow-[0_0_26px_rgba(34,211,238,.14),inset_0_0_26px_rgba(34,211,238,.1)]" : "border border-transparent text-cyan-100/55 hover:border-cyan-100/10 hover:bg-white/[0.05] hover:text-cyan-50")}>
                 <Icon size={16} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+      <div className="mt-8">
+        <p className="mb-2 px-1 text-[10px] uppercase tracking-[0.25em] text-cyan-100/35">Network Ops</p>
+        <nav className="space-y-1 rounded-2xl border border-cyan-100/10 bg-white/[0.025] p-2">
+          {opsNav.map((item) => {
+            const Icon = item.icon;
+            const active = location === item.href;
+            return (
+              <Link key={item.href} href={item.href} className={cn("flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs transition duration-300", active ? "bg-cyan-300/12 text-cyan-50" : "text-cyan-100/42 hover:bg-white/[0.05] hover:text-cyan-50")}>
+                <Icon size={14} />
                 {item.label}
               </Link>
             );
