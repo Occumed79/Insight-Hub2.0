@@ -1,0 +1,88 @@
+.aurora-bg {
+  background:
+    radial-gradient(ellipse at 50% -12%, rgba(34, 211, 238, .22), transparent 40%),
+    radial-gradient(ellipse at 18% 52%, rgba(15, 118, 110, .14), transparent 42%),
+    radial-gradient(ellipse at 82% 45%, rgba(109, 40, 217, .32), transparent 46%),
+    radial-gradient(ellipse at 10% 80%, rgba(124, 58, 237, .22), transparent 38%),
+    linear-gradient(180deg, rgba(4, 2, 14, .99), rgba(3, 4, 16, 1)),
+    #03020e !important;
+}
+
+.aurora-bg::before {
+  background:
+    radial-gradient(ellipse at 9% 28%, rgba(20, 184, 166, .52), transparent 31%),
+    radial-gradient(ellipse at 84% 18%, rgba(103, 232, 249, .44), transparent 30%),
+    radial-gradient(ellipse at 78% 76%, rgba(52, 211, 153, .28), transparent 34%),
+    radial-gradient(ellipse at 12% 72%, rgba(139, 92, 246, .52), transparent 32%),
+    radial-gradient(ellipse at 88% 58%, rgba(109, 40, 217, .46), transparent 35%),
+    radial-gradient(ellipse at 48% 54%, rgba(167, 139, 250, .38), transparent 38%),
+    linear-gradient(112deg, transparent 7%, rgba(45, 212, 191, .10) 20%, rgba(94, 234, 212, .44) 33%, rgba(34, 211, 238, .18) 45%, transparent 62%),
+    linear-gradient(72deg, transparent 14%, rgba(52, 211, 153, .28) 35%, rgba(125, 211, 252, .14) 49%, transparent 68%),
+    linear-gradient(96deg, transparent 25%, rgba(167, 139, 250, .34) 50%, transparent 65%) !important;
+  filter: blur(72px) saturate(1.72) !important;
+  opacity: 1 !important;
+}
+
+.aurora-bg::after {
+  background-image:
+    radial-gradient(ellipse at 50% 42%, transparent 30%, rgba(0, 0, 0, .28) 82%),
+    linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.014) 1px, transparent 1px) !important;
+}
+
+.aurora-home {
+  background:
+    radial-gradient(ellipse at 50% -12%, rgba(34, 211, 238, .24), transparent 40%),
+    radial-gradient(ellipse at 18% 52%, rgba(15, 118, 110, .16), transparent 42%),
+    radial-gradient(ellipse at 82% 45%, rgba(109, 40, 217, .38), transparent 46%),
+    radial-gradient(ellipse at 8% 82%, rgba(124, 58, 237, .36), transparent 36%),
+    radial-gradient(ellipse at 92% 68%, rgba(109, 40, 217, .28), transparent 34%),
+    radial-gradient(ellipse at 46% 16%, rgba(76, 29, 149, .22), transparent 40%),
+    linear-gradient(180deg, rgba(5, 3, 14, .99) 0%, rgba(5, 6, 22, .98) 24%, rgba(3, 4, 16, 1) 100%),
+    #03020e !important;
+  animation: auroraField 24s ease-in-out infinite alternate !important;
+}
+
+.aurora-home::before {
+  filter: blur(64px) saturate(2.1) !important;
+  opacity: 1 !important;
+  background:
+    radial-gradient(ellipse at 9% 28%, rgba(20, 184, 166, .58), transparent 29%),
+    radial-gradient(ellipse at 84% 18%, rgba(103, 232, 249, .48), transparent 28%),
+    radial-gradient(ellipse at 78% 76%, rgba(52, 211, 153, .32), transparent 32%),
+    radial-gradient(ellipse at 14% 68%, rgba(139, 92, 246, .56), transparent 30%),
+    radial-gradient(ellipse at 86% 62%, rgba(109, 40, 217, .42), transparent 32%),
+    radial-gradient(ellipse at 48% 54%, rgba(167, 139, 250, .38), transparent 36%),
+    radial-gradient(ellipse at 50% 8%, rgba(88, 28, 235, .24), transparent 36%),
+    linear-gradient(112deg, transparent 7%, rgba(45, 212, 191, .12) 20%, rgba(94, 234, 212, .46) 33%, rgba(34, 211, 238, .20) 45%, transparent 62%),
+    linear-gradient(72deg, transparent 14%, rgba(52, 211, 153, .28) 35%, rgba(125, 211, 252, .14) 49%, transparent 68%),
+    linear-gradient(96deg, transparent 25%, rgba(167, 139, 250, .42) 50%, transparent 65%) !important;
+}
+
+.aurora-home::after {
+  background-image:
+    radial-gradient(ellipse at 50% 19%, rgba(125, 211, 252, .26), transparent 24%),
+    radial-gradient(ellipse at 50% 56%, rgba(45, 212, 191, .22), transparent 31%),
+    radial-gradient(ellipse at 15% 42%, rgba(139, 92, 246, .38), transparent 28%),
+    radial-gradient(ellipse at 85% 38%, rgba(109, 40, 217, .36), transparent 28%),
+    linear-gradient(118deg, transparent 8%, rgba(45, 212, 191, .08) 24%, rgba(94, 234, 212, .28) 36%, transparent 55%),
+    linear-gradient(64deg, transparent 18%, rgba(139, 92, 246, .38) 43%, rgba(103, 232, 249, .12) 55%, transparent 74%),
+    radial-gradient(ellipse at 50% 42%, transparent 32%, rgba(0, 0, 0, .44) 88%),
+    linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.016) 1px, transparent 1px) !important;
+  animation: auroraVeil 22s ease-in-out infinite alternate !important;
+}
+
+.glass-card,
+.portal-card {
+  border-color: rgba(103, 232, 249, .14) !important;
+  background: linear-gradient(145deg, rgba(8, 17, 32, .58), rgba(6, 10, 25, .30)) !important;
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, .28),
+    inset 0 0 40px rgba(45, 212, 191, .045) !important;
+  backdrop-filter: blur(22px) saturate(1.35) !important;
+}
+
+.portal-card-inner {
+  background: linear-gradient(145deg, rgba(2, 6, 23, .22), rgba(15, 23, 42, .08)) !important;
+}
