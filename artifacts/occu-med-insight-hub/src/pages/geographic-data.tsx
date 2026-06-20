@@ -136,7 +136,7 @@ export default function GeographicData() {
   return (
     <main className="aurora-bg min-h-screen text-white">
       <Sidebar />
-      <section className="relative z-10 px-5 py-7 lg:ml-[210px] lg:px-12">
+      <section className="relative z-10 px-5 py-7 lg:ml-[210px] lg:px-10 xl:px-12">
         <HeaderBar
           eyebrow="Portal 03"
           title="Geographic Data"
@@ -160,13 +160,13 @@ export default function GeographicData() {
           </GlassCard>
         ) : null}
         <div className="grid gap-3 md:grid-cols-3">{geoMetrics.map((metric) => <MetricCard key={metric.id} metric={metric} />)}</div>
-        <div className="mt-4 grid gap-4 xl:grid-cols-[1.45fr_.55fr]">
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_360px] xl:grid-cols-[minmax(0,1.6fr)_390px]">
           <MapPanel locations={locations} onSelect={setSelected} />
-          <GlassCard className="p-5">
+          <GlassCard className="self-start p-5 lg:sticky lg:top-6">
             <p className="text-xs uppercase tracking-[0.25em] text-emerald-200/60">Location register</p>
             <h2 className="mt-2 text-2xl font-black text-white">{company?.shortName ? `${company.shortName} footprint` : "Select a company"}</h2>
             <p className="mt-2 text-sm leading-6 text-cyan-100/55">Click a row or map marker to open detail inside this register.</p>
-            <div className="mt-4 max-h-[620px] overflow-auto pr-1">
+            <div className="mt-4 max-h-[520px] overflow-auto pr-1">
               <SidePanel location={selected} onClose={() => setSelected(undefined)} />
               <div className="space-y-2">
                 {locations.length === 0 ? (
