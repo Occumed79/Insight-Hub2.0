@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
-import type { IntelligenceSourceStatus } from "@/company-configs/types";
+
+export type IntelligenceSourceStatus = "live" | "cached" | "uploaded" | "modeled" | "directional" | "stale";
 
 const STATUS_LABELS: Record<IntelligenceSourceStatus, string> = {
   live: "Live",
