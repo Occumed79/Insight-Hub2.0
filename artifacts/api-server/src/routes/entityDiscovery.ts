@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, entitiesTable, locationsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 const router = Router();
 
@@ -140,8 +140,7 @@ async function queryPhoton(entityName: string): Promise<DiscoveredLocation[]> {
     throw new Error(`Photon lookup failed with ${response.status}`);
   }
 
-  const photonResults = await response.json() as { features: Array<{ properties: any; geometry: { coordinates: [number, number] } }> };
-
+  const photonResults = await response.json() as { features: Array<{ properties: Record<string, string | number | undefined>; geometry: { coordinates: [number, number] } }> };
   const seen = new Set<string>();
   const results: DiscoveredLocation[] = [];
 
@@ -153,31 +152,29 @@ async function queryPhoton(entityName: string): Promise<DiscoveredLocation[]> {
     const [lon, lat] = coords;
     if (typeof lon !== "number" || typeof lat !== "number") continue;
 
-    const confidence = confidenceFor({
-      class: props.osm_value || "unknown",
-      type: props.osm_key || "unknown",
-      address: props,
-    } as NominatimResult);
-
-    const city = props.city || props.town || props.village || props.municipality || props.county;
-    const country = props.country || "Unknown";
+    const address = Object.fromEntries(Object.entries(props).map(([key, value]) => [key, String(value ?? "")])) as Record<string, string>;
+    const confidence = confidenceFor({ class: String(props.osm_value || "unknown"), type: String(props.osm_key || "unknown"), address } as NominatimResult);
+    const city = address.city || address.town || address.village || address.municipality || address.county;
+    const country = address.country || "Unknown";
+    const name = String(props.name || entityName);
+    const osmId = String(props.osm_id || Math.random().toString(36).slice(2, 11));
 
     const location: DiscoveredLocation = {
-      id: `photon-${props.osm_id || Math.random().toString(36).substr(2, 9)}`,
+      id: `photon-${osmId}`,
       companyName: entityName,
-      placeName: props.name || entityName,
-      formattedAddress: props.formatted || `${props.name || entityName}, ${city || ""}, ${country}`,
+      placeName: name,
+      formattedAddress: String(props.formatted || `${name}, ${city || ""}, ${country}`),
       city,
-      state: props.state,
-      postalCode: props.postcode,
+      state: address.state,
+      postalCode: address.postcode,
       country,
       coordinates: [lon, lat],
-      geocodeSource: "photon" as const,
+      geocodeSource: "photon",
       geocodeConfidence: confidence,
-      sourceType: props.osm_key || "unknown",
-      sourceClass: props.osm_value || "unknown",
-      sourceId: `photon/${props.osm_id || "unknown"}`,
-      reviewStatus: confidence === "unknown" ? "needs-review" : "candidate" as const,
+      sourceType: String(props.osm_key || "unknown"),
+      sourceClass: String(props.osm_value || "unknown"),
+      sourceId: `photon/${osmId}`,
+      reviewStatus: confidence === "unknown" ? "needs-review" : "candidate",
     };
 
     const key = `${location.coordinates[0].toFixed(5)}|${location.coordinates[1].toFixed(5)}|${location.formattedAddress}`;
@@ -198,18 +195,12 @@ router.post("/entity-discovery/locations", async (req, res) => {
       return;
     }
 
-    // Query multiple sources in parallel
-    const [nominatimResults, photonResults] = await Promise.allSettled([
-      queryNominatim(entityName),
-      queryPhoton(entityName),
-    ]);
-
+    const [nominatimResults, photonResults] = await Promise.allSettled([queryNominatim(entityName), queryPhoton(entityName)]);
     const locations = [
       ...(nominatimResults.status === "fulfilled" ? nominatimResults.value : []),
       ...(photonResults.status === "fulfilled" ? photonResults.value : []),
     ];
 
-    // Deduplicate by coordinates and address
     const seen = new Set<string>();
     const deduplicated = locations.filter((result) => {
       const key = `${result.coordinates[0].toFixed(5)}|${result.coordinates[1].toFixed(5)}|${result.formattedAddress}`;
@@ -219,39 +210,13 @@ router.post("/entity-discovery/locations", async (req, res) => {
     });
 
     const mapped = deduplicated.filter((location) => ["exact", "place", "city"].includes(location.geocodeConfidence)).length;
+    const existingEntity = await db.select().from(entitiesTable).where(eq(entitiesTable.name, entityName)).limit(1);
+    const entityId = existingEntity.length > 0
+      ? existingEntity[0].id
+      : (await db.insert(entitiesTable).values({ name: entityName, displayName: entityName, type: "company", status: "candidate", source: "discovery", metadata: {} }).returning())[0].id;
 
-    // Check if entity already exists
-    const existingEntity = await db
-      .select()
-      .from(entitiesTable)
-      .where(eq(entitiesTable.name, entityName))
-      .limit(1);
-
-    let entityId: number;
-
-    if (existingEntity.length > 0) {
-      entityId = existingEntity[0].id;
-    } else {
-      // Create new entity
-      const [newEntity] = await db
-        .insert(entitiesTable)
-        .values({
-          name: entityName,
-          displayName: entityName,
-          type: "company",
-          status: "candidate",
-          source: "discovery",
-          metadata: {},
-        })
-        .returning();
-      entityId = newEntity.id;
-    }
-
-    // Insert locations
-    const insertedLocations = await db
-      .insert(locationsTable)
-      .values(
-        deduplicated.map((loc) => ({
+    const insertedLocations = deduplicated.length > 0
+      ? await db.insert(locationsTable).values(deduplicated.map((loc) => ({
           entityId,
           placeName: loc.placeName,
           formattedAddress: loc.formattedAddress,
@@ -259,7 +224,7 @@ router.post("/entity-discovery/locations", async (req, res) => {
           state: loc.state,
           postalCode: loc.postalCode,
           country: loc.country,
-          region: loc.country, // Default to country for now
+          region: loc.country,
           coordinates: loc.coordinates,
           geocodeSource: loc.geocodeSource,
           geocodeConfidence: loc.geocodeConfidence,
@@ -268,9 +233,8 @@ router.post("/entity-discovery/locations", async (req, res) => {
           sourceId: loc.sourceId,
           reviewStatus: loc.reviewStatus,
           metadata: {},
-        }))
-      )
-      .returning();
+        }))).returning()
+      : [];
 
     res.status(200).json({
       ok: true,
@@ -278,13 +242,9 @@ router.post("/entity-discovery/locations", async (req, res) => {
       entityId,
       source: "OpenStreetMap Nominatim + Photon",
       generatedAt: new Date().toISOString(),
-      counts: {
-        candidates: deduplicated.length,
-        mappable: mapped,
-        needsReview: deduplicated.length - mapped,
-      },
+      counts: { candidates: deduplicated.length, mappable: mapped, needsReview: deduplicated.length - mapped },
       locations: insertedLocations,
-      warning: "These are public geocoding candidates from multiple sources. They should be treated as candidate operating locations until verified against official company, filing, contract, or client documentation.",
+      warning: "These are public geocoding candidates from multiple sources. Select the locations that look correct, then add them to the verified map.",
     });
   } catch (error) {
     console.error("Entity discovery error:", error);
@@ -292,150 +252,55 @@ router.post("/entity-discovery/locations", async (req, res) => {
   }
 });
 
-// GET /api/entities - List all entities
-router.get("/entities", async (req, res) => {
+router.post("/entities/:id/verify-selected", async (req, res) => {
   try {
-    const entities = await db.select().from(entitiesTable).orderBy(entitiesTable.createdAt);
-    res.json({ ok: true, entities });
+    const entityId = Number(req.params.id);
+    const locationIds = Array.isArray(req.body?.locationIds) ? req.body.locationIds.map(Number).filter(Number.isFinite) : [];
+    if (!Number.isFinite(entityId) || locationIds.length === 0) {
+      res.status(400).json({ ok: false, error: "Valid entity ID and at least one location ID are required" });
+      return;
+    }
+
+    await db.update(locationsTable).set({ reviewStatus: "rejected", updatedAt: new Date() }).where(eq(locationsTable.entityId, entityId));
+    const verifiedLocations = await db.update(locationsTable).set({ reviewStatus: "verified", updatedAt: new Date() }).where(and(eq(locationsTable.entityId, entityId), inArray(locationsTable.id, locationIds))).returning();
+    const [entity] = await db.update(entitiesTable).set({ status: "verified", updatedAt: new Date() }).where(eq(entitiesTable.id, entityId)).returning();
+
+    res.json({ ok: true, entity, locations: verifiedLocations });
   } catch (error) {
-    console.error("List entities error:", error);
-    res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to list entities" });
+    console.error("Verify selected locations error:", error);
+    res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to verify selected locations" });
   }
 });
 
-// GET /api/entities/:id/locations - List locations for an entity
-router.get("/entities/:id/locations", async (req, res) => {
-  try {
-    const entityId = parseInt(req.params.id, 10);
-    if (isNaN(entityId)) {
-      res.status(400).json({ ok: false, error: "Invalid entity ID" });
-      return;
-    }
-
-    const locations = await db
-      .select()
-      .from(locationsTable)
-      .where(eq(locationsTable.entityId, entityId))
-      .orderBy(locationsTable.createdAt);
-
-    res.json({ ok: true, locations });
-  } catch (error) {
-    console.error("List locations error:", error);
-    res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to list locations" });
-  }
-});
-
-// PATCH /api/entities/:id - Update entity status
-router.patch("/entities/:id", async (req, res) => {
-  try {
-    const entityId = parseInt(req.params.id, 10);
-    if (isNaN(entityId)) {
-      res.status(400).json({ ok: false, error: "Invalid entity ID" });
-      return;
-    }
-
-    const { status } = req.body;
-    if (!status || !["candidate", "verified", "rejected"].includes(status)) {
-      res.status(400).json({ ok: false, error: "Invalid status. Must be candidate, verified, or rejected" });
-      return;
-    }
-
-    const [updated] = await db
-      .update(entitiesTable)
-      .set({ status, updatedAt: new Date() })
-      .where(eq(entitiesTable.id, entityId))
-      .returning();
-
-    if (!updated) {
-      res.status(404).json({ ok: false, error: "Entity not found" });
-      return;
-    }
-
-    res.json({ ok: true, entity: updated });
-  } catch (error) {
-    console.error("Update entity error:", error);
-    res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to update entity" });
-  }
-});
-
-// PATCH /api/locations/:id - Update location review status
-router.patch("/locations/:id", async (req, res) => {
-  try {
-    const locationId = parseInt(req.params.id, 10);
-    if (isNaN(locationId)) {
-      res.status(400).json({ ok: false, error: "Invalid location ID" });
-      return;
-    }
-
-    const { reviewStatus } = req.body;
-    if (!reviewStatus || !["candidate", "verified", "rejected", "needs_research"].includes(reviewStatus)) {
-      res.status(400).json({ ok: false, error: "Invalid reviewStatus. Must be candidate, verified, rejected, or needs_research" });
-      return;
-    }
-
-    const [updated] = await db
-      .update(locationsTable)
-      .set({ reviewStatus, updatedAt: new Date() })
-      .where(eq(locationsTable.id, locationId))
-      .returning();
-
-    if (!updated) {
-      res.status(404).json({ ok: false, error: "Location not found" });
-      return;
-    }
-
-    res.json({ ok: true, location: updated });
-  } catch (error) {
-    console.error("Update location error:", error);
-    res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to update location" });
-  }
-});
-
-// GET /api/entities/verified - Get verified entities with their locations for dropdown
 router.get("/entities/verified", async (req, res) => {
   try {
-    const verifiedEntities = await db
-      .select()
-      .from(entitiesTable)
-      .where(eq(entitiesTable.status, "verified"))
-      .orderBy(entitiesTable.displayName);
-
-    const result = await Promise.all(
-      verifiedEntities.map(async (entity) => {
-        const entityLocations = await db
-          .select()
-          .from(locationsTable)
-          .where(eq(locationsTable.entityId, entity.id))
-          .orderBy(locationsTable.placeName);
-
-        return {
-          id: entity.id,
-          name: entity.displayName,
-          company: entity.displayName,
-          locations: entityLocations
-            .filter((loc) => loc.reviewStatus === "verified")
-            .map((loc) => ({
-              id: loc.id,
-              placeName: loc.placeName,
-              city: loc.city,
-              country: loc.country,
-              region: loc.region,
-              coordinates: loc.coordinates,
-              geocodeConfidence: loc.geocodeConfidence,
-              geocodeSource: loc.geocodeSource,
-              facilityType: loc.facilityType,
-              activity: loc.activity,
-              notes: loc.notes,
-              formattedAddress: loc.formattedAddress,
-              addressLine1: loc.addressLine1,
-              addressLine2: loc.addressLine2,
-              state: loc.state,
-              postalCode: loc.postalCode,
-            })),
-        };
-      })
-    );
-
+    const verifiedEntities = await db.select().from(entitiesTable).where(eq(entitiesTable.status, "verified")).orderBy(entitiesTable.displayName);
+    const result = await Promise.all(verifiedEntities.map(async (entity) => {
+      const entityLocations = await db.select().from(locationsTable).where(eq(locationsTable.entityId, entity.id)).orderBy(locationsTable.placeName);
+      return {
+        id: entity.id,
+        name: entity.displayName,
+        company: entity.displayName,
+        locations: entityLocations.filter((loc) => loc.reviewStatus === "verified").map((loc) => ({
+          id: loc.id,
+          placeName: loc.placeName,
+          city: loc.city,
+          country: loc.country,
+          region: loc.region,
+          coordinates: loc.coordinates,
+          geocodeConfidence: loc.geocodeConfidence,
+          geocodeSource: loc.geocodeSource,
+          facilityType: loc.facilityType,
+          activity: loc.activity,
+          notes: loc.notes,
+          formattedAddress: loc.formattedAddress,
+          addressLine1: loc.addressLine1,
+          addressLine2: loc.addressLine2,
+          state: loc.state,
+          postalCode: loc.postalCode,
+        })),
+      };
+    }));
     res.json({ ok: true, entities: result });
   } catch (error) {
     console.error("Get verified entities error:", error);
