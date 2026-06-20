@@ -124,6 +124,65 @@ async function queryNominatim(entityName: string): Promise<DiscoveredLocation[]>
     });
 }
 
+async function queryPhoton(entityName: string): Promise<DiscoveredLocation[]> {
+  const url = new URL("https://photon.komoot.io/api/");
+  url.searchParams.set("q", entityName);
+  url.searchParams.set("limit", "40");
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Occu-Med Insight Hub entity discovery (location candidate lookup)",
+      "Accept": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Photon lookup failed with ${response.status}`);
+  }
+
+  const photonResults = await response.json() as { features: Array<{ properties: any; geometry: { coordinates: [number, number] } }> };
+
+  const seen = new Set<string>();
+  return photonResults.features
+    .map((feature) => {
+      const props = feature.properties;
+      const [lon, lat] = feature.geometry.coordinates;
+      const confidence = confidenceFor({
+        class: props.osm_value || "unknown",
+        type: props.osm_key || "unknown",
+        address: props,
+      } as NominatimResult);
+
+      const city = props.city || props.town || props.village || props.municipality || props.county;
+      const country = props.country || "Unknown";
+
+      return {
+        id: `photon-${props.osm_id || Math.random().toString(36).substr(2, 9)}`,
+        companyName: entityName,
+        placeName: props.name || entityName,
+        formattedAddress: props.formatted || `${props.name || entityName}, ${city || ""}, ${country}`,
+        city,
+        state: props.state,
+        postalCode: props.postcode,
+        country,
+        coordinates: [lon, lat],
+        geocodeSource: "photon" as const,
+        geocodeConfidence: confidence,
+        sourceType: props.osm_key || "unknown",
+        sourceClass: props.osm_value || "unknown",
+        sourceId: `photon/${props.osm_id || "unknown"}`,
+        reviewStatus: confidence === "unknown" ? "needs-review" : "candidate" as const,
+      };
+    })
+    .filter((result): result is DiscoveredLocation => Boolean(result))
+    .filter((result) => {
+      const key = `${result.coordinates[0].toFixed(5)}|${result.coordinates[1].toFixed(5)}|${result.formattedAddress}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 router.post("/entity-discovery/locations", async (req, res) => {
   try {
     const entityName = normalizeEntityName(req.body?.entityName);
@@ -132,8 +191,27 @@ router.post("/entity-discovery/locations", async (req, res) => {
       return;
     }
 
-    const locations = await queryNominatim(entityName);
-    const mapped = locations.filter((location) => ["exact", "place", "city"].includes(location.geocodeConfidence)).length;
+    // Query multiple sources in parallel
+    const [nominatimResults, photonResults] = await Promise.allSettled([
+      queryNominatim(entityName),
+      queryPhoton(entityName),
+    ]);
+
+    const locations = [
+      ...(nominatimResults.status === "fulfilled" ? nominatimResults.value : []),
+      ...(photonResults.status === "fulfilled" ? photonResults.value : []),
+    ];
+
+    // Deduplicate by coordinates and address
+    const seen = new Set<string>();
+    const deduplicated = locations.filter((result) => {
+      const key = `${result.coordinates[0].toFixed(5)}|${result.coordinates[1].toFixed(5)}|${result.formattedAddress}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const mapped = deduplicated.filter((location) => ["exact", "place", "city"].includes(location.geocodeConfidence)).length;
 
     // Check if entity already exists
     const existingEntity = await db
@@ -166,7 +244,7 @@ router.post("/entity-discovery/locations", async (req, res) => {
     const insertedLocations = await db
       .insert(locationsTable)
       .values(
-        locations.map((loc) => ({
+        deduplicated.map((loc) => ({
           entityId,
           placeName: loc.placeName,
           formattedAddress: loc.formattedAddress,
@@ -191,15 +269,15 @@ router.post("/entity-discovery/locations", async (req, res) => {
       ok: true,
       entityName,
       entityId,
-      source: "OpenStreetMap Nominatim",
+      source: "OpenStreetMap Nominatim + Photon",
       generatedAt: new Date().toISOString(),
       counts: {
-        candidates: locations.length,
+        candidates: deduplicated.length,
         mappable: mapped,
-        needsReview: locations.length - mapped,
+        needsReview: deduplicated.length - mapped,
       },
       locations: insertedLocations,
-      warning: "These are public geocoding candidates. They should be treated as candidate operating locations until verified against official company, filing, contract, or client documentation.",
+      warning: "These are public geocoding candidates from multiple sources. They should be treated as candidate operating locations until verified against official company, filing, contract, or client documentation.",
     });
   } catch (error) {
     console.error("Entity discovery error:", error);
