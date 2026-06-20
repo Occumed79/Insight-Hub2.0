@@ -10,7 +10,7 @@ export const masterPortfolioIntelligenceConfig: CompanyConfig = {
   employees: 629945,
   employeesAsOf: "Uploaded master portfolio report: February 20, 2026; enhanced with chart pack 4 portfolio sizing data",
   summary:
-    "Master roll-up profile for 21 defense/federal contractor accounts. The uploaded report quantifies a portfolio-wide occupational medicine opportunity across 630,945 workers, 5,233 expected injuries per year, $2.59B in total economic burden, $255M in DBA exposure, and $56.2M-$84.8M in modeled annual Occu-Med revenue potential with a $70.5M midpoint. The report separates the portfolio into four operating populations: large defense integrators, mid-size OCONUS services, defense manufacturing/production, and specialized niche service entities. Chart pack 4 adds provider-network share analysis showing 97.9% third-party provider dependence and priority-tier exam volume distribution.",
+    "Master roll-up profile for 21 defense/federal contractor accounts. The uploaded report quantifies a portfolio-wide occupational medicine opportunity across 630,945 workers, 5,233 expected injuries per year, $2.59B in total economic burden (master report baseline), $255M in DBA exposure, and $56.2M-$84.8M in modeled annual Occu-Med revenue potential with a $70.5M midpoint. Chart pack 4 provides an enhanced model with $1.24B burden, $268.5M DBA exposure, and $65.5M revenue midpoint. The report separates the portfolio into four operating populations: large defense integrators, mid-size OCONUS services, defense manufacturing/production, and specialized niche service entities. Chart pack 4 adds provider-network share analysis showing 97.9% third-party provider dependence and priority-tier exam volume distribution.",
   tags: [
     "Portfolio intelligence",
     "Master report",
@@ -52,12 +52,12 @@ export const masterPortfolioIntelligenceConfig: CompanyConfig = {
     {
       label: "Economic burden",
       value: "$2.59B/yr",
-      note: "Total portfolio burden from chart pack 4; top three accounts equal 53% of total.",
+      note: "Master report baseline total burden; chart pack 4 enhanced model shows $1.24B.",
     },
     {
       label: "Occu-Med potential",
       value: "$70.5M/yr",
-      note: "Revenue midpoint from chart pack 4; range is $56.2M-$84.8M annually.",
+      note: "Master report baseline revenue midpoint; chart pack 4 enhanced model shows $65.5M.",
     },
     {
       label: "Provider dependence",
