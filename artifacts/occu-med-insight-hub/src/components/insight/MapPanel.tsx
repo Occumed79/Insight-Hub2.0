@@ -5,6 +5,7 @@ import type { LocationRecord } from "@/data/types";
 import { GlassCard } from "./GlassCard";
 
 const WORLD_BOUNDS: [[number, number], [number, number]] = [[-85, -180], [85, 180]];
+const DEFAULT_CENTER: [number, number] = [24, 18];
 
 const customIcon = L.divIcon({
   className: "custom-marker",
@@ -24,6 +25,10 @@ const customIcon = L.divIcon({
   iconSize: [30, 30],
   iconAnchor: [15, 15],
 });
+
+function getMarkerKey(location: LocationRecord, index: number) {
+  return `${location.id}-${location.coordinates[0]}-${location.coordinates[1]}-${index}`;
+}
 
 export function MapPanel({ locations, onSelect }: { locations: LocationRecord[]; onSelect: (location: LocationRecord) => void }) {
   const countryCount = useMemo(() => new Set(locations.map((location) => location.country)).size, [locations]);
@@ -46,11 +51,6 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
     );
   }
 
-  const bounds = locations.map((loc) => {
-    const [lng, lat] = loc.coordinates;
-    return [lat, lng] as [number, number];
-  });
-
   return (
     <GlassCard className="map-card overflow-hidden p-4">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3 px-2">
@@ -66,8 +66,8 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
       </div>
       <div className="map-shell insight-leaflet-map relative h-[500px] overflow-hidden rounded-[24px] border border-cyan-100/16 bg-[#020710]/78 shadow-[inset_0_0_70px_rgba(45,212,191,.08)]">
         <MapContainer
-          bounds={bounds}
-          boundsOptions={{ padding: [70, 70] }}
+          center={DEFAULT_CENTER}
+          zoom={2}
           minZoom={1}
           maxZoom={18}
           maxBounds={WORLD_BOUNDS}
@@ -84,11 +84,11 @@ export function MapPanel({ locations, onSelect }: { locations: LocationRecord[];
             noWrap
             bounds={WORLD_BOUNDS}
           />
-          {locations.map((location) => {
+          {locations.map((location, index) => {
             const [lng, lat] = location.coordinates;
             return (
               <Marker
-                key={location.id}
+                key={getMarkerKey(location, index)}
                 position={[lat, lng]}
                 icon={customIcon}
                 eventHandlers={{ click: () => onSelect(location) }}
