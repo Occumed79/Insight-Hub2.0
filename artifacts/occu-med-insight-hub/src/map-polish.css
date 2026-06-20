@@ -1,0 +1,27 @@
+.insight-leaflet-map {
+  background: #020817 !important;
+}
+
+.insight-leaflet-map .leaflet-container {
+  background: #020817 !important;
+}
+
+.insight-leaflet-map .leaflet-tile-pane {
+  filter: grayscale(1) saturate(0) brightness(.46) contrast(1.22) !important;
+  opacity: .84 !important;
+}
+
+.insight-leaflet-map::before {
+  background:
+    radial-gradient(circle at 46% 42%, rgba(45, 212, 191, .14), transparent 36%),
+    radial-gradient(circle at 20% 38%, rgba(56, 189, 248, .10), transparent 28%),
+    linear-gradient(180deg, rgba(2, 8, 23, .22), rgba(2, 8, 23, .72)) !important;
+  mix-blend-mode: normal !important;
+}
+
+.insight-leaflet-map::after {
+  background-image:
+    linear-gradient(rgba(125, 211, 252, .05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 211, 252, .04) 1px, transparent 1px) !important;
+  opacity: .38 !important;
+}
