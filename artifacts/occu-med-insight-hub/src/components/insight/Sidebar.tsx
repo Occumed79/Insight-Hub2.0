@@ -1,14 +1,12 @@
-import { BarChart3, Building2, Globe2, Home, Layers, Library, Search, ShieldCheck } from "lucide-react";
+import { BarChart3, Building2, Globe2, Home, Layers, Library, ShieldCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-const occuMedLogo = "https://base44.app/api/apps/69f08d58f2a02a258d395477/files/mp/public/69f08d58f2a02a258d395477/ac708dd5f_logo-transparent.png"; // Updated to new Occu-Med branding
 
 const nav = [
   { href: "/", label: "Home", icon: Home },
   { href: "/data-profiles", label: "Data Profiles", icon: Building2 },
   { href: "/quantifiable-data", label: "Quantifiable Data", icon: BarChart3 },
   { href: "/geographic-data", label: "Geographic Data", icon: Globe2 },
-  { href: "/entity-discovery", label: "Add Entity", icon: Search },
 ];
 
 const aux = ["Entity Intelligence", "Entity Discovery", "Federal Agencies"];
@@ -17,10 +15,17 @@ export function Sidebar() {
   const [location] = useLocation();
   return (
     <aside className="fixed left-0 top-0 z-30 hidden h-screen w-[210px] border-r border-cyan-100/14 bg-[#030813]/91 px-4 py-5 shadow-[18px_0_70px_rgba(0,0,0,.35)] backdrop-blur-2xl lg:block">
-      <Link href="/" className="sidebar-logo block py-1">
-        <img src={occuMedLogo} alt="Occu-Med" className="h-16 w-auto object-contain drop-shadow-[0_0_14px_rgba(255,255,255,0.30)]" />
+      <Link href="/" className="block py-1">
+        <div className="flex h-16 items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-cyan-100/14 bg-white/[0.04]">
+            <span className="h-3 w-6 rounded-full bg-white shadow-[0_0_14px_rgba(255,255,255,.32)]" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white">Occu-Med</p>
+            <p className="text-[9px] uppercase tracking-[0.28em] text-cyan-100/35">Insight Hub</p>
+          </div>
+        </div>
       </Link>
-      <p className="mt-3 px-1 text-[10px] uppercase tracking-[0.28em] text-cyan-100/35">Insight Hub</p>
       <div className="mt-8">
         <p className="mb-2 px-1 text-[10px] uppercase tracking-[0.25em] text-cyan-100/35">Intelligence</p>
         <nav className="space-y-1">
