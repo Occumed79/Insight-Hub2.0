@@ -1,4 +1,4 @@
-import type { Company, CompanyProfile, SourceRecord } from "./types";
+import type { Company, CompanyProfile, Metric, SourceRecord } from "./types";
 import { getAllCompanyConfigs } from "../company-configs";
 
 function configToCompany(config: ReturnType<typeof getAllCompanyConfigs>[number]): Company {
@@ -16,10 +16,23 @@ function configToCompany(config: ReturnType<typeof getAllCompanyConfigs>[number]
 }
 
 function configToProfile(config: ReturnType<typeof getAllCompanyConfigs>[number]): CompanyProfile {
+  if (config.dossierSections && config.dossierSections.length > 0) {
+    return {
+      companyId: config.companyId,
+      sections: config.dossierSections.map((section, index) => ({
+        id: config.companyId + "-" + section.type + "-" + index,
+        title: section.title,
+        narrative: section.narrative,
+        bullets: section.bullets,
+        metrics: section.metricIds,
+      })),
+    };
+  }
+
   return {
     companyId: config.companyId,
     sections: [{
-      id: `${config.companyId}-overview`,
+      id: config.companyId + "-overview",
       title: "Overview",
       narrative: config.summary,
       bullets: config.tags.map((tag) => tag),
@@ -28,13 +41,20 @@ function configToProfile(config: ReturnType<typeof getAllCompanyConfigs>[number]
   };
 }
 
+function configToMetrics(config: ReturnType<typeof getAllCompanyConfigs>[number]): Metric[] {
+  return (config.metricDefinitions || []).map((metric) => ({
+    ...metric,
+    companyId: config.companyId,
+  }));
+}
+
 function configToSource(config: ReturnType<typeof getAllCompanyConfigs>[number]): SourceRecord {
   return {
-    id: `${config.companyId}-config-source`,
+    id: config.companyId + "-config-source",
     companyId: config.companyId,
-    label: `${config.displayName} intelligence configuration`,
+    label: config.displayName + " configuration",
     type: "Manual",
-    note: `Company configuration loaded from platform config layer. Sector: ${config.sector}. Headquarters: ${config.headquarters}.`,
+    note: "Configuration loaded from the platform config layer.",
   };
 }
 
@@ -44,6 +64,10 @@ export function getStubCompanies(): Company[] {
 
 export function getStubProfiles(): CompanyProfile[] {
   return getAllCompanyConfigs().map(configToProfile);
+}
+
+export function getStubMetrics(): Metric[] {
+  return getAllCompanyConfigs().flatMap(configToMetrics);
 }
 
 export function getStubSources(): SourceRecord[] {
