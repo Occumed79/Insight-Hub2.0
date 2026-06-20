@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { portalCards } from "@/data/portals";
 import type { PortalConfig } from "@/data/portals";
-import occuMedLogoDataUrl from "@/assets/occu-med-logo-data";
 
 const iconMap = { profile: Building2, quant: Sigma, geo: Globe2, entity: Network, discovery: Layers, federal: Landmark };
 
@@ -18,18 +17,15 @@ const portalImageMap: Record<PortalConfig["imageKind"], string> = {
 
 function OccuMedWordmark() {
   return (
-    <img
-      src={occuMedLogoDataUrl}
-      alt="Occu-Med"
-      style={{
-        width: "300px",
-        maxWidth: "68vw",
-        height: "auto",
-        display: "block",
-        margin: "0 auto",
-        filter: "drop-shadow(0 0 18px rgba(255,255,255,0.24)) drop-shadow(0 0 28px rgba(125,211,252,0.10))",
-      }}
-    />
+    <div className="mx-auto inline-flex items-center gap-3 rounded-[24px] border border-cyan-100/14 bg-[#030813]/62 px-5 py-3 shadow-[0_0_42px_rgba(34,211,238,.10),inset_0_0_30px_rgba(255,255,255,.025)] backdrop-blur-xl">
+      <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-100/18 bg-white/[0.045] shadow-[0_0_24px_rgba(255,255,255,.12)]">
+        <span className="h-3 w-7 rounded-full bg-white shadow-[0_0_18px_rgba(255,255,255,.42)]" />
+      </div>
+      <div className="text-left">
+        <p className="text-sm font-black uppercase tracking-[0.32em] text-white">Occu-Med</p>
+        <p className="mt-1 text-[10px] uppercase tracking-[0.30em] text-cyan-100/45">Insight Hub</p>
+      </div>
+    </div>
   );
 }
 
@@ -84,11 +80,11 @@ export default function Landing() {
   return (
     <main className="aurora-bg aurora-home min-h-screen px-6 py-7 text-white">
       <div className="aurora-orbs" aria-hidden="true" />
-      <section className="relative z-10 mx-auto max-w-[980px] pt-0">
+      <section className="relative z-10 mx-auto max-w-[980px] pt-1 text-center">
         <motion.div initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}>
           <OccuMedWordmark />
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="mt-1 text-center">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="mt-5 text-center">
           <h1 className="text-5xl font-black tracking-[-0.06em] text-white drop-shadow-[0_0_30px_rgba(167,139,250,.22)] md:text-6xl">Insight Hub</h1>
           <p className="mx-auto mt-3 max-w-[640px] text-sm leading-7 text-cyan-50/70">The strategic intelligence command center for Occu-Med — surfacing occupational health opportunities, quantifying workforce risk, and mapping the competitive landscape.</p>
         </motion.div>
