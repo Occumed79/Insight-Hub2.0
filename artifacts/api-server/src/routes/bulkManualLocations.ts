@@ -21,6 +21,8 @@ type ManualLocationInput = {
   geocodeConfidence?: unknown;
 };
 
+type LocationInsert = typeof locationsTable.$inferInsert;
+
 function normalizeEntityName(value: unknown) {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, 160);
 }
@@ -120,7 +122,7 @@ router.post("/entities/manual-locations", async (req, res) => {
     const seenKeys = new Set(existingLocations.map((loc) => looseLocationKey({ coordinates: loc.coordinates, formattedAddress: loc.formattedAddress, placeName: loc.placeName })));
     const batchKeys = new Set<string>();
     const rejected: Array<{ index: number; error: string }> = [];
-    const values: Array<Parameters<typeof locationsTable.$inferInsert>[0]> = [];
+    const values: LocationInsert[] = [];
 
     rawLocations.forEach((raw, index) => {
       const normalized = normalizeManualLocation(raw, index);
