@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CheckCircle2, PlusCircle, AlertTriangle } from "lucide-react";
 import { GlassCard } from "./GlassCard";
+import { BulkLocationImportPanel } from "./BulkLocationImportPanel";
 
 type ManualDraft = {
   placeName: string;
@@ -80,43 +81,46 @@ export function ManualLocationPanel({ entityName }: { entityName: string }) {
   }
 
   return (
-    <GlassCard className="mt-5 p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.26em] text-emerald-200/60">Manual verified location</p>
-          <p className="mt-2 text-sm leading-6 text-cyan-100/58">Use this when public discovery misses the actual site, clinic, base, office, or facility.</p>
+    <>
+      <GlassCard className="mt-5 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.26em] text-emerald-200/60">Manual verified location</p>
+            <p className="mt-2 text-sm leading-6 text-cyan-100/58">Use this when public discovery misses the actual site, clinic, base, office, or facility.</p>
+          </div>
+          <span className="rounded-full border border-emerald-100/20 bg-emerald-200/10 px-3 py-1 text-xs text-emerald-100">Direct to map</span>
         </div>
-        <span className="rounded-full border border-emerald-100/20 bg-emerald-200/10 px-3 py-1 text-xs text-emerald-100">Direct to map</span>
-      </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-3">
-        <Field label="Place / site name" value={draft.placeName} onChange={(value) => setField("placeName", value)} placeholder="Facility name" />
-        <Field label="Country" value={draft.country} onChange={(value) => setField("country", value)} placeholder="United States" />
-        <Field label="City" value={draft.city} onChange={(value) => setField("city", value)} placeholder="City" />
-        <Field label="State / region" value={draft.state} onChange={(value) => setField("state", value)} placeholder="State or region" />
-        <Field label="Longitude" value={draft.longitude} onChange={(value) => setField("longitude", value)} placeholder="-122.281" />
-        <Field label="Latitude" value={draft.latitude} onChange={(value) => setField("latitude", value)} placeholder="47.929" />
-        <Field label="Facility type" value={draft.facilityType} onChange={(value) => setField("facilityType", value)} placeholder="Clinic, office, base, facility" />
-        <Field label="Activity" value={draft.activity} onChange={(value) => setField("activity", value)} placeholder="Occupational health, operations, etc." />
-        <label className="block">
-          <span className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/35">Confidence</span>
-          <select value={draft.geocodeConfidence} onChange={(event) => setField("geocodeConfidence", event.target.value)} className="mt-1 min-h-9 w-full rounded-xl border border-cyan-100/12 bg-[#07111d] px-3 text-xs text-cyan-50 outline-none">
-            <option value="exact">exact</option>
-            <option value="place">place</option>
-            <option value="city">city</option>
-            <option value="unknown">unknown</option>
-          </select>
-        </label>
-        <div className="md:col-span-3"><Field label="Address" value={draft.formattedAddress} onChange={(value) => setField("formattedAddress", value)} placeholder="Full address if available" /></div>
-        <div className="md:col-span-3"><Field label="Notes" value={draft.notes} onChange={(value) => setField("notes", value)} placeholder="Source note, reason, or verification context" /></div>
-      </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <Field label="Place / site name" value={draft.placeName} onChange={(value) => setField("placeName", value)} placeholder="Facility name" />
+          <Field label="Country" value={draft.country} onChange={(value) => setField("country", value)} placeholder="United States" />
+          <Field label="City" value={draft.city} onChange={(value) => setField("city", value)} placeholder="City" />
+          <Field label="State / region" value={draft.state} onChange={(value) => setField("state", value)} placeholder="State or region" />
+          <Field label="Longitude" value={draft.longitude} onChange={(value) => setField("longitude", value)} placeholder="-122.281" />
+          <Field label="Latitude" value={draft.latitude} onChange={(value) => setField("latitude", value)} placeholder="47.929" />
+          <Field label="Facility type" value={draft.facilityType} onChange={(value) => setField("facilityType", value)} placeholder="Clinic, office, base, facility" />
+          <Field label="Activity" value={draft.activity} onChange={(value) => setField("activity", value)} placeholder="Occupational health, operations, etc." />
+          <label className="block">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/35">Confidence</span>
+            <select value={draft.geocodeConfidence} onChange={(event) => setField("geocodeConfidence", event.target.value)} className="mt-1 min-h-9 w-full rounded-xl border border-cyan-100/12 bg-[#07111d] px-3 text-xs text-cyan-50 outline-none">
+              <option value="exact">exact</option>
+              <option value="place">place</option>
+              <option value="city">city</option>
+              <option value="unknown">unknown</option>
+            </select>
+          </label>
+          <div className="md:col-span-3"><Field label="Address" value={draft.formattedAddress} onChange={(value) => setField("formattedAddress", value)} placeholder="Full address if available" /></div>
+          <div className="md:col-span-3"><Field label="Notes" value={draft.notes} onChange={(value) => setField("notes", value)} placeholder="Source note, reason, or verification context" /></div>
+        </div>
 
-      <button type="button" onClick={addManualLocation} disabled={saving || !entityName.trim()} className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-emerald-100/20 bg-emerald-200/12 px-5 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-200/18 disabled:opacity-45">
-        <PlusCircle size={16} />{saving ? "Adding..." : "Add manual location to map"}
-      </button>
+        <button type="button" onClick={addManualLocation} disabled={saving || !entityName.trim()} className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-emerald-100/20 bg-emerald-200/12 px-5 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-200/18 disabled:opacity-45">
+          <PlusCircle size={16} />{saving ? "Adding..." : "Add manual location to map"}
+        </button>
 
-      {message ? <div className="mt-4 flex items-center gap-3 rounded-2xl border border-emerald-200/20 bg-emerald-200/8 px-4 py-3 text-sm text-emerald-100"><CheckCircle2 size={16} />{message}</div> : null}
-      {error ? <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200/20 bg-amber-200/8 px-4 py-3 text-sm text-amber-100"><AlertTriangle size={16} />{error}</div> : null}
-    </GlassCard>
+        {message ? <div className="mt-4 flex items-center gap-3 rounded-2xl border border-emerald-200/20 bg-emerald-200/8 px-4 py-3 text-sm text-emerald-100"><CheckCircle2 size={16} />{message}</div> : null}
+        {error ? <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200/20 bg-amber-200/8 px-4 py-3 text-sm text-amber-100"><AlertTriangle size={16} />{error}</div> : null}
+      </GlassCard>
+      <BulkLocationImportPanel entityName={entityName} />
+    </>
   );
 }
