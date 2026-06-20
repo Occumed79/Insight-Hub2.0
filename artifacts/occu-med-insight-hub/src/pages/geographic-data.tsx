@@ -1,4 +1,6 @@
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "wouter";
+import { Plus } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { FilterPills } from "@/components/insight/FilterPills";
@@ -7,9 +9,7 @@ import { SidePanel } from "@/components/insight/SidePanel";
 import { MetricCard } from "@/components/insight/MetricCard";
 import { GlassCard } from "@/components/insight/GlassCard";
 import { useInsightData, useSelectedCompany } from "@/data/useInsightData";
-import type { LocationRecord } from "@/data/types";
-
-type DataSource = "workbook" | "database";
+import type { Company, LocationRecord } from "@/data/types";
 
 type VerifiedEntity = {
   id: number;
@@ -35,90 +35,93 @@ type VerifiedEntity = {
   }>;
 };
 
+const databaseCompanyId = (id: number) => `db-${id}`;
+const isDatabaseCompanyId = (id: string) => id.startsWith("db-");
+
+function toLocationRecord(entity: VerifiedEntity, loc: VerifiedEntity["locations"][number]): LocationRecord {
+  return {
+    id: `db-location-${loc.id}`,
+    companyId: databaseCompanyId(entity.id),
+    company: entity.company || entity.name,
+    city: loc.city || loc.placeName,
+    state: loc.state ?? undefined,
+    country: loc.country,
+    region: loc.region,
+    facilityType: loc.facilityType || "Verified location",
+    activity: loc.activity || "Entity discovery",
+    notes: loc.notes || "Verified through entity discovery.",
+    coordinates: loc.coordinates,
+    placeName: loc.placeName,
+    formattedAddress: loc.formattedAddress ?? undefined,
+    addressLine1: loc.addressLine1 ?? undefined,
+    addressLine2: loc.addressLine2 ?? undefined,
+    postalCode: loc.postalCode ?? undefined,
+    geocodeSource: loc.geocodeSource as LocationRecord["geocodeSource"],
+    geocodeConfidence: loc.geocodeConfidence as LocationRecord["geocodeConfidence"],
+  };
+}
+
 export default function GeographicData() {
   const { dataset } = useInsightData();
-  const [dataSource, setDataSource] = useState<DataSource>("workbook");
   const [verifiedEntities, setVerifiedEntities] = useState<VerifiedEntity[]>([]);
-  const [loadingDatabase, setLoadingDatabase] = useState(false);
-
-  // Load verified entities from database
-  useEffect(() => {
-    if (dataSource === "database") {
-      setLoadingDatabase(true);
-      fetch("/api/entities/verified")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.ok) {
-            setVerifiedEntities(data.entities);
-          }
-        })
-        .catch((error) => console.error("Failed to load verified entities:", error))
-        .finally(() => setLoadingDatabase(false));
-    }
-  }, [dataSource]);
-
-  // Workbook data
-  const companyIdsWithLocations = new Set(
-    dataset.locations.map((location) => location.companyId)
-  );
-  const geographicCompanies = dataset.companies
-    .filter((company) => companyIdsWithLocations.has(company.id))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  // Database entities transformed to company format
-  const databaseCompanies = verifiedEntities.map((entity) => ({
-    id: String(entity.id),
-    name: entity.name,
-    shortName: entity.name,
-    sector: "Unknown" as const,
-    headquarters: "Unknown" as const,
-    employees: 0,
-    employeesAsOf: "" as const,
-    revenue: 0,
-    revenueAsOf: "" as const,
-    summary: "" as const,
-    tags: [] as string[],
-  }));
-
-  // Combine based on data source
-  const allCompanies = dataSource === "workbook" ? geographicCompanies : databaseCompanies;
-  const { companyId, setCompanyId, company } = useSelectedCompany(allCompanies);
-
+  const [selected, setSelected] = useState<LocationRecord | undefined>();
   const [country, setCountry] = useState("All");
   const [region, setRegion] = useState("All");
   const [facility, setFacility] = useState("All");
   const [activity, setActivity] = useState("All");
-  const [selected, setSelected] = useState<LocationRecord | undefined>();
 
-  // Get locations based on data source
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/entities/verified")
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Verified entity endpoint unavailable")))
+      .then((payload) => {
+        if (!cancelled && payload?.ok && Array.isArray(payload.entities)) {
+          setVerifiedEntities(payload.entities);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setVerifiedEntities([]);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const workbookCompanies = useMemo(() => {
+    const companyIdsWithLocations = new Set(dataset.locations.map((location) => location.companyId));
+    return dataset.companies.filter((company) => companyIdsWithLocations.has(company.id)).sort((a, b) => a.name.localeCompare(b.name));
+  }, [dataset.companies, dataset.locations]);
+
+  const databaseCompanies = useMemo<Company[]>(() => verifiedEntities.map((entity) => ({
+    id: databaseCompanyId(entity.id),
+    name: entity.name,
+    shortName: entity.name,
+    sector: "Verified entity",
+    headquarters: "Reviewed entity discovery",
+    employees: 0,
+    employeesAsOf: "Verified database",
+    summary: "Verified entity locations from the discovery workflow.",
+    tags: ["Verified DB"],
+  })), [verifiedEntities]);
+
+  const companies = useMemo(() => [...workbookCompanies, ...databaseCompanies], [workbookCompanies, databaseCompanies]);
+  const { companyId, setCompanyId, company } = useSelectedCompany(companies);
+
   const companyLocations = useMemo(() => {
-    if (dataSource === "workbook") {
-      return dataset.locations.filter((location) => location.companyId === companyId);
-    } else {
-      const entity = verifiedEntities.find((e) => String(e.id) === companyId);
-      if (!entity) return [];
-      return entity.locations.map((loc, index) => ({
-        id: String(loc.id),
-        companyId: String(entity.id),
-        company: entity.company,
-        city: loc.city || loc.placeName,
-        state: loc.state ?? undefined,
-        country: loc.country,
-        region: loc.region,
-        facilityType: loc.facilityType || "Unknown",
-        activity: loc.activity || "Unknown",
-        notes: loc.notes || "",
-        coordinates: loc.coordinates,
-        placeName: loc.placeName,
-        formattedAddress: loc.formattedAddress ?? undefined,
-        addressLine1: loc.addressLine1 ?? undefined,
-        addressLine2: loc.addressLine2 ?? undefined,
-        postalCode: loc.postalCode ?? undefined,
-        geocodeSource: loc.geocodeSource as LocationRecord["geocodeSource"],
-        geocodeConfidence: loc.geocodeConfidence as LocationRecord["geocodeConfidence"],
-      }));
+    if (isDatabaseCompanyId(companyId)) {
+      const entityId = Number(companyId.replace("db-", ""));
+      const entity = verifiedEntities.find((item) => item.id === entityId);
+      return entity ? entity.locations.map((loc) => toLocationRecord(entity, loc)) : [];
     }
-  }, [dataSource, companyId, dataset.locations, verifiedEntities]);
+    return dataset.locations.filter((location) => location.companyId === companyId);
+  }, [companyId, dataset.locations, verifiedEntities]);
+
+  const resetFiltersForCompany = (nextCompanyId: string) => {
+    setCompanyId(nextCompanyId);
+    setSelected(undefined);
+    setCountry("All");
+    setRegion("All");
+    setFacility("All");
+    setActivity("All");
+  };
 
   const countryOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.country))).slice(0, 12)], [companyLocations]);
   const regionOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.region))).slice(0, 12)], [companyLocations]);
@@ -141,32 +144,16 @@ export default function GeographicData() {
         <HeaderBar
           eyebrow="Portal 03"
           title="Geographic Data"
-          subtitle="A reusable geographic intelligence map that parses workbook location presence into filterable company, country, region, facility, and activity records."
+          subtitle="A reusable geographic intelligence map that parses verified and workbook location records into filterable company, country, region, facility, and activity records."
           actions={
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 rounded-full border border-cyan-100/15 bg-[#07111d] px-3 py-1.5">
-                <button
-                  onClick={() => { setDataSource("workbook"); setCompanyId(""); setSelected(undefined); }}
-                  className={`text-xs font-medium transition ${dataSource === "workbook" ? "text-cyan-50" : "text-cyan-100/50 hover:text-cyan-50"}`}
-                >
-                  Workbook
-                </button>
-                <span className="text-cyan-100/30">|</span>
-                <button
-                  onClick={() => { setDataSource("database"); setCompanyId(""); setSelected(undefined); }}
-                  className={`text-xs font-medium transition ${dataSource === "database" ? "text-cyan-50" : "text-cyan-100/50 hover:text-cyan-50"}`}
-                >
-                  Database
-                </button>
-              </div>
-              <select
-                value={companyId}
-                onChange={(event) => { setCompanyId(event.target.value); setSelected(undefined); }}
-                disabled={dataSource === "database" && loadingDatabase}
-                className="rounded-full border border-cyan-100/15 bg-[#07111d] px-4 py-2 text-sm text-cyan-50 outline-none disabled:opacity-50"
-              >
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href="/entity-discovery" className="inline-flex items-center gap-2 rounded-full border border-cyan-100/15 bg-cyan-100/5 px-4 py-2 text-sm font-semibold text-cyan-50 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]">
+                <Plus size={14} />
+                Add Entity
+              </Link>
+              <select value={companyId} onChange={(event) => resetFiltersForCompany(event.target.value)} className="rounded-full border border-cyan-100/15 bg-[#07111d] px-4 py-2 text-sm text-cyan-50 outline-none">
                 <option value="">Select company</option>
-                {allCompanies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                {companies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </div>
           }
@@ -184,25 +171,16 @@ export default function GeographicData() {
           <MapPanel locations={filtered} onSelect={setSelected} />
           <GlassCard className="p-6">
             <p className="text-xs uppercase tracking-[0.25em] text-emerald-200/60">Location register</p>
-            <h2 className="mt-2 text-2xl font-black text-white">{company?.shortName} footprint</h2>
-            <p className="mt-2 text-sm leading-6 text-cyan-100/55">
-              {dataSource === "workbook"
-                ? "Workbook rows are normalized as reusable location objects. Clicking a row or map marker opens detail inside this register."
-                : "Verified database locations from entity discovery. Clicking a row or map marker opens detail inside this register."
-              }
-            </p>
+            <h2 className="mt-2 text-2xl font-black text-white">{company?.shortName ? `${company.shortName} footprint` : "Select a company"}</h2>
+            <p className="mt-2 text-sm leading-6 text-cyan-100/55">Click a row or map marker to open detail inside this register.</p>
             <div className="mt-5 max-h-[620px] overflow-auto pr-1">
               <SidePanel location={selected} onClose={() => setSelected(undefined)} />
               <div className="space-y-2">
-                {loadingDatabase ? (
-                  <p className="text-center text-sm text-cyan-100/50">Loading...</p>
+                {filtered.length === 0 ? (
+                  <p className="rounded-2xl border border-cyan-100/10 bg-white/[0.03] p-4 text-sm text-cyan-100/50">No locations to display for the selected company and filters.</p>
                 ) : filtered.slice(0, 42).map((location) => (
-                  <button
-                    key={location.id}
-                    onClick={() => setSelected(location)}
-                    className="w-full rounded-2xl border border-cyan-100/10 bg-white/[0.03] p-4 text-left transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.06]"
-                  >
-                    <p className="font-semibold text-cyan-50">{location.city}</p>
+                  <button key={location.id} onClick={() => setSelected(location)} className="w-full rounded-2xl border border-cyan-100/10 bg-white/[0.03] p-4 text-left transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.06]">
+                    <p className="font-semibold text-cyan-50">{location.placeName || location.city}</p>
                     <p className="mt-1 text-xs text-cyan-100/48">{location.country} · {location.region}</p>
                     <p className="mt-2 text-xs leading-5 text-cyan-100/55">{location.facilityType}</p>
                   </button>
