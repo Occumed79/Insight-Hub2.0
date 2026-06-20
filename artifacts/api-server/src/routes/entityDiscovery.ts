@@ -38,6 +38,15 @@ type DiscoveredLocation = {
   reviewStatus: "candidate" | "needs-review";
 };
 
+type ResearchSource = {
+  label: string;
+  type: "official" | "filing" | "contract" | "jobs" | "web";
+  url: string;
+  note: string;
+};
+
+const MAPPABLE_CONFIDENCE = new Set(["exact", "place", "city"]);
+
 function normalizeEntityName(value: unknown) {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, 160);
 }
@@ -61,6 +70,63 @@ function stateFrom(address: Record<string, string> | undefined) {
 
 function countryFrom(address: Record<string, string> | undefined, displayName: string) {
   return address?.country || displayName.split(",").map((part) => part.trim()).filter(Boolean).at(-1) || "Unknown";
+}
+
+function coordinateKey(value: unknown) {
+  if (!Array.isArray(value) || value.length !== 2) return "missing-coordinate";
+  const lon = Number(value[0]);
+  const lat = Number(value[1]);
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return "missing-coordinate";
+  return `${lon.toFixed(5)}|${lat.toFixed(5)}`;
+}
+
+function normalizeTextKey(value: unknown) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
+function candidateKey(loc: Pick<DiscoveredLocation, "coordinates" | "formattedAddress" | "sourceId">) {
+  return `${coordinateKey(loc.coordinates)}|${normalizeTextKey(loc.formattedAddress)}|${normalizeTextKey(loc.sourceId)}`;
+}
+
+function existingLocationKey(loc: { coordinates: unknown; formattedAddress: string | null; sourceId: string | null }) {
+  return `${coordinateKey(loc.coordinates)}|${normalizeTextKey(loc.formattedAddress)}|${normalizeTextKey(loc.sourceId)}`;
+}
+
+function buildResearchSources(entityName: string): ResearchSource[] {
+  const encoded = encodeURIComponent(entityName);
+  const quoted = encodeURIComponent(`"${entityName}"`);
+  return [
+    {
+      label: "Official locations / offices search",
+      type: "official",
+      url: `https://www.google.com/search?q=${quoted}+locations+offices+facilities`,
+      note: "Use this to verify company-owned office, site, and facility pages.",
+    },
+    {
+      label: "Company careers locations search",
+      type: "jobs",
+      url: `https://www.google.com/search?q=${quoted}+careers+locations+jobs`,
+      note: "Career portals often expose operating cities and facility names.",
+    },
+    {
+      label: "SEC EDGAR search",
+      type: "filing",
+      url: `https://www.sec.gov/edgar/search/#/q=${encoded}`,
+      note: "Use filings to verify corporate footprint, subsidiaries, segments, and HQ context.",
+    },
+    {
+      label: "SAM.gov search",
+      type: "contract",
+      url: `https://sam.gov/search/?index=opp&keywords=${encoded}`,
+      note: "Use federal opportunity and award context for government operating locations.",
+    },
+    {
+      label: "USASpending search",
+      type: "contract",
+      url: `https://www.usaspending.gov/search/?keyword=${encoded}`,
+      note: "Use award data to identify contract activity and possible performance locations.",
+    },
+  ];
 }
 
 function toDiscoveredLocation(entityName: string, result: NominatimResult): DiscoveredLocation | null {
@@ -107,9 +173,7 @@ async function queryNominatim(entityName: string): Promise<DiscoveredLocation[]>
     },
   });
 
-  if (!response.ok) {
-    throw new Error(`OSM Nominatim lookup failed with ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`OSM Nominatim lookup failed with ${response.status}`);
 
   const results = (await response.json()) as NominatimResult[];
   const seen = new Set<string>();
@@ -117,7 +181,7 @@ async function queryNominatim(entityName: string): Promise<DiscoveredLocation[]>
     .map((result) => toDiscoveredLocation(entityName, result))
     .filter((result): result is DiscoveredLocation => Boolean(result))
     .filter((result) => {
-      const key = `${result.coordinates[0].toFixed(5)}|${result.coordinates[1].toFixed(5)}|${result.formattedAddress}`;
+      const key = candidateKey(result);
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -136,9 +200,7 @@ async function queryPhoton(entityName: string): Promise<DiscoveredLocation[]> {
     },
   });
 
-  if (!response.ok) {
-    throw new Error(`Photon lookup failed with ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`Photon lookup failed with ${response.status}`);
 
   const photonResults = await response.json() as { features: Array<{ properties: Record<string, string | number | undefined>; geometry: { coordinates: [number, number] } }> };
   const seen = new Set<string>();
@@ -148,7 +210,6 @@ async function queryPhoton(entityName: string): Promise<DiscoveredLocation[]> {
     const props = feature.properties;
     const coords = feature.geometry.coordinates;
     if (!Array.isArray(coords) || coords.length !== 2) continue;
-
     const [lon, lat] = coords;
     if (typeof lon !== "number" || typeof lat !== "number") continue;
 
@@ -177,7 +238,7 @@ async function queryPhoton(entityName: string): Promise<DiscoveredLocation[]> {
       reviewStatus: confidence === "unknown" ? "needs-review" : "candidate",
     };
 
-    const key = `${location.coordinates[0].toFixed(5)}|${location.coordinates[1].toFixed(5)}|${location.formattedAddress}`;
+    const key = candidateKey(location);
     if (!seen.has(key)) {
       seen.add(key);
       results.push(location);
@@ -203,20 +264,23 @@ router.post("/entity-discovery/locations", async (req, res) => {
 
     const seen = new Set<string>();
     const deduplicated = locations.filter((result) => {
-      const key = `${result.coordinates[0].toFixed(5)}|${result.coordinates[1].toFixed(5)}|${result.formattedAddress}`;
+      const key = candidateKey(result);
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
 
-    const mapped = deduplicated.filter((location) => ["exact", "place", "city"].includes(location.geocodeConfidence)).length;
     const existingEntity = await db.select().from(entitiesTable).where(eq(entitiesTable.name, entityName)).limit(1);
     const entityId = existingEntity.length > 0
       ? existingEntity[0].id
       : (await db.insert(entitiesTable).values({ name: entityName, displayName: entityName, type: "company", status: "candidate", source: "discovery", metadata: {} }).returning())[0].id;
 
-    const insertedLocations = deduplicated.length > 0
-      ? await db.insert(locationsTable).values(deduplicated.map((loc) => ({
+    const existingLocations = await db.select().from(locationsTable).where(eq(locationsTable.entityId, entityId));
+    const existingKeys = new Set(existingLocations.map(existingLocationKey));
+    const newLocations = deduplicated.filter((loc) => !existingKeys.has(candidateKey(loc)));
+
+    const insertedLocations = newLocations.length > 0
+      ? await db.insert(locationsTable).values(newLocations.map((loc) => ({
           entityId,
           placeName: loc.placeName,
           formattedAddress: loc.formattedAddress,
@@ -236,19 +300,69 @@ router.post("/entity-discovery/locations", async (req, res) => {
         }))).returning()
       : [];
 
+    const allLocations = [...existingLocations, ...insertedLocations];
+    const mapped = allLocations.filter((location) => MAPPABLE_CONFIDENCE.has(String(location.geocodeConfidence))).length;
+
     res.status(200).json({
       ok: true,
       entityName,
       entityId,
       source: "OpenStreetMap Nominatim + Photon",
+      researchSources: buildResearchSources(entityName),
       generatedAt: new Date().toISOString(),
-      counts: { candidates: deduplicated.length, mappable: mapped, needsReview: deduplicated.length - mapped },
-      locations: insertedLocations,
+      counts: { candidates: allLocations.length, mappable: mapped, needsReview: allLocations.length - mapped, newCandidates: insertedLocations.length, duplicatesSkipped: deduplicated.length - newLocations.length },
+      locations: allLocations,
       warning: "These are public geocoding candidates from multiple sources. Select the locations that look correct, then add them to the verified map.",
     });
   } catch (error) {
     console.error("Entity discovery error:", error);
     res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Entity discovery failed" });
+  }
+});
+
+router.patch("/locations/:id/details", async (req, res) => {
+  try {
+    const locationId = Number(req.params.id);
+    if (!Number.isFinite(locationId)) {
+      res.status(400).json({ ok: false, error: "Valid location ID is required" });
+      return;
+    }
+
+    const coordinates = Array.isArray(req.body?.coordinates) && req.body.coordinates.length === 2
+      ? [Number(req.body.coordinates[0]), Number(req.body.coordinates[1])]
+      : undefined;
+
+    if (coordinates && (!Number.isFinite(coordinates[0]) || !Number.isFinite(coordinates[1]))) {
+      res.status(400).json({ ok: false, error: "Coordinates must be [longitude, latitude] numbers" });
+      return;
+    }
+
+    const [updated] = await db.update(locationsTable).set({
+      placeName: String(req.body?.placeName || "").trim() || undefined,
+      formattedAddress: String(req.body?.formattedAddress || "").trim() || undefined,
+      city: String(req.body?.city || "").trim() || undefined,
+      state: String(req.body?.state || "").trim() || undefined,
+      postalCode: String(req.body?.postalCode || "").trim() || undefined,
+      country: String(req.body?.country || "").trim() || undefined,
+      region: String(req.body?.region || req.body?.country || "").trim() || undefined,
+      facilityType: String(req.body?.facilityType || "").trim() || undefined,
+      activity: String(req.body?.activity || "").trim() || undefined,
+      notes: String(req.body?.notes || "").trim() || undefined,
+      coordinates,
+      geocodeConfidence: String(req.body?.geocodeConfidence || "").trim() || undefined,
+      geocodeSource: "manual",
+      updatedAt: new Date(),
+    }).where(eq(locationsTable.id, locationId)).returning();
+
+    if (!updated) {
+      res.status(404).json({ ok: false, error: "Location not found" });
+      return;
+    }
+
+    res.json({ ok: true, location: updated });
+  } catch (error) {
+    console.error("Update location details error:", error);
+    res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to update location" });
   }
 });
 
@@ -269,6 +383,16 @@ router.post("/entities/:id/verify-selected", async (req, res) => {
   } catch (error) {
     console.error("Verify selected locations error:", error);
     res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to verify selected locations" });
+  }
+});
+
+router.get("/entities/health", async (_req, res) => {
+  try {
+    await db.select().from(entitiesTable).limit(1);
+    res.json({ ok: true, status: "available" });
+  } catch (error) {
+    console.error("Entity database health error:", error);
+    res.status(503).json({ ok: false, status: "unavailable", error: error instanceof Error ? error.message : "Database unavailable" });
   }
 });
 
