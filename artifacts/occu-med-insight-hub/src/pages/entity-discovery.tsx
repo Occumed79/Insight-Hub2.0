@@ -4,6 +4,7 @@ import { Search, AlertTriangle, ExternalLink, CheckCircle2, ArrowLeft, MapPin, P
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
+import { ManualLocationPanel } from "@/components/insight/ManualLocationPanel";
 
 type DiscoveredLocation = {
   id: number;
@@ -236,6 +237,8 @@ export default function EntityDiscovery() {
           </div>
           <p className="mt-3 text-xs leading-5 text-cyan-100/50">This uses public geocoding candidates and avoids duplicates on repeated searches. Low-confidence rows are not selected by default.</p>
         </GlassCard>
+
+        <ManualLocationPanel entityName={entityName} />
 
         {result?.error ? <GlassCard className="mt-5 border border-amber-200/20 p-5"><div className="flex items-center gap-3 text-amber-100"><AlertTriangle size={18} /><p className="font-semibold">Action failed</p></div><p className="mt-2 text-sm text-cyan-100/60">{result.error}</p></GlassCard> : null}
         {verified ? <GlassCard className="mt-5 border border-emerald-200/20 p-5"><div className="flex items-center gap-3 text-emerald-100"><CheckCircle2 size={18} /><p className="font-semibold">Added to Geographic Data</p></div><p className="mt-2 text-sm text-cyan-100/60">Selected locations are now verified. Return to Geographic Data and select the entity from the company dropdown.</p></GlassCard> : null}
