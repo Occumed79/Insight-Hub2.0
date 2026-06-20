@@ -17,6 +17,10 @@ import { v2xVisualLocations, v2xVisualMetrics, v2xVisualReports, v2xVisualSource
 import { mergeVisualDossiers, visualCompanies, visualLocations, visualMetrics, visualProfiles, visualReports, visualSources } from "./visualDossiers";
 import { uploadedReportCompanies, uploadedReportLocations, uploadedReportMetrics, uploadedReportProfiles, uploadedReportReports, uploadedReportSources } from "./uploadedReportDossiers";
 import { getStubCompanies, getStubProfiles, getStubSources } from "./stubCompanies";
+import { buildIntelligenceEntities } from "../company-configs/intelligenceNavigation";
+import { resolveConfigCompanyId } from "../company-configs/configIds";
+
+export { resolveConfigCompanyId, buildIntelligenceEntities };
 
 function withVisualDossiers(dataset: InsightDataset): InsightDataset {
   const withV2xVisuals = {
@@ -117,16 +121,20 @@ export function useInsightData() {
 }
 
 export function useSelectedCompany(companies: Company[]) {
-  const getDefaultCompanyId = () => companies.find((item) => item.id === "v2x")?.id || companies[0]?.id || "";
+  const intelligenceEntities = useMemo(() => buildIntelligenceEntities(companies), [companies]);
+  const getDefaultCompanyId = () => intelligenceEntities.find((item) => item.id === "v2x")?.id || intelligenceEntities[0]?.id || "";
   const [companyId, setCompanyId] = useState<string>(() => getDefaultCompanyId());
 
   useEffect(() => {
-    if (!companies.some((item) => item.id === companyId)) {
+    if (!intelligenceEntities.some((item) => item.id === companyId)) {
       setCompanyId(getDefaultCompanyId());
     }
-  }, [companies, companyId]);
+  }, [intelligenceEntities, companyId]);
 
-  const company = useMemo(() => companies.find((item) => item.id === companyId) || companies[0], [companies, companyId]);
+  const company = useMemo(
+    () => intelligenceEntities.find((item) => item.id === companyId) || intelligenceEntities[0],
+    [intelligenceEntities, companyId],
+  );
 
-  return { companyId, setCompanyId, company };
+  return { companyId, setCompanyId, company, intelligenceEntities };
 }

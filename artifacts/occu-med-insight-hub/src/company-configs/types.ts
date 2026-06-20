@@ -233,6 +233,14 @@ export type DossierSectionDefinition = {
   metricIds: string[];
 };
 
+export type IntelligenceSourceStatus =
+  | "live"
+  | "cached"
+  | "uploaded"
+  | "modeled"
+  | "directional"
+  | "stale";
+
 export type InteractionPreset =
   | "executive-summary"
   | "deep-analysis"
@@ -278,6 +286,9 @@ export type CompanyConfig = {
   curveTitle?: string;
   curveSubtitle?: string;
   interactionConfig?: CompanyInteractionConfig;
+  sourceStatus?: IntelligenceSourceStatus;
+  lastUpdated?: string;
+  dataQualityWarnings?: string[];
 };
 
 // Backwards compatibility aliases for entity model migration

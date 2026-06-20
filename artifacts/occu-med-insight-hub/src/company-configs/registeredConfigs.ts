@@ -1,0 +1,147 @@
+import { v2xConfig } from "./v2x";
+import { idsConfig } from "./ids";
+import { kbrConfig } from "./kbr";
+import { paeAmentumConfig } from "./pae-amentum";
+import { amentumClaimsDbaConfig } from "./amentum-claims-dba";
+import { s3InternationalConfig } from "./s3-international";
+import { traceSystemsConfig } from "./trace-systems";
+import { weatherfordConfig } from "./weatherford";
+import { valiantConfig } from "./valiant";
+import { peratonConfig } from "./peraton";
+import { caciConfig } from "./caci";
+import { iapConfig } from "./iap";
+import { constellisConfig } from "./constellis";
+import { parsonsConfig } from "./parsons";
+import { peckhamConfig } from "./peckham";
+import { dbaCarrierNetworkConfig } from "./dba-carrier-network";
+import { insuranceCarrierMappingConfig } from "./insurance-carrier-mapping";
+import { qinetiqConfig } from "./qinetiq";
+import { sercoConfig } from "./serco";
+import { magAerospaceConfig } from "./mag-aerospace";
+import { maximusFederalConfig } from "./maximus-federal";
+import { northropGrummanConfig } from "./northrop-grumman";
+import { rheinmetallConfig } from "./rheinmetall";
+import { rtxConfig } from "./rtx";
+import { saicConfig } from "./saic";
+import { leidosConfig } from "./leidos";
+import { kongsbergConfig } from "./kongsberg";
+import { kapsuunConfig } from "./kapsuun";
+import { missionEssentialConfig } from "./mission-essential";
+import { sourceGroupConfig } from "./source-group";
+import { thalesConfig } from "./thales";
+import { tecmotivConfig } from "./tecmotiv";
+import { c3elConfig } from "./c3el";
+import { asrcFederalConfig } from "./asrc-federal";
+import { referralDemandIntelligenceConfig } from "./referral-demand-intelligence";
+import { multiClientLocationIntelligenceConfig } from "./multi-client-location-intelligence";
+import { missingFederalProspectsConfig } from "./missing-federal-prospects";
+import { prospectNetworkIntelligenceConfig } from "./prospect-network-intelligence";
+import { networkGapResearchIntelligenceConfig } from "./network-gap-research-intelligence";
+import { globalOperationalSitesIntelligenceConfig } from "./global-operational-sites-intelligence";
+import { coreClientStatsDashboardConfig } from "./core-client-stats-dashboard";
+import { uploadedPdfFifthIntelligenceConfig } from "./uploaded-pdf-fifth-intelligence";
+import { v2xDbaCarrierAccessConfig } from "./v2x-dba-carrier-access";
+import { eccConfig } from "./ecc";
+import { perfectCoverageProspectsConfig } from "./perfect-coverage-prospects";
+import { sierraNevadaConfig } from "./sierra-nevada";
+import { skybridgeTacticalConfig } from "./skybridge-tactical";
+import { sosiConfig } from "./sosi";
+import { freeportConfig } from "./freeport";
+import { leonardoConfig } from "./leonardo";
+import { fluorConfig } from "./fluor";
+import { dynamicAviationConfig } from "./dynamic-aviation";
+import { masterPortfolioIntelligenceConfig } from "./master-portfolio-intelligence";
+import { networkExpansionIntelligenceConfig } from "./network-expansion-intelligence";
+import { prospectPipelineIntelligenceConfig } from "./prospect-pipeline-intelligence";
+import { worldVisionConfig } from "./world-vision";
+import { versarConfig } from "./versar";
+import { clovehitchConfig } from "./clovehitch";
+import { gditConfig } from "./dossier-companies";
+import { reportMethodologyIntelligenceConfig } from "./report-methodology-intelligence";
+import { jacobsConfig, baeConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig } from "./stub-companies";
+import type { CompanyConfig } from "./types";
+
+export const allConfigs: CompanyConfig[] = [
+  masterPortfolioIntelligenceConfig,
+  coreClientStatsDashboardConfig,
+  reportMethodologyIntelligenceConfig,
+  uploadedPdfFifthIntelligenceConfig,
+  networkExpansionIntelligenceConfig,
+  multiClientLocationIntelligenceConfig,
+  prospectNetworkIntelligenceConfig,
+  referralDemandIntelligenceConfig,
+  prospectPipelineIntelligenceConfig,
+  perfectCoverageProspectsConfig,
+  missingFederalProspectsConfig,
+  networkGapResearchIntelligenceConfig,
+  globalOperationalSitesIntelligenceConfig,
+  dbaCarrierNetworkConfig,
+  insuranceCarrierMappingConfig,
+  v2xDbaCarrierAccessConfig,
+  worldVisionConfig,
+  v2xConfig,
+  idsConfig,
+  kbrConfig,
+  paeAmentumConfig,
+  amentumClaimsDbaConfig,
+  s3InternationalConfig,
+  traceSystemsConfig,
+  weatherfordConfig,
+  valiantConfig,
+  peratonConfig,
+  caciConfig,
+  iapConfig,
+  constellisConfig,
+  parsonsConfig,
+  peckhamConfig,
+  qinetiqConfig,
+  sercoConfig,
+  magAerospaceConfig,
+  maximusFederalConfig,
+  northropGrummanConfig,
+  rheinmetallConfig,
+  rtxConfig,
+  saicConfig,
+  leidosConfig,
+  kongsbergConfig,
+  kapsuunConfig,
+  missionEssentialConfig,
+  sourceGroupConfig,
+  thalesConfig,
+  tecmotivConfig,
+  c3elConfig,
+  asrcFederalConfig,
+  sierraNevadaConfig,
+  skybridgeTacticalConfig,
+  sosiConfig,
+  freeportConfig,
+  leonardoConfig,
+  fluorConfig,
+  dynamicAviationConfig,
+  gditConfig,
+  clovehitchConfig,
+  versarConfig,
+  eccConfig,
+  jacobsConfig,
+  baeConfig,
+  alutiiqConfig,
+  internationalSosConfig,
+  hiiMissionTechConfig,
+  datapathConfig,
+  omniplexConfig,
+  ssiConfig,
+  platformAerospaceConfig,
+];
+
+const configMap = new Map<string, CompanyConfig>();
+for (const config of allConfigs) {
+  configMap.set(config.companyId, config);
+}
+
+export function getCompanyConfigById(companyId: string): CompanyConfig | undefined {
+  return configMap.get(companyId);
+}
+
+export function getAllCompanyConfigs(): CompanyConfig[] {
+  return allConfigs;
+}
