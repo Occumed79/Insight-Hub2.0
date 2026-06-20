@@ -306,4 +306,56 @@ router.patch("/locations/:id", async (req, res) => {
   }
 });
 
+// GET /api/entities/verified - Get verified entities with their locations for dropdown
+router.get("/entities/verified", async (req, res) => {
+  try {
+    const verifiedEntities = await db
+      .select()
+      .from(entitiesTable)
+      .where(eq(entitiesTable.status, "verified"))
+      .orderBy(entitiesTable.displayName);
+
+    const result = await Promise.all(
+      verifiedEntities.map(async (entity) => {
+        const entityLocations = await db
+          .select()
+          .from(locationsTable)
+          .where(eq(locationsTable.entityId, entity.id))
+          .orderBy(locationsTable.placeName);
+
+        return {
+          id: entity.id,
+          name: entity.displayName,
+          company: entity.displayName,
+          locations: entityLocations
+            .filter((loc) => loc.reviewStatus === "verified")
+            .map((loc) => ({
+              id: loc.id,
+              placeName: loc.placeName,
+              city: loc.city,
+              country: loc.country,
+              region: loc.region,
+              coordinates: loc.coordinates,
+              geocodeConfidence: loc.geocodeConfidence,
+              geocodeSource: loc.geocodeSource,
+              facilityType: loc.facilityType,
+              activity: loc.activity,
+              notes: loc.notes,
+              formattedAddress: loc.formattedAddress,
+              addressLine1: loc.addressLine1,
+              addressLine2: loc.addressLine2,
+              state: loc.state,
+              postalCode: loc.postalCode,
+            })),
+        };
+      })
+    );
+
+    res.json({ ok: true, entities: result });
+  } catch (error) {
+    console.error("Get verified entities error:", error);
+    res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to get verified entities" });
+  }
+});
+
 export default router;
