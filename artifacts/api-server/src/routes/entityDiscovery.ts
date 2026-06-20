@@ -207,4 +207,103 @@ router.post("/entity-discovery/locations", async (req, res) => {
   }
 });
 
+// GET /api/entities - List all entities
+router.get("/entities", async (req, res) => {
+  try {
+    const entities = await db.select().from(entitiesTable).orderBy(entitiesTable.createdAt);
+    res.json({ ok: true, entities });
+  } catch (error) {
+    console.error("List entities error:", error);
+    res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to list entities" });
+  }
+});
+
+// GET /api/entities/:id/locations - List locations for an entity
+router.get("/entities/:id/locations", async (req, res) => {
+  try {
+    const entityId = parseInt(req.params.id, 10);
+    if (isNaN(entityId)) {
+      res.status(400).json({ ok: false, error: "Invalid entity ID" });
+      return;
+    }
+
+    const locations = await db
+      .select()
+      .from(locationsTable)
+      .where(eq(locationsTable.entityId, entityId))
+      .orderBy(locationsTable.createdAt);
+
+    res.json({ ok: true, locations });
+  } catch (error) {
+    console.error("List locations error:", error);
+    res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to list locations" });
+  }
+});
+
+// PATCH /api/entities/:id - Update entity status
+router.patch("/entities/:id", async (req, res) => {
+  try {
+    const entityId = parseInt(req.params.id, 10);
+    if (isNaN(entityId)) {
+      res.status(400).json({ ok: false, error: "Invalid entity ID" });
+      return;
+    }
+
+    const { status } = req.body;
+    if (!status || !["candidate", "verified", "rejected"].includes(status)) {
+      res.status(400).json({ ok: false, error: "Invalid status. Must be candidate, verified, or rejected" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(entitiesTable)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(entitiesTable.id, entityId))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ ok: false, error: "Entity not found" });
+      return;
+    }
+
+    res.json({ ok: true, entity: updated });
+  } catch (error) {
+    console.error("Update entity error:", error);
+    res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to update entity" });
+  }
+});
+
+// PATCH /api/locations/:id - Update location review status
+router.patch("/locations/:id", async (req, res) => {
+  try {
+    const locationId = parseInt(req.params.id, 10);
+    if (isNaN(locationId)) {
+      res.status(400).json({ ok: false, error: "Invalid location ID" });
+      return;
+    }
+
+    const { reviewStatus } = req.body;
+    if (!reviewStatus || !["candidate", "verified", "rejected", "needs_research"].includes(reviewStatus)) {
+      res.status(400).json({ ok: false, error: "Invalid reviewStatus. Must be candidate, verified, rejected, or needs_research" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(locationsTable)
+      .set({ reviewStatus, updatedAt: new Date() })
+      .where(eq(locationsTable.id, locationId))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ ok: false, error: "Location not found" });
+      return;
+    }
+
+    res.json({ ok: true, location: updated });
+  } catch (error) {
+    console.error("Update location error:", error);
+    res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to update location" });
+  }
+});
+
 export default router;
