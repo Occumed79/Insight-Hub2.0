@@ -84,19 +84,13 @@ export default function GeographicData() {
     let cancelled = false;
     fetch("/api/entities/health")
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Entity database unavailable")))
-      .then(() => {
-        if (!cancelled) setDbStatus("available");
-      })
-      .catch(() => {
-        if (!cancelled) setDbStatus("unavailable");
-      });
+      .then(() => { if (!cancelled) setDbStatus("available"); })
+      .catch(() => { if (!cancelled) setDbStatus("unavailable"); });
 
     fetch("/api/entities/verified")
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Verified entity endpoint unavailable")))
       .then((payload) => {
-        if (!cancelled && payload?.ok && Array.isArray(payload.entities)) {
-          setVerifiedEntities(payload.entities);
-        }
+        if (!cancelled && payload?.ok && Array.isArray(payload.entities)) setVerifiedEntities(payload.entities);
       })
       .catch(() => {
         if (!cancelled) {
@@ -147,10 +141,10 @@ export default function GeographicData() {
     setLocationSearch("");
   };
 
-  const countryOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.country))).slice(0, 12)], [companyLocations]);
-  const regionOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.region))).slice(0, 12)], [companyLocations]);
-  const facilityOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.facilityType))).slice(0, 8)], [companyLocations]);
-  const activityOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.activity))).slice(0, 8)], [companyLocations]);
+  const countryOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.country))).slice(0, 10)], [companyLocations]);
+  const regionOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.region))).slice(0, 8)], [companyLocations]);
+  const facilityOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.facilityType))).slice(0, 6)], [companyLocations]);
+  const activityOptions = useMemo(() => ["All", ...Array.from(new Set(companyLocations.map((location) => location.activity))).slice(0, 6)], [companyLocations]);
 
   const filtered = companyLocations.filter((location) => (country === "All" || location.country === country) && (region === "All" || location.region === region) && (facility === "All" || location.facilityType === facility) && (activity === "All" || location.activity === activity) && locationMatchesSearch(location, locationSearch));
   const countries = new Set(filtered.map((location) => location.country)).size;
@@ -164,11 +158,11 @@ export default function GeographicData() {
   return (
     <main className="aurora-bg min-h-screen text-white">
       <Sidebar />
-      <section className="relative z-10 px-5 py-8 lg:ml-[210px] lg:px-12">
+      <section className="relative z-10 px-5 py-7 lg:ml-[210px] lg:px-12">
         <HeaderBar
           eyebrow="Portal 03"
           title="Geographic Data"
-          subtitle="A reusable geographic intelligence map that parses verified and workbook location records into filterable company, country, region, facility, and activity records."
+          subtitle="Verified and workbook location intelligence in one filterable company map."
           actions={
             <div className="flex flex-wrap items-center gap-3">
               <Link href="/entity-discovery" className="inline-flex items-center gap-2 rounded-full border border-cyan-100/15 bg-cyan-100/5 px-4 py-2 text-sm font-semibold text-cyan-50 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]">
@@ -183,30 +177,30 @@ export default function GeographicData() {
           }
         />
         {dbStatus === "unavailable" ? (
-          <GlassCard className="mb-5 border border-amber-200/20 p-4">
+          <GlassCard className="mb-4 border border-amber-200/20 p-4">
             <div className="flex items-start gap-3 text-amber-100"><WifiOff size={18} className="mt-0.5" /><div><p className="font-semibold">Verified entity database unavailable</p><p className="mt-1 text-sm text-cyan-100/60">Workbook data is still available. Added entities will reappear when the database/API is reachable.</p></div></div>
           </GlassCard>
         ) : null}
-        <div className="grid gap-4 md:grid-cols-3">{geoMetrics.map((metric) => <MetricCard key={metric.id} metric={metric} />)}</div>
-        <GlassCard className="mt-5 p-5">
-          <div className="mb-5 flex items-center gap-3 rounded-2xl border border-cyan-100/10 bg-white/[0.03] px-4 py-3">
-            <Search size={15} className="text-cyan-100/45" />
+        <div className="grid gap-3 md:grid-cols-3">{geoMetrics.map((metric) => <MetricCard key={metric.id} metric={metric} />)}</div>
+        <GlassCard className="mt-4 p-4">
+          <div className="flex items-center gap-3 rounded-2xl border border-cyan-100/10 bg-white/[0.03] px-4 py-3">
+            <Search size={15} className="shrink-0 text-cyan-100/45" />
             <input value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search locations, address, country, activity..." className="w-full bg-transparent text-sm text-cyan-50 outline-none placeholder:text-cyan-100/35" />
           </div>
-          <div className="grid gap-5 xl:grid-cols-4">
-            <div><p className="mb-2 text-xs uppercase tracking-[0.22em] text-cyan-100/38">Country</p><FilterPills options={countryOptions as string[]} value={country} onChange={setCountry} /></div>
-            <div><p className="mb-2 text-xs uppercase tracking-[0.22em] text-cyan-100/38">Region</p><FilterPills options={regionOptions as string[]} value={region} onChange={setRegion} /></div>
-            <div><p className="mb-2 text-xs uppercase tracking-[0.22em] text-cyan-100/38">Facility</p><FilterPills options={facilityOptions as string[]} value={facility} onChange={setFacility} /></div>
-            <div><p className="mb-2 text-xs uppercase tracking-[0.22em] text-cyan-100/38">Activity</p><FilterPills options={activityOptions as string[]} value={activity} onChange={setActivity} /></div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <div className="min-w-0"><p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-cyan-100/38">Country</p><FilterPills options={countryOptions as string[]} value={country} onChange={setCountry} /></div>
+            <div className="min-w-0"><p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-cyan-100/38">Region</p><FilterPills options={regionOptions as string[]} value={region} onChange={setRegion} /></div>
+            <div className="min-w-0"><p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-cyan-100/38">Facility</p><FilterPills options={facilityOptions as string[]} value={facility} onChange={setFacility} /></div>
+            <div className="min-w-0"><p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-cyan-100/38">Activity</p><FilterPills options={activityOptions as string[]} value={activity} onChange={setActivity} /></div>
           </div>
         </GlassCard>
-        <div className="mt-5 grid gap-5 xl:grid-cols-[1.45fr_.55fr]">
+        <div className="mt-4 grid gap-4 xl:grid-cols-[1.45fr_.55fr]">
           <MapPanel locations={filtered} onSelect={setSelected} />
-          <GlassCard className="p-6">
+          <GlassCard className="p-5">
             <p className="text-xs uppercase tracking-[0.25em] text-emerald-200/60">Location register</p>
             <h2 className="mt-2 text-2xl font-black text-white">{company?.shortName ? `${company.shortName} footprint` : "Select a company"}</h2>
             <p className="mt-2 text-sm leading-6 text-cyan-100/55">Click a row or map marker to open detail inside this register.</p>
-            <div className="mt-5 max-h-[620px] overflow-auto pr-1">
+            <div className="mt-4 max-h-[620px] overflow-auto pr-1">
               <SidePanel location={selected} onClose={() => setSelected(undefined)} />
               <div className="space-y-2">
                 {filtered.length === 0 ? (
