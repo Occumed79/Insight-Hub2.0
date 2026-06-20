@@ -75,14 +75,94 @@
 
 .glass-card,
 .portal-card {
-  border-color: rgba(103, 232, 249, .14) !important;
-  background: linear-gradient(145deg, rgba(8, 17, 32, .58), rgba(6, 10, 25, .30)) !important;
+  position: relative !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(125, 211, 252, .22) !important;
+  background:
+    linear-gradient(145deg, rgba(4, 13, 26, .94), rgba(3, 10, 24, .82) 48%, rgba(8, 19, 42, .90)) !important;
   box-shadow:
-    0 24px 70px rgba(0, 0, 0, .28),
-    inset 0 0 40px rgba(45, 212, 191, .045) !important;
-  backdrop-filter: blur(22px) saturate(1.35) !important;
+    0 26px 72px rgba(0, 0, 0, .46),
+    0 0 0 1px rgba(255, 255, 255, .035),
+    inset 0 1px 0 rgba(255, 255, 255, .12),
+    inset 0 -42px 80px rgba(15, 23, 42, .42),
+    inset 0 0 55px rgba(45, 212, 191, .07) !important;
+  backdrop-filter: blur(24px) saturate(1.46) !important;
+}
+
+.glass-card::before,
+.portal-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+  background:
+    linear-gradient(122deg, rgba(255, 255, 255, .18) 0%, rgba(255, 255, 255, .08) 12%, transparent 30%),
+    radial-gradient(circle at 18% 0%, rgba(125, 211, 252, .18), transparent 36%),
+    radial-gradient(circle at 100% 8%, rgba(167, 139, 250, .14), transparent 32%);
+  opacity: .88;
+  mix-blend-mode: screen;
+}
+
+.glass-card::after,
+.portal-card::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  left: -60%;
+  width: 60%;
+  height: 180%;
+  pointer-events: none;
+  z-index: 2;
+  transform: rotate(18deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .11), rgba(125, 211, 252, .10), transparent);
+  opacity: .42;
+  animation: cardGlisten 9s ease-in-out infinite;
+}
+
+.glass-card > *,
+.portal-card > * {
+  position: relative;
+  z-index: 3;
 }
 
 .portal-card-inner {
-  background: linear-gradient(145deg, rgba(2, 6, 23, .22), rgba(15, 23, 42, .08)) !important;
+  background:
+    linear-gradient(145deg, rgba(2, 8, 23, .86), rgba(5, 18, 37, .64) 52%, rgba(2, 6, 23, .90)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    inset 0 0 34px rgba(45,212,191,.07) !important;
+}
+
+.portal-photo::before,
+.portal-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background:
+    linear-gradient(125deg, rgba(255,255,255,.18), rgba(255,255,255,.05) 19%, transparent 38%),
+    radial-gradient(circle at 12% 8%, rgba(125,211,252,.18), transparent 28%);
+  mix-blend-mode: screen;
+}
+
+.portal-shimmer {
+  opacity: .95 !important;
+  background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,.08) 42%, rgba(125,211,252,.18) 50%, rgba(255,255,255,.08) 58%, transparent 100%) !important;
+  transform: translateX(-120%);
+  animation: portalShimmerSweep 7.5s ease-in-out infinite;
+}
+
+@keyframes cardGlisten {
+  0%, 56%, 100% { transform: translateX(0) rotate(18deg); opacity: 0; }
+  62% { opacity: .45; }
+  78% { transform: translateX(360%) rotate(18deg); opacity: 0; }
+}
+
+@keyframes portalShimmerSweep {
+  0%, 58%, 100% { transform: translateX(-120%); opacity: 0; }
+  66% { opacity: .95; }
+  86% { transform: translateX(135%); opacity: 0; }
 }
