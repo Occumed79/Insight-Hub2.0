@@ -30,7 +30,7 @@ type DiscoveredLocation = {
   postalCode?: string;
   country: string;
   coordinates: [number, number];
-  geocodeSource: "osm";
+  geocodeSource: "osm" | "photon";
   geocodeConfidence: "exact" | "place" | "city" | "unknown";
   sourceType: string;
   sourceClass: string;
@@ -143,44 +143,51 @@ async function queryPhoton(entityName: string): Promise<DiscoveredLocation[]> {
   const photonResults = await response.json() as { features: Array<{ properties: any; geometry: { coordinates: [number, number] } }> };
 
   const seen = new Set<string>();
-  return photonResults.features
-    .map((feature) => {
-      const props = feature.properties;
-      const [lon, lat] = feature.geometry.coordinates;
-      const confidence = confidenceFor({
-        class: props.osm_value || "unknown",
-        type: props.osm_key || "unknown",
-        address: props,
-      } as NominatimResult);
+  const results: DiscoveredLocation[] = [];
 
-      const city = props.city || props.town || props.village || props.municipality || props.county;
-      const country = props.country || "Unknown";
+  for (const feature of photonResults.features) {
+    const props = feature.properties;
+    const coords = feature.geometry.coordinates;
+    if (!Array.isArray(coords) || coords.length !== 2) continue;
 
-      return {
-        id: `photon-${props.osm_id || Math.random().toString(36).substr(2, 9)}`,
-        companyName: entityName,
-        placeName: props.name || entityName,
-        formattedAddress: props.formatted || `${props.name || entityName}, ${city || ""}, ${country}`,
-        city,
-        state: props.state,
-        postalCode: props.postcode,
-        country,
-        coordinates: [lon, lat],
-        geocodeSource: "photon" as const,
-        geocodeConfidence: confidence,
-        sourceType: props.osm_key || "unknown",
-        sourceClass: props.osm_value || "unknown",
-        sourceId: `photon/${props.osm_id || "unknown"}`,
-        reviewStatus: confidence === "unknown" ? "needs-review" : "candidate" as const,
-      };
-    })
-    .filter((result): result is DiscoveredLocation => Boolean(result))
-    .filter((result) => {
-      const key = `${result.coordinates[0].toFixed(5)}|${result.coordinates[1].toFixed(5)}|${result.formattedAddress}`;
-      if (seen.has(key)) return false;
+    const [lon, lat] = coords;
+    if (typeof lon !== "number" || typeof lat !== "number") continue;
+
+    const confidence = confidenceFor({
+      class: props.osm_value || "unknown",
+      type: props.osm_key || "unknown",
+      address: props,
+    } as NominatimResult);
+
+    const city = props.city || props.town || props.village || props.municipality || props.county;
+    const country = props.country || "Unknown";
+
+    const location: DiscoveredLocation = {
+      id: `photon-${props.osm_id || Math.random().toString(36).substr(2, 9)}`,
+      companyName: entityName,
+      placeName: props.name || entityName,
+      formattedAddress: props.formatted || `${props.name || entityName}, ${city || ""}, ${country}`,
+      city,
+      state: props.state,
+      postalCode: props.postcode,
+      country,
+      coordinates: [lon, lat],
+      geocodeSource: "photon" as const,
+      geocodeConfidence: confidence,
+      sourceType: props.osm_key || "unknown",
+      sourceClass: props.osm_value || "unknown",
+      sourceId: `photon/${props.osm_id || "unknown"}`,
+      reviewStatus: confidence === "unknown" ? "needs-review" : "candidate" as const,
+    };
+
+    const key = `${location.coordinates[0].toFixed(5)}|${location.coordinates[1].toFixed(5)}|${location.formattedAddress}`;
+    if (!seen.has(key)) {
       seen.add(key);
-      return true;
-    });
+      results.push(location);
+    }
+  }
+
+  return results;
 }
 
 router.post("/entity-discovery/locations", async (req, res) => {

@@ -36,6 +36,7 @@ const statusColors = {
   candidate: "border-amber-200/20 bg-amber-200/10 text-amber-100",
   verified: "border-emerald-200/20 bg-emerald-200/10 text-emerald-100",
   rejected: "border-red-200/20 bg-red-200/10 text-red-100",
+  needs_research: "border-purple-200/20 bg-purple-200/10 text-purple-100",
 };
 
 const confidenceColors = {

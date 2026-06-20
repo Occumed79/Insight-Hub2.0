@@ -70,6 +70,14 @@ export default function GeographicData() {
     id: String(entity.id),
     name: entity.name,
     shortName: entity.name,
+    sector: "Unknown" as const,
+    headquarters: "Unknown" as const,
+    employees: 0,
+    employeesAsOf: "" as const,
+    revenue: 0,
+    revenueAsOf: "" as const,
+    summary: "" as const,
+    tags: [] as string[],
   }));
 
   // Combine based on data source
@@ -94,7 +102,7 @@ export default function GeographicData() {
         companyId: String(entity.id),
         company: entity.company,
         city: loc.city || loc.placeName,
-        state: loc.state,
+        state: loc.state ?? undefined,
         country: loc.country,
         region: loc.region,
         facilityType: loc.facilityType || "Unknown",
@@ -102,11 +110,11 @@ export default function GeographicData() {
         notes: loc.notes || "",
         coordinates: loc.coordinates,
         placeName: loc.placeName,
-        formattedAddress: loc.formattedAddress,
-        addressLine1: loc.addressLine1,
-        addressLine2: loc.addressLine2,
-        postalCode: loc.postalCode,
-        geocodeSource: loc.geocodeSource,
+        formattedAddress: loc.formattedAddress ?? undefined,
+        addressLine1: loc.addressLine1 ?? undefined,
+        addressLine2: loc.addressLine2 ?? undefined,
+        postalCode: loc.postalCode ?? undefined,
+        geocodeSource: loc.geocodeSource as LocationRecord["geocodeSource"],
         geocodeConfidence: loc.geocodeConfidence as LocationRecord["geocodeConfidence"],
       }));
     }
