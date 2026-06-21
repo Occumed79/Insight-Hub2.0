@@ -1298,13 +1298,12 @@ export default function DataVisualization() {
       case "holographic-depth":
       case "kinetic-vector":
       case "contextual-morph":
-        return vizModel.metrics.length;
-      case "semantic-zoom":
-        return vizModel.metrics.length + vizModel.signals.length;
       case "interactive-filter":
       case "zoom-pan":
       case "linked-visualizations":
         return filteredData.length;
+      case "semantic-zoom":
+        return vizModel.metrics.length + vizModel.signals.length;
       case "click-reveal":
         return activeSelection ? 1 : 0;
       default:
