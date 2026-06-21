@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   ResponsiveContainer,
   BarChart,
@@ -33,6 +32,9 @@ import { getCompanyConfigOrDefault } from "@/company-configs";
 import { resolveConfigCompanyId } from "@/company-configs/configIds";
 import { getIntelligenceStatus } from "@/company-configs/intelligenceNavigation";
 import { intelligenceFactsToCharts } from "@/data/intelligenceCharts";
+import { IntelligenceOverview } from "@/components/insight/IntelligenceOverview";
+import { IntelligenceSections } from "@/components/insight/IntelligenceSections";
+import { IntelligenceInsightPanel } from "@/components/insight/IntelligenceInsightPanel";
 import type {
   ChartDefinition,
   MetricDefinition,
@@ -42,7 +44,7 @@ import type {
   DossierSectionDefinition,
   TooltipFormat,
 } from "@/company-configs/types";
-import type { IntelligenceFact, IntelligenceCategory } from "@/data/types";
+import type { IntelligenceFact, IntelligenceCategory, CompanyIntelligence } from "@/data/types";
 
 interface ProfileVisualizationModel {
   company: { name: string; shortName: string; summary: string; tags: string[] } | null;
@@ -55,7 +57,7 @@ interface ProfileVisualizationModel {
   opportunityMatrix: OpportunityMatrixPoint[];
 }
 
-interface ChartDatumSelection {
+export interface ChartDatumSelection {
   chartId: string;
   chartTitle: string;
   chartType: string;
@@ -311,11 +313,32 @@ function morphIntelligenceFacts(
   };
 }
 
+function enrichStaticChartSources(charts: ChartDefinition[], sources: any[]): ChartDefinition[] {
+  if (!sources.length) return charts;
+  return charts.map((chart) => ({
+    ...chart,
+    data: chart.data.map((row) => {
+      const sourceId = row.sourceId as string | undefined;
+      const matched = sourceId ? sources.find((s) => s.id === sourceId || s.sourceId === sourceId) : null;
+      if (!matched) return row;
+      return {
+        ...row,
+        sourceUrl: (matched.url ?? "") as string,
+        sourceName: (matched.name ?? matched.sourceName ?? "") as string,
+        sourceType: (matched.type ?? "") as string,
+        confidence: (matched.confidence ?? "") as string,
+        date: (row.date ?? matched.date ?? "") as string,
+      };
+    }),
+  }));
+}
+
 function useChartPanels(vizModel: ProfileVisualizationModel) {
   return useMemo(() => {
-    const primaryCharts = vizModel.charts.length ? vizModel.charts : metricChartFromDefinitions(vizModel.metrics);
+    const baseCharts = vizModel.charts.length ? vizModel.charts : metricChartFromDefinitions(vizModel.metrics);
+    const primaryCharts = enrichStaticChartSources(baseCharts, vizModel.sourceRecords);
     return { primaryCharts };
-  }, [vizModel.charts, vizModel.metrics]);
+  }, [vizModel.charts, vizModel.metrics, vizModel.sourceRecords]);
 }
 
 function formatValue(value: number, formatter?: TooltipFormat, unit?: string) {
@@ -330,128 +353,6 @@ function formatValue(value: number, formatter?: TooltipFormat, unit?: string) {
             ? `${value.toLocaleString()}M hrs`
             : value.toLocaleString();
   return unit ? `${formatted} ${unit}` : formatted;
-}
-
-function VisualizationDetailDrawer({
-  isOpen,
-  onClose,
-  selection,
-  sourceRecords,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  selection: ChartDatumSelection | null;
-  sourceRecords: any[];
-}) {
-  if (!selection) return null;
-  const source = selection.sourceId
-    ? sourceRecords.find((s) => s.id === selection.sourceId || s.sourceId === selection.sourceId)
-    : null;
-  const sourceName = source?.name ?? source?.sourceName ?? selection.sourceId;
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          className="fixed bottom-0 right-0 z-50 w-full max-w-md border-t border-cyan-100/20 bg-[#030813]/95 p-6 backdrop-blur-xl lg:bottom-0 lg:right-8 lg:top-auto lg:rounded-t-2xl"
-        >
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white">Detail View</h3>
-            <button
-              onClick={onClose}
-              className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-3 py-1 text-xs text-cyan-50 hover:bg-cyan-100/10"
-            >
-              Close
-            </button>
-          </div>
-          <div className="space-y-3">
-            <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Chart</p>
-              <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.chartTitle}</p>
-            </div>
-            <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Category / X</p>
-              <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.category}</p>
-            </div>
-            <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Series</p>
-              <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.seriesName}</p>
-            </div>
-            <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Value</p>
-              <p className="mt-1 text-sm font-semibold text-cyan-50">
-                {formatValue(selection.value, selection.formatter, selection.unit)}
-              </p>
-            </div>
-            {selection.sourceId && (
-              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Source</p>
-                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{sourceName}</p>
-              </div>
-            )}
-            {selection.sourceType && (
-              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Source Type</p>
-                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.sourceType}</p>
-              </div>
-            )}
-            {selection.sourceUrl && (
-              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Source URL</p>
-                <a
-                  href={selection.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 block break-all text-sm leading-5 text-cyan-300/80 underline hover:text-cyan-200"
-                >
-                  {selection.sourceUrl}
-                </a>
-              </div>
-            )}
-            {selection.confidence && (
-              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Confidence</p>
-                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.confidence}</p>
-              </div>
-            )}
-            {selection.date && (
-              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Date</p>
-                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.date}</p>
-              </div>
-            )}
-            {selection.intelligenceCategory && (
-              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Intelligence Category</p>
-                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.intelligenceCategory}</p>
-              </div>
-            )}
-            {selection.summary && (
-              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Summary</p>
-                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.summary}</p>
-              </div>
-            )}
-            {selection.rawSnippet && (
-              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Raw Snippet</p>
-                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.rawSnippet}</p>
-              </div>
-            )}
-            {selection.note && (
-              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Note</p>
-                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.note}</p>
-              </div>
-            )}
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
 }
 
 const METHOD_BEHAVIOR: Record<
@@ -1499,12 +1400,10 @@ export default function DataVisualization() {
   const resolvedCompanyId = resolveConfigCompanyId(companyId);
   const config = getCompanyConfigOrDefault(resolvedCompanyId);
   const status = getIntelligenceStatus(config);
-  const profile = dataset.profiles.find((item) => resolveConfigCompanyId(item.companyId) === resolvedCompanyId);
   const sources = dataset.sources.filter((source) => resolveConfigCompanyId(source.companyId) === resolvedCompanyId);
   const intelligence = dataset.intelligence.find((item) => resolveConfigCompanyId(item.companyId) === resolvedCompanyId);
-  const intelligenceCharts = useMemo(() => intelligenceFactsToCharts(intelligence), [intelligence]);
 
-  const [activeMethod, setActiveMethod] = useState<string>("vector-displacement");
+  const [activeMethod, setActiveMethod] = useState<string>("click-reveal");
   const [activeSelection, setActiveSelection] = useState<ChartDatumSelection | null>(null);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -1515,6 +1414,11 @@ export default function DataVisualization() {
   const [filterConfidence, setFilterConfidence] = useState<string>("all");
   const [filterSourceType, setFilterSourceType] = useState<string>("all");
   const [filterDateRange, setFilterDateRange] = useState<string>("all");
+  const [showVisualModes, setShowVisualModes] = useState(false);
+  const [localIntelligence, setLocalIntelligence] = useState<CompanyIntelligence | undefined>(undefined);
+
+  const effectiveIntelligence = localIntelligence ?? intelligence;
+  const intelligenceCharts = useMemo(() => intelligenceFactsToCharts(effectiveIntelligence), [effectiveIntelligence]);
 
   const vizModel = buildProfileVisualizationModel({
     company,
@@ -1528,7 +1432,7 @@ export default function DataVisualization() {
     if (activeMethod === "interactive-filter") {
       return filterIntelligenceCharts(
         intelligenceCharts,
-        intelligence?.facts ?? [],
+        effectiveIntelligence?.facts ?? [],
         filterCategory,
         filterConfidence,
         filterSourceType,
@@ -1536,14 +1440,14 @@ export default function DataVisualization() {
       );
     }
     return intelligenceCharts;
-  }, [activeMethod, intelligenceCharts, intelligence, filterCategory, filterConfidence, filterSourceType, filterDateRange]);
+  }, [activeMethod, intelligenceCharts, effectiveIntelligence, filterCategory, filterConfidence, filterSourceType, filterDateRange]);
 
   const morphedChart = useMemo(() => {
-    if (activeMethod === "contextual-morph" && intelligence && intelligence.facts.length > 0) {
-      return morphIntelligenceFacts(intelligence.facts, morphMode);
+    if (activeMethod === "contextual-morph" && effectiveIntelligence && effectiveIntelligence.facts.length > 0) {
+      return morphIntelligenceFacts(effectiveIntelligence.facts, morphMode);
     }
     return null;
-  }, [activeMethod, intelligence, morphMode]);
+  }, [activeMethod, effectiveIntelligence, morphMode]);
 
   const allCharts = useMemo(() => {
     if (activeMethod === "contextual-morph" && morphedChart) {
@@ -1622,18 +1526,43 @@ export default function DataVisualization() {
     return primaryCharts.length + vizModel.riskMatrix.length + vizModel.opportunityMatrix.length;
   };
 
+  const insightContext = {
+    companyName: company?.name ?? resolvedCompanyId,
+    intelligence: effectiveIntelligence,
+    sourceRecords: vizModel.sourceRecords,
+    signals: vizModel.signals,
+    dossierSections: vizModel.dossierSections,
+    metrics: vizModel.metrics,
+    riskMatrix: vizModel.riskMatrix,
+    opportunityMatrix: vizModel.opportunityMatrix,
+  };
+
   return (
     <main className="aurora-bg min-h-screen text-white">
       <Sidebar />
       <section className="relative z-10 px-5 py-8 lg:ml-[210px] lg:px-12">
         <HeaderBar
           eyebrow="Portal 02"
-          title="Data Visualization"
-          subtitle="Advanced visualization lab for profile-level intelligence, using the same source data as Data Profiles."
+          title="Intelligence Workbench"
+          subtitle="Live intelligence, source-backed evidence, and actionable insights for profile-level analysis."
           actions={<IntelligenceSelector companies={dataset.companies} value={companyId} onChange={setCompanyId} />}
           status={<IntelligenceStatusBadge status={status.sourceStatus} lastUpdated={status.lastUpdated} />}
         />
         <DataQualityBanner warnings={status.dataQualityWarnings} />
+
+        {/* Intelligence Overview */}
+        <IntelligenceOverview
+          companyName={company?.name ?? resolvedCompanyId}
+          companyId={resolvedCompanyId}
+          intelligence={effectiveIntelligence}
+          onIngestComplete={(intel) => setLocalIntelligence(intel)}
+        />
+
+        {/* Intelligence Sections */}
+        <IntelligenceSections
+          intelligence={effectiveIntelligence}
+          companyName={company?.name ?? resolvedCompanyId}
+        />
 
         {/* Profile Summary Strip */}
         <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-cyan-100/12 bg-black/18 px-4 py-3">
@@ -1682,40 +1611,61 @@ export default function DataVisualization() {
           )}
         </div>
 
-        {/* Method Rail */}
+        {/* Visual Modes Accordion */}
         <div className="mb-5">
-          <p className="mb-3 text-xs uppercase tracking-[0.25em] text-cyan-100/35">Visualization method</p>
-          <div className="flex flex-wrap gap-2">
-            {visualizationMethods.map((methodId) => (
-              <button
-                key={methodId}
-                onClick={() => {
-                  setActiveMethod(methodId);
-                  setFocusedChartId(null);
-                }}
-                className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                  activeMethod === methodId
-                    ? "border-cyan-100/30 bg-cyan-100/10 text-cyan-50"
-                    : "border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20"
-                }`}
-              >
-                {methodName(methodId)}
-                <span className="ml-1.5 inline-block rounded-full bg-cyan-100/10 px-1.5 py-0.5 text-[9px] text-cyan-100/70">
-                  {getMethodDataCount(methodId)}
-                </span>
-              </button>
-            ))}
-          </div>
+          <button
+            onClick={() => setShowVisualModes(!showVisualModes)}
+            className="flex w-full items-center justify-between rounded-xl border border-cyan-100/12 bg-black/18 px-4 py-3 text-left transition hover:border-cyan-100/20"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-xs uppercase tracking-[0.25em] text-cyan-100/45">Visual Modes</span>
+              <span className="rounded-full bg-cyan-100/10 px-2 py-0.5 text-[10px] text-cyan-100/60">
+                {activeMethod !== "click-reveal" ? methodName(activeMethod) : "Default (Click-to-Reveal)"}
+              </span>
+            </div>
+            <span className="text-xs text-cyan-100/50">{showVisualModes ? "▲ Hide" : "▼ Show"}</span>
+          </button>
+          {showVisualModes && (
+            <div className="mt-3">
+              <div className="flex flex-wrap gap-2">
+                {visualizationMethods.map((methodId) => (
+                  <button
+                    key={methodId}
+                    onClick={() => {
+                      setActiveMethod(methodId);
+                      setFocusedChartId(null);
+                    }}
+                    className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                      activeMethod === methodId
+                        ? "border-cyan-100/30 bg-cyan-100/10 text-cyan-50"
+                        : "border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20"
+                    }`}
+                  >
+                    {methodName(methodId)}
+                    <span className="ml-1.5 inline-block rounded-full bg-cyan-100/10 px-1.5 py-0.5 text-[9px] text-cyan-100/70">
+                      {getMethodDataCount(methodId)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Active Method Header */}
-        {activeMethod && (
+        {/* Active Method Header (only when visual modes are active and not default) */}
+        {activeMethod && activeMethod !== "click-reveal" && (
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-cyan-100/35">Active method canvas</p>
+              <p className="text-xs uppercase tracking-[0.25em] text-cyan-100/35">Active visual mode</p>
               <h3 className="mt-1 text-xl font-bold text-white">{methodName(activeMethod)}</h3>
             </div>
             <div className="flex gap-2">
+              <button
+                onClick={() => { setActiveMethod("click-reveal"); setFocusedChartId(null); }}
+                className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-3 py-1.5 text-xs text-cyan-50 transition hover:bg-cyan-100/10"
+              >
+                Exit mode
+              </button>
               {activeMethod === "zoom-pan" && focusedChartId && (
                 <button
                   onClick={() => setFocusedChartId(null)}
@@ -1736,11 +1686,11 @@ export default function DataVisualization() {
           </div>
         )}
 
-        {/* Method explanation panel */}
-        <MethodExplanationPanel methodId={activeMethod} />
+        {/* Method explanation panel (only when visual modes are active) */}
+        {activeMethod !== "click-reveal" && <MethodExplanationPanel methodId={activeMethod} />}
 
         {/* Interactive filter controls */}
-        {activeMethod === "interactive-filter" && intelligence && intelligence.facts.length > 0 && (
+        {activeMethod === "interactive-filter" && effectiveIntelligence && effectiveIntelligence.facts.length > 0 && (
           <div className="method-filter-bar mb-5 flex flex-wrap gap-3 rounded-xl border border-cyan-100/10 bg-black/24 p-3">
             {[
               { label: "Category", value: filterCategory, options: ["all", "contractAwards", "opportunities", "secFilings", "jobSignals", "sourceConfidence", "timelineEvents", "locationExposure", "medicalNetworkGaps"], onChange: setFilterCategory },
@@ -1767,7 +1717,7 @@ export default function DataVisualization() {
         )}
 
         {/* Contextual morph controls */}
-        {activeMethod === "contextual-morph" && intelligence && intelligence.facts.length > 0 && (
+        {activeMethod === "contextual-morph" && effectiveIntelligence && effectiveIntelligence.facts.length > 0 && (
           <div className="method-filter-bar mb-5 flex flex-wrap gap-3 rounded-xl border border-cyan-100/10 bg-black/24 p-3">
             {([
               { key: "category", label: "Category" },
@@ -1790,7 +1740,7 @@ export default function DataVisualization() {
           </div>
         )}
 
-        {/* A. Primary Chart Workspace */}
+        {/* A. Chart Workspace */}
         {allCharts.length > 0 ? (
           <div className={`grid gap-5 ${isExpanded || (activeMethod === "zoom-pan" && focusedChartId) ? "xl:grid-cols-1" : "xl:grid-cols-2"}`}>
             {allCharts
@@ -1864,12 +1814,12 @@ export default function DataVisualization() {
           onSelectSignal={handleSelectSignal}
         />
 
-        {/* D. Detail Drawer */}
-        <VisualizationDetailDrawer
+        {/* D. Intelligence Insight Panel (replaces old generic drawer) */}
+        <IntelligenceInsightPanel
           isOpen={detailDrawerOpen}
           onClose={() => setDetailDrawerOpen(false)}
           selection={activeSelection}
-          sourceRecords={vizModel.sourceRecords}
+          context={insightContext}
         />
         <StyleInjector />
       </section>
