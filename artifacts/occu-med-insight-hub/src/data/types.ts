@@ -153,11 +153,33 @@ export type IntelligenceChartReady = {
   networkGapScoreByRegion: Record<string, string | number>[];
 };
 
+export type SourceDiagnostic = {
+  source: string;
+  status: "success" | "no-results" | "error" | "not-applicable" | "needs-key";
+  factsFound: number;
+  aliasesQueried: string[];
+  message: string;
+  error?: string;
+};
+
+export type IngestDiagnostics = {
+  sources: SourceDiagnostic[];
+  liveFactsInserted: number;
+  sourceLeadsInserted: number;
+  totalInserted: number;
+  aliasesUsed: string[];
+};
+
 export type CompanyIntelligence = {
   companyId: string;
   facts: IntelligenceFact[];
   runs: IntelligenceRun[];
   chartReady: IntelligenceChartReady;
+  diagnostics?: {
+    liveFacts: number;
+    sourceLeads: number;
+    total: number;
+  };
 };
 
 export type InsightDataset = {

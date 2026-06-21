@@ -55,17 +55,22 @@ export function IntelligenceInsightPanel({
 
   const { intelligence, sourceRecords, signals, dossierSections, metrics, riskMatrix, opportunityMatrix, companyName } = context;
   const facts = intelligence?.facts ?? [];
+  const liveFacts = facts.filter((f) => f.confidence !== "link-only");
   const relatedFacts = findRelatedFacts(facts, selection);
+  const relatedLiveFacts = relatedFacts.filter((f) => f.confidence !== "link-only");
   const hasLiveMeta = !!(selection.intelligenceCategory || selection.confidence || selection.sourceType || selection.sourceUrl);
-
-  const action = suggestedAction(selection.intelligenceCategory, selection.confidence, selection.sourceType, selection.value, companyName);
-  const questions = suggestedQuestions(selection.intelligenceCategory, selection.confidence, selection.sourceType);
-  const why = whyThisMatters(selection.intelligenceCategory, selection.confidence, selection.value, companyName, selection.chartTitle);
 
   const matchedSource = selection.sourceId
     ? sourceRecords.find((s) => s.id === selection.sourceId || s.sourceId === selection.sourceId)
     : null;
   const sourceName = matchedSource?.name ?? matchedSource?.sourceName ?? selection.sourceId ?? "Unknown source";
+
+  const isStatic = !hasLiveMeta && !matchedSource;
+  const hasLiveFacts = liveFacts.length > 0;
+
+  const action = suggestedAction(selection.intelligenceCategory, selection.confidence, selection.sourceType, selection.value, companyName);
+  const questions = suggestedQuestions(selection.intelligenceCategory, selection.confidence, selection.sourceType);
+  const why = whyThisMatters(selection.intelligenceCategory, selection.confidence, selection.value, companyName, selection.chartTitle);
 
   const relatedSignals = hasLiveMeta ? signals.filter((s) => s.label.toLowerCase().includes((selection.intelligenceCategory ?? "").toLowerCase())) : signals.slice(0, 3);
   const relatedDossier = hasLiveMeta ? dossierSections.filter((d) => d.title.toLowerCase().includes((selection.intelligenceCategory ?? "").toLowerCase())) : dossierSections.slice(0, 2);
@@ -108,6 +113,42 @@ export function IntelligenceInsightPanel({
               <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-200/50">Why this matters</p>
               <p className="mt-2 text-sm leading-6 text-cyan-100/80">{why}</p>
             </div>
+
+            {/* Evidence Available / Missing */}
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-emerald-200/12 bg-emerald-200/[0.03] p-3">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-200/50">Evidence Available</p>
+                <div className="mt-2 space-y-1.5 text-xs leading-5 text-cyan-100/70">
+                  {hasLiveMeta && <p>✓ Live intelligence metadata attached to this data point</p>}
+                  {selection.sourceUrl && <p>✓ Source URL: <a href={selection.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-cyan-300/70 underline">link</a></p>}
+                  {selection.confidence && selection.confidence !== "link-only" && <p>✓ Confidence: {selection.confidence}</p>}
+                  {relatedLiveFacts.length > 0 && <p>✓ {relatedLiveFacts.length} related live fact(s)</p>}
+                  {matchedSource && <p>✓ Static source record: {sourceName}</p>}
+                  {relatedMetrics.length > 0 && <p>✓ {relatedMetrics.length} related static metric(s)</p>}
+                  {relatedSignals.length > 0 && <p>✓ {relatedSignals.length} related static signal(s)</p>}
+                  {!hasLiveMeta && !matchedSource && relatedMetrics.length === 0 && relatedSignals.length === 0 && <p className="text-cyan-100/40">No evidence attached to this data point</p>}
+                </div>
+              </div>
+              <div className="rounded-xl border border-rose-300/12 bg-rose-300/[0.03] p-3">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-rose-300/50">Evidence Missing</p>
+                <div className="mt-2 space-y-1.5 text-xs leading-5 text-cyan-100/60">
+                  {!hasLiveMeta && <p>⚠ No live intelligence metadata — this point is from static data</p>}
+                  {hasLiveMeta && selection.confidence === "link-only" && <p>⚠ This is a link-only source lead, not a verified fact</p>}
+                  {!selection.sourceUrl && <p>⚠ No source URL available</p>}
+                  {relatedLiveFacts.length === 0 && <p>⚠ No related live facts found</p>}
+                  {!hasLiveFacts && <p>⚠ No live intelligence ingested for this company</p>}
+                  {hasLiveFacts && relatedLiveFacts.length === 0 && <p>⚠ No live facts match this data point's category/date</p>}
+                </div>
+              </div>
+            </div>
+
+            {isStatic && (
+              <div className="rounded-xl border border-amber-400/15 bg-amber-400/[0.04] p-3">
+                <p className="text-xs leading-5 text-amber-200/70">
+                  This point is from static dossier/profile data, not live ingestion. Run Intelligence Ingest to fetch live facts from USASpending and SEC EDGAR for this company.
+                </p>
+              </div>
+            )}
 
             {hasLiveMeta && (
               <div className="grid gap-2">

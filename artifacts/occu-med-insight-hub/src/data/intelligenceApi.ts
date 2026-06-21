@@ -1,4 +1,4 @@
-import type { CompanyIntelligence, IntelligenceFact, IntelligenceRun, IntelligenceChartReady } from "./types";
+import type { CompanyIntelligence, IntelligenceFact, IntelligenceRun, IntelligenceChartReady, IngestDiagnostics } from "./types";
 
 type IntelligenceApiResponse = {
   ok: boolean;
@@ -6,6 +6,7 @@ type IntelligenceApiResponse = {
   facts?: IntelligenceFact[];
   runs?: IntelligenceRun[];
   chartReady?: IntelligenceChartReady;
+  diagnostics?: { liveFacts: number; sourceLeads: number; total: number };
   error?: string;
 };
 
@@ -16,8 +17,11 @@ type IngestResponse = {
   companyName?: string;
   sourcesQueried?: string[];
   factsCollected?: number;
+  liveFactsInserted?: number;
+  sourceLeadsInserted?: number;
   status?: string;
   errors?: string[];
+  diagnostics?: IngestDiagnostics;
   facts?: IntelligenceFact[];
   chartReady?: IntelligenceChartReady;
   error?: string;
@@ -42,6 +46,7 @@ export async function fetchCompanyIntelligence(companyId: string): Promise<Compa
         locationExposureByRegion: [],
         networkGapScoreByRegion: [],
       },
+      diagnostics: data.diagnostics,
     };
   } catch {
     return null;

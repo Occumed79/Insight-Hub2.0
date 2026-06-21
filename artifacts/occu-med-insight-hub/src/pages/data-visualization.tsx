@@ -35,6 +35,7 @@ import { intelligenceFactsToCharts } from "@/data/intelligenceCharts";
 import { IntelligenceOverview } from "@/components/insight/IntelligenceOverview";
 import { IntelligenceSections } from "@/components/insight/IntelligenceSections";
 import { IntelligenceInsightPanel } from "@/components/insight/IntelligenceInsightPanel";
+import { IntelligenceAnswerCard } from "@/components/insight/IntelligenceAnswerCard";
 import type {
   ChartDefinition,
   MetricDefinition,
@@ -1416,6 +1417,8 @@ export default function DataVisualization() {
   const [filterDateRange, setFilterDateRange] = useState<string>("all");
   const [showVisualModes, setShowVisualModes] = useState(false);
   const [localIntelligence, setLocalIntelligence] = useState<CompanyIntelligence | undefined>(undefined);
+  const [chartCategoryTab, setChartCategoryTab] = useState<string>("primary");
+  const [showAllCharts, setShowAllCharts] = useState(false);
 
   const effectiveIntelligence = localIntelligence ?? intelligence;
   const intelligenceCharts = useMemo(() => intelligenceFactsToCharts(effectiveIntelligence), [effectiveIntelligence]);
@@ -1453,8 +1456,11 @@ export default function DataVisualization() {
     if (activeMethod === "contextual-morph" && morphedChart) {
       return [morphedChart];
     }
-    return [...primaryCharts, ...filteredIntelligenceCharts];
-  }, [primaryCharts, filteredIntelligenceCharts, activeMethod, morphedChart]);
+    const combined = [...primaryCharts, ...filteredIntelligenceCharts];
+    if (chartCategoryTab === "primary") return primaryCharts;
+    if (chartCategoryTab === "intelligence") return filteredIntelligenceCharts;
+    return combined;
+  }, [primaryCharts, filteredIntelligenceCharts, activeMethod, morphedChart, chartCategoryTab]);
 
   const handleSelectDatum = (selection: ChartDatumSelection) => {
     setActiveSelection(selection);
@@ -1562,6 +1568,17 @@ export default function DataVisualization() {
         <IntelligenceSections
           intelligence={effectiveIntelligence}
           companyName={company?.name ?? resolvedCompanyId}
+        />
+
+        {/* Intelligence Answer Card — decision-ready output */}
+        <IntelligenceAnswerCard
+          companyName={company?.name ?? resolvedCompanyId}
+          intelligence={effectiveIntelligence}
+          metrics={vizModel.metrics}
+          signals={vizModel.signals}
+          dossierSections={vizModel.dossierSections}
+          riskMatrix={vizModel.riskMatrix}
+          opportunityMatrix={vizModel.opportunityMatrix}
         />
 
         {/* Profile Summary Strip */}
@@ -1740,14 +1757,49 @@ export default function DataVisualization() {
           </div>
         )}
 
+        {/* Chart Category Tabs */}
+        {allCharts.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            {[
+              { id: "primary", label: "Primary", count: primaryCharts.length },
+              { id: "intelligence", label: "Intelligence", count: filteredIntelligenceCharts.length },
+              { id: "all", label: "All Charts", count: allCharts.length },
+            ].filter((tab) => tab.count > 0).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => { setChartCategoryTab(tab.id); setShowAllCharts(false); }}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                  chartCategoryTab === tab.id
+                    ? "border-cyan-100/30 bg-cyan-100/10 text-cyan-50"
+                    : "border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20"
+                }`}
+              >
+                {tab.label} ({tab.count})
+              </button>
+            ))}
+            {allCharts.length > 3 && (
+              <button
+                onClick={() => setShowAllCharts(!showAllCharts)}
+                className="ml-auto rounded-lg border border-cyan-100/15 bg-white/[0.02] px-3 py-1.5 text-xs text-cyan-100/60 transition hover:border-cyan-100/25"
+              >
+                {showAllCharts ? "Show top 3" : `Show all ${allCharts.length}`}
+              </button>
+            )}
+          </div>
+        )}
+
         {/* A. Chart Workspace */}
         {allCharts.length > 0 ? (
           <div className={`grid gap-5 ${isExpanded || (activeMethod === "zoom-pan" && focusedChartId) ? "xl:grid-cols-1" : "xl:grid-cols-2"}`}>
-            {allCharts
+            {(showAllCharts || activeMethod !== "click-reveal"
+              ? allCharts
+              : allCharts.slice(0, 3)
+            )
               .filter((chart) => activeMethod !== "zoom-pan" || !focusedChartId || chart.id === focusedChartId)
               .map((chart, index) => {
-                const isLoneChart = allCharts.length === 1;
-                const isLastOdd = index === allCharts.length - 1 && allCharts.length % 2 === 1;
+                const visibleCharts = showAllCharts || activeMethod !== "click-reveal" ? allCharts : allCharts.slice(0, 3);
+                const isLoneChart = visibleCharts.length === 1;
+                const isLastOdd = index === visibleCharts.length - 1 && visibleCharts.length % 2 === 1;
                 const spanFull = isExpanded || chart.fullWidth || isLoneChart || isLastOdd || (activeMethod === "zoom-pan" && focusedChartId === chart.id);
                 return (
                   <div key={chart.id} className={spanFull ? "xl:col-span-2" : ""}>
