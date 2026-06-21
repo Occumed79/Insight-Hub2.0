@@ -271,6 +271,261 @@ async function fetchSECFilings(
   };
 }
 
+// ─── SAM.gov Opportunities API ──────────────────────────────────────────────
+
+type SAMOpportunity = {
+  noticeId?: string;
+  title?: string;
+  solNumber?: string;
+  agency?: string;
+  office?: string;
+  postedDate?: string;
+  responseDeadLine?: string;
+  type?: string;
+  baseType?: string;
+  awardAmount?: number;
+  naicsCode?: string;
+  classificationCode?: string;
+  active?: string;
+  pointOfContact?: { email?: string }[];
+  description?: string;
+  organizationType?: string;
+};
+
+async function fetchSAMOpportunities(
+  aliases: string[],
+  companyId: string
+): Promise<{ facts: FactRow[]; diagnostic: SourceDiagnostic }> {
+  const apiKey = process.env.SAM_GOV_API_KEY;
+  if (!apiKey) {
+    return {
+      facts: [],
+      diagnostic: {
+        source: "sam",
+        status: "needs-key",
+        factsFound: 0,
+        aliasesQueried: aliases,
+        message: "SAM.gov API key not configured.",
+      },
+    };
+  }
+
+  const facts: FactRow[] = [];
+  const seenNoticeIds = new Set<string>();
+  const aliasesQueried: string[] = [];
+
+  for (const alias of aliases.slice(0, 5)) {
+    aliasesQueried.push(alias);
+    try {
+      const params = new URLSearchParams({
+        "api_key": apiKey,
+        "keyword": alias,
+        "limit": "25",
+        "index": "opp",
+        "mode": "2",
+      });
+      const response = await fetch(`https://api.sam.gov/opportunities/v2/search?${params}`, {
+        headers: { "Accept": "application/json" },
+      });
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          return {
+            facts: [],
+            diagnostic: {
+              source: "sam",
+              status: "error",
+              factsFound: 0,
+              aliasesQueried,
+              message: `SAM.gov API authentication failed (HTTP ${response.status}).`,
+              error: `HTTP ${response.status}`,
+            },
+          };
+        }
+        continue;
+      }
+      const data = await response.json() as any;
+      const opportunities: SAMOpportunity[] = data.opportunitiesData ?? [];
+
+      for (const opp of opportunities) {
+        const noticeId = opp.noticeId || "";
+        if (!noticeId || seenNoticeIds.has(noticeId)) continue;
+        seenNoticeIds.add(noticeId);
+
+        const title = opp.title || "SAM.gov opportunity";
+        const agency = opp.agency || "Federal agency";
+        const postedDate = opp.postedDate || "";
+        const deadline = opp.responseDeadLine || "";
+        const award = typeof opp.awardAmount === "number" ? opp.awardAmount : undefined;
+        const oppType = opp.type || opp.baseType || "Opportunity";
+
+        facts.push({
+          companyId,
+          title: `${agency}: ${title}`,
+          category: "opportunities",
+          date: postedDate,
+          value: award,
+          valueUnit: award !== undefined ? "usd" : undefined,
+          sourceUrl: `https://sam.gov/opp/${noticeId}/view`,
+          sourceName: "SAM.gov",
+          sourceType: "sam",
+          confidence: "high",
+          rawSnippet: `${oppType} — ${agency} — ${opp.solNumber || noticeId}${deadline ? ` — Response deadline: ${deadline}` : ""}`,
+          summary: `SAM.gov ${oppType}: ${title} from ${agency}. Posted ${postedDate || "unknown"}.${deadline ? ` Response deadline: ${deadline}.` : ""}${award ? ` Award amount: $${award.toLocaleString()}.` : ""}`,
+          metadata: {
+            noticeId,
+            solNumber: opp.solNumber,
+            agency,
+            office: opp.office,
+            oppType,
+            naicsCode: opp.naicsCode,
+            classificationCode: opp.classificationCode,
+            deadline,
+            matchedAlias: alias,
+            recordType: "liveFact",
+            provider: "sam",
+          },
+        });
+      }
+    } catch {
+      // continue to next alias
+    }
+  }
+
+  return {
+    facts,
+    diagnostic: {
+      source: "sam",
+      status: facts.length > 0 ? "success" : "no-results",
+      factsFound: facts.length,
+      aliasesQueried,
+      message: facts.length > 0
+        ? `${facts.length} SAM.gov opportunities found across ${aliasesQueried.length} alias queries.`
+        : `No SAM.gov opportunities found for ${aliasesQueried.length} aliases.`,
+    },
+  };
+}
+
+// ─── USA Jobs API ────────────────────────────────────────────────────────────
+
+type USAJobPosting = {
+  PositionTitle?: string;
+  PositionURI?: string;
+  PositionLocation?: { LocationName?: string }[];
+  OrganizationName?: string;
+  DepartmentName?: string;
+  JobCategory?: { Name?: string }[];
+  PublicationStartDate?: string;
+  ApplicationCloseDate?: string;
+  PositionRemuneration?: { MinimumRange?: string; MaximumRange?: string; RateIntervalCode?: string }[];
+  JobGrade?: { Code?: string }[];
+  PositionSchedule?: { Name?: string }[];
+  PositionOfferingType?: { Name?: string }[];
+  PositionFormattedDescription?: { ContentFormatted?: string }[];
+};
+
+async function fetchUSAJobs(
+  aliases: string[],
+  companyId: string
+): Promise<{ facts: FactRow[]; diagnostic: SourceDiagnostic }> {
+  const apiKey = process.env.USA_JOBS_API_KEY;
+  if (!apiKey) {
+    return {
+      facts: [],
+      diagnostic: {
+        source: "usajobs",
+        status: "needs-key",
+        factsFound: 0,
+        aliasesQueried: aliases,
+        message: "USA Jobs API key not configured.",
+      },
+    };
+  }
+
+  const facts: FactRow[] = [];
+  const seenUris = new Set<string>();
+  const aliasesQueried: string[] = [];
+
+  for (const alias of aliases.slice(0, 5)) {
+    aliasesQueried.push(alias);
+    try {
+      const response = await fetch("https://data.usajobs.gov/api/Search", {
+        headers: {
+          "Host": "data.usajobs.gov",
+          "User-Agent": process.env.USA_JOBS_USER_AGENT || "occumed@occumed.example.com",
+          "Authorization-Key": apiKey,
+        },
+      });
+      if (!response.ok) continue;
+      const data = await response.json() as any;
+      const jobs: any[] = data?.SearchResult?.SearchResultItems ?? [];
+
+      for (const jobItem of jobs.slice(0, 15)) {
+        const job: USAJobPosting = jobItem.MatchedObjectDescriptor || {};
+        const uri = job.PositionURI || "";
+        if (!uri || seenUris.has(uri)) continue;
+        seenUris.add(uri);
+
+        const title = job.PositionTitle || "Federal job posting";
+        const org = job.OrganizationName || job.DepartmentName || "Federal agency";
+        const locations = (job.PositionLocation || []).map((l) => l.LocationName).filter(Boolean).join(", ");
+        const postedDate = job.PublicationStartDate || "";
+        const closeDate = job.ApplicationCloseDate || "";
+        const salary = job.PositionRemuneration?.[0];
+        const salaryText = salary ? `$${salary.MinimumRange || "?"}–$${salary.MaximumRange || "?"} ${salary.RateIntervalCode || ""}` : undefined;
+        const schedule = job.PositionSchedule?.[0]?.Name || "";
+        const offeringType = job.PositionOfferingType?.[0]?.Name || "";
+
+        // Filter: only include if the alias appears in title or org
+        const searchText = `${title} ${org}`.toLowerCase();
+        if (!aliases.some((a) => searchText.includes(a.toLowerCase()))) continue;
+
+        facts.push({
+          companyId,
+          title: `${org}: ${title}`,
+          category: "jobSignals",
+          date: postedDate,
+          sourceUrl: uri,
+          sourceName: "USA Jobs",
+          sourceType: "careers",
+          confidence: "high",
+          rawSnippet: `${title} at ${org}${locations ? ` — Location: ${locations}` : ""}${salaryText ? ` — Salary: ${salaryText}` : ""}${schedule ? ` — ${schedule}` : ""}${closeDate ? ` — Closes: ${closeDate}` : ""}`,
+          summary: `Federal job posting: ${title} at ${org}.${locations ? ` Location(s): ${locations}.` : ""}${salaryText ? ` Salary: ${salaryText}.` : ""}${closeDate ? ` Application closes: ${closeDate}.` : ""}`,
+          metadata: {
+            positionUri: uri,
+            org,
+            department: job.DepartmentName,
+            locations,
+            postedDate,
+            closeDate,
+            salary: salaryText,
+            schedule,
+            offeringType,
+            jobCategories: job.JobCategory?.map((c) => c.Name).filter(Boolean) ?? [],
+            matchedAlias: alias,
+            recordType: "liveFact",
+            provider: "usajobs",
+          },
+        });
+      }
+    } catch {
+      // continue to next alias
+    }
+  }
+
+  return {
+    facts,
+    diagnostic: {
+      source: "usajobs",
+      status: facts.length > 0 ? "success" : "no-results",
+      factsFound: facts.length,
+      aliasesQueried,
+      message: facts.length > 0
+        ? `${facts.length} USA Jobs postings found across ${aliasesQueried.length} alias queries.`
+        : `No USA Jobs postings found for ${aliasesQueried.length} aliases.`,
+    },
+  };
+}
+
 function buildSourceLeads(companyName: string, companyId: string): { leads: FactRow[]; diagnostic: SourceDiagnostic } {
   const encoded = encodeURIComponent(companyName);
   const quoted = encodeURIComponent(`"${companyName}"`);
@@ -884,6 +1139,36 @@ router.post("/intelligence/ingest/company", async (req, res) => {
       const msg = `Web providers: ${err instanceof Error ? err.message : "failed"}`;
       errors.push(msg);
       diagnostics.push({ source: "web-providers", status: "error", factsFound: 0, aliasesQueried: aliases, message: msg, error: msg });
+    }
+
+    // SAM.gov Opportunities — uses SAM_GOV_API_KEY
+    sourcesQueried.push("sam");
+    try {
+      const { facts: samFacts, diagnostic: samDiag } = await fetchSAMOpportunities(aliases, companyId);
+      allFacts.push(...samFacts);
+      diagnostics.push(samDiag);
+      if (samFacts.length === 0 && samDiag.status !== "needs-key") {
+        errors.push(`SAM.gov: no opportunities found for ${aliases.length} aliases`);
+      }
+    } catch (err) {
+      const msg = `SAM.gov: ${err instanceof Error ? err.message : "failed"}`;
+      errors.push(msg);
+      diagnostics.push({ source: "sam", status: "error", factsFound: 0, aliasesQueried: aliases, message: msg, error: msg });
+    }
+
+    // USA Jobs — uses USA_JOBS_API_KEY
+    sourcesQueried.push("usajobs");
+    try {
+      const { facts: jobsFacts, diagnostic: jobsDiag } = await fetchUSAJobs(aliases, companyId);
+      allFacts.push(...jobsFacts);
+      diagnostics.push(jobsDiag);
+      if (jobsFacts.length === 0 && jobsDiag.status !== "needs-key") {
+        errors.push(`USA Jobs: no postings found for ${aliases.length} aliases`);
+      }
+    } catch (err) {
+      const msg = `USA Jobs: ${err instanceof Error ? err.message : "failed"}`;
+      errors.push(msg);
+      diagnostics.push({ source: "usajobs", status: "error", factsFound: 0, aliasesQueried: aliases, message: msg, error: msg });
     }
 
     // Link-only fallback — only if no live facts from any source
