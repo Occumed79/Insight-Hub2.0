@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { loadInsightDataset } from "./ingestion";
 import { seedDataset } from "./seed";
-import type { Company, InsightDataset } from "./types";
+import type { Company, CompanyIntelligence, InsightDataset } from "./types";
+import { fetchCompanyIntelligence } from "./intelligenceApi";
 import { caciCompanies, caciLocations, caciMetrics, caciProfiles, caciReports, caciSources } from "./caciDossier";
 import { clovehitchCompanies, clovehitchLocations, clovehitchMetrics, clovehitchProfiles, clovehitchReports, clovehitchSources } from "./clovehitchDossier";
 import { constellisCompanies, constellisLocations, constellisMetrics, constellisProfiles, constellisReports, constellisSources } from "./constellisDossier";
@@ -112,6 +113,27 @@ export function useInsightData() {
     });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const companyIds = dataset.companies.map((c) => c.id).slice(0, 20);
+    Promise.allSettled(companyIds.map((id) => fetchCompanyIntelligence(id)))
+      .then((results) => {
+        if (!active) return;
+        const intelligence: CompanyIntelligence[] = [];
+        for (const result of results) {
+          if (result.status === "fulfilled" && result.value) {
+            intelligence.push(result.value);
+          }
+        }
+        if (intelligence.length > 0) {
+          setDataset((prev) => ({ ...prev, intelligence }));
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [dataset.companies]);
+
   const companies = useMemo<Company[]>(() => dataset.companies, [dataset]);
   return { dataset, companies };
 }

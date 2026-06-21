@@ -89,6 +89,77 @@ export type WorkbookStatus = {
   error?: string;
 };
 
+export type IntelligenceCategory =
+  | "contractAwards"
+  | "opportunities"
+  | "secFilings"
+  | "jobSignals"
+  | "sourceFacts"
+  | "sourceConfidence"
+  | "timelineEvents"
+  | "locationExposure"
+  | "medicalNetworkGaps"
+  | "competitorSignals"
+  | "renewalOrExpirationEvents";
+
+export type IntelligenceSourceType =
+  | "usaspending"
+  | "sec"
+  | "sam"
+  | "official"
+  | "careers"
+  | "manual"
+  | "news"
+  | "web";
+
+export type IntelligenceConfidence = "high" | "medium" | "low" | "link-only";
+
+export type IntelligenceFact = {
+  id: string;
+  companyId: string;
+  title: string;
+  category: IntelligenceCategory;
+  date: string;
+  discoveredAt: string;
+  value?: number;
+  valueUnit?: "usd" | "count" | "percent" | "score";
+  sourceUrl?: string;
+  sourceName: string;
+  sourceType: IntelligenceSourceType;
+  confidence: IntelligenceConfidence;
+  rawSnippet?: string;
+  summary: string;
+  metadata: Record<string, unknown>;
+};
+
+export type IntelligenceRun = {
+  id: string;
+  companyId: string;
+  startedAt: string;
+  completedAt: string;
+  sourcesQueried: string[];
+  factsCollected: number;
+  status: "completed" | "partial" | "failed";
+  error?: string;
+};
+
+export type IntelligenceChartReady = {
+  awardValueTimeline: Record<string, string | number>[];
+  opportunitiesByStage: Record<string, string | number>[];
+  sourceConfidenceOverTime: Record<string, string | number>[];
+  jobSignalTrend: Record<string, string | number>[];
+  eventTimeline: Record<string, string | number>[];
+  locationExposureByRegion: Record<string, string | number>[];
+  networkGapScoreByRegion: Record<string, string | number>[];
+};
+
+export type CompanyIntelligence = {
+  companyId: string;
+  facts: IntelligenceFact[];
+  runs: IntelligenceRun[];
+  chartReady: IntelligenceChartReady;
+};
+
 export type InsightDataset = {
   companies: Company[];
   profiles: CompanyProfile[];
@@ -97,5 +168,6 @@ export type InsightDataset = {
   sources: SourceRecord[];
   reports: ReportRecord[];
   assumptions: Assumption[];
+  intelligence: CompanyIntelligence[];
   status: WorkbookStatus;
 };

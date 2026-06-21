@@ -12,6 +12,7 @@ import { CompanyRiskRenderer } from "@/components/company/CompanyRiskRenderer";
 import { CompanyOpportunityRenderer } from "@/components/company/CompanyOpportunityRenderer";
 import { CompanySourceFilters } from "@/components/company/CompanySourceFilters";
 import { CompanyDossierRenderer } from "@/components/company/CompanyDossierRenderer";
+import { LiveIntelligencePanel } from "@/components/company/LiveIntelligencePanel";
 import { useInsightData, useSelectedCompany } from "@/data/useInsightData";
 import { getCompanyConfigOrDefault } from "@/company-configs";
 import { resolveConfigCompanyId } from "@/company-configs/configIds";
@@ -29,6 +30,7 @@ export default function DataProfiles() {
   const dossierMetrics = [...dataset.metrics, ...configMetrics.filter((metric) => !dataset.metrics.some((existing) => existing.id === metric.id))];
   const chartData = companyMetrics.map((metric) => ({ name: metric.label.replace("Estimated annual ", "").slice(0, 16), value: metric.unit === "usd" ? metric.value / 1000000 : metric.value }));
   const sources = dataset.sources.filter((source) => resolveConfigCompanyId(source.companyId) === resolvedCompanyId);
+  const intelligence = dataset.intelligence.find((item) => resolveConfigCompanyId(item.companyId) === resolvedCompanyId);
   const curveTitle = config.curveTitle ?? `${company?.shortName || "Entity"} exposure curve`;
   const curveSubtitle = config.curveSubtitle ?? "Workbook values normalized for executive scanability.";
 
@@ -43,6 +45,7 @@ export default function DataProfiles() {
       {config.opportunityMatrix?.length ? <CompanyOpportunityRenderer data={config.opportunityMatrix} companyName={config.shortName} /> : null}
       <CompanySourceFilters filters={config.sourceFilters} />
       {profile ? <CompanyDossierRenderer profile={profile} metrics={dossierMetrics} /> : null}
+      <LiveIntelligencePanel intelligence={intelligence} companyId={resolvedCompanyId} companyName={company?.name ?? resolvedCompanyId} />
       {sources.length > 0 ? <GlassCard className="mt-5 p-6"><h3 className="text-lg font-bold text-white">Source Library</h3><div className="mt-4 grid gap-3 md:grid-cols-2">{sources.slice(0, 8).map((source) => <div key={source.id} className="rounded-2xl border border-cyan-100/10 bg-white/[0.03] p-4"><p className="text-sm font-semibold text-cyan-50">{source.label}</p><p className="mt-1 text-xs text-cyan-100/52">{source.type}</p><p className="mt-3 text-sm leading-6 text-cyan-100/58">{source.note}</p></div>)}</div></GlassCard> : null}
     </section></main>
   );

@@ -32,6 +32,7 @@ import { useInsightData, useSelectedCompany } from "@/data/useInsightData";
 import { getCompanyConfigOrDefault } from "@/company-configs";
 import { resolveConfigCompanyId } from "@/company-configs/configIds";
 import { getIntelligenceStatus } from "@/company-configs/intelligenceNavigation";
+import { intelligenceFactsToCharts } from "@/data/intelligenceCharts";
 import type {
   ChartDefinition,
   MetricDefinition,
@@ -922,6 +923,8 @@ export default function DataVisualization() {
   const status = getIntelligenceStatus(config);
   const profile = dataset.profiles.find((item) => resolveConfigCompanyId(item.companyId) === resolvedCompanyId);
   const sources = dataset.sources.filter((source) => resolveConfigCompanyId(source.companyId) === resolvedCompanyId);
+  const intelligence = dataset.intelligence.find((item) => resolveConfigCompanyId(item.companyId) === resolvedCompanyId);
+  const intelligenceCharts = useMemo(() => intelligenceFactsToCharts(intelligence), [intelligence]);
 
   const [activeMethod, setActiveMethod] = useState<string>("vector-displacement");
   const [activeSelection, setActiveSelection] = useState<ChartDatumSelection | null>(null);
@@ -937,6 +940,7 @@ export default function DataVisualization() {
   });
 
   const { primaryCharts } = useChartPanels(vizModel);
+  const allCharts = useMemo(() => [...primaryCharts, ...intelligenceCharts], [primaryCharts, intelligenceCharts]);
 
   const handleSelectDatum = (selection: ChartDatumSelection) => {
     setActiveSelection(selection);
@@ -1057,6 +1061,15 @@ export default function DataVisualization() {
             <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/60">Opp:</p>
             <span className="text-sm font-bold text-cyan-50">{vizModel.opportunityMatrix.length > 0 ? "✓" : "—"}</span>
           </div>
+          {intelligenceCharts.length > 0 && (
+            <>
+              <div className="h-4 w-px bg-cyan-100/20" />
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-200/60">Intel:</p>
+                <span className="text-sm font-bold text-emerald-100">{intelligenceCharts.length}</span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Method Rail */}
@@ -1103,11 +1116,11 @@ export default function DataVisualization() {
         )}
 
         {/* A. Primary Chart Workspace */}
-        {primaryCharts.length > 0 ? (
+        {allCharts.length > 0 ? (
           <div className={`grid gap-5 ${isExpanded ? "xl:grid-cols-1" : "xl:grid-cols-2"}`}>
-            {primaryCharts.map((chart, index) => {
-              const isLoneChart = primaryCharts.length === 1;
-              const isLastOdd = index === primaryCharts.length - 1 && primaryCharts.length % 2 === 1;
+            {allCharts.map((chart, index) => {
+              const isLoneChart = allCharts.length === 1;
+              const isLastOdd = index === allCharts.length - 1 && allCharts.length % 2 === 1;
               const spanFull = isExpanded || chart.fullWidth || isLoneChart || isLastOdd;
               return (
                 <div key={chart.id} className={spanFull ? "xl:col-span-2" : ""}>

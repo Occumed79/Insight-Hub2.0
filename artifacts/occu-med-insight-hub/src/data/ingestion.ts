@@ -234,9 +234,9 @@ export async function loadInsightDataset(): Promise<InsightDataset> {
     normalized.metrics.forEach((metric) => metricMap.set(metric.id, metric));
     const locations = workbookLocations.length > 0 ? workbookLocations.slice(0, 80) : seedDataset.locations;
     metricMap.set("v2x-global-locations", { id: "v2x-global-locations", companyId: "v2x", label: "Mapped locations", value: locations.length, unit: "count", category: "risk", trend: 8.2, sourceId: "geography-workbook" });
-    return { ...seedDataset, companies: Array.from(companyMap.values()), sources: Array.from(sourceMap.values()), metrics: Array.from(metricMap.values()), locations, status: { proxyRows: publicRows.length + privateRows.length, methodologyRows: methodologyRows.length, geographyRows: geoRows.length, loaded: true } };
+    return { ...seedDataset, companies: Array.from(companyMap.values()), sources: Array.from(sourceMap.values()), metrics: Array.from(metricMap.values()), locations, intelligence: [], status: { proxyRows: publicRows.length + privateRows.length, methodologyRows: methodologyRows.length, geographyRows: geoRows.length, loaded: true } };
   } catch (error) {
-    return { ...seedDataset, status: { proxyRows: 0, methodologyRows: 0, geographyRows: 0, loaded: false, error: error instanceof Error ? error.message : "Workbook parsing failed" } };
+    return { ...seedDataset, intelligence: [], status: { proxyRows: 0, methodologyRows: 0, geographyRows: 0, loaded: false, error: error instanceof Error ? error.message : "Workbook parsing failed" } };
   }
 }
 
