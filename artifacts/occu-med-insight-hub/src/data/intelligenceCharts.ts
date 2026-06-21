@@ -1,12 +1,40 @@
 import type { ChartDefinition } from "../company-configs/types";
-import type { CompanyIntelligence, IntelligenceFact, IntelligenceChartReady } from "./types";
+import type { CompanyIntelligence, IntelligenceFact, IntelligenceCategory, IntelligenceChartReady } from "./types";
 
 const PALETTE = ["#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#f472b6", "#fb7185", "#60a5fa", "#a3e635"];
+
+function enrichDataWithFactMeta(
+  data: Record<string, string | number>[],
+  facts: IntelligenceFact[],
+  category: IntelligenceCategory
+): Record<string, string | number>[] {
+  return data.map((row) => {
+    const rowDate = row.date as string | undefined;
+    const rowLabel = row.stage ?? row.region ?? undefined;
+    const match = facts.find((f) => {
+      if (f.category !== category) return false;
+      if (rowDate && f.date.startsWith(rowDate.slice(0, 10))) return true;
+      if (rowLabel && (f.title.includes(String(rowLabel)) || f.summary.includes(String(rowLabel)))) return true;
+      return false;
+    });
+    return {
+      ...row,
+      category,
+      sourceUrl: match?.sourceUrl ?? "",
+      confidence: match?.confidence ?? "",
+      date: match?.date ?? rowDate ?? "",
+      sourceType: match?.sourceType ?? "",
+      summary: match?.summary ?? "",
+      rawSnippet: match?.rawSnippet ?? "",
+    };
+  });
+}
 
 export function intelligenceFactsToCharts(intelligence: CompanyIntelligence | undefined): ChartDefinition[] {
   if (!intelligence || intelligence.facts.length === 0) return [];
   const charts: ChartDefinition[] = [];
   const cr = intelligence.chartReady;
+  const { facts } = intelligence;
 
   if (cr.awardValueTimeline.length > 0) {
     charts.push({
@@ -14,7 +42,7 @@ export function intelligenceFactsToCharts(intelligence: CompanyIntelligence | un
       title: "Contract Award Value Timeline",
       subtitle: "Federal contract awards from USASpending.gov",
       type: "bar",
-      data: cr.awardValueTimeline,
+      data: enrichDataWithFactMeta(cr.awardValueTimeline, facts, "contractAwards"),
       xKey: "date",
       series: [{ dataKey: "value", name: "Award Value", color: PALETTE[0] }],
       formatter: "currencyM",
@@ -29,7 +57,7 @@ export function intelligenceFactsToCharts(intelligence: CompanyIntelligence | un
       title: "Opportunities by Stage",
       subtitle: "SAM.gov and federal opportunity signals",
       type: "bar",
-      data: cr.opportunitiesByStage,
+      data: enrichDataWithFactMeta(cr.opportunitiesByStage, facts, "opportunities"),
       xKey: "stage",
       series: [{ dataKey: "count", name: "Count", color: PALETTE[1] }],
       formatter: "plain",
@@ -43,7 +71,7 @@ export function intelligenceFactsToCharts(intelligence: CompanyIntelligence | un
       title: "Source Confidence Over Time",
       subtitle: "Confidence score (3=high, 2=medium, 1=low) by source",
       type: "line",
-      data: cr.sourceConfidenceOverTime,
+      data: enrichDataWithFactMeta(cr.sourceConfidenceOverTime, facts, "sourceConfidence"),
       xKey: "date",
       series: [{ dataKey: "confidence", name: "Confidence", color: PALETTE[2] }],
       formatter: "plain",
@@ -57,7 +85,7 @@ export function intelligenceFactsToCharts(intelligence: CompanyIntelligence | un
       title: "Job Signal Trend",
       subtitle: "Hiring signals from career portals and job boards",
       type: "area",
-      data: cr.jobSignalTrend,
+      data: enrichDataWithFactMeta(cr.jobSignalTrend, facts, "jobSignals"),
       xKey: "date",
       series: [{ dataKey: "value", name: "Signal Strength", color: PALETTE[3] }],
       formatter: "plain",
@@ -71,7 +99,7 @@ export function intelligenceFactsToCharts(intelligence: CompanyIntelligence | un
       title: "Intelligence Event Timeline",
       subtitle: "All ingested intelligence events chronologically",
       type: "bar",
-      data: cr.eventTimeline,
+      data: enrichDataWithFactMeta(cr.eventTimeline, facts, "timelineEvents"),
       xKey: "date",
       series: [{ dataKey: "value", name: "Value", color: PALETTE[4] }],
       formatter: "plain",
@@ -86,7 +114,7 @@ export function intelligenceFactsToCharts(intelligence: CompanyIntelligence | un
       title: "Location Exposure by Region",
       subtitle: "Geographic concentration of intelligence signals",
       type: "bar",
-      data: cr.locationExposureByRegion,
+      data: enrichDataWithFactMeta(cr.locationExposureByRegion, facts, "locationExposure"),
       xKey: "region",
       series: [{ dataKey: "count", name: "Signal Count", color: PALETTE[5] }],
       formatter: "plain",
@@ -100,7 +128,7 @@ export function intelligenceFactsToCharts(intelligence: CompanyIntelligence | un
       title: "Medical Network Gap Score by Region",
       subtitle: "Occupational health network coverage gaps",
       type: "bar",
-      data: cr.networkGapScoreByRegion,
+      data: enrichDataWithFactMeta(cr.networkGapScoreByRegion, facts, "medicalNetworkGaps"),
       xKey: "region",
       series: [{ dataKey: "gapScore", name: "Gap Score", color: PALETTE[6] }],
       formatter: "plain",

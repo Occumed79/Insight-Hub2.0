@@ -42,6 +42,7 @@ import type {
   DossierSectionDefinition,
   TooltipFormat,
 } from "@/company-configs/types";
+import type { IntelligenceFact, IntelligenceCategory } from "@/data/types";
 
 interface ProfileVisualizationModel {
   company: { name: string; shortName: string; summary: string; tags: string[] } | null;
@@ -67,6 +68,13 @@ interface ChartDatumSelection {
   sourceId?: string;
   note?: string;
   payload?: Record<string, string | number>;
+  sourceUrl?: string;
+  confidence?: string;
+  date?: string;
+  sourceType?: string;
+  intelligenceCategory?: string;
+  summary?: string;
+  rawSnippet?: string;
 }
 
 function buildProfileVisualizationModel({
@@ -171,6 +179,138 @@ function getSeriesColor(index: number, fallback?: string) {
   return fallback ?? palette[index % palette.length];
 }
 
+function getHolographicLayer(chart: ChartDefinition) {
+  const title = chart.title.toLowerCase();
+  if (title.includes("contract") || title.includes("award")) return "holo-layer-contract";
+  if (title.includes("opportunit")) return "holo-layer-opportunity";
+  if (title.includes("sec")) return "holo-layer-sec";
+  if (title.includes("job")) return "holo-layer-job";
+  if (title.includes("confidence")) return "holo-layer-confidence";
+  if (title.includes("location")) return "holo-layer-location";
+  if (title.includes("network")) return "holo-layer-network";
+  if (title.includes("event")) return "holo-layer-event";
+  return "holo-layer-base";
+}
+
+function getConfidenceColor(confidence?: string): string {
+  const c = (confidence ?? "").toLowerCase();
+  if (c === "high") return "#34d399";
+  if (c === "medium") return "#fbbf24";
+  if (c === "low") return "#fb7185";
+  if (c === "link-only") return "#94a3b8";
+  return "#22d3ee";
+}
+
+function getColorByData(entry: Record<string, string | number>): string {
+  const confidence = String(entry.confidence ?? "");
+  const category = String(entry.category ?? "");
+  if (confidence) return getConfidenceColor(confidence);
+  if (category) return getCategoryColor(category);
+  const value = Number(entry.value ?? 0);
+  if (value > 75) return "#22d3ee";
+  if (value > 50) return "#a78bfa";
+  if (value > 25) return "#fbbf24";
+  return "#fb7185";
+}
+
+function getCategoryColor(category?: string): string {
+  const map: Record<string, string> = {
+    contractAwards: "#22d3ee",
+    opportunities: "#a78bfa",
+    secFilings: "#fbbf24",
+    jobSignals: "#34d399",
+    sourceFacts: "#f472b6",
+    sourceConfidence: "#60a5fa",
+    timelineEvents: "#fb7185",
+    locationExposure: "#a3e635",
+    medicalNetworkGaps: "#fb923c",
+    competitorSignals: "#c084fc",
+    renewalOrExpirationEvents: "#2dd4bf",
+  };
+  return map[category ?? ""] ?? "#22d3ee";
+}
+
+function chartCategoryFromId(chartId: string): IntelligenceCategory | null {
+  if (chartId.includes("award")) return "contractAwards";
+  if (chartId.includes("opportunities")) return "opportunities";
+  if (chartId.includes("job")) return "jobSignals";
+  if (chartId.includes("confidence")) return "sourceConfidence";
+  if (chartId.includes("event")) return "timelineEvents";
+  if (chartId.includes("location")) return "locationExposure";
+  if (chartId.includes("network")) return "medicalNetworkGaps";
+  return null;
+}
+
+function factsInDateRange(facts: IntelligenceFact[], range: string): IntelligenceFact[] {
+  if (range === "all") return facts;
+  const now = Date.now();
+  const ms = {
+    "7d": 7 * 24 * 60 * 60 * 1000,
+    "30d": 30 * 24 * 60 * 60 * 1000,
+    "90d": 90 * 24 * 60 * 60 * 1000,
+    "1y": 365 * 24 * 60 * 60 * 1000,
+  } as Record<string, number>;
+  const cutoff = now - (ms[range] ?? 0);
+  return facts.filter((f) => {
+    const d = Date.parse(f.date);
+    return !isNaN(d) && d >= cutoff;
+  });
+}
+
+function filterIntelligenceCharts(
+  charts: ChartDefinition[],
+  facts: IntelligenceFact[],
+  categoryFilter: string,
+  confidenceFilter: string,
+  sourceTypeFilter: string,
+  dateRange: string
+): ChartDefinition[] {
+  return charts.filter((chart) => {
+    const category = chartCategoryFromId(chart.id);
+    if (categoryFilter !== "all" && category !== categoryFilter) return false;
+    let relevant = category ? facts.filter((f) => f.category === category) : facts;
+    relevant = factsInDateRange(relevant, dateRange);
+    if (confidenceFilter !== "all" && !relevant.some((f) => f.confidence === confidenceFilter)) return false;
+    if (sourceTypeFilter !== "all" && !relevant.some((f) => f.sourceType === sourceTypeFilter)) return false;
+    return true;
+  });
+}
+
+function morphIntelligenceFacts(
+  facts: IntelligenceFact[],
+  mode: "category" | "sourceType" | "confidence" | "time"
+): ChartDefinition {
+  const keyBy = (f: IntelligenceFact) => {
+    if (mode === "category") return f.category;
+    if (mode === "sourceType") return f.sourceType;
+    if (mode === "confidence") return f.confidence;
+    const d = f.date.slice(0, 7);
+    return d || "unknown";
+  };
+  const grouped = facts.reduce<Record<string, { count: number; value: number; category: string }>>((acc, f) => {
+    const key = keyBy(f);
+    if (!acc[key]) acc[key] = { count: 0, value: 0, category: f.category };
+    acc[key].count += 1;
+    acc[key].value += f.value ?? 0;
+    return acc;
+  }, {});
+  const data = Object.entries(grouped)
+    .map(([label, g]) => ({ label, count: g.count, value: g.value, category: g.category }))
+    .sort((a, b) => b.count - a.count);
+  return {
+    id: `morph-${mode}`,
+    title: `Morph: ${mode === "category" ? "Category" : mode === "sourceType" ? "Source" : mode === "confidence" ? "Confidence" : "Time"}`,
+    subtitle: `Intelligence facts grouped by ${mode}`,
+    type: "bar",
+    xKey: "label",
+    data,
+    series: [{ dataKey: "count", name: "Facts", color: "#22d3ee" }],
+    formatter: "plain",
+    headline: "morphed intelligence view",
+    fullWidth: true,
+  };
+}
+
 function useChartPanels(vizModel: ProfileVisualizationModel) {
   return useMemo(() => {
     const primaryCharts = vizModel.charts.length ? vizModel.charts : metricChartFromDefinitions(vizModel.metrics);
@@ -252,6 +392,55 @@ function VisualizationDetailDrawer({
                 <p className="mt-1 text-sm leading-5 text-cyan-100/70">{sourceName}</p>
               </div>
             )}
+            {selection.sourceType && (
+              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Source Type</p>
+                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.sourceType}</p>
+              </div>
+            )}
+            {selection.sourceUrl && (
+              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Source URL</p>
+                <a
+                  href={selection.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 block break-all text-sm leading-5 text-cyan-300/80 underline hover:text-cyan-200"
+                >
+                  {selection.sourceUrl}
+                </a>
+              </div>
+            )}
+            {selection.confidence && (
+              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Confidence</p>
+                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.confidence}</p>
+              </div>
+            )}
+            {selection.date && (
+              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Date</p>
+                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.date}</p>
+              </div>
+            )}
+            {selection.intelligenceCategory && (
+              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Intelligence Category</p>
+                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.intelligenceCategory}</p>
+              </div>
+            )}
+            {selection.summary && (
+              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Summary</p>
+                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.summary}</p>
+              </div>
+            )}
+            {selection.rawSnippet && (
+              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Raw Snippet</p>
+                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.rawSnippet}</p>
+              </div>
+            )}
             {selection.note && (
               <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
                 <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Note</p>
@@ -265,33 +454,167 @@ function VisualizationDetailDrawer({
   );
 }
 
+const METHOD_BEHAVIOR: Record<
+  string,
+  { label: string; description: string; affects: string; mode: string }
+> = {
+  "vector-displacement": {
+    label: "Vector Displacement Mapping",
+    description: "Selected bars/points/lines offset by value or confidence. Higher values push farther.",
+    affects: "bars, points, lines, matrix",
+    mode: "displacement",
+  },
+  "chromatic-aberration": {
+    label: "Chromatic Aberration Highlighting",
+    description: "Selected datum gets RGB split/glitch halo. Consistent across bars, points, lines, and matrix.",
+    affects: "all chart elements",
+    mode: "chromatic",
+  },
+  "geometric-anchor": {
+    label: "Geometric Anchor Snapping",
+    description: "Selected datum gets crosshair/reference lines and an anchor label showing value, source, and confidence.",
+    affects: "bar, line, area, scatter, matrix",
+    mode: "anchor",
+  },
+  "subtractive-masking": {
+    label: "Subtractive Masking Overlays",
+    description: "Non-selected categories fade into masked dark glass. Selected datum cuts through with illuminated focus.",
+    affects: "all chart panels",
+    mode: "masking",
+  },
+  "procedural-grid": {
+    label: "Procedural Grid Resonances",
+    description: "Chart grid pulses/warps around selected values. Intensity responds to value and confidence.",
+    affects: "cartesian grid",
+    mode: "grid",
+  },
+  "algorithmic-edge": {
+    label: "Algorithmic Edge-Tracing",
+    description: "Selected bar/line/area/matrix point gets an animated outline trace. Line paths sweep; bar borders trace.",
+    affects: "bars, lines, areas, matrix points",
+    mode: "edge",
+  },
+  "concentric-ripple": {
+    label: "Concentric Ripple Metrics",
+    description: "Clicking a datum emits concentric rings from the selected point in chart coordinates.",
+    affects: "points, bars, matrix points",
+    mode: "ripple",
+  },
+  "negative-space": {
+    label: "Negative Space Inversion",
+    description: "Selected item becomes a dark cutout; surrounding data glows. Compare selected against peers.",
+    affects: "bars, points, matrix",
+    mode: "invert",
+  },
+  "vector-lattice": {
+    label: "Vector Lattice Distortion",
+    description: "A visible lattice/grid overlay bends around the selected datum.",
+    affects: "chart panels",
+    mode: "lattice",
+  },
+  "color-shift": {
+    label: "Color-Shift Isometry",
+    description: "Series colors shift based on value band, source confidence, or intelligence category.",
+    affects: "bars, points, lines",
+    mode: "colorShift",
+  },
+  "synchronous-path": {
+    label: "Synchronous Path Illumination",
+    description: "Related charts illuminate together. Matching dates, sources, and confidence light up across panels.",
+    affects: "lines, charts",
+    mode: "synchronous",
+  },
+  "vector-node": {
+    label: "Vector Node Expansion",
+    description: "Selected datum expands into a compact mini detail card beside the chart showing source, value, confidence, and date.",
+    affects: "selected datum",
+    mode: "node",
+  },
+  "radiant-gradient": {
+    label: "Radiant Gradient Focus",
+    description: "Selected series/category gets strong gradient glow. Others dim.",
+    affects: "all chart elements",
+    mode: "radiant",
+  },
+  "isometric-slice": {
+    label: "Isometric Slice-View",
+    description: "Selected bars/segments lift into a 3D/isometric slice. Matrix points lift with shadow and label.",
+    affects: "bars, points, matrix",
+    mode: "isometric",
+  },
+  "semantic-zoom": {
+    label: "Generative Semantic Zoom",
+    description: "Overview shows aggregated sections; zoomed view reveals granular intelligence facts and events.",
+    affects: "intelligence charts",
+    mode: "zoom",
+  },
+  "holographic-depth": {
+    label: "Holographic Depth Layers",
+    description: "Panels stack by data type: contract awards, opportunities, SEC, jobs, confidence, locations.",
+    affects: "panel chrome",
+    mode: "holographic",
+  },
+  "kinetic-vector": {
+    label: "Kinetic Vector Transitions",
+    description: "Charts animate with directional motion when switching methods or selecting data.",
+    affects: "all chart elements",
+    mode: "kinetic",
+  },
+  "contextual-morph": {
+    label: "Contextual Data Morphing",
+    description: "Morph chart grouping by source type, category, confidence, or time.",
+    affects: "intelligence charts",
+    mode: "morph",
+  },
+  "interactive-filter": {
+    label: "Interactive Filtering",
+    description: "Compact filter controls for category, confidence, source type, and date range. Filtering changes visible charts.",
+    affects: "intelligence charts",
+    mode: "filter",
+  },
+  "zoom-pan": {
+    label: "Zoom and Pan",
+    description: "Full-width chart focus with scrollable/inspectable detail mode and reset.",
+    affects: "chart workspace",
+    mode: "pan",
+  },
+  "linked-visualizations": {
+    label: "Linked Visualizations / Brushing",
+    description: "Selecting a category/date/source/confidence in one chart highlights matching data across all charts.",
+    affects: "all charts",
+    mode: "linked",
+  },
+  "click-reveal": {
+    label: "Click-to-Reveal",
+    description: "Clicking any datum opens a detail drawer with chart, category, series, value, source, URL, confidence, date, and summary.",
+    affects: "detail drawer",
+    mode: "reveal",
+  },
+};
+
 function methodName(methodId: string) {
+  return METHOD_BEHAVIOR[methodId]?.label ?? methodId;
+}
+
+function methodDescription(methodId: string) {
+  return METHOD_BEHAVIOR[methodId]?.description ?? "";
+}
+
+function MethodExplanationPanel({ methodId }: { methodId: string }) {
+  const behavior = METHOD_BEHAVIOR[methodId];
+  if (!behavior) return null;
   return (
-    {
-      "vector-displacement": "Vector Displacement Mapping",
-      "chromatic-aberration": "Chromatic Aberration Highlighting",
-      "geometric-anchor": "Geometric Anchor Snapping",
-      "subtractive-masking": "Subtractive Masking Overlays",
-      "procedural-grid": "Procedural Grid Resonances",
-      "algorithmic-edge": "Algorithmic Edge-Tracing",
-      "concentric-ripple": "Concentric Ripple Metrics",
-      "negative-space": "Negative Space Inversion",
-      "vector-lattice": "Vector Lattice Distortion",
-      "color-shift": "Color-Shift Isometry",
-      "synchronous-path": "Synchronous Path Illumination",
-      "vector-node": "Vector Node Expansion",
-      "radiant-gradient": "Radiant Gradient Focus",
-      "isometric-slice": "Isometric Slice-View",
-      "semantic-zoom": "Generative Semantic Zoom",
-      "holographic-depth": "Holographic Depth Layers",
-      "kinetic-vector": "Kinetic Vector Transitions",
-      "contextual-morph": "Contextual Data Morphing",
-      "interactive-filter": "Interactive Filtering",
-      "zoom-pan": "Zoom and Pan",
-      "linked-visualizations": "Linked Visualizations / Brushing",
-      "click-reveal": "Click-to-Reveal",
-    } as Record<string, string>
-  )[methodId];
+    <div className="mb-5 rounded-xl border border-cyan-100/10 bg-black/24 p-4">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-cyan-100/10 text-xs text-cyan-100/70">{methodId.charAt(0).toUpperCase()}</span>
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-cyan-100/50">{behavior.affects}</p>
+          <h3 className="text-sm font-semibold text-cyan-50">{behavior.label}</h3>
+        </div>
+      </div>
+      <p className="mt-2 text-sm leading-6 text-cyan-100/65">{behavior.description}</p>
+    </div>
+  );
 }
 
 function ChartPanel({
@@ -300,6 +623,8 @@ function ChartPanel({
   activeMethod,
   selectedCategory,
   activeSelection,
+  focusedChartId,
+  onFocusChart,
   onSelectCategory,
   onSelectDatum,
 }: {
@@ -308,9 +633,12 @@ function ChartPanel({
   activeMethod: string;
   selectedCategory: string | null;
   activeSelection: ChartDatumSelection | null;
+  focusedChartId: string | null;
+  onFocusChart: (id: string | null) => void;
   onSelectCategory: (category: string | null) => void;
   onSelectDatum: (selection: ChartDatumSelection) => void;
 }) {
+  const isVectorDisplacement = activeMethod === "vector-displacement";
   const isLinkedBrushing = activeMethod === "linked-visualizations";
   const isRadiant = activeMethod === "radiant-gradient";
   const isDimmed = activeMethod === "negative-space";
@@ -319,6 +647,19 @@ function ChartPanel({
   const isChromatic = activeMethod === "chromatic-aberration";
   const isPulse = activeMethod === "kinetic-vector";
   const isGeometricAnchor = activeMethod === "geometric-anchor";
+  const isSubtractiveMasking = activeMethod === "subtractive-masking";
+  const isProceduralGrid = activeMethod === "procedural-grid";
+  const isAlgorithmicEdge = activeMethod === "algorithmic-edge";
+  const isConcentricRipple = activeMethod === "concentric-ripple";
+  const isVectorLattice = activeMethod === "vector-lattice";
+  const isColorShift = activeMethod === "color-shift";
+  const isSynchronousPath = activeMethod === "synchronous-path";
+  const isVectorNode = activeMethod === "vector-node";
+  const isSemanticZoom = activeMethod === "semantic-zoom";
+  const isContextualMorph = activeMethod === "contextual-morph";
+  const isInteractiveFilter = activeMethod === "interactive-filter";
+  const isZoomPan = activeMethod === "zoom-pan";
+  const isClickReveal = activeMethod === "click-reveal";
   const height = chartHeight(chart);
   const selectedEntry = selectedCategory
     ? chart.data.find((d) => String(d[chart.xKey] ?? d.label) === selectedCategory)
@@ -341,7 +682,15 @@ function ChartPanel({
       sourceId: entry.sourceId as string | undefined,
       note: entry.note as string | undefined,
       payload: entry as Record<string, string | number>,
+      sourceUrl: (entry.sourceUrl as string | undefined) || undefined,
+      confidence: (entry.confidence as string | undefined) || undefined,
+      date: (entry.date as string | undefined) || undefined,
+      sourceType: (entry.sourceType as string | undefined) || undefined,
+      intelligenceCategory: (entry.category as string | undefined) || undefined,
+      summary: (entry.summary as string | undefined) || undefined,
+      rawSnippet: (entry.rawSnippet as string | undefined) || undefined,
     });
+    if (isZoomPan) onFocusChart(chart.id);
   };
 
   const handleScatterClick = (entry: any) => {
@@ -360,7 +709,15 @@ function ChartPanel({
       sourceId: entry.sourceId as string | undefined,
       note: entry.note as string | undefined,
       payload: entry as Record<string, string | number>,
+      sourceUrl: (entry.sourceUrl as string | undefined) || undefined,
+      confidence: (entry.confidence as string | undefined) || undefined,
+      date: (entry.date as string | undefined) || undefined,
+      sourceType: (entry.sourceType as string | undefined) || undefined,
+      intelligenceCategory: (entry.category as string | undefined) || undefined,
+      summary: (entry.summary as string | undefined) || undefined,
+      rawSnippet: (entry.rawSnippet as string | undefined) || undefined,
     });
+    if (isZoomPan) onFocusChart(chart.id);
   };
 
   const panelClass = [
@@ -373,11 +730,16 @@ function ChartPanel({
     "bg-black/24",
     "p-5",
     "transition-all",
+    "duration-500",
     isChromatic ? "shadow-[0_0_24px_rgba(239,68,68,0.12),0_0_24px_rgba(6,182,212,0.12)]" : "",
-    isDimmed ? "shadow-[inset_0_0_40px_rgba(0,0,0,0.6)]" : "",
-    isHolographic ? "holographic-panel" : "",
-    isIsometric ? "hover:translate-y-[-4px] hover:shadow-[8px_8px_0_rgba(34,211,238,0.15)]" : "",
-    isPulse ? "animate-pulse-once" : "",
+    isDimmed ? "subtractive-mask-panel" : "",
+    isHolographic ? `holographic-panel ${getHolographicLayer(chart)}` : "",
+    isIsometric ? "isometric-panel" : "",
+    isPulse ? "kinetic-panel" : "",
+    isVectorLattice ? "vector-lattice-panel" : "",
+    isProceduralGrid ? "procedural-grid-panel" : "",
+    isSubtractiveMasking ? "subtractive-mask-panel" : "",
+    isColorShift ? "color-shift-panel" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -393,6 +755,18 @@ function ChartPanel({
           {children as React.ReactElement}
         </ResponsiveContainer>
       </div>
+      {isVectorLattice && (
+        <div className="pointer-events-none absolute inset-0 vector-lattice-overlay" aria-hidden />
+      )}
+      {isVectorNode && selectedCategory && selectedEntry && (
+        <div className="pointer-events-none absolute bottom-3 right-3 z-10 max-w-[220px] rounded-xl border border-cyan-100/20 bg-slate-950/80 p-3 text-xs shadow-xl backdrop-blur-xl">
+          <p className="font-semibold text-cyan-50">{String(selectedEntry[chart.xKey] ?? "")}</p>
+          <p className="mt-1 text-cyan-100/60">
+            {formatValue(Number(selectedEntry[chart.series[0]?.dataKey ?? "value"] ?? 0), chart.formatter, String(selectedEntry.unit ?? ""))}
+          </p>
+          {selectedEntry.sourceId && <p className="mt-1 text-cyan-100/40">src: {selectedEntry.sourceId}</p>}
+        </div>
+      )}
       {extra}
     </GlassCard>
   );
@@ -441,11 +815,22 @@ function ChartPanel({
                     cx={props.cx}
                     cy={props.cy}
                     r={isSelected ? 7 : 4}
-                    fill={isLinked ? "#facc15" : color}
+                    fill={isLinked ? "#facc15" : isColorShift ? getColorByData(props.payload) : color}
                     stroke={isSelected ? "#ffffff" : color}
                     strokeWidth={isSelected ? 3 : 2}
                     opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : isDimmed ? 0.4 : 1}
-                    className={isChromatic && isSelected ? "chromatic-dot" : ""}
+                    style={{
+                      transform: isVectorDisplacement && isSelected ? `translateY(${-Math.min(18, Number(props.payload?.value ?? 0) / 10)}px)` : undefined,
+                    }}
+                    className={[
+                      isChromatic && isSelected ? "chromatic-dot" : "",
+                      isAlgorithmicEdge && isSelected ? "algorithmic-edge-dot" : "",
+                      isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
+                      isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
+                      isPulse && isSelected ? "pulse-bar" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
                   />
                 );
               }}
@@ -455,7 +840,7 @@ function ChartPanel({
               }}
               opacity={isRadiant && selectedCategory ? 0.35 : 1}
               className={[
-                isSynchronousPath(activeMethod) ? "synchronous-path-line" : "",
+                isSynchronousPath ? "synchronous-path-line" : "",
                 isRadiant && selectedCategory ? "radiant-line" : "",
               ]
                 .filter(Boolean)
@@ -509,11 +894,22 @@ function ChartPanel({
                     cx={props.cx}
                     cy={props.cy}
                     r={isSelected ? 6 : 3}
-                    fill={isLinked ? "#facc15" : color}
+                    fill={isLinked ? "#facc15" : isColorShift ? getColorByData(props.payload) : color}
                     stroke={isSelected ? "#ffffff" : color}
                     strokeWidth={isSelected ? 2 : 1}
                     opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : isDimmed ? 0.4 : 1}
-                    className={isChromatic && isSelected ? "chromatic-dot" : ""}
+                    style={{
+                      transform: isVectorDisplacement && isSelected ? `translateY(${-Math.min(18, Number(props.payload?.value ?? 0) / 10)}px)` : undefined,
+                    }}
+                    className={[
+                      isChromatic && isSelected ? "chromatic-dot" : "",
+                      isAlgorithmicEdge && isSelected ? "algorithmic-edge-dot" : "",
+                      isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
+                      isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
+                      isPulse && isSelected ? "pulse-bar" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
                   />
                 );
               }}
@@ -523,7 +919,7 @@ function ChartPanel({
               }}
               opacity={isRadiant && selectedCategory ? 0.35 : 1}
               className={[
-                isAlgorithmicEdge(activeMethod) ? "algorithmic-edge-area" : "",
+                isAlgorithmicEdge ? "algorithmic-edge-area" : "",
                 isRadiant && selectedCategory ? "radiant-area" : "",
               ]
                 .filter(Boolean)
@@ -581,11 +977,22 @@ function ChartPanel({
                 cx={props.cx}
                 cy={props.cy}
                 r={r}
-                fill={isLinked ? "#facc15" : chart.series[0]?.color ?? "#22d3ee"}
+                fill={isLinked ? "#facc15" : isColorShift ? getColorByData(props.payload) : chart.series[0]?.color ?? "#22d3ee"}
                 stroke={isSelected ? "#ffffff" : "rgba(255,255,255,0.2)"}
                 strokeWidth={isSelected ? 3 : 1}
                 opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : isDimmed ? 0.4 : 1}
-                className={isChromatic && isSelected ? "chromatic-dot" : ""}
+                style={{
+                  transform: isVectorDisplacement && isSelected ? `translateY(${-Math.min(18, Number(props.payload?.value ?? 0) / 10)}px)` : undefined,
+                }}
+                className={[
+                  isChromatic && isSelected ? "chromatic-dot" : "",
+                  isAlgorithmicEdge && isSelected ? "algorithmic-edge-dot" : "",
+                  isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
+                  isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
+                  isPulse && isSelected ? "pulse-bar" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
               />
             );
           }}
@@ -647,9 +1054,17 @@ function ChartPanel({
                     isChromatic && isSelected ? "chromatic-bar-cell" : "",
                     isIsometric && isSelected ? "isometric-bar-cell" : "",
                     isPulse && isSelected ? "pulse-bar" : "",
+                    isVectorDisplacement && isSelected ? "vector-displace-cell" : "",
+                    isAlgorithmicEdge && isSelected ? "algorithmic-edge-bar-cell" : "",
+                    isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
+                    isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}
+                  style={{
+                    transform: isVectorDisplacement && isSelected ? `translateX(${Math.min(24, Math.max(-24, (Number(entry.value ?? 0) / 50)))}px)` : undefined,
+                    fill: isColorShift ? getColorByData(entry) : undefined,
+                  }}
                 />
               );
             })}
@@ -658,14 +1073,6 @@ function ChartPanel({
       })}
     </BarChart>
   );
-}
-
-function isSynchronousPath(method: string) {
-  return method === "synchronous-path";
-}
-
-function isAlgorithmicEdge(method: string) {
-  return method === "algorithmic-edge";
 }
 
 function MatrixPanel({
@@ -701,9 +1108,31 @@ function MatrixPanel({
   const isLinkedBrushing = activeMethod === "linked-visualizations";
   const isRadiant = activeMethod === "radiant-gradient";
   const isChromatic = activeMethod === "chromatic-aberration";
+  const isIsometric = activeMethod === "isometric-slice";
+  const isVectorDisplacement = activeMethod === "vector-displacement";
+  const isColorShift = activeMethod === "color-shift";
+  const isAlgorithmicEdge = activeMethod === "algorithmic-edge";
+  const isConcentricRipple = activeMethod === "concentric-ripple";
+  const isSubtractiveMasking = activeMethod === "subtractive-masking";
+  const isPulse = activeMethod === "kinetic-vector";
+  const isVectorLattice = activeMethod === "vector-lattice";
+  const isHolographic = activeMethod === "holographic-depth";
+  const isProceduralGrid = activeMethod === "procedural-grid";
+  const isDimmed = activeMethod === "negative-space";
+  const panelClass = [
+    "p-5",
+    isVectorLattice ? "vector-lattice-panel" : "",
+    isProceduralGrid ? "procedural-grid-panel" : "",
+    isSubtractiveMasking ? "subtractive-mask-panel" : "",
+    isHolographic ? "holographic-panel" : "",
+    isIsometric ? "isometric-panel" : "",
+    isPulse ? "kinetic-panel" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <GlassCard className="p-5">
+    <GlassCard className={panelClass}>
       <div className="mb-4">
         <h3 className="font-bold text-white">{title}</h3>
         {subtitle ? <p className="mt-1 text-xs text-cyan-100/55">{subtitle}</p> : null}
@@ -711,7 +1140,7 @@ function MatrixPanel({
       <div className="w-full" style={{ height: 380 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ScatterChart>
-            <CartesianGrid stroke="rgba(255,255,255,.08)" />
+            <CartesianGrid stroke={isProceduralGrid ? "rgba(34,211,238,0.15)" : "rgba(255,255,255,.08)"} />
             <XAxis
               dataKey={xKey as string}
               name={xLabel}
@@ -759,11 +1188,23 @@ function MatrixPanel({
                       cx={props.cx}
                       cy={props.cy}
                       r={isSelected ? 9 : 7}
-                      fill={isLinked ? "#facc15" : color}
+                      fill={isLinked ? "#facc15" : isColorShift ? getColorByData(point) : color}
                       stroke={isSelected ? "#ffffff" : "rgba(255,255,255,0.25)"}
                       strokeWidth={isSelected ? 3 : 1}
                       opacity={isRadiant && selectedPoint ? (isSelected ? 1 : 0.3) : isDimmed ? 0.4 : 1}
-                      className={isChromatic && isSelected ? "chromatic-dot" : ""}
+                      style={{
+                        transform: isVectorDisplacement && isSelected ? `translateY(${-Math.min(18, Number(point?.value ?? 0) / 10)}px)` : undefined,
+                      }}
+                      className={[
+                        isChromatic && isSelected ? "chromatic-dot" : "",
+                        isAlgorithmicEdge && isSelected ? "algorithmic-edge-dot" : "",
+                        isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
+                        isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
+                        isPulse && isSelected ? "pulse-bar" : "",
+                        isIsometric && isSelected ? "isometric-matrix-point" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
                     />
                     {point?.name && (
                       <text
@@ -877,6 +1318,10 @@ function StyleInjector() {
         transform: translateY(-5px);
         filter: drop-shadow(5px 5px 0 rgba(34, 211, 238, 0.35)) drop-shadow(0 0 8px rgba(34, 211, 238, 0.5));
       }
+      .isometric-matrix-point {
+        transform: translateY(-6px);
+        filter: drop-shadow(4px 4px 0 rgba(34, 211, 238, 0.3)) drop-shadow(0 0 6px rgba(34, 211, 238, 0.4));
+      }
       .pulse-bar {
         animation: pulse-bar-anim 1.2s ease-in-out 2;
       }
@@ -911,6 +1356,139 @@ function StyleInjector() {
         font-size: 10px;
         fill: rgba(207, 250, 254, 0.55);
       }
+      .subtractive-mask-panel {
+        position: relative;
+      }
+      .subtractive-mask-panel::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at var(--focus-x, 50%) var(--focus-y, 50%), transparent 0%, rgba(0, 0, 0, 0.55) 60%);
+        pointer-events: none;
+        border-radius: 1rem;
+      }
+      .vector-lattice-panel {
+        position: relative;
+      }
+      .vector-lattice-overlay {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(90deg, rgba(34, 211, 238, 0.08) 1px, transparent 1px),
+          linear-gradient(0deg, rgba(34, 211, 238, 0.08) 1px, transparent 1px);
+        background-size: 28px 28px;
+        mask-image: radial-gradient(circle at var(--focus-x, 50%) var(--focus-y, 50%), rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 60%);
+        -webkit-mask-image: radial-gradient(circle at var(--focus-x, 50%) var(--focus-y, 50%), rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 60%);
+        animation: lattice-warp 3s ease-in-out infinite;
+      }
+      @keyframes lattice-warp {
+        0%, 100% { transform: scale(1); opacity: 0.5; }
+        50% { transform: scale(1.02); opacity: 0.85; }
+      }
+      .procedural-grid-panel .recharts-cartesian-grid-horizontal line,
+      .procedural-grid-panel .recharts-cartesian-grid-vertical line {
+        animation: grid-pulse 2s ease-in-out infinite;
+      }
+      @keyframes grid-pulse {
+        0%, 100% { stroke-opacity: 0.08; }
+        50% { stroke-opacity: 0.35; }
+      }
+      .kinetic-panel {
+        animation: kinetic-snap 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+      @keyframes kinetic-snap {
+        0% { transform: translateY(12px) scale(0.98); opacity: 0.7; }
+        100% { transform: translateY(0) scale(1); opacity: 1; }
+      }
+      .isometric-panel {
+        transform: translateY(-4px) rotateX(2deg);
+        box-shadow: 8px 8px 0 rgba(34, 211, 238, 0.15);
+      }
+      .isometric-bar-cell {
+        transform: translateY(-5px);
+        filter: drop-shadow(5px 5px 0 rgba(34, 211, 238, 0.35)) drop-shadow(0 0 8px rgba(34, 211, 238, 0.5));
+      }
+      .holographic-panel {
+        border-style: solid;
+        border-width: 1px;
+      }
+      .holo-layer-contract { border-color: rgba(34, 211, 238, 0.35); background: linear-gradient(135deg, rgba(34, 211, 238, 0.06), transparent 60%); }
+      .holo-layer-opportunity { border-color: rgba(167, 139, 250, 0.35); background: linear-gradient(135deg, rgba(167, 139, 250, 0.06), transparent 60%); }
+      .holo-layer-sec { border-color: rgba(251, 191, 36, 0.35); background: linear-gradient(135deg, rgba(251, 191, 36, 0.06), transparent 60%); }
+      .holo-layer-job { border-color: rgba(52, 211, 153, 0.35); background: linear-gradient(135deg, rgba(52, 211, 153, 0.06), transparent 60%); }
+      .holo-layer-confidence { border-color: rgba(96, 165, 250, 0.35); background: linear-gradient(135deg, rgba(96, 165, 250, 0.06), transparent 60%); }
+      .holo-layer-location { border-color: rgba(163, 230, 53, 0.35); background: linear-gradient(135deg, rgba(163, 230, 53, 0.06), transparent 60%); }
+      .holo-layer-network { border-color: rgba(251, 146, 60, 0.35); background: linear-gradient(135deg, rgba(251, 146, 60, 0.06), transparent 60%); }
+      .holo-layer-event { border-color: rgba(251, 113, 133, 0.35); background: linear-gradient(135deg, rgba(251, 113, 133, 0.06), transparent 60%); }
+      .holo-layer-base { border-color: rgba(207, 250, 254, 0.12); }
+      .algorithmic-edge-bar-cell {
+        stroke: rgba(255, 255, 255, 0.9);
+        stroke-width: 2px;
+        stroke-dasharray: 200;
+        stroke-dashoffset: 0;
+        animation: edge-trace 1.5s ease-in-out infinite;
+      }
+      .algorithmic-edge-dot {
+        stroke: rgba(255, 255, 255, 0.95);
+        stroke-width: 2px;
+        animation: edge-dot-pulse 1.2s ease-in-out infinite;
+      }
+      @keyframes edge-dot-pulse {
+        0%, 100% { stroke-width: 2px; }
+        50% { stroke-width: 4px; }
+      }
+      @keyframes edge-trace {
+        0% { stroke-dashoffset: 200; }
+        100% { stroke-dashoffset: 0; }
+      }
+      .concentric-ring {
+        fill: none;
+        stroke: rgba(34, 211, 238, 0.65);
+        stroke-width: 2;
+        animation: ripple-expand 1.2s ease-out forwards;
+      }
+      @keyframes ripple-expand {
+        0% { r: 0; opacity: 1; }
+        100% { r: 45; opacity: 0; }
+      }
+      .color-shift-panel .recharts-bar-rectangle path {
+        transition: fill 0.5s ease;
+      }
+      .vector-displace-cell {
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+      .selected-chart-panel {
+        transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.5s ease;
+      }
+      .selected-chart-panel:hover {
+        transform: translateY(-2px);
+      }
+      .anchor-label {
+        font-size: 10px;
+        fill: rgba(34, 211, 238, 0.9);
+      }
+      .ripple-origin-cell {
+        animation: ripple-origin-pulse 1.4s ease-out infinite;
+      }
+      @keyframes ripple-origin-pulse {
+        0% { filter: drop-shadow(0 0 0 rgba(34, 211, 238, 0.9)); }
+        70% { filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.3)); }
+        100% { filter: drop-shadow(0 0 0 rgba(34, 211, 238, 0)); }
+      }
+      .mask-cutout-cell {
+        fill: rgba(15, 23, 42, 0.85) !important;
+        stroke: rgba(34, 211, 238, 0.8) !important;
+        stroke-width: 2px !important;
+        stroke-dasharray: 6 4;
+      }
+      .method-filter-bar {
+        animation: filter-bar-slide 0.4s ease-out both;
+      }
+      @keyframes filter-bar-slide {
+        0% { transform: translateY(-8px); opacity: 0; }
+        100% { transform: translateY(0); opacity: 1; }
+      }
     `}</style>
   );
 }
@@ -931,6 +1509,12 @@ export default function DataVisualization() {
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [focusedChartId, setFocusedChartId] = useState<string | null>(null);
+  const [morphMode, setMorphMode] = useState<"category" | "sourceType" | "confidence" | "time">("category");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterConfidence, setFilterConfidence] = useState<string>("all");
+  const [filterSourceType, setFilterSourceType] = useState<string>("all");
+  const [filterDateRange, setFilterDateRange] = useState<string>("all");
 
   const vizModel = buildProfileVisualizationModel({
     company,
@@ -940,7 +1524,33 @@ export default function DataVisualization() {
   });
 
   const { primaryCharts } = useChartPanels(vizModel);
-  const allCharts = useMemo(() => [...primaryCharts, ...intelligenceCharts], [primaryCharts, intelligenceCharts]);
+  const filteredIntelligenceCharts = useMemo(() => {
+    if (activeMethod === "interactive-filter") {
+      return filterIntelligenceCharts(
+        intelligenceCharts,
+        intelligence?.facts ?? [],
+        filterCategory,
+        filterConfidence,
+        filterSourceType,
+        filterDateRange
+      );
+    }
+    return intelligenceCharts;
+  }, [activeMethod, intelligenceCharts, intelligence, filterCategory, filterConfidence, filterSourceType, filterDateRange]);
+
+  const morphedChart = useMemo(() => {
+    if (activeMethod === "contextual-morph" && intelligence && intelligence.facts.length > 0) {
+      return morphIntelligenceFacts(intelligence.facts, morphMode);
+    }
+    return null;
+  }, [activeMethod, intelligence, morphMode]);
+
+  const allCharts = useMemo(() => {
+    if (activeMethod === "contextual-morph" && morphedChart) {
+      return [morphedChart];
+    }
+    return [...primaryCharts, ...filteredIntelligenceCharts];
+  }, [primaryCharts, filteredIntelligenceCharts, activeMethod, morphedChart]);
 
   const handleSelectDatum = (selection: ChartDatumSelection) => {
     setActiveSelection(selection);
@@ -1079,7 +1689,10 @@ export default function DataVisualization() {
             {visualizationMethods.map((methodId) => (
               <button
                 key={methodId}
-                onClick={() => setActiveMethod(methodId)}
+                onClick={() => {
+                  setActiveMethod(methodId);
+                  setFocusedChartId(null);
+                }}
                 className={`rounded-lg border px-3 py-1.5 text-xs transition ${
                   activeMethod === methodId
                     ? "border-cyan-100/30 bg-cyan-100/10 text-cyan-50"
@@ -1103,6 +1716,14 @@ export default function DataVisualization() {
               <h3 className="mt-1 text-xl font-bold text-white">{methodName(activeMethod)}</h3>
             </div>
             <div className="flex gap-2">
+              {activeMethod === "zoom-pan" && focusedChartId && (
+                <button
+                  onClick={() => setFocusedChartId(null)}
+                  className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-3 py-1.5 text-xs text-cyan-50 transition hover:bg-cyan-100/10"
+                >
+                  Reset focus
+                </button>
+              )}
               {activeMethod === "zoom-pan" && (
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
@@ -1115,27 +1736,85 @@ export default function DataVisualization() {
           </div>
         )}
 
+        {/* Method explanation panel */}
+        <MethodExplanationPanel methodId={activeMethod} />
+
+        {/* Interactive filter controls */}
+        {activeMethod === "interactive-filter" && intelligence && intelligence.facts.length > 0 && (
+          <div className="method-filter-bar mb-5 flex flex-wrap gap-3 rounded-xl border border-cyan-100/10 bg-black/24 p-3">
+            {[
+              { label: "Category", value: filterCategory, options: ["all", "contractAwards", "opportunities", "secFilings", "jobSignals", "sourceConfidence", "timelineEvents", "locationExposure", "medicalNetworkGaps"], onChange: setFilterCategory },
+              { label: "Confidence", value: filterConfidence, options: ["all", "high", "medium", "low", "link-only"], onChange: setFilterConfidence },
+              { label: "Source type", value: filterSourceType, options: ["all", "usaspending", "sec", "sam", "official", "careers", "manual", "news", "web"], onChange: setFilterSourceType },
+              { label: "Date range", value: filterDateRange, options: ["all", "7d", "30d", "90d", "1y"], onChange: setFilterDateRange },
+            ].map((f) => (
+              <div key={f.label} className="flex items-center gap-2">
+                <label className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/50">{f.label}</label>
+                <select
+                  value={f.value}
+                  onChange={(e) => f.onChange(e.target.value)}
+                  className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-2 py-1 text-xs text-cyan-50 outline-none focus:border-cyan-100/40"
+                >
+                  {f.options.map((o) => (
+                    <option key={o} value={o} className="bg-slate-950 text-cyan-50">
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Contextual morph controls */}
+        {activeMethod === "contextual-morph" && intelligence && intelligence.facts.length > 0 && (
+          <div className="method-filter-bar mb-5 flex flex-wrap gap-3 rounded-xl border border-cyan-100/10 bg-black/24 p-3">
+            {([
+              { key: "category", label: "Category" },
+              { key: "sourceType", label: "Source type" },
+              { key: "confidence", label: "Confidence" },
+              { key: "time", label: "Time" },
+            ] as { key: typeof morphMode; label: string }[]).map((m) => (
+              <button
+                key={m.key}
+                onClick={() => setMorphMode(m.key)}
+                className={`rounded-lg border px-3 py-1 text-xs transition ${
+                  morphMode === m.key
+                    ? "border-cyan-100/30 bg-cyan-100/10 text-cyan-50"
+                    : "border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* A. Primary Chart Workspace */}
         {allCharts.length > 0 ? (
-          <div className={`grid gap-5 ${isExpanded ? "xl:grid-cols-1" : "xl:grid-cols-2"}`}>
-            {allCharts.map((chart, index) => {
-              const isLoneChart = allCharts.length === 1;
-              const isLastOdd = index === allCharts.length - 1 && allCharts.length % 2 === 1;
-              const spanFull = isExpanded || chart.fullWidth || isLoneChart || isLastOdd;
-              return (
-                <div key={chart.id} className={spanFull ? "xl:col-span-2" : ""}>
-                  <ChartPanel
-                    chart={chart}
-                    index={index}
-                    activeMethod={activeMethod}
-                    selectedCategory={selectedCategory}
-                    activeSelection={activeSelection}
-                    onSelectCategory={handleSelectCategory}
-                    onSelectDatum={handleSelectDatum}
-                  />
-                </div>
-              );
-            })}
+          <div className={`grid gap-5 ${isExpanded || (activeMethod === "zoom-pan" && focusedChartId) ? "xl:grid-cols-1" : "xl:grid-cols-2"}`}>
+            {allCharts
+              .filter((chart) => activeMethod !== "zoom-pan" || !focusedChartId || chart.id === focusedChartId)
+              .map((chart, index) => {
+                const isLoneChart = allCharts.length === 1;
+                const isLastOdd = index === allCharts.length - 1 && allCharts.length % 2 === 1;
+                const spanFull = isExpanded || chart.fullWidth || isLoneChart || isLastOdd || (activeMethod === "zoom-pan" && focusedChartId === chart.id);
+                return (
+                  <div key={chart.id} className={spanFull ? "xl:col-span-2" : ""}>
+                    <ChartPanel
+                      chart={chart}
+                      index={index}
+                      activeMethod={activeMethod}
+                      selectedCategory={selectedCategory}
+                      activeSelection={activeSelection}
+                      focusedChartId={focusedChartId}
+                      onFocusChart={setFocusedChartId}
+                      onSelectCategory={handleSelectCategory}
+                      onSelectDatum={handleSelectDatum}
+                    />
+                  </div>
+                );
+              })}
           </div>
         ) : (
           <GlassCard className="p-8 text-center">
