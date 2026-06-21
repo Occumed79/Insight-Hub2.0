@@ -18,6 +18,8 @@ import {
   Legend,
   ReferenceLine,
   Cell,
+  Label,
+  LabelList,
 } from "recharts";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
@@ -296,6 +298,7 @@ function ChartPanel({
   index,
   activeMethod,
   selectedCategory,
+  activeSelection,
   onSelectCategory,
   onSelectDatum,
 }: {
@@ -303,6 +306,7 @@ function ChartPanel({
   index: number;
   activeMethod: string;
   selectedCategory: string | null;
+  activeSelection: ChartDatumSelection | null;
   onSelectCategory: (category: string | null) => void;
   onSelectDatum: (selection: ChartDatumSelection) => void;
 }) {
@@ -313,7 +317,12 @@ function ChartPanel({
   const isIsometric = activeMethod === "isometric-slice";
   const isChromatic = activeMethod === "chromatic-aberration";
   const isPulse = activeMethod === "kinetic-vector";
+  const isGeometricAnchor = activeMethod === "geometric-anchor";
   const height = chartHeight(chart);
+  const selectedEntry = selectedCategory
+    ? chart.data.find((d) => String(d[chart.xKey] ?? d.label) === selectedCategory)
+    : null;
+  const selectedValue = selectedEntry ? Number(selectedEntry[chart.series[0]?.dataKey ?? "value"] ?? 0) : 0;
 
   const handleBarClick = (entry: any, seriesName: string, dataKey: string, color: string) => {
     const category = String(entry[chart.xKey] ?? entry.label ?? "");
@@ -405,6 +414,12 @@ function ChartPanel({
         {chart.referenceLines?.map((ref, i) => (
           <ReferenceLine key={i} y={ref.y} stroke={ref.stroke} strokeDasharray={ref.strokeDasharray} label={ref.label} />
         ))}
+        {isGeometricAnchor && selectedCategory && (
+          <>
+            <ReferenceLine x={selectedCategory} stroke="rgba(34,211,238,0.65)" strokeDasharray="5 5" />
+            <ReferenceLine y={selectedValue} stroke="rgba(34,211,238,0.4)" strokeDasharray="5 5" />
+          </>
+        )}
         {chart.series.map((s, i) => {
           const color = getSeriesColor(i, s.color);
           return (
@@ -414,20 +429,36 @@ function ChartPanel({
               dataKey={s.dataKey}
               name={s.name ?? s.dataKey}
               stroke={color}
-              strokeWidth={isLinkedBrushing && selectedCategory ? 2 : 3}
-              dot={
-                isLinkedBrushing && selectedCategory
-                  ? { r: 4 }
-                  : isChromatic
-                    ? { r: 6, stroke: "rgba(239,68,68,0.8)", strokeWidth: 2, fill: color }
-                    : { r: 5 }
-              }
+              strokeWidth={3}
+              dot={(props: any) => {
+                const category = String(props.payload?.[chart.xKey] ?? props.payload?.label ?? "");
+                const isSelected = selectedCategory === category;
+                const isLinked = isLinkedBrushing && selectedCategory && isSelected;
+                const isDimmed = selectedCategory && !isSelected;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isSelected ? 7 : 4}
+                    fill={isLinked ? "#facc15" : color}
+                    stroke={isSelected ? "#ffffff" : color}
+                    strokeWidth={isSelected ? 3 : 2}
+                    opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : isDimmed ? 0.4 : 1}
+                    className={isChromatic && isSelected ? "chromatic-dot" : ""}
+                  />
+                );
+              }}
               activeDot={{
                 r: 8,
                 onClick: (_: any, entry: any) => handleBarClick(entry.payload, s.name ?? s.dataKey, s.dataKey, color),
               }}
               opacity={isRadiant && selectedCategory ? 0.35 : 1}
-              className={isSynchronousPath(activeMethod) ? "synchronous-path-line" : ""}
+              className={[
+                isSynchronousPath(activeMethod) ? "synchronous-path-line" : "",
+                isRadiant && selectedCategory ? "radiant-line" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
             />
           );
         })}
@@ -450,6 +481,12 @@ function ChartPanel({
         <Tooltip
           content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? "data focus"} />}
         />
+        {isGeometricAnchor && selectedCategory && (
+          <>
+            <ReferenceLine x={selectedCategory} stroke="rgba(34,211,238,0.65)" strokeDasharray="5 5" />
+            <ReferenceLine y={selectedValue} stroke="rgba(34,211,238,0.4)" strokeDasharray="5 5" />
+          </>
+        )}
         {chart.series.map((s, i) => {
           const color = getSeriesColor(i, s.color);
           return (
@@ -461,12 +498,35 @@ function ChartPanel({
               stroke={color}
               fill={`${color}4d`}
               strokeWidth={3}
+              dot={(props: any) => {
+                const category = String(props.payload?.[chart.xKey] ?? props.payload?.label ?? "");
+                const isSelected = selectedCategory === category;
+                const isLinked = isLinkedBrushing && selectedCategory && isSelected;
+                const isDimmed = selectedCategory && !isSelected;
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={isSelected ? 6 : 3}
+                    fill={isLinked ? "#facc15" : color}
+                    stroke={isSelected ? "#ffffff" : color}
+                    strokeWidth={isSelected ? 2 : 1}
+                    opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : isDimmed ? 0.4 : 1}
+                    className={isChromatic && isSelected ? "chromatic-dot" : ""}
+                  />
+                );
+              }}
               activeDot={{
                 r: 8,
                 onClick: (_: any, entry: any) => handleBarClick(entry.payload, s.name ?? s.dataKey, s.dataKey, color),
               }}
               opacity={isRadiant && selectedCategory ? 0.35 : 1}
-              className={isAlgorithmicEdge(activeMethod) ? "algorithmic-edge-area" : ""}
+              className={[
+                isAlgorithmicEdge(activeMethod) ? "algorithmic-edge-area" : "",
+                isRadiant && selectedCategory ? "radiant-area" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
             />
           );
         })}
@@ -475,18 +535,22 @@ function ChartPanel({
   }
 
   if (chart.type === "scatter") {
+    const xDataKey = chart.series[0]?.dataKey ?? "x";
+    const yDataKey = chart.series[1]?.dataKey ?? "y";
+    const selectedX = activeSelection?.chartId === chart.id ? Number(activeSelection.payload?.[xDataKey] ?? 0) : null;
+    const selectedY = activeSelection?.chartId === chart.id ? Number(activeSelection.payload?.[yDataKey] ?? 0) : null;
     return renderCartesian(
       <ScatterChart>
         <CartesianGrid stroke="rgba(255,255,255,.08)" />
         <XAxis
-          dataKey={chart.series[0]?.dataKey ?? "x"}
+          dataKey={xDataKey}
           name={chart.series[0]?.name ?? "X"}
           stroke="rgba(207,250,254,.45)"
           tick={{ fontSize: 10 }}
           tickFormatter={formatTickByType(chart.formatter)}
         />
         <YAxis
-          dataKey={chart.series[1]?.dataKey ?? "y"}
+          dataKey={yDataKey}
           name={chart.series[1]?.name ?? "Y"}
           stroke="rgba(207,250,254,.45)"
           tick={{ fontSize: 11 }}
@@ -494,11 +558,36 @@ function ChartPanel({
         />
         {chart.series.length > 2 && <ZAxis dataKey={chart.series[2]?.dataKey ?? "z"} range={[80, 520]} />}
         <Tooltip cursor={{ stroke: "rgba(34,211,238,.35)", strokeDasharray: "4 4" }} content={<LuminousChartTooltip headline={chart.headline ?? "data focus"} />} />
+        {isGeometricAnchor && selectedX !== null && selectedY !== null && (
+          <>
+            <ReferenceLine x={selectedX} stroke="rgba(34,211,238,0.65)" strokeDasharray="5 5" />
+            <ReferenceLine y={selectedY} stroke="rgba(34,211,238,0.4)" strokeDasharray="5 5" />
+          </>
+        )}
         <Scatter
           name="Data"
           data={chart.data}
           fill={chart.series[0]?.color ?? "#22d3ee"}
           onClick={handleScatterClick}
+          shape={(props: any) => {
+            const category = String(props.payload?.[chart.xKey] ?? props.payload?.name ?? "");
+            const isSelected = selectedCategory === category;
+            const isLinked = isLinkedBrushing && selectedCategory && isSelected;
+            const isDimmed = selectedCategory && !isSelected;
+            const r = props.size ? Math.sqrt(props.size) / 2 : isSelected ? 8 : 6;
+            return (
+              <circle
+                cx={props.cx}
+                cy={props.cy}
+                r={r}
+                fill={isLinked ? "#facc15" : chart.series[0]?.color ?? "#22d3ee"}
+                stroke={isSelected ? "#ffffff" : "rgba(255,255,255,0.2)"}
+                strokeWidth={isSelected ? 3 : 1}
+                opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : isDimmed ? 0.4 : 1}
+                className={isChromatic && isSelected ? "chromatic-dot" : ""}
+              />
+            );
+          }}
         />
       </ScatterChart>
     );
@@ -522,6 +611,12 @@ function ChartPanel({
       {chart.referenceLines?.map((ref, i) => (
         <ReferenceLine key={i} y={ref.y} stroke={ref.stroke} strokeDasharray={ref.strokeDasharray} label={ref.label} />
       ))}
+      {isGeometricAnchor && selectedCategory && (
+        <>
+          <ReferenceLine x={selectedCategory} stroke="rgba(34,211,238,0.65)" strokeDasharray="5 5" />
+          <ReferenceLine y={selectedValue} stroke="rgba(34,211,238,0.4)" strokeDasharray="5 5" />
+        </>
+      )}
       {chart.series.map((s, i) => {
         const color = getSeriesColor(i, s.color);
         return (
@@ -542,11 +637,14 @@ function ChartPanel({
               return (
                 <Cell
                   key={`cell-${idx}`}
-                  fill={isLinked ? "#facc15" : isSelected ? "#ffffff" : color}
+                  fill={color}
                   opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : isDimmed ? 0.4 : 1}
+                  radius={isSelected ? ([10, 10, 4, 4] as any) : s.radius ?? ([10, 10, 0, 0] as any)}
                   className={[
-                    isChromatic ? "chromatic-cell" : "",
-                    isIsometric && isSelected ? "isometric-lift" : "",
+                    isSelected ? "selected-bar-cell" : "",
+                    isLinked ? "linked-bar-cell" : "",
+                    isChromatic && isSelected ? "chromatic-bar-cell" : "",
+                    isIsometric && isSelected ? "isometric-bar-cell" : "",
                     isPulse && isSelected ? "pulse-bar" : "",
                   ]
                     .filter(Boolean)
@@ -557,10 +655,7 @@ function ChartPanel({
           </Bar>
         );
       })}
-    </BarChart>,
-    activeMethod === "geometric-anchor" ? (
-      <div className="pointer-events-none absolute inset-0 crosshair-overlay" aria-hidden />
-    ) : null
+    </BarChart>
   );
 }
 
@@ -597,21 +692,94 @@ function MatrixPanel({
 }) {
   if (!data.length) return null;
   const color = activeMethod === "negative-space" ? "#f43f5e" : "#22d3ee";
+  const xValues = data.map((d) => Number((d as any)[xKey] ?? 0)).filter((v) => !isNaN(v));
+  const yValues = data.map((d) => Number((d as any)[yKey] ?? 0)).filter((v) => !isNaN(v));
+  const xMid = xValues.length ? (Math.max(...xValues) + Math.min(...xValues)) / 2 : 0;
+  const yMid = yValues.length ? (Math.max(...yValues) + Math.min(...yValues)) / 2 : 0;
+  const [selectedPoint, setSelectedPoint] = useState<any | null>(null);
+  const isLinkedBrushing = activeMethod === "linked-visualizations";
+  const isRadiant = activeMethod === "radiant-gradient";
+  const isChromatic = activeMethod === "chromatic-aberration";
+
   return (
     <GlassCard className="p-5">
       <div className="mb-4">
         <h3 className="font-bold text-white">{title}</h3>
         {subtitle ? <p className="mt-1 text-xs text-cyan-100/55">{subtitle}</p> : null}
       </div>
-      <div className="w-full" style={{ height: 360 }}>
+      <div className="w-full" style={{ height: 380 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ScatterChart>
             <CartesianGrid stroke="rgba(255,255,255,.08)" />
-            <XAxis dataKey={xKey as string} name={xLabel} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
-            <YAxis dataKey={yKey as string} name={yLabel} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={[0, "auto"]} />
+            <XAxis
+              dataKey={xKey as string}
+              name={xLabel}
+              stroke="rgba(207,250,254,.45)"
+              tick={{ fontSize: 10 }}
+              type="number"
+              domain={[0, "auto"]}
+            >
+              <Label value={xLabel} position="insideBottom" offset={-4} fill="rgba(207,250,254,0.65)" fontSize={11} />
+            </XAxis>
+            <YAxis
+              dataKey={yKey as string}
+              name={yLabel}
+              stroke="rgba(207,250,254,.45)"
+              tick={{ fontSize: 11 }}
+              type="number"
+              domain={[0, "auto"]}
+            >
+              <Label value={yLabel} angle={-90} position="insideLeft" fill="rgba(207,250,254,0.65)" fontSize={11} />
+            </YAxis>
             <ZAxis dataKey={zKey as string} range={[80, 520]} />
-            <Tooltip cursor={{ stroke: "rgba(34,211,238,.35)", strokeDasharray: "4 4" }} content={<LuminousChartTooltip headline={title} />} />
-            <Scatter name="Data" data={data} fill={color} onClick={(_, index) => onSelectPoint(data[index])} />
+            <Tooltip cursor={{ stroke: "rgba(34,211,238,.35)", strokeDasharray: "4 4" }} content={<LuminousChartTooltip formatter="plain" headline={title} />} />
+            {xMid > 0 && (
+              <ReferenceLine x={xMid} stroke="rgba(207,250,254,0.25)" strokeDasharray="4 4" label={{ value: "Mid", position: "top", className: "matrix-quadrant-label" }} />
+            )}
+            {yMid > 0 && (
+              <ReferenceLine y={yMid} stroke="rgba(207,250,254,0.25)" strokeDasharray="4 4" label={{ value: "Mid", position: "right", className: "matrix-quadrant-label" }} />
+            )}
+            <Scatter
+              name="Data"
+              data={data}
+              fill={color}
+              onClick={(entry: any, index: number) => {
+                setSelectedPoint(data[index]);
+                onSelectPoint(data[index]);
+              }}
+              shape={(props: any) => {
+                const point = props.payload;
+                const isSelected = selectedPoint && point === selectedPoint;
+                const isLinked = isLinkedBrushing && selectedPoint && point === selectedPoint;
+                const isDimmed = selectedPoint && point !== selectedPoint;
+                return (
+                  <g>
+                    <circle
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={isSelected ? 9 : 7}
+                      fill={isLinked ? "#facc15" : color}
+                      stroke={isSelected ? "#ffffff" : "rgba(255,255,255,0.25)"}
+                      strokeWidth={isSelected ? 3 : 1}
+                      opacity={isRadiant && selectedPoint ? (isSelected ? 1 : 0.3) : isDimmed ? 0.4 : 1}
+                      className={isChromatic && isSelected ? "chromatic-dot" : ""}
+                    />
+                    {point?.name && (
+                      <text
+                        x={props.cx}
+                        y={props.cy - (isSelected ? 12 : 10)}
+                        textAnchor="middle"
+                        fill="rgba(207,250,254,0.85)"
+                        fontSize={isSelected ? 11 : 10}
+                        className="matrix-point-label"
+                      >
+                        {point.name}
+                      </text>
+                    )}
+                  </g>
+                );
+              }}
+            />
           </ScatterChart>
         </ResponsiveContainer>
       </div>
@@ -658,22 +826,91 @@ function SignalSourceStrip({
         <GlassCard className="p-5">
           <p className="mb-3 text-xs uppercase tracking-[0.24em] text-cyan-100/45">Source Evidence</p>
           <div className="space-y-2">
-            {sources.slice(0, 8).map((source, i) => (
-              <div
-                key={i}
-                className="flex items-start gap-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3"
-              >
-                <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
-                <div>
-                  <p className="text-sm font-semibold text-cyan-50">{source.name ?? source.sourceName ?? "Source"}</p>
-                  {source.type ? <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/50">{source.type}</p> : null}
+            {sources.slice(0, 8).map((source, i) => {
+              const sourceName = source.name ?? source.sourceName ?? source.title ?? source.type ?? source.id ?? "Source";
+              const sourceMeta = [source.type, source.category, source.url ? "URL" : null].filter(Boolean).join(" · ");
+              return (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3"
+                >
+                  <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-cyan-50">{sourceName}</p>
+                    {sourceMeta ? <p className="truncate text-[10px] uppercase tracking-[0.2em] text-cyan-100/50">{sourceMeta}</p> : null}
+                    {source.url ? (
+                      <p className="mt-1 truncate text-[10px] text-cyan-100/40">
+                        {String(source.url).replace(/^https?:\/\//, "").split("/")[0]}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </GlassCard>
       )}
     </div>
+  );
+}
+
+function StyleInjector() {
+  return (
+    <style>{`
+      .selected-bar-cell {
+        stroke: rgba(255, 255, 255, 0.95) !important;
+        stroke-width: 3px !important;
+        filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.85)) drop-shadow(0 0 16px rgba(34, 211, 238, 0.45));
+        opacity: 1 !important;
+      }
+      .linked-bar-cell {
+        stroke: rgba(250, 204, 21, 1) !important;
+        stroke-width: 3px !important;
+        filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.8));
+        opacity: 1 !important;
+      }
+      .chromatic-bar-cell {
+        filter: drop-shadow(2px 0 0 rgba(239, 68, 68, 0.9)) drop-shadow(-2px 0 0 rgba(6, 182, 212, 0.9)) drop-shadow(0 0 6px rgba(34, 211, 238, 0.6));
+      }
+      .isometric-bar-cell {
+        transform: translateY(-5px);
+        filter: drop-shadow(5px 5px 0 rgba(34, 211, 238, 0.35)) drop-shadow(0 0 8px rgba(34, 211, 238, 0.5));
+      }
+      .pulse-bar {
+        animation: pulse-bar-anim 1.2s ease-in-out 2;
+      }
+      @keyframes pulse-bar-anim {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.55; }
+      }
+      .crosshair-overlay {
+        background: linear-gradient(90deg, transparent 49.5%, rgba(34, 211, 238, 0.25) 49.5%, rgba(34, 211, 238, 0.25) 50.5%, transparent 50.5%),
+                    linear-gradient(0deg, transparent 49.5%, rgba(34, 211, 238, 0.25) 49.5%, rgba(34, 211, 238, 0.25) 50.5%, transparent 50.5%);
+        opacity: 0.6;
+      }
+      .synchronous-path-line path.recharts-line-curve {
+        filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.85));
+        stroke-dasharray: 12 1000;
+        animation: path-sweep 2.5s linear infinite;
+      }
+      @keyframes path-sweep {
+        0% { stroke-dashoffset: 1000; }
+        100% { stroke-dashoffset: 0; }
+      }
+      .radiant-line path.recharts-line-curve {
+        filter: drop-shadow(0 0 12px currentColor);
+      }
+      .radiant-area path.recharts-area-area {
+        filter: drop-shadow(0 0 12px currentColor);
+      }
+      .chromatic-dot {
+        filter: drop-shadow(2px 0 0 rgba(239, 68, 68, 0.9)) drop-shadow(-2px 0 0 rgba(6, 182, 212, 0.9));
+      }
+      .matrix-quadrant-label {
+        font-size: 10px;
+        fill: rgba(207, 250, 254, 0.55);
+      }
+    `}</style>
   );
 }
 
@@ -868,18 +1105,24 @@ export default function DataVisualization() {
         {/* A. Primary Chart Workspace */}
         {primaryCharts.length > 0 ? (
           <div className={`grid gap-5 ${isExpanded ? "xl:grid-cols-1" : "xl:grid-cols-2"}`}>
-            {primaryCharts.map((chart, index) => (
-              <div key={chart.id} className={chart.fullWidth || isExpanded ? "xl:col-span-2" : ""}>
-                <ChartPanel
-                  chart={chart}
-                  index={index}
-                  activeMethod={activeMethod}
-                  selectedCategory={selectedCategory}
-                  onSelectCategory={handleSelectCategory}
-                  onSelectDatum={handleSelectDatum}
-                />
-              </div>
-            ))}
+            {primaryCharts.map((chart, index) => {
+              const isLoneChart = primaryCharts.length === 1;
+              const isLastOdd = index === primaryCharts.length - 1 && primaryCharts.length % 2 === 1;
+              const spanFull = isExpanded || chart.fullWidth || isLoneChart || isLastOdd;
+              return (
+                <div key={chart.id} className={spanFull ? "xl:col-span-2" : ""}>
+                  <ChartPanel
+                    chart={chart}
+                    index={index}
+                    activeMethod={activeMethod}
+                    selectedCategory={selectedCategory}
+                    activeSelection={activeSelection}
+                    onSelectCategory={handleSelectCategory}
+                    onSelectDatum={handleSelectDatum}
+                  />
+                </div>
+              );
+            })}
           </div>
         ) : (
           <GlassCard className="p-8 text-center">
@@ -889,31 +1132,35 @@ export default function DataVisualization() {
 
         {/* B. Risk / Opportunity Matrix */}
         {(vizModel.riskMatrix.length > 0 || vizModel.opportunityMatrix.length > 0) && (
-          <div className="mt-5 grid gap-5 xl:grid-cols-2">
-            <MatrixPanel
-              title="Risk Matrix"
-              subtitle="Revenue exposure plotted against worker risk"
-              data={vizModel.riskMatrix}
-              xKey="revenue"
-              yKey="risk"
-              zKey="workers"
-              xLabel="Revenue ($M)"
-              yLabel="Risk score"
-              activeMethod={activeMethod}
-              onSelectPoint={handleMatrixPoint}
-            />
-            <MatrixPanel
-              title="Opportunity Matrix"
-              subtitle="Strategic value plotted against implementation complexity"
-              data={vizModel.opportunityMatrix}
-              xKey="revenuePotential"
-              yKey="implementationComplexity"
-              zKey="strategicValue"
-              xLabel="Revenue potential"
-              yLabel="Complexity"
-              activeMethod={activeMethod}
-              onSelectPoint={handleMatrixPoint}
-            />
+          <div className={`mt-5 grid gap-5 ${vizModel.riskMatrix.length && vizModel.opportunityMatrix.length ? "xl:grid-cols-2" : ""}`}>
+            {vizModel.riskMatrix.length > 0 && (
+              <MatrixPanel
+                title="Risk Matrix"
+                subtitle="Revenue exposure plotted against worker risk"
+                data={vizModel.riskMatrix}
+                xKey="revenue"
+                yKey="risk"
+                zKey="workers"
+                xLabel="Revenue ($M)"
+                yLabel="Risk score"
+                activeMethod={activeMethod}
+                onSelectPoint={handleMatrixPoint}
+              />
+            )}
+            {vizModel.opportunityMatrix.length > 0 && (
+              <MatrixPanel
+                title="Opportunity Matrix"
+                subtitle="Strategic value plotted against implementation complexity"
+                data={vizModel.opportunityMatrix}
+                xKey="revenuePotential"
+                yKey="implementationComplexity"
+                zKey="strategicValue"
+                xLabel="Revenue potential"
+                yLabel="Complexity"
+                activeMethod={activeMethod}
+                onSelectPoint={handleMatrixPoint}
+              />
+            )}
           </div>
         )}
 
@@ -932,6 +1179,7 @@ export default function DataVisualization() {
           selection={activeSelection}
           sourceRecords={vizModel.sourceRecords}
         />
+        <StyleInjector />
       </section>
     </main>
   );
