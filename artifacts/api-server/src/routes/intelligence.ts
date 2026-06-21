@@ -327,6 +327,342 @@ function buildSourceLeads(companyName: string, companyId: string): { leads: Fact
   };
 }
 
+// ─── Live Web Provider Integration ───────────────────────────────────────────
+
+type ProviderDiagnostic = SourceDiagnostic & {
+  keyConfigured: boolean;
+};
+
+type SearchResult = {
+  title: string;
+  url: string;
+  snippet: string;
+  source?: string;
+};
+
+const SEARCH_QUERIES = (alias: string) => [
+  { q: `"${alias}" government contract awards`, category: "contractAwards" as IntelligenceCategory },
+  { q: `"${alias}" occupational health locations`, category: "locationExposure" as IntelligenceCategory },
+  { q: `"${alias}" careers jobs locations`, category: "jobSignals" as IntelligenceCategory },
+  { q: `"${alias}" federal contract award`, category: "contractAwards" as IntelligenceCategory },
+  { q: `"${alias}" SEC 10-K filing`, category: "secFilings" as IntelligenceCategory },
+  { q: `"${alias}" press release contract award`, category: "sourceFacts" as IntelligenceCategory },
+  { q: `"${alias}" SAM.gov opportunities`, category: "opportunities" as IntelligenceCategory },
+];
+
+function classifyResult(
+  title: string,
+  snippet: string,
+  url: string,
+  defaultCategory: IntelligenceCategory
+): IntelligenceCategory {
+  const text = `${title} ${snippet} ${url}`.toLowerCase();
+  if (/sec\.gov|10-k|10-q|8-k|edgar|filing/.test(text)) return "secFilings";
+  if (/usaspending|contract award|award amount|federal contract|procurement/.test(text)) return "contractAwards";
+  if (/sam\.gov|opportunit|solicitation|rfp|rfq/.test(text)) return "opportunities";
+  if (/career|job|hiring|employment|workforce/.test(text)) return "jobSignals";
+  if (/location|region|state|city|facility|office/.test(text)) return "locationExposure";
+  if (/clinic|medical|health|network|coverage/.test(text)) return "medicalNetworkGaps";
+  return defaultCategory;
+}
+
+function confidenceForResult(url: string, snippet: string): IntelligenceConfidence {
+  const u = url.toLowerCase();
+  if (/usaspending\.gov|sec\.gov|sam\.gov|\.mil|\.gov/.test(u)) return "high";
+  if (snippet && snippet.length > 100) return "medium";
+  return "low";
+}
+
+function dedupKey(f: { sourceUrl?: string; title: string; category: string }): string {
+  return `${f.sourceUrl ?? f.title}__${f.category}`;
+}
+
+async function searchSerper(
+  query: string,
+  apiKey: string
+): Promise<SearchResult[]> {
+  const response = await fetch("https://google.serper.dev/search", {
+    method: "POST",
+    headers: {
+      "X-API-KEY": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ q: query, num: 10 }),
+  });
+  if (!response.ok) throw new Error(`Serper HTTP ${response.status}`);
+  const data = await response.json() as any;
+  const organic: any[] = data.organic ?? [];
+  return organic.map((r) => ({
+    title: String(r.title ?? ""),
+    url: String(r.link ?? ""),
+    snippet: String(r.snippet ?? ""),
+    source: "serper",
+  }));
+}
+
+async function searchExa(
+  query: string,
+  apiKey: string
+): Promise<SearchResult[]> {
+  const response = await fetch("https://api.exa.ai/search", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query, numResults: 10, type: "neural" }),
+  });
+  if (!response.ok) throw new Error(`Exa HTTP ${response.status}`);
+  const data = await response.json() as any;
+  const results: any[] = data.results ?? [];
+  return results.map((r) => ({
+    title: String(r.title ?? ""),
+    url: String(r.url ?? ""),
+    snippet: String(r.text ?? r.summary ?? ""),
+    source: "exa",
+  }));
+}
+
+async function searchTavily(
+  query: string,
+  apiKey: string
+): Promise<SearchResult[]> {
+  const response = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query, max_results: 10, include_answer: false }),
+  });
+  if (!response.ok) throw new Error(`Tavily HTTP ${response.status}`);
+  const data = await response.json() as any;
+  const results: any[] = data.results ?? [];
+  return results.map((r) => ({
+    title: String(r.title ?? ""),
+    url: String(r.url ?? ""),
+    snippet: String(r.content ?? ""),
+    source: "tavily",
+  }));
+}
+
+async function extractWithJina(url: string, apiKey: string): Promise<string | null> {
+  try {
+    const response = await fetch(`https://r.jina.ai/${url}`, {
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Accept": "text/plain",
+      },
+    });
+    if (!response.ok) return null;
+    const text = await response.text();
+    return text.slice(0, 2000);
+  } catch {
+    return null;
+  }
+}
+
+async function extractWithFirecrawl(url: string, apiKey: string): Promise<string | null> {
+  try {
+    const response = await fetch("https://api.firecrawl.dev/v0/scrape", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json() as any;
+    const content = data?.data?.markdown ?? data?.data?.content ?? "";
+    return content ? String(content).slice(0, 2000) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function runLiveWebProviders(
+  companyName: string,
+  aliases: string[],
+  companyId: string
+): Promise<{ facts: FactRow[]; diagnostics: ProviderDiagnostic[]; sourcesQueried: string[] }> {
+  const hasSerper = Boolean(process.env.SERPER_API_KEY);
+  const hasExa = Boolean(process.env.EXA_API_KEY);
+  const hasTavily = Boolean(process.env.TAVILY_API_KEY);
+  const hasFirecrawl = Boolean(process.env.FIRECRAWL_API_KEY);
+  const hasJina = Boolean(process.env.JINA_API_KEY);
+
+  const facts: FactRow[] = [];
+  const diagnostics: ProviderDiagnostic[] = [];
+  const sourcesQueried: string[] = [];
+  const seenKeys = new Set<string>();
+  const today = new Date().toISOString().split("T")[0];
+
+  // Collect all search results across providers and aliases
+  const allResults: { result: SearchResult; alias: string; query: string; category: IntelligenceCategory; provider: string }[] = [];
+
+  // Track which aliases were queried per provider
+  const aliasesByProvider: Record<string, string[]> = {};
+
+  for (const alias of aliases.slice(0, 5)) {
+    const queries = SEARCH_QUERIES(alias);
+
+    if (hasSerper) {
+      aliasesByProvider["serper"] ??= [];
+      if (!aliasesByProvider["serper"].includes(alias)) aliasesByProvider["serper"].push(alias);
+      for (const { q, category } of queries) {
+        try {
+          const results = await searchSerper(q, process.env.SERPER_API_KEY!);
+          for (const result of results) {
+            allResults.push({ result, alias, query: q, category, provider: "serper" });
+          }
+        } catch { /* continue */ }
+      }
+    }
+
+    if (hasExa) {
+      aliasesByProvider["exa"] ??= [];
+      if (!aliasesByProvider["exa"].includes(alias)) aliasesByProvider["exa"].push(alias);
+      for (const { q, category } of queries) {
+        try {
+          const results = await searchExa(q, process.env.EXA_API_KEY!);
+          for (const result of results) {
+            allResults.push({ result, alias, query: q, category, provider: "exa" });
+          }
+        } catch { /* continue */ }
+      }
+    }
+
+    if (hasTavily) {
+      aliasesByProvider["tavily"] ??= [];
+      if (!aliasesByProvider["tavily"].includes(alias)) aliasesByProvider["tavily"].push(alias);
+      for (const { q, category } of queries) {
+        try {
+          const results = await searchTavily(q, process.env.TAVILY_API_KEY!);
+          for (const result of results) {
+            allResults.push({ result, alias, query: q, category, provider: "tavily" });
+          }
+        } catch { /* continue */ }
+      }
+    }
+  }
+
+  // Deduplicate search results by URL
+  const seenUrls = new Set<string>();
+  const uniqueResults = allResults.filter((r) => {
+    if (!r.result.url || seenUrls.has(r.result.url)) return false;
+    seenUrls.add(r.result.url);
+    return true;
+  });
+
+  // Extract content for top URLs using Firecrawl or Jina (limit to avoid rate limits)
+  const extractionCount = Math.min(uniqueResults.length, 15);
+  for (let i = 0; i < extractionCount; i++) {
+    const item = uniqueResults[i];
+    let extractedText: string | null = null;
+
+    if (hasFirecrawl) {
+      extractedText = await extractWithFirecrawl(item.result.url, process.env.FIRECRAWL_API_KEY!);
+    }
+    if (!extractedText && hasJina) {
+      extractedText = await extractWithJina(item.result.url, process.env.JINA_API_KEY!);
+    }
+
+    if (extractedText) {
+      item.result.snippet = extractedText.slice(0, 500);
+    }
+  }
+
+  // Convert search results into facts
+  for (const { result, alias, query, category: defaultCat, provider } of uniqueResults) {
+    if (!result.url || !result.title) continue;
+
+    const category = classifyResult(result.title, result.snippet, result.url, defaultCat);
+    const confidence = confidenceForResult(result.url, result.snippet);
+    const key = dedupKey({ sourceUrl: result.url, title: result.title, category });
+
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+
+    facts.push({
+      companyId,
+      title: result.title.slice(0, 200),
+      category,
+      date: today,
+      sourceUrl: result.url,
+      sourceName: provider === "serper" ? "Google (Serper)" : provider === "exa" ? "Exa" : "Tavily",
+      sourceType: "web",
+      confidence,
+      rawSnippet: result.snippet?.slice(0, 500) || undefined,
+      summary: result.snippet?.slice(0, 300) || result.title,
+      metadata: {
+        provider,
+        matchedAlias: alias,
+        query,
+        recordType: "liveFact",
+        extracted: result.snippet?.length > 200 ? true : false,
+      },
+    });
+  }
+
+  // Build per-provider diagnostics
+  const providers = [
+    { name: "serper", has: hasSerper, label: "Serper (Google Search)" },
+    { name: "exa", has: hasExa, label: "Exa (Neural Search)" },
+    { name: "tavily", has: hasTavily, label: "Tavily (Research Search)" },
+    { name: "firecrawl", has: hasFirecrawl, label: "Firecrawl (Page Extraction)" },
+    { name: "jina", has: hasJina, label: "Jina (Page Extraction)" },
+  ];
+
+  for (const prov of providers) {
+    if (!prov.has) {
+      diagnostics.push({
+        source: prov.name,
+        status: "needs-key",
+        factsFound: 0,
+        aliasesQueried: [],
+        message: `${prov.label} not configured — no API key in environment.`,
+        keyConfigured: false,
+      });
+      continue;
+    }
+
+    const provFacts = facts.filter((f) => f.metadata?.provider === prov.name);
+    const provAliases = aliasesByProvider[prov.name] ?? aliases;
+
+    if (prov.name === "firecrawl" || prov.name === "jina") {
+      const extractedCount = facts.filter((f) => f.metadata?.extracted === true).length;
+      diagnostics.push({
+        source: prov.name,
+        status: extractedCount > 0 ? "success" : "no-results",
+        factsFound: extractedCount,
+        aliasesQueried: provAliases,
+        message: extractedCount > 0
+          ? `${prov.label}: extracted content from ${extractedCount} URL(s).`
+          : `${prov.label}: no content extracted.`,
+        keyConfigured: true,
+      });
+    } else {
+      diagnostics.push({
+        source: prov.name,
+        status: provFacts.length > 0 ? "success" : "no-results",
+        factsFound: provFacts.length,
+        aliasesQueried: provAliases,
+        message: provFacts.length > 0
+          ? `${prov.label}: ${provFacts.length} live fact(s) from ${provAliases.length} alias queries.`
+          : `${prov.label}: no results from ${provAliases.length} alias queries.`,
+        keyConfigured: true,
+      });
+    }
+
+    if (!sourcesQueried.includes(prov.name)) {
+      sourcesQueried.push(prov.name);
+    }
+  }
+
+  return { facts, diagnostics, sourcesQueried };
+}
+
 function buildChartReady(facts: FactRow[]) {
   const liveFacts = facts.filter((f) => f.confidence !== "link-only");
 
@@ -535,11 +871,29 @@ router.post("/intelligence/ingest/company", async (req, res) => {
       diagnostics.push({ source: "sec", status: "error", factsFound: 0, aliasesQueried: aliases, message: msg, error: msg });
     }
 
-    // Source leads — SAM.gov, official, careers (not counted as live facts)
-    sourcesQueried.push("sam", "official", "careers");
-    const { leads, diagnostic: leadDiag } = buildSourceLeads(companyName, companyId);
-    diagnostics.push(leadDiag);
-    allFacts.push(...leads);
+    // Live web providers — Serper, Exa, Tavily, Firecrawl, Jina (uses configured API keys)
+    try {
+      const { facts: webFacts, diagnostics: webDiags, sourcesQueried: webSources } = await runLiveWebProviders(companyName, aliases, companyId);
+      allFacts.push(...webFacts);
+      diagnostics.push(...webDiags);
+      sourcesQueried.push(...webSources);
+      if (webFacts.length === 0) {
+        errors.push(`Web providers: no live facts from any configured provider`);
+      }
+    } catch (err) {
+      const msg = `Web providers: ${err instanceof Error ? err.message : "failed"}`;
+      errors.push(msg);
+      diagnostics.push({ source: "web-providers", status: "error", factsFound: 0, aliasesQueried: aliases, message: msg, error: msg });
+    }
+
+    // Link-only fallback — only if no live facts from any source
+    const liveFactsSoFar = allFacts.filter((f) => f.confidence !== "link-only");
+    if (liveFactsSoFar.length === 0) {
+      sourcesQueried.push("sam", "official", "careers");
+      const { leads, diagnostic: leadDiag } = buildSourceLeads(companyName, companyId);
+      diagnostics.push(leadDiag);
+      allFacts.push(...leads);
+    }
 
     // Insert facts into DB
     const insertedFacts: typeof intelligenceFactsTable.$inferSelect[] = allFacts.length > 0
