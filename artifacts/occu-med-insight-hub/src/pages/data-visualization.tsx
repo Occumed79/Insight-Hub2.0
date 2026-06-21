@@ -1,17 +1,11 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { HeaderBar } from "@/components/insight/HeaderBar";
-import { MetricCard } from "@/components/insight/MetricCard";
-import { ChartBlock } from "@/components/insight/ChartBlock";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
 import { IntelligenceSelector } from "@/components/insight/IntelligenceSelector";
 import { IntelligenceStatusBadge } from "@/components/insight/IntelligenceStatusBadge";
 import { DataQualityBanner } from "@/components/insight/DataQualityBanner";
-import { CompanyChartRenderer } from "@/components/company/CompanyChartRenderer";
-import { CompanyRiskRenderer } from "@/components/company/CompanyRiskRenderer";
-import { CompanyOpportunityRenderer } from "@/components/company/CompanyOpportunityRenderer";
-import { CompanyDossierRenderer } from "@/components/company/CompanyDossierRenderer";
 import { useInsightData, useSelectedCompany } from "@/data/useInsightData";
 import { getCompanyConfigOrDefault } from "@/company-configs";
 import { resolveConfigCompanyId } from "@/company-configs/configIds";
@@ -24,7 +18,7 @@ interface ProfileVisualizationModel {
   charts: ChartDefinition[];
   signals: SignalDefinition[];
   dossierSections: DossierSectionDefinition[];
-  sourceRecords: number;
+  sourceRecords: any[];
   riskMatrix: RiskMatrixPoint[];
   opportunityMatrix: OpportunityMatrixPoint[];
 }
@@ -51,7 +45,7 @@ function buildProfileVisualizationModel({
     charts: config.chartDefinitions ?? [],
     signals: config.executiveSignals ?? [],
     dossierSections: config.dossierSections ?? [],
-    sourceRecords: sources.length,
+    sourceRecords: sources,
     riskMatrix: config.riskMatrix ?? [],
     opportunityMatrix: config.opportunityMatrix ?? []
   };
@@ -62,11 +56,11 @@ interface VisualizationMethodCardProps {
   description: string;
   isActive: boolean;
   onClick: () => void;
-  children: React.ReactNode;
   effectClass: string;
+  dataCount: number;
 }
 
-function VisualizationMethodCard({ title, description, isActive, onClick, children, effectClass }: VisualizationMethodCardProps) {
+function VisualizationMethodCard({ title, description, isActive, onClick, effectClass, dataCount }: VisualizationMethodCardProps) {
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
@@ -75,11 +69,137 @@ function VisualizationMethodCard({ title, description, isActive, onClick, childr
       className={`relative overflow-hidden rounded-2xl border border-cyan-100/12 bg-black/18 p-5 transition-all duration-300 ${isActive ? 'border-cyan-200/30 bg-cyan-300/8 shadow-[0_0_30px_rgba(34,211,238,.12),inset_0_0_30px_rgba(34,211,238,.08)]' : 'hover:border-cyan-100/20 hover:bg-white/[0.05]'} ${effectClass}`}
     >
       <div className="relative z-10">
-        <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">{title}</p>
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">{title}</p>
+          <span className="rounded-full bg-cyan-100/10 px-2 py-0.5 text-[10px] font-bold text-cyan-50">{dataCount}</span>
+        </div>
         <p className="mt-1 text-xs leading-5 text-cyan-100/58">{description}</p>
-        <div className="mt-4">{children}</div>
       </div>
     </motion.div>
+  );
+}
+
+interface VisualizationDataNodeProps {
+  label: string;
+  value: string | number;
+  type: 'metric' | 'signal' | 'chart' | 'source' | 'dossier' | 'risk' | 'opportunity';
+  isSelected: boolean;
+  onClick: () => void;
+  effectStyle: string;
+}
+
+function VisualizationDataNode({ label, value, type, isSelected, onClick, effectStyle }: VisualizationDataNodeProps) {
+  const typeColors = {
+    metric: 'border-cyan-100/20 bg-cyan-100/5',
+    signal: 'border-emerald-100/20 bg-emerald-100/5',
+    chart: 'border-purple-100/20 bg-purple-100/5',
+    source: 'border-amber-100/20 bg-amber-100/5',
+    dossier: 'border-rose-100/20 bg-rose-100/5',
+    risk: 'border-red-100/20 bg-red-100/5',
+    opportunity: 'border-green-100/20 bg-green-100/5'
+  };
+
+  return (
+    <motion.div
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      className={`cursor-pointer rounded-xl border p-3 transition-all ${typeColors[type]} ${isSelected ? 'ring-2 ring-cyan-400/50' : ''} ${effectStyle}`}
+    >
+      <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-100/60">{label}</p>
+      <p className="mt-1 text-sm font-bold text-cyan-50">{typeof value === 'number' ? value.toLocaleString() : value}</p>
+    </motion.div>
+  );
+}
+
+interface VisualizationDetailDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  selection: any;
+}
+
+function VisualizationDetailDrawer({ isOpen, onClose, selection }: VisualizationDetailDrawerProps) {
+  if (!selection) return null;
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          className="fixed bottom-0 right-0 z-50 w-full max-w-md border-t border-cyan-100/20 bg-[#030813]/95 p-6 backdrop-blur-xl lg:bottom-0 lg:right-8 lg:top-auto lg:rounded-t-2xl"
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-white">Detail View</h3>
+            <button onClick={onClose} className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-3 py-1 text-xs text-cyan-50 hover:bg-cyan-100/10">
+              Close
+            </button>
+          </div>
+          <div className="space-y-3">
+            <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Label</p>
+              <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.label || selection.name || 'N/A'}</p>
+            </div>
+            <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Value</p>
+              <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.value !== undefined ? selection.value.toLocaleString() : 'N/A'}</p>
+            </div>
+            {selection.unit && (
+              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Unit</p>
+                <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.unit}</p>
+              </div>
+            )}
+            {selection.category && (
+              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Category</p>
+                <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.category}</p>
+              </div>
+            )}
+            {selection.note && (
+              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Note</p>
+                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{selection.note}</p>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+interface VisualizationFilterBarProps {
+  filters: {
+    showMetrics: boolean;
+    showSignals: boolean;
+    showCharts: boolean;
+    showSources: boolean;
+    showDossier: boolean;
+    showRisk: boolean;
+    showOpportunity: boolean;
+  };
+  onFilterChange: (key: string, value: boolean) => void;
+}
+
+function VisualizationFilterBar({ filters, onFilterChange }: VisualizationFilterBarProps) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {Object.entries(filters).map(([key, value]) => (
+        <button
+          key={key}
+          onClick={() => onFilterChange(key, !value)}
+          className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+            value
+              ? 'border-cyan-100/30 bg-cyan-100/10 text-cyan-50'
+              : 'border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20'
+          }`}
+        >
+          {key.replace('show', '').replace(/([A-Z])/g, ' $1').trim()}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -94,6 +214,19 @@ export default function DataVisualization() {
   
   const [activeMethod, setActiveMethod] = useState<string | null>(null);
   const [activeSelection, setActiveSelection] = useState<any>(null);
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+  const [semanticZoomLevel, setSemanticZoomLevel] = useState<'overview' | 'detail'>('overview');
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  const [filters, setFilters] = useState({
+    showMetrics: true,
+    showSignals: true,
+    showCharts: true,
+    showSources: true,
+    showDossier: true,
+    showRisk: true,
+    showOpportunity: true
+  });
 
   const vizModel = buildProfileVisualizationModel({
     company,
@@ -102,6 +235,43 @@ export default function DataVisualization() {
     metrics: dataset.metrics.filter((metric) => resolveConfigCompanyId(metric.companyId) === resolvedCompanyId),
     sources
   });
+
+  const handleFilterChange = (key: string, value: boolean) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleNodeClick = (node: any) => {
+    setActiveSelection(node);
+    setDetailDrawerOpen(true);
+  };
+
+  const getFilteredData = () => {
+    let data: any[] = [];
+    if (filters.showMetrics) {
+      data = [...data, ...vizModel.metrics.map(m => ({ ...m, type: 'metric' }))];
+    }
+    if (filters.showSignals) {
+      data = [...data, ...vizModel.signals.map(s => ({ ...s, type: 'signal' }))];
+    }
+    if (filters.showCharts) {
+      data = [...data, ...vizModel.charts.map(c => ({ ...c, type: 'chart' }))];
+    }
+    if (filters.showSources) {
+      data = [...data, ...vizModel.sourceRecords.map(s => ({ ...s, type: 'source' }))];
+    }
+    if (filters.showDossier) {
+      data = [...data, ...vizModel.dossierSections.map(d => ({ ...d, type: 'dossier' }))];
+    }
+    if (filters.showRisk) {
+      data = [...data, ...vizModel.riskMatrix.map(r => ({ ...r, type: 'risk' }))];
+    }
+    if (filters.showOpportunity) {
+      data = [...data, ...vizModel.opportunityMatrix.map(o => ({ ...o, type: 'opportunity' }))];
+    }
+    return data;
+  };
+
+  const filteredData = getFilteredData();
 
   const visualizationMethods = [
     {
@@ -238,17 +408,7 @@ export default function DataVisualization() {
     }
   ];
 
-  const renderMethodContent = (methodId: string) => {
-    const hasMetrics = vizModel.metrics.length > 0;
-    const hasCharts = vizModel.charts.length > 0;
-    const hasSignals = vizModel.signals.length > 0;
-    const hasRiskMatrix = vizModel.riskMatrix.length > 0;
-    const hasOpportunityMatrix = vizModel.opportunityMatrix.length > 0;
-
-    if (!hasMetrics && !hasCharts && !hasSignals && !hasRiskMatrix && !hasOpportunityMatrix) {
-      return <p className="text-xs text-cyan-100/40">No source-backed values available for this profile.</p>;
-    }
-
+  const getMethodDataCount = (methodId: string) => {
     switch (methodId) {
       case "vector-displacement":
       case "chromatic-aberration":
@@ -267,60 +427,17 @@ export default function DataVisualization() {
       case "holographic-depth":
       case "kinetic-vector":
       case "contextual-morph":
-        if (hasMetrics) {
-          return (
-            <div className="grid gap-2 md:grid-cols-2">
-              {vizModel.metrics.slice(0, 4).map((metric) => (
-                <div key={metric.id} className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-3">
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-100/42">{metric.label}</p>
-                  <p className="mt-1 text-lg font-black text-cyan-50">
-                    {metric.unit === "usd" ? `$${(metric.value / 1000000).toFixed(1)}M` : metric.value}
-                  </p>
-                </div>
-              ))}
-            </div>
-          );
-        }
-        return <p className="text-xs text-cyan-100/40">No metrics available for this profile.</p>;
-
+        return vizModel.metrics.length;
       case "semantic-zoom":
-        return (
-          <div className="flex gap-2">
-            <button className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-3 py-1.5 text-xs text-cyan-50 transition hover:bg-cyan-100/10">Overview</button>
-            <button className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-3 py-1.5 text-xs text-cyan-50 transition hover:bg-cyan-100/10">Detail</button>
-          </div>
-        );
-
+        return vizModel.metrics.length + vizModel.signals.length;
       case "interactive-filter":
       case "zoom-pan":
       case "linked-visualizations":
-        if (hasCharts) {
-          return (
-            <div className="space-y-2">
-              {vizModel.charts.slice(0, 2).map((chart) => (
-                <div key={chart.id} className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-3">
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-100/42">{chart.title}</p>
-                  <p className="mt-1 text-xs text-cyan-100/58">{chart.data.length} data points</p>
-                </div>
-              ))}
-            </div>
-          );
-        }
-        return <p className="text-xs text-cyan-100/40">No charts available for this profile.</p>;
-
+        return filteredData.length;
       case "click-reveal":
-        if (activeSelection) {
-          return (
-            <div className="rounded-xl border border-cyan-100/20 bg-cyan-100/5 p-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-100/42">Selected</p>
-              <p className="mt-1 text-sm font-semibold text-cyan-50">{JSON.stringify(activeSelection).slice(0, 50)}...</p>
-            </div>
-          );
-        }
-        return <p className="text-xs text-cyan-100/40">Click a value to reveal details.</p>;
-
+        return activeSelection ? 1 : 0;
       default:
-        return <p className="text-xs text-cyan-100/40">Visualization ready.</p>;
+        return 0;
     }
   };
 
@@ -361,7 +478,7 @@ export default function DataVisualization() {
             </div>
             <div className="rounded-2xl border border-cyan-100/12 bg-black/18 p-4 shadow-[inset_0_0_24px_rgba(45,212,191,.06)]">
               <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Source records</p>
-              <p className="mt-2 text-lg font-black text-cyan-50">{vizModel.sourceRecords}</p>
+              <p className="mt-2 text-lg font-black text-cyan-50">{vizModel.sourceRecords.length}</p>
             </div>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -392,38 +509,139 @@ export default function DataVisualization() {
                 isActive={activeMethod === method.id}
                 onClick={() => setActiveMethod(method.id)}
                 effectClass={method.effectClass}
-              >
-                {renderMethodContent(method.id)}
-              </VisualizationMethodCard>
+                dataCount={getMethodDataCount(method.id)}
+              />
             ))}
           </div>
         </div>
 
-        {/* Primary Visualization Canvas */}
-        {vizModel.charts.length > 0 && (
-          <div>
-            <p className="mb-3 text-xs uppercase tracking-[0.25em] text-cyan-100/35">Primary visualization canvas</p>
-            <CompanyChartRenderer charts={vizModel.charts} />
-          </div>
+        {/* Active Method Canvas */}
+        {activeMethod && (
+          <GlassCard className={`p-6 transition-all ${isExpanded ? 'min-h-[600px]' : ''}`}>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-cyan-100/35">Active method canvas</p>
+                <h3 className="mt-1 text-xl font-bold text-white">
+                  {visualizationMethods.find(m => m.id === activeMethod)?.title}
+                </h3>
+              </div>
+              {activeMethod === 'zoom-pan' && (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-3 py-1.5 text-xs text-cyan-50 transition hover:bg-cyan-100/10"
+                >
+                  {isExpanded ? 'Collapse' : 'Expand'}
+                </button>
+              )}
+            </div>
+            
+            {activeMethod === 'semantic-zoom' && (
+              <div className="mb-4">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSemanticZoomLevel('overview')}
+                    className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                      semanticZoomLevel === 'overview'
+                        ? 'border-cyan-100/30 bg-cyan-100/10 text-cyan-50'
+                        : 'border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20'
+                    }`}
+                  >
+                    Overview
+                  </button>
+                  <button
+                    onClick={() => setSemanticZoomLevel('detail')}
+                    className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                      semanticZoomLevel === 'detail'
+                        ? 'border-cyan-100/30 bg-cyan-100/10 text-cyan-50'
+                        : 'border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20'
+                    }`}
+                  >
+                    Detail
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activeMethod === 'interactive-filter' && (
+              <div className="mb-4">
+                <VisualizationFilterBar filters={filters} onFilterChange={handleFilterChange} />
+              </div>
+            )}
+
+            <div className={`grid gap-3 ${isExpanded ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
+              {(() => {
+                const dataToRender = activeMethod === 'interactive-filter' ? filteredData :
+                  activeMethod === 'semantic-zoom' && semanticZoomLevel === 'overview' ? 
+                    [...vizModel.metrics.slice(0, 6), ...vizModel.signals.slice(0, 3)] :
+                    activeMethod === 'semantic-zoom' && semanticZoomLevel === 'detail' ?
+                      [...vizModel.metrics, ...vizModel.signals] :
+                    vizModel.metrics;
+
+                if (dataToRender.length === 0) {
+                  return <p className="col-span-full text-center text-sm text-cyan-100/40">No data available for current filter/zoom level</p>;
+                }
+
+                return dataToRender.slice(0, isExpanded ? 20 : 12).map((item, index) => {
+                  const effectStyles: Record<string, string> = {
+                    'vector-displacement': 'hover:shadow-[0_0_30px_rgba(34,211,238,.2)]',
+                    'chromatic-aberration': 'hover:shadow-[0_0_30px_rgba(239,68,68,.2),0_0_30px_rgba(6,182,212,.2)]',
+                    'geometric-anchor': 'hover:shadow-[0_0_30px_rgba(16,185,129,.2)]',
+                    'subtractive-masking': 'hover:shadow-[inset_0_0_30px_rgba(34,211,238,.15)]',
+                    'procedural-grid': 'hover:shadow-[0_0_30px_rgba(34,211,238,.25),0_0_60px_rgba(34,211,238,.15)]',
+                    'algorithmic-edge': 'hover:shadow-[0_0_2px_rgba(34,211,238,1),0_0_10px_rgba(34,211,238,.6)]',
+                    'concentric-ripple': 'hover:shadow-[0_0_0_6px_rgba(34,211,238,.4),0_0_0_12px_rgba(34,211,238,.2)]',
+                    'negative-space': 'hover:shadow-[inset_0_0_30px_rgba(0,0,0,.9),0_0_15px_rgba(34,211,238,.4)]',
+                    'vector-lattice': 'hover:shadow-[0_0_30px_rgba(168,85,247,.2)]',
+                    'color-shift': 'hover:shadow-[0_0_30px_rgba(236,72,153,.2)]',
+                    'synchronous-path': 'hover:shadow-[0_0_30px_rgba(251,191,36,.2)]',
+                    'vector-node': 'hover:shadow-[0_0_30px_rgba(34,211,238,.3)]',
+                    'radiant-gradient': 'hover:shadow-[0_0_50px_rgba(34,211,238,.25),0_0_80px_rgba(34,211,238,.15)]',
+                    'isometric-slice': 'hover:shadow-[6px_6px_0_rgba(34,211,238,.25)]',
+                    'holographic-depth': 'hover:shadow-[0_0_30px_rgba(34,211,238,.2),0_0_60px_rgba(34,211,238,.08)]',
+                    'kinetic-vector': 'hover:shadow-[0_0_30px_rgba(20,184,166,.2)]',
+                    'contextual-morph': 'hover:shadow-[0_0_30px_rgba(139,92,246,.2)]',
+                    'semantic-zoom': 'hover:shadow-[0_0_30px_rgba(99,102,241,.2)]',
+                    'interactive-filter': 'hover:shadow-[0_0_30px_rgba(234,88,12,.2)]',
+                    'zoom-pan': 'hover:shadow-[0_0_30px_rgba(14,165,233,.2)]',
+                    'linked-visualizations': 'hover:shadow-[0_0_30px_rgba(22,163,74,.2)]',
+                    'click-reveal': 'hover:shadow-[0_0_30px_rgba(244,63,94,.2)]'
+                  };
+
+                  const isSelected = activeSelection && activeSelection.id === item.id;
+                  const isRelated = activeSelection && activeSelection.category === item.category;
+                  const opacity = activeMethod === 'contextual-morph' && activeSelection ? 
+                    (isSelected ? 1 : isRelated ? 0.8 : 0.3) : 1;
+
+                  return (
+                    <motion.div
+                      key={item.id || index}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity, y: 0 }}
+                      transition={{ delay: index * 0.03 }}
+                      style={{ opacity }}
+                    >
+                      <VisualizationDataNode
+                        label={item.label || item.name || item.title || 'Unknown'}
+                        value={item.value || item.revenue || item.workers || item.data?.length || 0}
+                        type={item.type || 'metric'}
+                        isSelected={isSelected}
+                        onClick={() => handleNodeClick(item)}
+                        effectStyle={effectStyles[activeMethod] || ''}
+                      />
+                    </motion.div>
+                  );
+                });
+              })()}
+            </div>
+          </GlassCard>
         )}
 
-        {vizModel.riskMatrix.length > 0 && (
-          <div className="mt-5">
-            <CompanyRiskRenderer data={vizModel.riskMatrix} companyName={config.shortName} />
-          </div>
-        )}
-
-        {vizModel.opportunityMatrix.length > 0 && (
-          <div className="mt-5">
-            <CompanyOpportunityRenderer data={vizModel.opportunityMatrix} companyName={config.shortName} />
-          </div>
-        )}
-
-        {profile && (
-          <div className="mt-5">
-            <CompanyDossierRenderer profile={profile} metrics={vizModel.metrics} />
-          </div>
-        )}
+        {/* Click-to-Reveal Detail Drawer */}
+        <VisualizationDetailDrawer
+          isOpen={detailDrawerOpen}
+          onClose={() => setDetailDrawerOpen(false)}
+          selection={activeSelection}
+        />
       </section>
     </main>
   );
