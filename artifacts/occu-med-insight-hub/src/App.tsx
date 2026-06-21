@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import DataProfiles from "@/pages/data-profiles";
+import DataVisualization from "@/pages/data-visualization";
 import QuantifiableData from "@/pages/quantifiable-data";
 import GeographicData from "@/pages/geographic-data";
 import EntityDiscovery from "@/pages/entity-discovery";
@@ -17,6 +18,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/data-profiles" component={DataProfiles} />
+      <Route path="/data-visualization" component={DataVisualization} />
       <Route path="/quantifiable-data" component={QuantifiableData} />
       <Route path="/geographic-data" component={GeographicData} />
       <Route path="/entity-discovery" component={EntityDiscovery} />

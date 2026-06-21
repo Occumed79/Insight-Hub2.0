@@ -1,10 +1,11 @@
-import { BarChart3, Building2, Globe2, Home } from "lucide-react";
+import { BarChart3, Building2, Globe2, Home, ScatterChart } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "Home", icon: Home },
   { href: "/data-profiles", label: "Data Profiles", icon: Building2 },
+  { href: "/data-visualization", label: "Data Visualization", icon: ScatterChart },
   { href: "/quantifiable-data", label: "Quantifiable Data", icon: BarChart3 },
   { href: "/geographic-data", label: "Geographic Data", icon: Globe2 },
 ];
