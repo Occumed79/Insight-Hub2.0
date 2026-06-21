@@ -162,17 +162,16 @@ interface VisualizationCanvasProps {
 }
 
 function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelection, setActiveSelection, setDetailDrawerOpen, semanticZoomLevel, isExpanded, filters }: VisualizationCanvasProps) {
-  const dataToRender = activeMethod === 'interactive-filter' ? filteredData :
-    activeMethod === 'semantic-zoom' && semanticZoomLevel === 'overview' ? 
-      [...vizModel.metrics.slice(0, 8), ...vizModel.signals.slice(0, 4)] :
+  const dataToRender = activeMethod === 'semantic-zoom' && semanticZoomLevel === 'overview' ? 
+      filteredData.slice(0, 20) :
       activeMethod === 'semantic-zoom' && semanticZoomLevel === 'detail' ?
-        [...vizModel.metrics, ...vizModel.signals] :
-      vizModel.metrics;
+        filteredData :
+      filteredData;
 
   const getNodePosition = (index: number, total: number, method: string) => {
     const centerX = 50;
     const centerY = 50;
-    const radius = 35;
+    const radius = 40;
     
     switch (method) {
       case 'vector-displacement':
@@ -182,6 +181,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
       case 'negative-space':
       case 'vector-lattice':
       case 'radiant-gradient':
+      case 'contextual-morph':
         const angle = (index / total) * 2 * Math.PI;
         return {
           x: centerX + radius * Math.cos(angle),
@@ -197,8 +197,8 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
         const row = Math.floor(index / cols);
         const col = index % cols;
         return {
-          x: 10 + (col * 80 / cols),
-          y: 10 + (row * 80 / cols)
+          x: 5 + (col * 90 / cols),
+          y: 5 + (row * 90 / cols)
         };
       default:
         const defaultAngle = (index / total) * 2 * Math.PI;
@@ -209,12 +209,38 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
     }
   };
 
+  const getNodeColor = (type: string) => {
+    switch (type) {
+      case 'metric': return 'rgba(34,211,238,0.8)';
+      case 'signal': return 'rgba(16,185,129,0.8)';
+      case 'chart': return 'rgba(139,92,246,0.8)';
+      case 'source': return 'rgba(251,191,36,0.8)';
+      case 'dossier': return 'rgba(244,63,94,0.8)';
+      case 'risk': return 'rgba(239,68,68,0.8)';
+      case 'opportunity': return 'rgba(34,197,94,0.8)';
+      default: return 'rgba(34,211,238,0.8)';
+    }
+  };
+
+  const getNodeStrokeColor = (type: string) => {
+    switch (type) {
+      case 'metric': return 'rgba(34,211,238,1)';
+      case 'signal': return 'rgba(16,185,129,1)';
+      case 'chart': return 'rgba(139,92,246,1)';
+      case 'source': return 'rgba(251,191,36,1)';
+      case 'dossier': return 'rgba(244,63,94,1)';
+      case 'risk': return 'rgba(239,68,68,1)';
+      case 'opportunity': return 'rgba(34,197,94,1)';
+      default: return 'rgba(34,211,238,1)';
+    }
+  };
+
   const renderCanvas = () => {
     if (dataToRender.length === 0) {
       return <p className="flex h-full items-center justify-center text-sm text-cyan-100/40">No data available for current filter/zoom level</p>;
     }
 
-    const displayData = dataToRender.slice(0, isExpanded ? 30 : 15);
+    const displayData = dataToRender.slice(0, isExpanded ? 50 : 25);
     const canvasHeight = isExpanded ? 700 : 500;
 
     switch (activeMethod) {
@@ -232,27 +258,42 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
               {displayData.map((item, index) => {
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 return (
-                  <g key={item.id || index}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
-                      stroke="rgba(34,211,238,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
+                      stroke={nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
+                    {isSelected && (
+                      <circle
+                        cx={`${pos.x}%`}
+                        cy={`${pos.y}%`}
+                        r={16}
+                        fill="none"
+                        stroke={nodeStroke}
+                        strokeWidth={1}
+                        opacity={0.5}
+                      />
+                    )}
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -268,22 +309,25 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
               {displayData.map((item, index) => {
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 return (
-                  <g key={item.id || index}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
                     {isSelected && (
                       <>
                         <circle
-                          cx={`${pos.x + 0.5}%`}
+                          cx={`${pos.x + 0.8}%`}
                           cy={`${pos.y}%`}
-                          r={8}
-                          fill="rgba(239,68,68,0.4)"
+                          r={12}
+                          fill="rgba(239,68,68,0.5)"
                           className="pointer-events-none"
                         />
                         <circle
-                          cx={`${pos.x - 0.5}%`}
+                          cx={`${pos.x - 0.8}%`}
                           cy={`${pos.y}%`}
-                          r={8}
-                          fill="rgba(6,182,212,0.4)"
+                          r={12}
+                          fill="rgba(6,182,212,0.5)"
                           className="pointer-events-none"
                         />
                       </>
@@ -291,22 +335,23 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
-                      stroke="rgba(34,211,238,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
+                      stroke={nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -322,35 +367,39 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
               {displayData.map((item, index) => {
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 return (
-                  <g key={item.id || index}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
                     {isSelected && (
                       <>
-                        <line x1={`${pos.x}%`} y1="0%" x2={`${pos.x}%`} y2="100%" stroke="rgba(16,185,129,0.3)" strokeWidth="1" />
-                        <line x1="0%" y1={`${pos.y}%`} x2="100%" y2={`${pos.y}%`} stroke="rgba(16,185,129,0.3)" strokeWidth="1" />
-                        <line x1={`${pos.x - 10}%`} y1={`${pos.y - 10}%`} x2={`${pos.x + 10}%`} y2={`${pos.y + 10}%`} stroke="rgba(16,185,129,0.5)" strokeWidth="1" />
-                        <line x1={`${pos.x + 10}%`} y1={`${pos.y - 10}%`} x2={`${pos.x - 10}%`} y2={`${pos.y + 10}%`} stroke="rgba(16,185,129,0.5)" strokeWidth="1" />
+                        <line x1={`${pos.x}%`} y1="0%" x2={`${pos.x}%`} y2="100%" stroke={nodeStroke} strokeWidth="1.5" opacity={0.4} />
+                        <line x1="0%" y1={`${pos.y}%`} x2="100%" y2={`${pos.y}%`} stroke={nodeStroke} strokeWidth="1.5" opacity={0.4} />
+                        <line x1={`${pos.x - 15}%`} y1={`${pos.y - 15}%`} x2={`${pos.x + 15}%`} y2={`${pos.y + 15}%`} stroke={nodeStroke} strokeWidth="2" opacity={0.6} />
+                        <line x1={`${pos.x + 15}%`} y1={`${pos.y - 15}%`} x2={`${pos.x - 15}%`} y2={`${pos.y + 15}%`} stroke={nodeStroke} strokeWidth="2" opacity={0.6} />
                       </>
                     )}
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(16,185,129,0.8)' : 'rgba(16,185,129,0.4)'}
-                      stroke="rgba(16,185,129,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
+                      stroke={nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -364,8 +413,8 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
           <div className="relative h-full" style={{ height: canvasHeight }}>
             <svg className="absolute inset-0 h-full w-full">
               <defs>
-                <pattern id="gridPattern" width="10" height="10" patternUnits="userSpaceOnUse">
-                  <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(34,211,238,0.1)" strokeWidth="0.5" />
+                <pattern id="gridPattern" width="15" height="15" patternUnits="userSpaceOnUse">
+                  <path d="M 15 0 L 0 0 0 15" fill="none" stroke="rgba(34,211,238,0.15)" strokeWidth="0.5" />
                 </pattern>
               </defs>
               <rect width="100%" height="100%" fill="url(#gridPattern)" />
@@ -373,39 +422,43 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                 <circle
                   cx="50%"
                   cy="50%"
-                  r="40%"
+                  r="45%"
                   fill="none"
-                  stroke="rgba(34,211,238,0.3)"
-                  strokeWidth="1"
+                  stroke="rgba(34,211,238,0.4)"
+                  strokeWidth="1.5"
                 >
-                  <animate attributeName="r" values="30%;45%;30%" dur="2s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0.5;0;0.5" dur="2s" repeatCount="indefinite" />
+                  <animate attributeName="r" values="35%;50%;35%" dur="2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2s" repeatCount="indefinite" />
                 </circle>
               )}
               {displayData.map((item, index) => {
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 return (
-                  <g key={item.id || index}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
-                      stroke="rgba(34,211,238,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
+                      stroke={nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -421,41 +474,45 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
               {displayData.map((item, index) => {
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 return (
-                  <g key={item.id || index}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
                     {isSelected && (
                       <rect
-                        x={`${pos.x - 12}%`}
-                        y={`${pos.y - 12}%`}
-                        width="24%"
-                        height="24%"
+                        x={`${pos.x - 18}%`}
+                        y={`${pos.y - 18}%`}
+                        width="36%"
+                        height="36%"
                         fill="none"
-                        stroke="rgba(34,211,238,0.8)"
-                        strokeWidth="2"
-                        strokeDasharray="4 2"
+                        stroke={nodeStroke}
+                        strokeWidth="2.5"
+                        strokeDasharray="6 3"
                       >
-                        <animate attributeName="strokeDashoffset" from="0" to="12" dur="1s" repeatCount="indefinite" />
+                        <animate attributeName="strokeDashoffset" from="0" to="18" dur="1s" repeatCount="indefinite" />
                       </rect>
                     )}
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
-                      stroke="rgba(34,211,238,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
+                      stroke={nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -471,6 +528,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
               {activeSelection && displayData.map((item, index) => {
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
+                const nodeStroke = getNodeStrokeColor(item.type);
                 if (isSelected) {
                   return (
                     <g key={`ripple-${index}`}>
@@ -479,13 +537,14 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                           key={i}
                           cx={`${pos.x}%`}
                           cy={`${pos.y}%`}
-                          r={8 + i * 6}
+                          r={12 + i * 8}
                           fill="none"
-                          stroke="rgba(34,211,238,0.4 - i * 0.1)"
-                          strokeWidth="1"
+                          stroke={nodeStroke}
+                          strokeWidth="1.5"
+                          opacity={0.5 - i * 0.12}
                         >
-                          <animate attributeName="r" values={`${8 + i * 6};${20 + i * 6};${8 + i * 6}`} dur={`${1.5 + i * 0.3}s`} repeatCount="indefinite" />
-                          <animate attributeName="opacity" values="0.5;0;0.5" dur={`${1.5 + i * 0.3}s`} repeatCount="indefinite" />
+                          <animate attributeName="r" values={`${12 + i * 8};${28 + i * 8};${12 + i * 8}`} dur={`${1.5 + i * 0.3}s`} repeatCount="indefinite" />
+                          <animate attributeName="opacity" values="0.6;0;0.6" dur={`${1.5 + i * 0.3}s`} repeatCount="indefinite" />
                         </circle>
                       ))}
                     </g>
@@ -496,27 +555,31 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
               {displayData.map((item, index) => {
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 return (
-                  <g key={item.id || index}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
-                      stroke="rgba(34,211,238,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
+                      stroke={nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -533,27 +596,41 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
                 const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 return (
-                  <g key={item.id || index}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(0,0,0,0.9)' : isDimmed ? 'rgba(34,211,238,0.2)' : 'rgba(34,211,238,0.4)'}
-                      stroke={isSelected ? 'rgba(34,211,238,1)' : 'rgba(34,211,238,0.8)'}
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? 'rgba(0,0,0,0.95)' : isDimmed ? nodeColor.replace('0.8', '0.15') : nodeColor.replace('0.8', '0.5')}
+                      stroke={isSelected ? nodeStroke : nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
+                    {isSelected && (
+                      <circle
+                        cx={`${pos.x}%`}
+                        cy={`${pos.y}%`}
+                        r={16}
+                        fill="none"
+                        stroke={nodeStroke}
+                        strokeWidth={2}
+                        opacity={0.8}
+                      />
+                    )}
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill={isSelected ? 'rgba(34,211,238,1)' : isDimmed ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)'}
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill={isSelected ? nodeStroke : isDimmed ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.9)'}
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -569,12 +646,15 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
               {displayData.map((item, index) => {
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 return (
-                  <g key={item.id || index}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
                     {displayData.slice(0, index).map((otherItem, otherIndex) => {
                       const otherPos = getNodePosition(otherIndex, displayData.length, activeMethod);
                       const distance = Math.sqrt(Math.pow(pos.x - otherPos.x, 2) + Math.pow(pos.y - otherPos.y, 2));
-                      if (distance < 20) {
+                      if (distance < 25) {
                         return (
                           <line
                             key={`line-${index}-${otherIndex}`}
@@ -582,8 +662,9 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                             y1={`${pos.y}%`}
                             x2={`${otherPos.x}%`}
                             y2={`${otherPos.y}%`}
-                            stroke="rgba(168,85,247,0.2)"
-                            strokeWidth="0.5"
+                            stroke={nodeStroke}
+                            strokeWidth="1"
+                            opacity={0.3}
                           />
                         );
                       }
@@ -592,22 +673,23 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(168,85,247,0.8)' : 'rgba(168,85,247,0.4)'}
-                      stroke="rgba(168,85,247,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
+                      stroke={nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -623,39 +705,44 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
               {displayData.map((item, index) => {
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 return (
-                  <g key={item.id || index}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
                     <line
-                      x1={`${pos.x - 15}%`}
+                      x1={`${pos.x - 20}%`}
                       y1={`${pos.y}%`}
-                      x2={`${pos.x + 15}%`}
+                      x2={`${pos.x + 20}%`}
                       y2={`${pos.y}%`}
-                      stroke={isSelected ? 'rgba(251,191,36,0.8)' : 'rgba(251,191,36,0.3)'}
-                      strokeWidth={isSelected ? 2 : 1}
+                      stroke={isSelected ? nodeStroke : nodeStroke}
+                      strokeWidth={isSelected ? 2.5 : 1.5}
+                      opacity={isSelected ? 0.8 : 0.3}
                     >
                       {isSelected && (
-                        <animate attributeName="stroke-dasharray" values="0,30;30,0" dur="1.5s" repeatCount="indefinite" />
+                        <animate attributeName="stroke-dasharray" values="0,40;40,0" dur="1.5s" repeatCount="indefinite" />
                       )}
                     </line>
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(251,191,36,0.8)' : 'rgba(251,191,36,0.4)'}
-                      stroke="rgba(251,191,36,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
+                      stroke={nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -671,33 +758,37 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
               {displayData.map((item, index) => {
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 return (
-                  <g key={item.id || index}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
                     {isSelected && (
                       <>
-                        <circle cx={`${pos.x}%`} cy={`${pos.y}%`} r={12} fill="none" stroke="rgba(34,211,238,0.3)" strokeWidth="1" />
-                        <circle cx={`${pos.x}%`} cy={`${pos.y}%`} r={16} fill="none" stroke="rgba(34,211,238,0.2)" strokeWidth="1" />
+                        <circle cx={`${pos.x}%`} cy={`${pos.y}%`} r={16} fill="none" stroke={nodeStroke} strokeWidth="1.5" opacity={0.4} />
+                        <circle cx={`${pos.x}%`} cy={`${pos.y}%`} r={20} fill="none" stroke={nodeStroke} strokeWidth="1" opacity={0.25} />
                       </>
                     )}
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
-                      stroke="rgba(34,211,238,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
+                      stroke={nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -712,7 +803,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
             <svg className="absolute inset-0 h-full w-full">
               <defs>
                 <radialGradient id="glowGradient" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="rgba(34,211,238,0.3)" />
+                  <stop offset="0%" stopColor="rgba(34,211,238,0.4)" />
                   <stop offset="100%" stopColor="rgba(34,211,238,0)" />
                 </radialGradient>
               </defs>
@@ -721,27 +812,41 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
                 const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 return (
-                  <g key={item.id || index}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(34,211,238,0.8)' : isDimmed ? 'rgba(34,211,238,0.2)' : 'rgba(34,211,238,0.4)'}
-                      stroke="rgba(34,211,238,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? nodeColor : isDimmed ? nodeColor.replace('0.8', '0.2') : nodeColor.replace('0.8', '0.5')}
+                      stroke={nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
+                    {isSelected && (
+                      <circle
+                        cx={`${pos.x}%`}
+                        cy={`${pos.y}%`}
+                        r={16}
+                        fill="none"
+                        stroke={nodeStroke}
+                        strokeWidth={1}
+                        opacity={0.5}
+                      />
+                    )}
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill={isDimmed ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)'}
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill={isDimmed ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.9)'}
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -757,30 +862,34 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
               {displayData.map((item, index) => {
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 const depth = index % 3;
-                const opacity = 0.3 + depth * 0.2;
-                const scale = 0.8 + depth * 0.1;
+                const opacity = 0.4 + depth * 0.2;
+                const scale = 0.85 + depth * 0.1;
                 return (
-                  <g key={item.id || index} style={{ opacity }}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : opacity }}>
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={(isSelected ? 8 : 5) * scale}
-                      fill={isSelected ? 'rgba(34,211,238,0.8)' : `rgba(34,211,238,${opacity})`}
-                      stroke="rgba(34,211,238,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={(isSelected ? 12 : 8) * scale}
+                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', `${opacity}`)}
+                      stroke={nodeStroke}
+                      strokeWidth={(isSelected ? 3 : 2) * scale}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize={8 * scale}
+                      y={`${pos.y - 12}%`}
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={(isSelected ? 11 : 9) * scale}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -796,31 +905,35 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
               {displayData.map((item, index) => {
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 return (
-                  <g key={item.id || index}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(20,184,166,0.8)' : 'rgba(20,184,166,0.4)'}
-                      stroke="rgba(20,184,166,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
+                      stroke={nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     >
                       {isSelected && (
-                        <animate attributeName="r" values="8;10;8" dur="0.5s" repeatCount="indefinite" />
+                        <animate attributeName="r" values="12;14;12" dur="0.5s" repeatCount="indefinite" />
                       )}
                     </circle>
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -838,28 +951,31 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                 const isSelected = activeSelection && activeSelection.id === item.id;
                 const isRelated = activeSelection && activeSelection.category === item.category;
                 const isUnrelated = activeSelection && !isSelected && !isRelated;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 const opacity = isUnrelated ? 0.3 : 1;
                 return (
                   <g key={item.id || index} style={{ opacity }}>
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(139,92,246,0.8)' : isRelated ? 'rgba(139,92,246,0.6)' : 'rgba(139,92,246,0.4)'}
-                      stroke="rgba(139,92,246,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? nodeColor : isRelated ? nodeColor.replace('0.8', '0.6') : nodeColor.replace('0.8', '0.5')}
+                      stroke={nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -875,27 +991,42 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
               {displayData.map((item, index) => {
                 const pos = getNodePosition(index, displayData.length, activeMethod);
                 const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                const nodeColor = getNodeColor(item.type);
+                const nodeStroke = getNodeStrokeColor(item.type);
                 return (
-                  <g key={item.id || index}>
+                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
                     <circle
                       cx={`${pos.x}%`}
                       cy={`${pos.y}%`}
-                      r={isSelected ? 8 : 5}
-                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
-                      stroke="rgba(34,211,238,0.8)"
-                      strokeWidth={isSelected ? 2 : 1}
+                      r={isSelected ? 12 : 8}
+                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
+                      stroke={nodeStroke}
+                      strokeWidth={isSelected ? 3 : 2}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
                       onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
+                    {isSelected && (
+                      <circle
+                        cx={`${pos.x}%`}
+                        cy={`${pos.y}%`}
+                        r={16}
+                        fill="none"
+                        stroke={nodeStroke}
+                        strokeWidth={1}
+                        opacity={0.5}
+                      />
+                    )}
                     <text
                       x={`${pos.x}%`}
-                      y={`${pos.y - 8}%`}
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize="8"
+                      y={`${pos.y - 12}%`}
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={isSelected ? 11 : 9}
+                      fontWeight={isSelected ? 600 : 400}
                       textAnchor="middle"
                       className="pointer-events-none"
                     >
-                      {item.label?.slice(0, 8) || 'N/A'}
+                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
                     </text>
                   </g>
                 );
@@ -909,6 +1040,36 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
   return (
     <div className="relative overflow-hidden rounded-xl border border-cyan-100/12 bg-black/18">
       {renderCanvas()}
+      <div className="absolute bottom-3 left-3 flex flex-wrap gap-2 rounded-lg border border-cyan-100/12 bg-black/40 px-3 py-2">
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full bg-cyan-400" />
+          <span className="text-[10px] text-cyan-100/70">Metrics</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full bg-emerald-400" />
+          <span className="text-[10px] text-cyan-100/70">Signals</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full bg-violet-400" />
+          <span className="text-[10px] text-cyan-100/70">Charts</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full bg-amber-400" />
+          <span className="text-[10px] text-cyan-100/70">Sources</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full bg-rose-400" />
+          <span className="text-[10px] text-cyan-100/70">Dossier</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full bg-red-400" />
+          <span className="text-[10px] text-cyan-100/70">Risk</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full bg-green-400" />
+          <span className="text-[10px] text-cyan-100/70">Opp</span>
+        </div>
+      </div>
     </div>
   );
 }
