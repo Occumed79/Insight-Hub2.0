@@ -147,6 +147,7 @@ interface VisualizationCanvasProps {
   filteredData: any[];
   activeSelection: any;
   setActiveSelection: (selection: any) => void;
+  setDetailDrawerOpen: (open: boolean) => void;
   semanticZoomLevel: 'overview' | 'detail';
   isExpanded: boolean;
   filters: {
@@ -160,7 +161,7 @@ interface VisualizationCanvasProps {
   };
 }
 
-function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelection, setActiveSelection, semanticZoomLevel, isExpanded, filters }: VisualizationCanvasProps) {
+function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelection, setActiveSelection, setDetailDrawerOpen, semanticZoomLevel, isExpanded, filters }: VisualizationCanvasProps) {
   const dataToRender = activeMethod === 'interactive-filter' ? filteredData :
     activeMethod === 'semantic-zoom' && semanticZoomLevel === 'overview' ? 
       [...vizModel.metrics.slice(0, 8), ...vizModel.signals.slice(0, 4)] :
@@ -241,7 +242,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(34,211,238,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -295,7 +296,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(34,211,238,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -339,7 +340,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(16,185,129,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -394,7 +395,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(34,211,238,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -444,7 +445,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(34,211,238,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -505,7 +506,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(34,211,238,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -542,7 +543,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke={isSelected ? 'rgba(34,211,238,1)' : 'rgba(34,211,238,0.8)'}
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -596,7 +597,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(168,85,247,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -644,7 +645,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(251,191,36,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -686,7 +687,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(34,211,238,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -730,7 +731,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(34,211,238,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -769,7 +770,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(34,211,238,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -805,7 +806,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(20,184,166,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     >
                       {isSelected && (
                         <animate attributeName="r" values="8;10;8" dur="0.5s" repeatCount="indefinite" />
@@ -848,7 +849,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(139,92,246,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -884,7 +885,7 @@ function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelec
                       stroke="rgba(34,211,238,0.8)"
                       strokeWidth={isSelected ? 2 : 1}
                       className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => setActiveSelection(item)}
+                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
                     />
                     <text
                       x={`${pos.x}%`}
@@ -921,7 +922,7 @@ export default function DataVisualization() {
   const profile = dataset.profiles.find((item) => resolveConfigCompanyId(item.companyId) === resolvedCompanyId);
   const sources = dataset.sources.filter((source) => resolveConfigCompanyId(source.companyId) === resolvedCompanyId);
   
-  const [activeMethod, setActiveMethod] = useState<string | null>(null);
+  const [activeMethod, setActiveMethod] = useState<string>("vector-displacement");
   const [activeSelection, setActiveSelection] = useState<any>(null);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [semanticZoomLevel, setSemanticZoomLevel] = useState<'overview' | 'detail'>('overview');
@@ -1279,6 +1280,7 @@ export default function DataVisualization() {
               filteredData={filteredData}
               activeSelection={activeSelection}
               setActiveSelection={setActiveSelection}
+              setDetailDrawerOpen={setDetailDrawerOpen}
               semanticZoomLevel={semanticZoomLevel}
               isExpanded={isExpanded}
               filters={filters}
