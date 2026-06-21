@@ -39,6 +39,18 @@ type DbStatus = "checking" | "available" | "unavailable";
 const databaseCompanyId = (id: number) => `db-${id}`;
 const isDatabaseCompanyId = (id: string) => id.startsWith("db-");
 
+function companyNameKey(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/\b(the)\b/g, "")
+    .replace(/\b(incorporated|corporation|corp|company|co|inc|llc|ltd|plc|ag|sa|group|services|service)\b/g, "")
+    .replace(/\bverified\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 function toLocationRecord(entity: VerifiedEntity, loc: VerifiedEntity["locations"][number]): LocationRecord {
   return {
     id: `db-location-${loc.id}`,
@@ -105,9 +117,11 @@ export default function GeographicData() {
     employeesAsOf: "Verified database",
     summary: "Verified entity locations from the discovery workflow.",
     tags: ["Verified DB"],
-  })), [verifiedEntities]);
+  })).sort((a, b) => a.name.localeCompare(b.name)), [verifiedEntities]);
 
-  const companies = useMemo(() => [...workbookCompanies, ...databaseCompanies], [workbookCompanies, databaseCompanies]);
+  const verifiedCompanyKeys = useMemo(() => new Set(databaseCompanies.map((company) => companyNameKey(company.name))), [databaseCompanies]);
+  const workbookFallbackCompanies = useMemo(() => workbookCompanies.filter((company) => !verifiedCompanyKeys.has(companyNameKey(company.name))), [workbookCompanies, verifiedCompanyKeys]);
+  const companies = useMemo(() => [...databaseCompanies, ...workbookFallbackCompanies], [databaseCompanies, workbookFallbackCompanies]);
   const { companyId, setCompanyId, company } = useSelectedCompany(companies);
 
   const locations = useMemo(() => {
@@ -140,7 +154,7 @@ export default function GeographicData() {
         <HeaderBar
           eyebrow="Portal 03"
           title="Geographic Data"
-          subtitle="Verified and workbook location intelligence in one company map."
+          subtitle="Verified/imported location data is prioritized. Workbook data is used only when no verified version exists."
           actions={
             <div className="flex flex-wrap items-center gap-3">
               <Link href="/entity-discovery" className="inline-flex items-center gap-2 rounded-full border border-cyan-100/15 bg-cyan-100/5 px-4 py-2 text-sm font-semibold text-cyan-50 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]">
@@ -149,7 +163,16 @@ export default function GeographicData() {
               </Link>
               <select value={companyId} onChange={(event) => resetCompany(event.target.value)} className="rounded-full border border-cyan-100/15 bg-[#07111d] px-4 py-2 text-sm text-cyan-50 outline-none">
                 <option value="">Select company</option>
-                {companies.map((item) => <option key={item.id} value={item.id}>{item.name}{item.tags?.includes("Verified DB") ? " · Verified" : ""}</option>)}
+                {databaseCompanies.length > 0 ? (
+                  <optgroup label="Verified imported locations">
+                    {databaseCompanies.map((item) => <option key={item.id} value={item.id}>{item.name} · Verified</option>)}
+                  </optgroup>
+                ) : null}
+                {workbookFallbackCompanies.length > 0 ? (
+                  <optgroup label="Workbook fallback">
+                    {workbookFallbackCompanies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  </optgroup>
+                ) : null}
               </select>
             </div>
           }
