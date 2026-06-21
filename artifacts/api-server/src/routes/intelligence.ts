@@ -534,39 +534,39 @@ function buildSourceLeads(companyName: string, companyId: string): { leads: Fact
   const leads: FactRow[] = [
     {
       companyId,
-      title: `SAM.gov opportunities search for ${companyName}`,
-      category: "opportunities",
+      title: `OSHA inspection history search for ${companyName}`,
+      category: "sourceFacts",
       date: today,
-      sourceUrl: `https://sam.gov/search/?index=opp&keywords=${encoded}`,
-      sourceName: "SAM.gov",
-      sourceType: "sam",
+      sourceUrl: `https://www.osha.gov/ords/imis/establishment.search?sname=${encoded}&st=all`,
+      sourceName: "OSHA.gov",
+      sourceType: "official",
       confidence: "link-only",
-      summary: `SAM.gov opportunity search link for "${companyName}". API key required for automated fetch.`,
-      metadata: { needsKey: true, recordType: "sourceLead", reason: "SAM.gov API requires an API key not currently configured." },
+      summary: `OSHA establishment search link for "${companyName}". Check for citations, violations, and inspection history — key indicator of occupational health service need.`,
+      metadata: { needsReview: true, recordType: "sourceLead", reason: "Manual review link — OSHA inspection data not yet auto-fetched." },
     },
     {
       companyId,
-      title: `Official company website search for ${companyName}`,
+      title: `Workers' compensation / DBA claims search for ${companyName}`,
       category: "sourceFacts",
       date: today,
-      sourceUrl: `https://www.google.com/search?q=${quoted}+official+website`,
+      sourceUrl: `https://www.google.com/search?q=${quoted}+workers+compensation+DBA+claim+occupational+health`,
       sourceName: "Web search",
       sourceType: "official",
       confidence: "link-only",
-      summary: `Official website search link for "${companyName}". Use to verify corporate footprint and leadership.`,
-      metadata: { needsReview: true, recordType: "sourceLead", reason: "Manual review link — no automated fetch configured." },
+      summary: `Workers' compensation and Defense Base Act claims search for "${companyName}". Claims history indicates occupational health risk and service need.`,
+      metadata: { needsReview: true, recordType: "sourceLead", reason: "Manual review link — no automated claims data source configured." },
     },
     {
       companyId,
-      title: `Career portal search for ${companyName}`,
-      category: "jobSignals",
+      title: `Occupational health / medical surveillance needs for ${companyName}`,
+      category: "medicalNetworkGaps",
       date: today,
-      sourceUrl: `https://www.google.com/search?q=${quoted}+careers+jobs+locations`,
+      sourceUrl: `https://www.google.com/search?q=${quoted}+occupational+health+clinic+medical+surveillance+screening`,
       sourceName: "Web search",
-      sourceType: "careers",
+      sourceType: "official",
       confidence: "link-only",
-      summary: `Career portal search link for "${companyName}". Job postings signal growth and location expansion.`,
-      metadata: { needsReview: true, recordType: "sourceLead", reason: "Manual review link — no automated fetch configured." },
+      summary: `Occupational health services search for "${companyName}". Identifies potential medical surveillance, screening, and clinic coverage gaps.`,
+      metadata: { needsReview: true, recordType: "sourceLead", reason: "Manual review link — no automated health service gap analysis configured." },
     },
   ];
 
@@ -577,7 +577,7 @@ function buildSourceLeads(companyName: string, companyId: string): { leads: Fact
       status: "needs-key",
       factsFound: 0,
       aliasesQueried: [companyName],
-      message: "3 source leads stored for manual review. SAM.gov requires API key; official/careers are web search links.",
+      message: "3 occupational health source leads stored for manual review: OSHA inspections, workers' comp/DBA claims, and medical surveillance gaps.",
     },
   };
 }
@@ -596,13 +596,16 @@ type SearchResult = {
 };
 
 const SEARCH_QUERIES = (alias: string) => [
-  { q: `"${alias}" government contract awards`, category: "contractAwards" as IntelligenceCategory },
-  { q: `"${alias}" occupational health locations`, category: "locationExposure" as IntelligenceCategory },
-  { q: `"${alias}" careers jobs locations`, category: "jobSignals" as IntelligenceCategory },
-  { q: `"${alias}" federal contract award`, category: "contractAwards" as IntelligenceCategory },
-  { q: `"${alias}" SEC 10-K filing`, category: "secFilings" as IntelligenceCategory },
-  { q: `"${alias}" press release contract award`, category: "sourceFacts" as IntelligenceCategory },
-  { q: `"${alias}" SAM.gov opportunities`, category: "opportunities" as IntelligenceCategory },
+  { q: `"${alias}" OSHA violation citation inspection`, category: "sourceFacts" as IntelligenceCategory },
+  { q: `"${alias}" injury rate workplace injury safety`, category: "sourceFacts" as IntelligenceCategory },
+  { q: `"${alias}" DBA claim Defense Base Act workers compensation`, category: "sourceFacts" as IntelligenceCategory },
+  { q: `"${alias}" workers compensation claim occupational health`, category: "medicalNetworkGaps" as IntelligenceCategory },
+  { q: `"${alias}" workplace safety incident fatality accident`, category: "sourceFacts" as IntelligenceCategory },
+  { q: `"${alias}" occupational health clinic medical services`, category: "medicalNetworkGaps" as IntelligenceCategory },
+  { q: `"${alias}" employee health screening surveillance`, category: "medicalNetworkGaps" as IntelligenceCategory },
+  { q: `"${alias}" OSHA 300 log recordable injury`, category: "sourceFacts" as IntelligenceCategory },
+  { q: `"${alias}" federal contract workers locations site`, category: "locationExposure" as IntelligenceCategory },
+  { q: `"${alias}" careers hiring jobs locations`, category: "jobSignals" as IntelligenceCategory },
 ];
 
 function classifyResult(
@@ -612,18 +615,24 @@ function classifyResult(
   defaultCategory: IntelligenceCategory
 ): IntelligenceCategory {
   const text = `${title} ${snippet} ${url}`.toLowerCase();
+  // Occupational health / safety signals — highest priority for Occu-Med
+  if (/osha|citation|violation|inspection|300 log|recordable/.test(text)) return "sourceFacts";
+  if (/injury|fatality|accident|incident|safety violation|workplace death/.test(text)) return "sourceFacts";
+  if (/dba|defense base act|workers comp|workers' compensation|compensation claim/.test(text)) return "sourceFacts";
+  if (/occupational health|employee health|health screening|medical surveillance|audiogram|respirator fit|physical exam/.test(text)) return "medicalNetworkGaps";
+  if (/clinic|medical services|health services|network gap|coverage area/.test(text)) return "medicalNetworkGaps";
+  if (/career|job|hiring|employment|workforce/.test(text)) return "jobSignals";
+  if (/location|region|state|city|facility|office|site/.test(text)) return "locationExposure";
+  // Secondary signals
   if (/sec\.gov|10-k|10-q|8-k|edgar|filing/.test(text)) return "secFilings";
   if (/usaspending|contract award|award amount|federal contract|procurement/.test(text)) return "contractAwards";
   if (/sam\.gov|opportunit|solicitation|rfp|rfq/.test(text)) return "opportunities";
-  if (/career|job|hiring|employment|workforce/.test(text)) return "jobSignals";
-  if (/location|region|state|city|facility|office/.test(text)) return "locationExposure";
-  if (/clinic|medical|health|network|coverage/.test(text)) return "medicalNetworkGaps";
   return defaultCategory;
 }
 
 function confidenceForResult(url: string, snippet: string): IntelligenceConfidence {
   const u = url.toLowerCase();
-  if (/usaspending\.gov|sec\.gov|sam\.gov|\.mil|\.gov/.test(u)) return "high";
+  if (/osha\.gov|\.gov|\.mil|usaspending\.gov|sec\.gov|sam\.gov/.test(u)) return "high";
   if (snippet && snippet.length > 100) return "medium";
   return "low";
 }
