@@ -1,19 +1,48 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  ZAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ReferenceLine,
+  Cell,
+} from "recharts";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
+import { GlassCard } from "@/components/insight/GlassCard";
 import { IntelligenceSelector } from "@/components/insight/IntelligenceSelector";
 import { IntelligenceStatusBadge } from "@/components/insight/IntelligenceStatusBadge";
 import { DataQualityBanner } from "@/components/insight/DataQualityBanner";
+import { LuminousChartTooltip } from "@/components/insight/LuminousChartTooltip";
 import { useInsightData, useSelectedCompany } from "@/data/useInsightData";
 import { getCompanyConfigOrDefault } from "@/company-configs";
 import { resolveConfigCompanyId } from "@/company-configs/configIds";
 import { getIntelligenceStatus } from "@/company-configs/intelligenceNavigation";
-import type { ChartDefinition, MetricDefinition, SignalDefinition, RiskMatrixPoint, OpportunityMatrixPoint, DossierSectionDefinition } from "@/company-configs/types";
+import type {
+  ChartDefinition,
+  MetricDefinition,
+  SignalDefinition,
+  RiskMatrixPoint,
+  OpportunityMatrixPoint,
+  DossierSectionDefinition,
+  TooltipFormat,
+} from "@/company-configs/types";
 
 interface ProfileVisualizationModel {
   company: { name: string; shortName: string; summary: string; tags: string[] } | null;
-  metrics: any[];
+  metrics: MetricDefinition[];
   charts: ChartDefinition[];
   signals: SignalDefinition[];
   dossierSections: DossierSectionDefinition[];
@@ -22,22 +51,41 @@ interface ProfileVisualizationModel {
   opportunityMatrix: OpportunityMatrixPoint[];
 }
 
+interface ChartDatumSelection {
+  chartId: string;
+  chartTitle: string;
+  chartType: string;
+  category: string;
+  seriesName: string;
+  dataKey: string;
+  value: number;
+  unit?: string;
+  formatter?: TooltipFormat;
+  sourceId?: string;
+  note?: string;
+  payload?: Record<string, string | number>;
+}
+
 function buildProfileVisualizationModel({
   company,
   config,
-  profile,
   metrics,
-  sources
+  sources,
 }: {
   company: { name: string; shortName: string; summary: string; tags: string[] } | null;
   config: any;
-  profile: any;
-  metrics: any[];
+  metrics: MetricDefinition[];
   sources: any[];
 }): ProfileVisualizationModel {
-  const configMetrics = (config.metricDefinitions ?? []).map((metric: any) => ({ ...metric, companyId: config.companyId }));
-  const mergedMetrics = [...metrics, ...configMetrics.filter((metric: any) => !metrics.some((existing) => existing.id === metric.id))] as any[];
-  
+  const configMetrics = (config.metricDefinitions ?? []).map((metric: MetricDefinition) => ({
+    ...metric,
+    companyId: config.companyId,
+  }));
+  const mergedMetrics = [
+    ...metrics,
+    ...configMetrics.filter((metric: MetricDefinition) => !metrics.some((existing) => existing.id === metric.id)),
+  ] as MetricDefinition[];
+
   return {
     company,
     metrics: mergedMetrics,
@@ -46,18 +94,117 @@ function buildProfileVisualizationModel({
     dossierSections: config.dossierSections ?? [],
     sourceRecords: sources,
     riskMatrix: config.riskMatrix ?? [],
-    opportunityMatrix: config.opportunityMatrix ?? []
+    opportunityMatrix: config.opportunityMatrix ?? [],
   };
 }
 
-interface VisualizationDetailDrawerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  selection: any;
+function formatTickByType(formatter: TooltipFormat | undefined) {
+  if (formatter === "currencyM") return (v: number) => `$${v}M`;
+  if (formatter === "currencyK") return (v: number) => `$${v}K`;
+  if (formatter === "percent") return (v: number) => `${v}%`;
+  if (formatter === "hoursM") return (v: number) => `${v}M hrs`;
+  return undefined;
 }
 
-function VisualizationDetailDrawer({ isOpen, onClose, selection }: VisualizationDetailDrawerProps) {
+function metricUnitLabel(unit: MetricDefinition["unit"]) {
+  switch (unit) {
+    case "usd":
+      return "$";
+    case "percent":
+      return "%";
+    case "count":
+      return "count";
+    case "score":
+      return "score";
+    default:
+      return "";
+  }
+}
+
+function metricChartFromDefinitions(metrics: MetricDefinition[]): ChartDefinition[] {
+  if (!metrics.length) return [];
+  const categories = [...new Set(metrics.map((m) => m.category))];
+  const byCategory = categories.map((category) => ({
+    category,
+    metrics: metrics.filter((m) => m.category === category),
+  }));
+
+  return byCategory.map((group, index) => {
+    const data: Record<string, string | number>[] = group.metrics.map((m) => {
+      const record: Record<string, string | number> = {
+        label: m.label,
+        value: m.value,
+        id: m.id,
+        unit: m.unit,
+        category: m.category,
+      };
+      if (m.sourceId) record.sourceId = m.sourceId;
+      if (m.trend !== undefined) record.trend = m.trend;
+      return record;
+    });
+    return {
+      id: `metric-fallback-${group.category}-${index}`,
+      title: `${group.category.charAt(0).toUpperCase() + group.category.slice(1)} Metrics`,
+      subtitle: `Comparison of ${group.category} metrics`,
+      type: "bar" as const,
+      xKey: "label",
+      data,
+      series: [{ dataKey: "value", name: "Value", color: "#22d3ee" }],
+      formatter: "plain",
+      headline: `${group.category} metric focus`,
+    };
+  });
+}
+
+function chartHeight(chart: ChartDefinition) {
+  const rowCount = chart.data.length;
+  const base = chart.fullWidth ? 340 : 300;
+  const expanded = base + Math.max(0, rowCount - 6) * 18;
+  return Math.min(chart.fullWidth ? 560 : 440, expanded);
+}
+
+function getSeriesColor(index: number, fallback?: string) {
+  const palette = ["#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#f472b6", "#fb7185", "#60a5fa", "#a3e635"];
+  return fallback ?? palette[index % palette.length];
+}
+
+function useChartPanels(vizModel: ProfileVisualizationModel) {
+  return useMemo(() => {
+    const primaryCharts = vizModel.charts.length ? vizModel.charts : metricChartFromDefinitions(vizModel.metrics);
+    return { primaryCharts };
+  }, [vizModel.charts, vizModel.metrics]);
+}
+
+function formatValue(value: number, formatter?: TooltipFormat, unit?: string) {
+  const formatted =
+    formatter === "currencyM"
+      ? `$${value.toLocaleString()}M`
+      : formatter === "currencyK"
+        ? `$${value.toLocaleString()}K`
+        : formatter === "percent"
+          ? `${value}%`
+          : formatter === "hoursM"
+            ? `${value.toLocaleString()}M hrs`
+            : value.toLocaleString();
+  return unit ? `${formatted} ${unit}` : formatted;
+}
+
+function VisualizationDetailDrawer({
+  isOpen,
+  onClose,
+  selection,
+  sourceRecords,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  selection: ChartDatumSelection | null;
+  sourceRecords: any[];
+}) {
   if (!selection) return null;
+  const source = selection.sourceId
+    ? sourceRecords.find((s) => s.id === selection.sourceId || s.sourceId === selection.sourceId)
+    : null;
+  const sourceName = source?.name ?? source?.sourceName ?? selection.sourceId;
 
   return (
     <AnimatePresence>
@@ -70,29 +217,36 @@ function VisualizationDetailDrawer({ isOpen, onClose, selection }: Visualization
         >
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-lg font-bold text-white">Detail View</h3>
-            <button onClick={onClose} className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-3 py-1 text-xs text-cyan-50 hover:bg-cyan-100/10">
+            <button
+              onClick={onClose}
+              className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-3 py-1 text-xs text-cyan-50 hover:bg-cyan-100/10"
+            >
               Close
             </button>
           </div>
           <div className="space-y-3">
             <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Label</p>
-              <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.label || selection.name || 'N/A'}</p>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Chart</p>
+              <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.chartTitle}</p>
+            </div>
+            <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Category / X</p>
+              <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.category}</p>
+            </div>
+            <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Series</p>
+              <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.seriesName}</p>
             </div>
             <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
               <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Value</p>
-              <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.value !== undefined ? selection.value.toLocaleString() : 'N/A'}</p>
+              <p className="mt-1 text-sm font-semibold text-cyan-50">
+                {formatValue(selection.value, selection.formatter, selection.unit)}
+              </p>
             </div>
-            {selection.unit && (
+            {selection.sourceId && (
               <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Unit</p>
-                <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.unit}</p>
-              </div>
-            )}
-            {selection.category && (
-              <div className="rounded-xl border border-cyan-100/10 bg-white/[0.02] p-4">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Category</p>
-                <p className="mt-1 text-sm font-semibold text-cyan-50">{selection.category}</p>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Source</p>
+                <p className="mt-1 text-sm leading-5 text-cyan-100/70">{sourceName}</p>
               </div>
             )}
             {selection.note && (
@@ -108,968 +262,417 @@ function VisualizationDetailDrawer({ isOpen, onClose, selection }: Visualization
   );
 }
 
-interface VisualizationFilterBarProps {
-  filters: {
-    showMetrics: boolean;
-    showSignals: boolean;
-    showCharts: boolean;
-    showSources: boolean;
-    showDossier: boolean;
-    showRisk: boolean;
-    showOpportunity: boolean;
-  };
-  onFilterChange: (key: string, value: boolean) => void;
+function methodName(methodId: string) {
+  return (
+    {
+      "vector-displacement": "Vector Displacement Mapping",
+      "chromatic-aberration": "Chromatic Aberration Highlighting",
+      "geometric-anchor": "Geometric Anchor Snapping",
+      "subtractive-masking": "Subtractive Masking Overlays",
+      "procedural-grid": "Procedural Grid Resonances",
+      "algorithmic-edge": "Algorithmic Edge-Tracing",
+      "concentric-ripple": "Concentric Ripple Metrics",
+      "negative-space": "Negative Space Inversion",
+      "vector-lattice": "Vector Lattice Distortion",
+      "color-shift": "Color-Shift Isometry",
+      "synchronous-path": "Synchronous Path Illumination",
+      "vector-node": "Vector Node Expansion",
+      "radiant-gradient": "Radiant Gradient Focus",
+      "isometric-slice": "Isometric Slice-View",
+      "semantic-zoom": "Generative Semantic Zoom",
+      "holographic-depth": "Holographic Depth Layers",
+      "kinetic-vector": "Kinetic Vector Transitions",
+      "contextual-morph": "Contextual Data Morphing",
+      "interactive-filter": "Interactive Filtering",
+      "zoom-pan": "Zoom and Pan",
+      "linked-visualizations": "Linked Visualizations / Brushing",
+      "click-reveal": "Click-to-Reveal",
+    } as Record<string, string>
+  )[methodId];
 }
 
-function VisualizationFilterBar({ filters, onFilterChange }: VisualizationFilterBarProps) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {Object.entries(filters).map(([key, value]) => (
-        <button
-          key={key}
-          onClick={() => onFilterChange(key, !value)}
-          className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-            value
-              ? 'border-cyan-100/30 bg-cyan-100/10 text-cyan-50'
-              : 'border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20'
-          }`}
-        >
-          {key.replace('show', '').replace(/([A-Z])/g, ' $1').trim()}
-        </button>
+function ChartPanel({
+  chart,
+  index,
+  activeMethod,
+  selectedCategory,
+  onSelectCategory,
+  onSelectDatum,
+}: {
+  chart: ChartDefinition;
+  index: number;
+  activeMethod: string;
+  selectedCategory: string | null;
+  onSelectCategory: (category: string | null) => void;
+  onSelectDatum: (selection: ChartDatumSelection) => void;
+}) {
+  const isLinkedBrushing = activeMethod === "linked-visualizations";
+  const isRadiant = activeMethod === "radiant-gradient";
+  const isDimmed = activeMethod === "negative-space";
+  const isHolographic = activeMethod === "holographic-depth";
+  const isIsometric = activeMethod === "isometric-slice";
+  const isChromatic = activeMethod === "chromatic-aberration";
+  const isPulse = activeMethod === "kinetic-vector";
+  const height = chartHeight(chart);
+
+  const handleBarClick = (entry: any, seriesName: string, dataKey: string, color: string) => {
+    const category = String(entry[chart.xKey] ?? entry.label ?? "");
+    onSelectCategory(category);
+    onSelectDatum({
+      chartId: chart.id,
+      chartTitle: chart.title,
+      chartType: chart.type,
+      category,
+      seriesName,
+      dataKey,
+      value: Number(entry[dataKey] ?? 0),
+      unit: entry.unit as string | undefined,
+      formatter: chart.formatter,
+      sourceId: entry.sourceId as string | undefined,
+      note: entry.note as string | undefined,
+      payload: entry as Record<string, string | number>,
+    });
+  };
+
+  const handleScatterClick = (entry: any) => {
+    const category = String(entry.name ?? entry[chart.xKey] ?? "");
+    onSelectCategory(category);
+    onSelectDatum({
+      chartId: chart.id,
+      chartTitle: chart.title,
+      chartType: chart.type,
+      category,
+      seriesName: chart.series[0]?.name ?? "Data",
+      dataKey: chart.series[0]?.dataKey ?? "x",
+      value: Number(entry[chart.series[0]?.dataKey ?? "x"] ?? 0),
+      unit: entry.unit as string | undefined,
+      formatter: chart.formatter,
+      sourceId: entry.sourceId as string | undefined,
+      note: entry.note as string | undefined,
+      payload: entry as Record<string, string | number>,
+    });
+  };
+
+  const panelClass = [
+    "selected-chart-panel",
+    "relative",
+    "overflow-hidden",
+    "rounded-2xl",
+    "border",
+    "border-cyan-100/12",
+    "bg-black/24",
+    "p-5",
+    "transition-all",
+    isChromatic ? "shadow-[0_0_24px_rgba(239,68,68,0.12),0_0_24px_rgba(6,182,212,0.12)]" : "",
+    isDimmed ? "shadow-[inset_0_0_40px_rgba(0,0,0,0.6)]" : "",
+    isHolographic ? "holographic-panel" : "",
+    isIsometric ? "hover:translate-y-[-4px] hover:shadow-[8px_8px_0_rgba(34,211,238,0.15)]" : "",
+    isPulse ? "animate-pulse-once" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const renderCartesian = (children: React.ReactNode, extra: React.ReactNode = null) => (
+    <GlassCard className={panelClass} delay={index * 0.03}>
+      <div className="mb-4">
+        <h3 className="font-bold text-white">{chart.title}</h3>
+        {chart.subtitle ? <p className="mt-1 text-xs text-cyan-100/55">{chart.subtitle}</p> : null}
+      </div>
+      <div className="w-full" style={{ height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          {children as React.ReactElement}
+        </ResponsiveContainer>
+      </div>
+      {extra}
+    </GlassCard>
+  );
+
+  if (chart.type === "line") {
+    return renderCartesian(
+      <LineChart data={chart.data}>
+        <CartesianGrid stroke="rgba(255,255,255,.08)" />
+        <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
+        <YAxis
+          stroke="rgba(207,250,254,.45)"
+          tick={{ fontSize: 11 }}
+          domain={chart.domain}
+          tickFormatter={formatTickByType(chart.formatter)}
+        />
+        {chart.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
+        <Tooltip
+          content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? "data focus"} />}
+        />
+        {chart.referenceLines?.map((ref, i) => (
+          <ReferenceLine key={i} y={ref.y} stroke={ref.stroke} strokeDasharray={ref.strokeDasharray} label={ref.label} />
+        ))}
+        {chart.series.map((s, i) => {
+          const color = getSeriesColor(i, s.color);
+          return (
+            <Line
+              key={s.dataKey}
+              type="monotone"
+              dataKey={s.dataKey}
+              name={s.name ?? s.dataKey}
+              stroke={color}
+              strokeWidth={isLinkedBrushing && selectedCategory ? 2 : 3}
+              dot={
+                isLinkedBrushing && selectedCategory
+                  ? { r: 4 }
+                  : isChromatic
+                    ? { r: 6, stroke: "rgba(239,68,68,0.8)", strokeWidth: 2, fill: color }
+                    : { r: 5 }
+              }
+              activeDot={{
+                r: 8,
+                onClick: (_: any, entry: any) => handleBarClick(entry.payload, s.name ?? s.dataKey, s.dataKey, color),
+              }}
+              opacity={isRadiant && selectedCategory ? 0.35 : 1}
+              className={isSynchronousPath(activeMethod) ? "synchronous-path-line" : ""}
+            />
+          );
+        })}
+      </LineChart>
+    );
+  }
+
+  if (chart.type === "area") {
+    return renderCartesian(
+      <AreaChart data={chart.data}>
+        <CartesianGrid stroke="rgba(255,255,255,.08)" />
+        <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
+        <YAxis
+          stroke="rgba(207,250,254,.45)"
+          tick={{ fontSize: 11 }}
+          domain={chart.domain}
+          tickFormatter={formatTickByType(chart.formatter)}
+        />
+        {chart.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
+        <Tooltip
+          content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? "data focus"} />}
+        />
+        {chart.series.map((s, i) => {
+          const color = getSeriesColor(i, s.color);
+          return (
+            <Area
+              key={s.dataKey}
+              type="monotone"
+              dataKey={s.dataKey}
+              name={s.name ?? s.dataKey}
+              stroke={color}
+              fill={`${color}4d`}
+              strokeWidth={3}
+              activeDot={{
+                r: 8,
+                onClick: (_: any, entry: any) => handleBarClick(entry.payload, s.name ?? s.dataKey, s.dataKey, color),
+              }}
+              opacity={isRadiant && selectedCategory ? 0.35 : 1}
+              className={isAlgorithmicEdge(activeMethod) ? "algorithmic-edge-area" : ""}
+            />
+          );
+        })}
+      </AreaChart>
+    );
+  }
+
+  if (chart.type === "scatter") {
+    return renderCartesian(
+      <ScatterChart>
+        <CartesianGrid stroke="rgba(255,255,255,.08)" />
+        <XAxis
+          dataKey={chart.series[0]?.dataKey ?? "x"}
+          name={chart.series[0]?.name ?? "X"}
+          stroke="rgba(207,250,254,.45)"
+          tick={{ fontSize: 10 }}
+          tickFormatter={formatTickByType(chart.formatter)}
+        />
+        <YAxis
+          dataKey={chart.series[1]?.dataKey ?? "y"}
+          name={chart.series[1]?.name ?? "Y"}
+          stroke="rgba(207,250,254,.45)"
+          tick={{ fontSize: 11 }}
+          domain={chart.domain}
+        />
+        {chart.series.length > 2 && <ZAxis dataKey={chart.series[2]?.dataKey ?? "z"} range={[80, 520]} />}
+        <Tooltip cursor={{ stroke: "rgba(34,211,238,.35)", strokeDasharray: "4 4" }} content={<LuminousChartTooltip headline={chart.headline ?? "data focus"} />} />
+        <Scatter
+          name="Data"
+          data={chart.data}
+          fill={chart.series[0]?.color ?? "#22d3ee"}
+          onClick={handleScatterClick}
+        />
+      </ScatterChart>
+    );
+  }
+
+  return renderCartesian(
+    <BarChart data={chart.data}>
+      <CartesianGrid stroke="rgba(255,255,255,.08)" />
+      <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
+      <YAxis
+        stroke="rgba(207,250,254,.45)"
+        tick={{ fontSize: 11 }}
+        domain={chart.domain}
+        tickFormatter={formatTickByType(chart.formatter)}
+      />
+      {chart.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
+      <Tooltip
+        cursor={{ fill: "rgba(34,211,238,.08)" }}
+        content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? "data focus"} />}
+      />
+      {chart.referenceLines?.map((ref, i) => (
+        <ReferenceLine key={i} y={ref.y} stroke={ref.stroke} strokeDasharray={ref.strokeDasharray} label={ref.label} />
       ))}
-    </div>
+      {chart.series.map((s, i) => {
+        const color = getSeriesColor(i, s.color);
+        return (
+          <Bar
+            key={s.dataKey}
+            dataKey={s.dataKey}
+            name={s.name ?? s.dataKey}
+            fill={color}
+            radius={s.radius ?? [10, 10, 0, 0]}
+            stackId={s.stackId}
+            onClick={(_, index) => handleBarClick(chart.data[index], s.name ?? s.dataKey, s.dataKey, color)}
+          >
+            {chart.data.map((entry, idx) => {
+              const category = String(entry[chart.xKey] ?? entry.label ?? "");
+              const isSelected = selectedCategory === category;
+              const isDimmed = selectedCategory && !isSelected;
+              const isLinked = isLinkedBrushing && selectedCategory && isSelected;
+              return (
+                <Cell
+                  key={`cell-${idx}`}
+                  fill={isLinked ? "#facc15" : isSelected ? "#ffffff" : color}
+                  opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : isDimmed ? 0.4 : 1}
+                  className={[
+                    isChromatic ? "chromatic-cell" : "",
+                    isIsometric && isSelected ? "isometric-lift" : "",
+                    isPulse && isSelected ? "pulse-bar" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                />
+              );
+            })}
+          </Bar>
+        );
+      })}
+    </BarChart>,
+    activeMethod === "geometric-anchor" ? (
+      <div className="pointer-events-none absolute inset-0 crosshair-overlay" aria-hidden />
+    ) : null
   );
 }
 
-interface VisualizationCanvasProps {
-  activeMethod: string;
-  vizModel: ProfileVisualizationModel;
-  filteredData: any[];
-  activeSelection: any;
-  setActiveSelection: (selection: any) => void;
-  setDetailDrawerOpen: (open: boolean) => void;
-  semanticZoomLevel: 'overview' | 'detail';
-  isExpanded: boolean;
-  filters: {
-    showMetrics: boolean;
-    showSignals: boolean;
-    showCharts: boolean;
-    showSources: boolean;
-    showDossier: boolean;
-    showRisk: boolean;
-    showOpportunity: boolean;
-  };
+function isSynchronousPath(method: string) {
+  return method === "synchronous-path";
 }
 
-function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelection, setActiveSelection, setDetailDrawerOpen, semanticZoomLevel, isExpanded, filters }: VisualizationCanvasProps) {
-  const dataToRender = activeMethod === 'semantic-zoom' && semanticZoomLevel === 'overview' ? 
-      filteredData.slice(0, 20) :
-      activeMethod === 'semantic-zoom' && semanticZoomLevel === 'detail' ?
-        filteredData :
-      filteredData;
+function isAlgorithmicEdge(method: string) {
+  return method === "algorithmic-edge";
+}
 
-  const getNodePosition = (index: number, total: number, method: string) => {
-    const centerX = 50;
-    const centerY = 50;
-    const radius = 40;
-    
-    switch (method) {
-      case 'vector-displacement':
-      case 'chromatic-aberration':
-      case 'procedural-grid':
-      case 'concentric-ripple':
-      case 'negative-space':
-      case 'vector-lattice':
-      case 'radiant-gradient':
-      case 'contextual-morph':
-        const angle = (index / total) * 2 * Math.PI;
-        return {
-          x: centerX + radius * Math.cos(angle),
-          y: centerY + radius * Math.sin(angle)
-        };
-      case 'geometric-anchor':
-      case 'algorithmic-edge':
-      case 'synchronous-path':
-      case 'vector-node':
-      case 'holographic-depth':
-      case 'kinetic-vector':
-        const cols = Math.ceil(Math.sqrt(total));
-        const row = Math.floor(index / cols);
-        const col = index % cols;
-        return {
-          x: 5 + (col * 90 / cols),
-          y: 5 + (row * 90 / cols)
-        };
-      default:
-        const defaultAngle = (index / total) * 2 * Math.PI;
-        return {
-          x: centerX + radius * Math.cos(defaultAngle),
-          y: centerY + radius * Math.sin(defaultAngle)
-        };
-    }
-  };
-
-  const getNodeColor = (type: string) => {
-    switch (type) {
-      case 'metric': return 'rgba(34,211,238,0.8)';
-      case 'signal': return 'rgba(16,185,129,0.8)';
-      case 'chart': return 'rgba(139,92,246,0.8)';
-      case 'source': return 'rgba(251,191,36,0.8)';
-      case 'dossier': return 'rgba(244,63,94,0.8)';
-      case 'risk': return 'rgba(239,68,68,0.8)';
-      case 'opportunity': return 'rgba(34,197,94,0.8)';
-      default: return 'rgba(34,211,238,0.8)';
-    }
-  };
-
-  const getNodeStrokeColor = (type: string) => {
-    switch (type) {
-      case 'metric': return 'rgba(34,211,238,1)';
-      case 'signal': return 'rgba(16,185,129,1)';
-      case 'chart': return 'rgba(139,92,246,1)';
-      case 'source': return 'rgba(251,191,36,1)';
-      case 'dossier': return 'rgba(244,63,94,1)';
-      case 'risk': return 'rgba(239,68,68,1)';
-      case 'opportunity': return 'rgba(34,197,94,1)';
-      default: return 'rgba(34,211,238,1)';
-    }
-  };
-
-  const renderCanvas = () => {
-    if (dataToRender.length === 0) {
-      return <p className="flex h-full items-center justify-center text-sm text-cyan-100/40">No data available for current filter/zoom level</p>;
-    }
-
-    const displayData = dataToRender.slice(0, isExpanded ? 50 : 25);
-    const canvasHeight = isExpanded ? 700 : 500;
-
-    switch (activeMethod) {
-      case 'vector-displacement':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              <defs>
-                <radialGradient id="lensGradient" cx="50%" cy="50%" r="30%">
-                  <stop offset="0%" stopColor="rgba(34,211,238,0.1)" />
-                  <stop offset="100%" stopColor="rgba(34,211,238,0)" />
-                </radialGradient>
-              </defs>
-              <circle cx="50%" cy="50%" r="30%" fill="url(#lensGradient)" />
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
-                      stroke={nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    {isSelected && (
-                      <circle
-                        cx={`${pos.x}%`}
-                        cy={`${pos.y}%`}
-                        r={16}
-                        fill="none"
-                        stroke={nodeStroke}
-                        strokeWidth={1}
-                        opacity={0.5}
-                      />
-                    )}
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      case 'chromatic-aberration':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
-                    {isSelected && (
-                      <>
-                        <circle
-                          cx={`${pos.x + 0.8}%`}
-                          cy={`${pos.y}%`}
-                          r={12}
-                          fill="rgba(239,68,68,0.5)"
-                          className="pointer-events-none"
-                        />
-                        <circle
-                          cx={`${pos.x - 0.8}%`}
-                          cy={`${pos.y}%`}
-                          r={12}
-                          fill="rgba(6,182,212,0.5)"
-                          className="pointer-events-none"
-                        />
-                      </>
-                    )}
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
-                      stroke={nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      case 'geometric-anchor':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
-                    {isSelected && (
-                      <>
-                        <line x1={`${pos.x}%`} y1="0%" x2={`${pos.x}%`} y2="100%" stroke={nodeStroke} strokeWidth="1.5" opacity={0.4} />
-                        <line x1="0%" y1={`${pos.y}%`} x2="100%" y2={`${pos.y}%`} stroke={nodeStroke} strokeWidth="1.5" opacity={0.4} />
-                        <line x1={`${pos.x - 15}%`} y1={`${pos.y - 15}%`} x2={`${pos.x + 15}%`} y2={`${pos.y + 15}%`} stroke={nodeStroke} strokeWidth="2" opacity={0.6} />
-                        <line x1={`${pos.x + 15}%`} y1={`${pos.y - 15}%`} x2={`${pos.x - 15}%`} y2={`${pos.y + 15}%`} stroke={nodeStroke} strokeWidth="2" opacity={0.6} />
-                      </>
-                    )}
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
-                      stroke={nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      case 'procedural-grid':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              <defs>
-                <pattern id="gridPattern" width="15" height="15" patternUnits="userSpaceOnUse">
-                  <path d="M 15 0 L 0 0 0 15" fill="none" stroke="rgba(34,211,238,0.15)" strokeWidth="0.5" />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#gridPattern)" />
-              {activeSelection && (
-                <circle
-                  cx="50%"
-                  cy="50%"
-                  r="45%"
-                  fill="none"
-                  stroke="rgba(34,211,238,0.4)"
-                  strokeWidth="1.5"
-                >
-                  <animate attributeName="r" values="35%;50%;35%" dur="2s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0.6;0;0.6" dur="2s" repeatCount="indefinite" />
-                </circle>
-              )}
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
-                      stroke={nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      case 'algorithmic-edge':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
-                    {isSelected && (
-                      <rect
-                        x={`${pos.x - 18}%`}
-                        y={`${pos.y - 18}%`}
-                        width="36%"
-                        height="36%"
-                        fill="none"
-                        stroke={nodeStroke}
-                        strokeWidth="2.5"
-                        strokeDasharray="6 3"
-                      >
-                        <animate attributeName="strokeDashoffset" from="0" to="18" dur="1s" repeatCount="indefinite" />
-                      </rect>
-                    )}
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
-                      stroke={nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      case 'concentric-ripple':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              {activeSelection && displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const nodeStroke = getNodeStrokeColor(item.type);
-                if (isSelected) {
-                  return (
-                    <g key={`ripple-${index}`}>
-                      {[1, 2, 3].map((i) => (
-                        <circle
-                          key={i}
-                          cx={`${pos.x}%`}
-                          cy={`${pos.y}%`}
-                          r={12 + i * 8}
-                          fill="none"
-                          stroke={nodeStroke}
-                          strokeWidth="1.5"
-                          opacity={0.5 - i * 0.12}
-                        >
-                          <animate attributeName="r" values={`${12 + i * 8};${28 + i * 8};${12 + i * 8}`} dur={`${1.5 + i * 0.3}s`} repeatCount="indefinite" />
-                          <animate attributeName="opacity" values="0.6;0;0.6" dur={`${1.5 + i * 0.3}s`} repeatCount="indefinite" />
-                        </circle>
-                      ))}
-                    </g>
-                  );
-                }
-                return null;
-              })}
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
-                      stroke={nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      case 'negative-space':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? 'rgba(0,0,0,0.95)' : isDimmed ? nodeColor.replace('0.8', '0.15') : nodeColor.replace('0.8', '0.5')}
-                      stroke={isSelected ? nodeStroke : nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    {isSelected && (
-                      <circle
-                        cx={`${pos.x}%`}
-                        cy={`${pos.y}%`}
-                        r={16}
-                        fill="none"
-                        stroke={nodeStroke}
-                        strokeWidth={2}
-                        opacity={0.8}
-                      />
-                    )}
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill={isSelected ? nodeStroke : isDimmed ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.9)'}
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      case 'vector-lattice':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
-                    {displayData.slice(0, index).map((otherItem, otherIndex) => {
-                      const otherPos = getNodePosition(otherIndex, displayData.length, activeMethod);
-                      const distance = Math.sqrt(Math.pow(pos.x - otherPos.x, 2) + Math.pow(pos.y - otherPos.y, 2));
-                      if (distance < 25) {
-                        return (
-                          <line
-                            key={`line-${index}-${otherIndex}`}
-                            x1={`${pos.x}%`}
-                            y1={`${pos.y}%`}
-                            x2={`${otherPos.x}%`}
-                            y2={`${otherPos.y}%`}
-                            stroke={nodeStroke}
-                            strokeWidth="1"
-                            opacity={0.3}
-                          />
-                        );
-                      }
-                      return null;
-                    })}
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
-                      stroke={nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      case 'synchronous-path':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
-                    <line
-                      x1={`${pos.x - 20}%`}
-                      y1={`${pos.y}%`}
-                      x2={`${pos.x + 20}%`}
-                      y2={`${pos.y}%`}
-                      stroke={isSelected ? nodeStroke : nodeStroke}
-                      strokeWidth={isSelected ? 2.5 : 1.5}
-                      opacity={isSelected ? 0.8 : 0.3}
-                    >
-                      {isSelected && (
-                        <animate attributeName="stroke-dasharray" values="0,40;40,0" dur="1.5s" repeatCount="indefinite" />
-                      )}
-                    </line>
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
-                      stroke={nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      case 'vector-node':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
-                    {isSelected && (
-                      <>
-                        <circle cx={`${pos.x}%`} cy={`${pos.y}%`} r={16} fill="none" stroke={nodeStroke} strokeWidth="1.5" opacity={0.4} />
-                        <circle cx={`${pos.x}%`} cy={`${pos.y}%`} r={20} fill="none" stroke={nodeStroke} strokeWidth="1" opacity={0.25} />
-                      </>
-                    )}
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
-                      stroke={nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      case 'radiant-gradient':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              <defs>
-                <radialGradient id="glowGradient" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="rgba(34,211,238,0.4)" />
-                  <stop offset="100%" stopColor="rgba(34,211,238,0)" />
-                </radialGradient>
-              </defs>
-              {activeSelection && <rect width="100%" height="100%" fill="url(#glowGradient)" />}
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? nodeColor : isDimmed ? nodeColor.replace('0.8', '0.2') : nodeColor.replace('0.8', '0.5')}
-                      stroke={nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    {isSelected && (
-                      <circle
-                        cx={`${pos.x}%`}
-                        cy={`${pos.y}%`}
-                        r={16}
-                        fill="none"
-                        stroke={nodeStroke}
-                        strokeWidth={1}
-                        opacity={0.5}
-                      />
-                    )}
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill={isDimmed ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.9)'}
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      case 'holographic-depth':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                const depth = index % 3;
-                const opacity = 0.4 + depth * 0.2;
-                const scale = 0.85 + depth * 0.1;
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : opacity }}>
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={(isSelected ? 12 : 8) * scale}
-                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', `${opacity}`)}
-                      stroke={nodeStroke}
-                      strokeWidth={(isSelected ? 3 : 2) * scale}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={(isSelected ? 11 : 9) * scale}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      case 'kinetic-vector':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
-                      stroke={nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    >
-                      {isSelected && (
-                        <animate attributeName="r" values="12;14;12" dur="0.5s" repeatCount="indefinite" />
-                      )}
-                    </circle>
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      case 'contextual-morph':
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isRelated = activeSelection && activeSelection.category === item.category;
-                const isUnrelated = activeSelection && !isSelected && !isRelated;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                const opacity = isUnrelated ? 0.3 : 1;
-                return (
-                  <g key={item.id || index} style={{ opacity }}>
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? nodeColor : isRelated ? nodeColor.replace('0.8', '0.6') : nodeColor.replace('0.8', '0.5')}
-                      stroke={nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-
-      default:
-        return (
-          <div className="relative h-full" style={{ height: canvasHeight }}>
-            <svg className="absolute inset-0 h-full w-full">
-              {displayData.map((item, index) => {
-                const pos = getNodePosition(index, displayData.length, activeMethod);
-                const isSelected = activeSelection && activeSelection.id === item.id;
-                const isDimmed = activeSelection && !isSelected;
-                const nodeColor = getNodeColor(item.type);
-                const nodeStroke = getNodeStrokeColor(item.type);
-                return (
-                  <g key={item.id || index} style={{ opacity: isDimmed ? 0.3 : 1 }}>
-                    <circle
-                      cx={`${pos.x}%`}
-                      cy={`${pos.y}%`}
-                      r={isSelected ? 12 : 8}
-                      fill={isSelected ? nodeColor : nodeColor.replace('0.8', '0.5')}
-                      stroke={nodeStroke}
-                      strokeWidth={isSelected ? 3 : 2}
-                      className="cursor-pointer transition-all hover:fill-opacity-80"
-                      onClick={() => { setActiveSelection(item); setDetailDrawerOpen(true); }}
-                    />
-                    {isSelected && (
-                      <circle
-                        cx={`${pos.x}%`}
-                        cy={`${pos.y}%`}
-                        r={16}
-                        fill="none"
-                        stroke={nodeStroke}
-                        strokeWidth={1}
-                        opacity={0.5}
-                      />
-                    )}
-                    <text
-                      x={`${pos.x}%`}
-                      y={`${pos.y - 12}%`}
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={isSelected ? 11 : 9}
-                      fontWeight={isSelected ? 600 : 400}
-                      textAnchor="middle"
-                      className="pointer-events-none"
-                    >
-                      {item.label?.slice(0, 10) || item.title?.slice(0, 10) || item.name?.slice(0, 10) || 'N/A'}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        );
-    }
-  };
-
+function MatrixPanel({
+  title,
+  subtitle,
+  data,
+  xKey,
+  yKey,
+  zKey,
+  xLabel,
+  yLabel,
+  activeMethod,
+  onSelectPoint,
+}: {
+  title: string;
+  subtitle?: string;
+  data: RiskMatrixPoint[] | OpportunityMatrixPoint[];
+  xKey: keyof RiskMatrixPoint | keyof OpportunityMatrixPoint;
+  yKey: keyof RiskMatrixPoint | keyof OpportunityMatrixPoint;
+  zKey: keyof RiskMatrixPoint | keyof OpportunityMatrixPoint;
+  xLabel: string;
+  yLabel: string;
+  activeMethod: string;
+  onSelectPoint: (point: any) => void;
+}) {
+  if (!data.length) return null;
+  const color = activeMethod === "negative-space" ? "#f43f5e" : "#22d3ee";
   return (
-    <div className="relative overflow-hidden rounded-xl border border-cyan-100/12 bg-black/18">
-      {renderCanvas()}
-      <div className="absolute bottom-3 left-3 flex flex-wrap gap-2 rounded-lg border border-cyan-100/12 bg-black/40 px-3 py-2">
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-cyan-400" />
-          <span className="text-[10px] text-cyan-100/70">Metrics</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-emerald-400" />
-          <span className="text-[10px] text-cyan-100/70">Signals</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-violet-400" />
-          <span className="text-[10px] text-cyan-100/70">Charts</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-amber-400" />
-          <span className="text-[10px] text-cyan-100/70">Sources</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-rose-400" />
-          <span className="text-[10px] text-cyan-100/70">Dossier</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-red-400" />
-          <span className="text-[10px] text-cyan-100/70">Risk</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-green-400" />
-          <span className="text-[10px] text-cyan-100/70">Opp</span>
-        </div>
+    <GlassCard className="p-5">
+      <div className="mb-4">
+        <h3 className="font-bold text-white">{title}</h3>
+        {subtitle ? <p className="mt-1 text-xs text-cyan-100/55">{subtitle}</p> : null}
       </div>
+      <div className="w-full" style={{ height: 360 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ScatterChart>
+            <CartesianGrid stroke="rgba(255,255,255,.08)" />
+            <XAxis dataKey={xKey as string} name={xLabel} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
+            <YAxis dataKey={yKey as string} name={yLabel} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={[0, "auto"]} />
+            <ZAxis dataKey={zKey as string} range={[80, 520]} />
+            <Tooltip cursor={{ stroke: "rgba(34,211,238,.35)", strokeDasharray: "4 4" }} content={<LuminousChartTooltip headline={title} />} />
+            <Scatter name="Data" data={data} fill={color} onClick={(_, index) => onSelectPoint(data[index])} />
+          </ScatterChart>
+        </ResponsiveContainer>
+      </div>
+    </GlassCard>
+  );
+}
+
+function SignalSourceStrip({
+  signals,
+  sources,
+  activeMethod,
+  onSelectSignal,
+}: {
+  signals: SignalDefinition[];
+  sources: any[];
+  activeMethod: string;
+  onSelectSignal: (signal: SignalDefinition) => void;
+}) {
+  if (!signals.length && !sources.length) return null;
+  return (
+    <div className="mt-5 grid gap-4 md:grid-cols-2">
+      {signals.length > 0 && (
+        <GlassCard className="p-5">
+          <p className="mb-3 text-xs uppercase tracking-[0.24em] text-cyan-100/45">Executive Signals</p>
+          <div className="space-y-2">
+            {signals.map((signal, i) => (
+              <button
+                key={i}
+                onClick={() => onSelectSignal(signal)}
+                className="flex w-full items-start gap-3 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3 text-left transition hover:bg-emerald-400/10"
+              >
+                <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
+                <div>
+                  <p className="text-sm font-semibold text-cyan-50">{signal.label}</p>
+                  <p className="mt-0.5 text-xs text-cyan-100/60">{signal.value}</p>
+                  {signal.note ? <p className="mt-1 text-[11px] text-cyan-100/50">{signal.note}</p> : null}
+                </div>
+              </button>
+            ))}
+          </div>
+        </GlassCard>
+      )}
+      {sources.length > 0 && (
+        <GlassCard className="p-5">
+          <p className="mb-3 text-xs uppercase tracking-[0.24em] text-cyan-100/45">Source Evidence</p>
+          <div className="space-y-2">
+            {sources.slice(0, 8).map((source, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3"
+              >
+                <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                <div>
+                  <p className="text-sm font-semibold text-cyan-50">{source.name ?? source.sourceName ?? "Source"}</p>
+                  {source.type ? <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/50">{source.type}</p> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
     </div>
   );
 }
@@ -1082,233 +685,90 @@ export default function DataVisualization() {
   const status = getIntelligenceStatus(config);
   const profile = dataset.profiles.find((item) => resolveConfigCompanyId(item.companyId) === resolvedCompanyId);
   const sources = dataset.sources.filter((source) => resolveConfigCompanyId(source.companyId) === resolvedCompanyId);
-  
+
   const [activeMethod, setActiveMethod] = useState<string>("vector-displacement");
-  const [activeSelection, setActiveSelection] = useState<any>(null);
+  const [activeSelection, setActiveSelection] = useState<ChartDatumSelection | null>(null);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
-  const [semanticZoomLevel, setSemanticZoomLevel] = useState<'overview' | 'detail'>('overview');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
-  
-  const [filters, setFilters] = useState({
-    showMetrics: true,
-    showSignals: true,
-    showCharts: true,
-    showSources: true,
-    showDossier: true,
-    showRisk: true,
-    showOpportunity: true
-  });
 
   const vizModel = buildProfileVisualizationModel({
     company,
     config,
-    profile,
     metrics: dataset.metrics.filter((metric) => resolveConfigCompanyId(metric.companyId) === resolvedCompanyId),
-    sources
+    sources,
   });
 
-  const handleFilterChange = (key: string, value: boolean) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
+  const { primaryCharts } = useChartPanels(vizModel);
 
-  const handleNodeClick = (node: any) => {
-    setActiveSelection(node);
+  const handleSelectDatum = (selection: ChartDatumSelection) => {
+    setActiveSelection(selection);
     setDetailDrawerOpen(true);
   };
 
-  const getFilteredData = () => {
-    let data: any[] = [];
-    if (filters.showMetrics) {
-      data = [...data, ...vizModel.metrics.map(m => ({ ...m, type: 'metric' }))];
-    }
-    if (filters.showSignals) {
-      data = [...data, ...vizModel.signals.map(s => ({ ...s, type: 'signal' }))];
-    }
-    if (filters.showCharts) {
-      data = [...data, ...vizModel.charts.map(c => ({ ...c, type: 'chart' }))];
-    }
-    if (filters.showSources) {
-      data = [...data, ...vizModel.sourceRecords.map(s => ({ ...s, type: 'source' }))];
-    }
-    if (filters.showDossier) {
-      data = [...data, ...vizModel.dossierSections.map(d => ({ ...d, type: 'dossier' }))];
-    }
-    if (filters.showRisk) {
-      data = [...data, ...vizModel.riskMatrix.map(r => ({ ...r, type: 'risk' }))];
-    }
-    if (filters.showOpportunity) {
-      data = [...data, ...vizModel.opportunityMatrix.map(o => ({ ...o, type: 'opportunity' }))];
-    }
-    return data;
+  const handleSelectCategory = (category: string | null) => {
+    setSelectedCategory((prev) => (prev === category ? null : category));
   };
 
-  const filteredData = getFilteredData();
+  const handleSelectSignal = (signal: SignalDefinition) => {
+    setActiveSelection({
+      chartId: "signal",
+      chartTitle: "Executive Signal",
+      chartType: "signal",
+      category: signal.label,
+      seriesName: "Signal",
+      dataKey: "value",
+      value: 0,
+      note: signal.note,
+      payload: signal as unknown as Record<string, string | number>,
+    });
+    setDetailDrawerOpen(true);
+  };
+
+  const handleMatrixPoint = (point: any) => {
+    setActiveSelection({
+      chartId: "matrix",
+      chartTitle: "Risk / Opportunity Matrix",
+      chartType: "scatter",
+      category: point.name,
+      seriesName: "Matrix point",
+      dataKey: "name",
+      value: point.revenue ?? point.revenuePotential ?? 0,
+      note: `Risk: ${point.risk ?? "N/A"}, Workers: ${point.workers ?? "N/A"}`,
+      payload: point,
+    });
+    setDetailDrawerOpen(true);
+  };
 
   const visualizationMethods = [
-    {
-      id: "vector-displacement",
-      title: "Vector Displacement Mapping",
-      description: "Pointer-based lens refraction effect on data cards",
-      effectClass: "hover:shadow-[0_0_40px_rgba(34,211,238,.15)]"
-    },
-    {
-      id: "chromatic-aberration",
-      title: "Chromatic Aberration Highlighting",
-      description: "RGB split / technical glitch halo on active data",
-      effectClass: "hover:shadow-[0_0_40px_rgba(239,68,68,.15),0_0_40px_rgba(6,182,212,.15)]"
-    },
-    {
-      id: "geometric-anchor",
-      title: "Geometric Anchor Snapping",
-      description: "Precise crosshair-like emphasis on metric values",
-      effectClass: "hover:shadow-[0_0_40px_rgba(16,185,129,.15)]"
-    },
-    {
-      id: "subtractive-masking",
-      title: "Subtractive Masking Overlays",
-      description: "Value labels cut into glass surface",
-      effectClass: "hover:shadow-[inset_0_0_40px_rgba(34,211,238,.1)]"
-    },
-    {
-      id: "procedural-grid",
-      title: "Procedural Grid Resonances",
-      description: "Radial pulse effect around active metrics",
-      effectClass: "hover:shadow-[0_0_40px_rgba(34,211,238,.2),0_0_80px_rgba(34,211,238,.1)]"
-    },
-    {
-      id: "algorithmic-edge",
-      title: "Algorithmic Edge-Tracing",
-      description: "Hard-edge animated outline on selected elements",
-      effectClass: "hover:shadow-[0_0_2px_rgba(34,211,238,.8),0_0_8px_rgba(34,211,238,.4)]"
-    },
-    {
-      id: "concentric-ripple",
-      title: "Concentric Ripple Metrics",
-      description: "Faint ring feedback on clicked metrics",
-      effectClass: "hover:shadow-[0_0_0_4px_rgba(34,211,238,.3),0_0_0_8px_rgba(34,211,238,.15)]"
-    },
-    {
-      id: "negative-space",
-      title: "Negative Space Inversion",
-      description: "Dark void with neon edge for important metrics",
-      effectClass: "hover:shadow-[inset_0_0_40px_rgba(0,0,0,.8),0_0_20px_rgba(34,211,238,.3)]"
-    },
-    {
-      id: "vector-lattice",
-      title: "Vector Lattice Distortion",
-      description: "Pointer movement warps background grid",
-      effectClass: "hover:shadow-[0_0_40px_rgba(168,85,247,.15)]"
-    },
-    {
-      id: "color-shift",
-      title: "Color-Shift Isometry",
-      description: "Smooth luminous gradient state transitions",
-      effectClass: "hover:shadow-[0_0_40px_rgba(236,72,153,.15)]"
-    },
-    {
-      id: "synchronous-path",
-      title: "Synchronous Path Illumination",
-      description: "Light sweep along selected paths/bars",
-      effectClass: "hover:shadow-[0_0_40px_rgba(251,191,36,.15)]"
-    },
-    {
-      id: "vector-node",
-      title: "Vector Node Expansion",
-      description: "Datapoint blooms into precise vector node",
-      effectClass: "hover:shadow-[0_0_40px_rgba(34,211,238,.25)]"
-    },
-    {
-      id: "radiant-gradient",
-      title: "Radiant Gradient Focus",
-      description: "Active data glows, supporting data recedes",
-      effectClass: "hover:shadow-[0_0_60px_rgba(34,211,238,.2),0_0_100px_rgba(34,211,238,.1)]"
-    },
-    {
-      id: "isometric-slice",
-      title: "Isometric Slice-View",
-      description: "Selected card lifts with isometric plane effect",
-      effectClass: "hover:shadow-[8px_8px_0_rgba(34,211,238,.2)]"
-    },
-    {
-      id: "semantic-zoom",
-      title: "Generative Semantic Zoom",
-      description: "Toggle between abstract overview and detail mode",
-      effectClass: "hover:shadow-[0_0_40px_rgba(99,102,241,.15)]"
-    },
-    {
-      id: "holographic-depth",
-      title: "Holographic Depth Layers",
-      description: "Layered translucent panels with parallax",
-      effectClass: "hover:shadow-[0_0_40px_rgba(34,211,238,.15),0_0_80px_rgba(34,211,238,.05)]"
-    },
-    {
-      id: "kinetic-vector",
-      title: "Kinetic Vector Transitions",
-      description: "Clean vector-like motion animations",
-      effectClass: "hover:shadow-[0_0_40px_rgba(20,184,166,.15)]"
-    },
-    {
-      id: "contextual-morph",
-      title: "Contextual Data Morphing",
-      description: "Selected metric emphasizes related values",
-      effectClass: "hover:shadow-[0_0_40px_rgba(139,92,246,.15)]"
-    },
-    {
-      id: "interactive-filter",
-      title: "Interactive Filtering",
-      description: "Method-level filter controls on data",
-      effectClass: "hover:shadow-[0_0_40px_rgba(234,88,12,.15)]"
-    },
-    {
-      id: "zoom-pan",
-      title: "Zoom and Pan",
-      description: "Focused/expanded mode for dense charts",
-      effectClass: "hover:shadow-[0_0_40px_rgba(14,165,233,.15)]"
-    },
-    {
-      id: "linked-visualizations",
-      title: "Linked Visualizations / Brushing",
-      description: "Shared selection highlights across cards",
-      effectClass: "hover:shadow-[0_0_40px_rgba(22,163,74,.15)]"
-    },
-    {
-      id: "click-reveal",
-      title: "Click-to-Reveal",
-      description: "Persistent detail drawer on value click",
-      effectClass: "hover:shadow-[0_0_40px_rgba(244,63,94,.15)]"
-    }
+    "vector-displacement",
+    "chromatic-aberration",
+    "geometric-anchor",
+    "subtractive-masking",
+    "procedural-grid",
+    "algorithmic-edge",
+    "concentric-ripple",
+    "negative-space",
+    "vector-lattice",
+    "color-shift",
+    "synchronous-path",
+    "vector-node",
+    "radiant-gradient",
+    "isometric-slice",
+    "semantic-zoom",
+    "holographic-depth",
+    "kinetic-vector",
+    "contextual-morph",
+    "interactive-filter",
+    "zoom-pan",
+    "linked-visualizations",
+    "click-reveal",
   ];
 
   const getMethodDataCount = (methodId: string) => {
-    switch (methodId) {
-      case "vector-displacement":
-      case "chromatic-aberration":
-      case "geometric-anchor":
-      case "subtractive-masking":
-      case "procedural-grid":
-      case "algorithmic-edge":
-      case "concentric-ripple":
-      case "negative-space":
-      case "vector-lattice":
-      case "color-shift":
-      case "synchronous-path":
-      case "vector-node":
-      case "radiant-gradient":
-      case "isometric-slice":
-      case "holographic-depth":
-      case "kinetic-vector":
-      case "contextual-morph":
-      case "interactive-filter":
-      case "zoom-pan":
-      case "linked-visualizations":
-        return filteredData.length;
-      case "semantic-zoom":
-        return vizModel.metrics.length + vizModel.signals.length;
-      case "click-reveal":
-        return activeSelection ? 1 : 0;
-      default:
-        return 0;
-    }
+    if (methodId === "click-reveal") return activeSelection ? 1 : 0;
+    if (methodId === "semantic-zoom") return vizModel.metrics.length + vizModel.signals.length;
+    return primaryCharts.length + vizModel.riskMatrix.length + vizModel.opportunityMatrix.length;
   };
 
   return (
@@ -1366,93 +826,111 @@ export default function DataVisualization() {
         <div className="mb-5">
           <p className="mb-3 text-xs uppercase tracking-[0.25em] text-cyan-100/35">Visualization method</p>
           <div className="flex flex-wrap gap-2">
-            {visualizationMethods.map((method) => (
+            {visualizationMethods.map((methodId) => (
               <button
-                key={method.id}
-                onClick={() => setActiveMethod(method.id)}
+                key={methodId}
+                onClick={() => setActiveMethod(methodId)}
                 className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                  activeMethod === method.id
-                    ? 'border-cyan-100/30 bg-cyan-100/10 text-cyan-50'
-                    : 'border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20'
+                  activeMethod === methodId
+                    ? "border-cyan-100/30 bg-cyan-100/10 text-cyan-50"
+                    : "border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20"
                 }`}
               >
-                {method.title}
+                {methodName(methodId)}
+                <span className="ml-1.5 inline-block rounded-full bg-cyan-100/10 px-1.5 py-0.5 text-[9px] text-cyan-100/70">
+                  {getMethodDataCount(methodId)}
+                </span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Active Method Canvas */}
+        {/* Active Method Header */}
         {activeMethod && (
-          <div className="mb-4">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.25em] text-cyan-100/35">Active method canvas</p>
-                <h3 className="mt-1 text-xl font-bold text-white">
-                  {visualizationMethods.find(m => m.id === activeMethod)?.title}
-                </h3>
-              </div>
-              <div className="flex gap-2">
-                {activeMethod === 'zoom-pan' && (
-                  <button
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-3 py-1.5 text-xs text-cyan-50 transition hover:bg-cyan-100/10"
-                  >
-                    {isExpanded ? 'Collapse' : 'Expand'}
-                  </button>
-                )}
-                {activeMethod === 'semantic-zoom' && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setSemanticZoomLevel('overview')}
-                      className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                        semanticZoomLevel === 'overview'
-                          ? 'border-cyan-100/30 bg-cyan-100/10 text-cyan-50'
-                          : 'border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20'
-                      }`}
-                    >
-                      Overview
-                    </button>
-                    <button
-                      onClick={() => setSemanticZoomLevel('detail')}
-                      className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                        semanticZoomLevel === 'detail'
-                          ? 'border-cyan-100/30 bg-cyan-100/10 text-cyan-50'
-                          : 'border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20'
-                      }`}
-                    >
-                      Detail
-                    </button>
-                  </div>
-                )}
-              </div>
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.25em] text-cyan-100/35">Active method canvas</p>
+              <h3 className="mt-1 text-xl font-bold text-white">{methodName(activeMethod)}</h3>
             </div>
-            
-            {activeMethod === 'interactive-filter' && (
-              <div className="mb-4">
-                <VisualizationFilterBar filters={filters} onFilterChange={handleFilterChange} />
-              </div>
-            )}
+            <div className="flex gap-2">
+              {activeMethod === "zoom-pan" && (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-3 py-1.5 text-xs text-cyan-50 transition hover:bg-cyan-100/10"
+                >
+                  {isExpanded ? "Collapse" : "Expand"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
-            <VisualizationCanvas
+        {/* A. Primary Chart Workspace */}
+        {primaryCharts.length > 0 ? (
+          <div className={`grid gap-5 ${isExpanded ? "xl:grid-cols-1" : "xl:grid-cols-2"}`}>
+            {primaryCharts.map((chart, index) => (
+              <div key={chart.id} className={chart.fullWidth || isExpanded ? "xl:col-span-2" : ""}>
+                <ChartPanel
+                  chart={chart}
+                  index={index}
+                  activeMethod={activeMethod}
+                  selectedCategory={selectedCategory}
+                  onSelectCategory={handleSelectCategory}
+                  onSelectDatum={handleSelectDatum}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <GlassCard className="p-8 text-center">
+            <p className="text-sm text-cyan-100/50">No chart definitions or metric data available for visualization.</p>
+          </GlassCard>
+        )}
+
+        {/* B. Risk / Opportunity Matrix */}
+        {(vizModel.riskMatrix.length > 0 || vizModel.opportunityMatrix.length > 0) && (
+          <div className="mt-5 grid gap-5 xl:grid-cols-2">
+            <MatrixPanel
+              title="Risk Matrix"
+              subtitle="Revenue exposure plotted against worker risk"
+              data={vizModel.riskMatrix}
+              xKey="revenue"
+              yKey="risk"
+              zKey="workers"
+              xLabel="Revenue ($M)"
+              yLabel="Risk score"
               activeMethod={activeMethod}
-              vizModel={vizModel}
-              filteredData={filteredData}
-              activeSelection={activeSelection}
-              setActiveSelection={setActiveSelection}
-              setDetailDrawerOpen={setDetailDrawerOpen}
-              semanticZoomLevel={semanticZoomLevel}
-              isExpanded={isExpanded}
-              filters={filters}
+              onSelectPoint={handleMatrixPoint}
+            />
+            <MatrixPanel
+              title="Opportunity Matrix"
+              subtitle="Strategic value plotted against implementation complexity"
+              data={vizModel.opportunityMatrix}
+              xKey="revenuePotential"
+              yKey="implementationComplexity"
+              zKey="strategicValue"
+              xLabel="Revenue potential"
+              yLabel="Complexity"
+              activeMethod={activeMethod}
+              onSelectPoint={handleMatrixPoint}
             />
           </div>
         )}
 
-        {/* Click-to-Reveal Detail Drawer */}
+        {/* C. Signal / Source Evidence Strip */}
+        <SignalSourceStrip
+          signals={vizModel.signals}
+          sources={vizModel.sourceRecords}
+          activeMethod={activeMethod}
+          onSelectSignal={handleSelectSignal}
+        />
+
+        {/* D. Detail Drawer */}
         <VisualizationDetailDrawer
           isOpen={detailDrawerOpen}
           onClose={() => setDetailDrawerOpen(false)}
           selection={activeSelection}
+          sourceRecords={vizModel.sourceRecords}
         />
       </section>
     </main>
