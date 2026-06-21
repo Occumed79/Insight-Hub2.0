@@ -4,6 +4,13 @@ import { eq } from "drizzle-orm";
 
 const router = Router();
 const VALID_CONFIDENCE = new Set(["exact", "place", "city", "unknown"]);
+const US_STATE_CODES = new Set(["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DC", "DE", "FL", "GA", "HI", "IA", "ID", "IL", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NM", "NV", "NY", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY"]);
+const EUROPE = new Set(["Albania", "Austria", "Belgium", "Bulgaria", "Croatia", "Czechia", "Denmark", "France", "Germany", "Greece", "Italy", "Kosovo", "Netherlands", "Norway", "Poland", "Romania", "Serbia", "Slovakia", "Spain", "Sweden", "Switzerland", "Turkey", "Ukraine", "United Kingdom", "UK"]);
+const MIDDLE_EAST = new Set(["Bahrain", "Iraq", "Israel", "Jordan", "Kuwait", "Oman", "Qatar", "Saudi Arabia", "UAE", "United Arab Emirates", "Yemen"]);
+const AFRICA = new Set(["Algeria", "Benin", "Botswana", "Burkina Faso", "Egypt", "Ethiopia", "Ghana", "Kenya", "Morocco", "Mozambique", "Niger", "Nigeria", "Somalia", "South Africa", "South Sudan", "Uganda"]);
+const INDO_PACIFIC = new Set(["Australia", "Bangladesh", "British Indian Ocean Territory", "China", "Guam", "India", "Japan", "Malaysia", "Marshall Islands", "Philippines", "Singapore", "South Korea", "Thailand"]);
+const LATAM = new Set(["Bahamas", "Brazil", "Colombia", "Cuba", "Honduras", "Mexico", "Panama"]);
+const POLAR = new Set(["Antarctica", "Greenland"]);
 
 type ManualLocationInput = {
   placeName?: unknown;
@@ -22,6 +29,21 @@ type ManualLocationInput = {
 };
 
 type LocationInsert = typeof locationsTable.$inferInsert;
+
+type ParsedTextLocation = {
+  entityName: string;
+  placeName: string;
+  formattedAddress: string;
+  city?: string;
+  state?: string;
+  country: string;
+  region: string;
+  facilityType: string;
+  activity: string;
+  notes: string;
+  coordinates: [number, number];
+  sourceId: string;
+};
 
 function normalizeEntityName(value: unknown) {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, 160);
@@ -46,6 +68,127 @@ function normalizeTextKey(value: unknown) {
 
 function looseLocationKey(input: { coordinates: unknown; formattedAddress?: unknown; placeName?: unknown }) {
   return `${coordinateKey(input.coordinates)}|${normalizeTextKey(input.formattedAddress || input.placeName)}`;
+}
+
+function normalizeImportedCompanyName(value: string) {
+  const cleaned = value.trim().replace(/\s+/g, " ");
+  const mapped: Record<string, string> = {
+    "S3 International (Huntsville, AL)": "S3 International",
+    "SOS International (Three separate companies)": "SOSi",
+    "AMENTUM": "Amentum",
+    "PAE (Pacific Architects and Engineers)": "PAE Legacy / Amentum",
+    "KBR, Inc.": "KBR Inc.",
+    "IAP Worldwide Services, Inc.": "IAP Worldwide Services",
+    "General Dynamics Information Technology (GDIT)": "General Dynamics Information Technology",
+    "Fluor Intercontinental, Inc.": "Fluor Corporation",
+    "Weatherford International": "Weatherford",
+    "DataPath": "Datapath, Inc.",
+    "Dynamic Aviation": "Dynamic Aviation Group",
+  };
+  return mapped[cleaned] || cleaned.replace(/\s*—\s*$/g, "");
+}
+
+function normalizeCountry(country: string) {
+  const cleaned = country.trim().replace(/\s+/g, " ");
+  if (cleaned === "USA" || cleaned === "US") return "United States";
+  if (cleaned === "UK") return "United Kingdom";
+  if (cleaned === "UAE") return "United Arab Emirates";
+  return cleaned;
+}
+
+function regionFor(country: string, state?: string) {
+  if (country === "United States" || country === "Canada" || state) return "North America";
+  if (EUROPE.has(country)) return "Europe";
+  if (MIDDLE_EAST.has(country)) return "Middle East / Central Asia";
+  if (AFRICA.has(country)) return "Africa";
+  if (INDO_PACIFIC.has(country)) return "Indo-Pacific";
+  if (LATAM.has(country)) return "Latin America / Caribbean";
+  if (POLAR.has(country)) return "Polar / Arctic";
+  return "Global";
+}
+
+function parsePlaceName(placeName: string) {
+  const parts = placeName.split(",").map((part) => part.trim()).filter(Boolean);
+  const city = parts[0] || placeName.trim();
+  let state: string | undefined;
+  let country = normalizeCountry(parts[parts.length - 1] || "Unknown");
+
+  const last = parts[parts.length - 1];
+  const previous = parts[parts.length - 2];
+  if (last && US_STATE_CODES.has(last)) {
+    state = last;
+    country = "United States";
+  } else if (last && previous && last.toLowerCase() === previous.toLowerCase()) {
+    country = normalizeCountry(last);
+  }
+
+  return { city, state, country, region: regionFor(country, state) };
+}
+
+function importSourceId(entityName: string, placeName: string, index: number) {
+  const key = `${entityName}-${placeName}-${index}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 90);
+  return `company-location-text/${key}`;
+}
+
+function parseCompanyLocationText(rawText: string) {
+  const parsed: ParsedTextLocation[] = [];
+  const invalidRows: Array<{ line: number; error: string }> = [];
+  let currentEntity = "";
+
+  rawText.split(/\r?\n/).forEach((line, index) => {
+    const heading = line.match(/^(\d+)\.\s+(.+?)\s*$/);
+    if (heading) {
+      currentEntity = normalizeImportedCompanyName(heading[2]);
+      return;
+    }
+
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("-") || !trimmed.includes("Lat:") || !trimmed.includes("Lon:")) return;
+    if (!currentEntity) {
+      invalidRows.push({ line: index + 1, error: "Location row found before company heading" });
+      return;
+    }
+
+    const coord = trimmed.match(/\[Lat:\s*(-?\d+(?:\.\d+)?),\s*Lon:\s*(-?\d+(?:\.\d+)?)\]/);
+    if (!coord) {
+      invalidRows.push({ line: index + 1, error: "Missing parseable Lat/Lon" });
+      return;
+    }
+
+    const latitude = Number(coord[1]);
+    const longitude = Number(coord[2]);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+      invalidRows.push({ line: index + 1, error: "Invalid coordinate" });
+      return;
+    }
+
+    const content = trimmed.replace(/^[-\s]+/, "").replace(/\s*\[Lat:.*?\]\s*$/, "").trim();
+    const [placePart, ...descParts] = content.split(" - ");
+    const placeName = cleanText(placePart, 220);
+    if (!placeName) {
+      invalidRows.push({ line: index + 1, error: "Missing place name" });
+      return;
+    }
+
+    const description = cleanText(descParts.join(" - "), 300) || "Operational presence";
+    const place = parsePlaceName(placeName);
+    parsed.push({
+      entityName: currentEntity,
+      placeName,
+      formattedAddress: placeName,
+      city: place.city,
+      state: place.state,
+      country: place.country,
+      region: place.region,
+      facilityType: description,
+      activity: description,
+      notes: `Imported from Company_Locations_Complete_Updated.txt: ${description}.`,
+      coordinates: [longitude, latitude],
+      sourceId: importSourceId(currentEntity, placeName, index),
+    });
+  });
+
+  return { parsed, invalidRows };
 }
 
 async function getOrCreateEntity(entityName: string) {
@@ -107,6 +250,98 @@ function normalizeManualLocation(input: ManualLocationInput, index: number) {
   };
 }
 
+async function insertInChunks(values: LocationInsert[], chunkSize = 250) {
+  const inserted = [] as LocationInsert[];
+  for (let index = 0; index < values.length; index += chunkSize) {
+    const chunk = values.slice(index, index + chunkSize);
+    if (chunk.length === 0) continue;
+    const rows = await db.insert(locationsTable).values(chunk).returning();
+    inserted.push(...rows);
+  }
+  return inserted;
+}
+
+router.post("/entities/import-company-location-text", async (req, res) => {
+  try {
+    const rawText = String(req.body?.text || req.body?.rawText || "");
+    if (!rawText.trim()) {
+      res.status(400).json({ ok: false, error: "text is required" });
+      return;
+    }
+
+    const { parsed, invalidRows } = parseCompanyLocationText(rawText);
+    const grouped = new Map<string, ParsedTextLocation[]>();
+    for (const row of parsed) {
+      const bucket = grouped.get(row.entityName) || [];
+      bucket.push(row);
+      grouped.set(row.entityName, bucket);
+    }
+
+    let insertedCount = 0;
+    let duplicateCount = 0;
+    const companies: Array<{ name: string; received: number; inserted: number; duplicatesSkipped: number }> = [];
+
+    for (const [entityName, rows] of grouped.entries()) {
+      const entity = await getOrCreateEntity(entityName);
+      const existingLocations = await db.select().from(locationsTable).where(eq(locationsTable.entityId, entity.id));
+      const seenKeys = new Set(existingLocations.map((loc) => looseLocationKey({ coordinates: loc.coordinates, formattedAddress: loc.formattedAddress, placeName: loc.placeName })));
+      const batchKeys = new Set<string>();
+      const values: LocationInsert[] = [];
+      let duplicatesSkipped = 0;
+
+      rows.forEach((row) => {
+        const key = looseLocationKey(row);
+        if (seenKeys.has(key) || batchKeys.has(key)) {
+          duplicatesSkipped += 1;
+          return;
+        }
+        batchKeys.add(key);
+        values.push({
+          entityId: entity.id,
+          placeName: row.placeName,
+          formattedAddress: row.formattedAddress,
+          city: row.city,
+          state: row.state,
+          country: row.country,
+          region: row.region,
+          facilityType: row.facilityType,
+          activity: row.activity,
+          notes: row.notes,
+          coordinates: row.coordinates,
+          geocodeSource: "manual",
+          geocodeConfidence: "place",
+          sourceClass: "manual",
+          sourceType: "company-location-text-import",
+          sourceId: row.sourceId,
+          reviewStatus: "verified",
+          metadata: { manual: true, companyLocationTextImport: true },
+        });
+      });
+
+      const inserted = await insertInChunks(values);
+      insertedCount += inserted.length;
+      duplicateCount += duplicatesSkipped;
+      companies.push({ name: entityName, received: rows.length, inserted: inserted.length, duplicatesSkipped });
+    }
+
+    res.status(201).json({
+      ok: true,
+      counts: {
+        companies: grouped.size,
+        parsedRows: parsed.length,
+        inserted: insertedCount,
+        duplicatesSkipped: duplicateCount,
+        invalidRows: invalidRows.length,
+      },
+      companies,
+      invalidRows: invalidRows.slice(0, 50),
+    });
+  } catch (error) {
+    console.error("Company location text import error:", error);
+    res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to import company location text" });
+  }
+});
+
 router.post("/entities/manual-locations", async (req, res) => {
   try {
     const entityName = normalizeEntityName(req.body?.entityName);
@@ -139,7 +374,7 @@ router.post("/entities/manual-locations", async (req, res) => {
       values.push({ entityId: entity.id, ...normalized.value });
     });
 
-    const inserted = values.length > 0 ? await db.insert(locationsTable).values(values).returning() : [];
+    const inserted = await insertInChunks(values);
 
     res.status(201).json({
       ok: true,
