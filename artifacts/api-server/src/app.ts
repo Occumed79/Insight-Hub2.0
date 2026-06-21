@@ -8,6 +8,7 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
+const requestBodyLimit = process.env["REQUEST_BODY_LIMIT"] || "25mb";
 
 app.use(
   pinoHttp({
@@ -29,8 +30,8 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: requestBodyLimit }));
+app.use(express.urlencoded({ extended: true, limit: requestBodyLimit }));
 
 app.get("/api/health", (_req, res) => {
   res.status(200).json({ ok: true, service: "insight-hub-2", awake: true });
