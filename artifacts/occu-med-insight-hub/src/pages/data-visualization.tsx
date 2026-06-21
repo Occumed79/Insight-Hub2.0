@@ -2,7 +2,6 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
-import { GlassCard } from "@/components/insight/GlassCard";
 import { IntelligenceSelector } from "@/components/insight/IntelligenceSelector";
 import { IntelligenceStatusBadge } from "@/components/insight/IntelligenceStatusBadge";
 import { DataQualityBanner } from "@/components/insight/DataQualityBanner";
@@ -49,67 +48,6 @@ function buildProfileVisualizationModel({
     riskMatrix: config.riskMatrix ?? [],
     opportunityMatrix: config.opportunityMatrix ?? []
   };
-}
-
-interface VisualizationMethodCardProps {
-  title: string;
-  description: string;
-  isActive: boolean;
-  onClick: () => void;
-  effectClass: string;
-  dataCount: number;
-}
-
-function VisualizationMethodCard({ title, description, isActive, onClick, effectClass, dataCount }: VisualizationMethodCardProps) {
-  return (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className={`relative overflow-hidden rounded-2xl border border-cyan-100/12 bg-black/18 p-5 transition-all duration-300 ${isActive ? 'border-cyan-200/30 bg-cyan-300/8 shadow-[0_0_30px_rgba(34,211,238,.12),inset_0_0_30px_rgba(34,211,238,.08)]' : 'hover:border-cyan-100/20 hover:bg-white/[0.05]'} ${effectClass}`}
-    >
-      <div className="relative z-10">
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">{title}</p>
-          <span className="rounded-full bg-cyan-100/10 px-2 py-0.5 text-[10px] font-bold text-cyan-50">{dataCount}</span>
-        </div>
-        <p className="mt-1 text-xs leading-5 text-cyan-100/58">{description}</p>
-      </div>
-    </motion.div>
-  );
-}
-
-interface VisualizationDataNodeProps {
-  label: string;
-  value: string | number;
-  type: 'metric' | 'signal' | 'chart' | 'source' | 'dossier' | 'risk' | 'opportunity';
-  isSelected: boolean;
-  onClick: () => void;
-  effectStyle: string;
-}
-
-function VisualizationDataNode({ label, value, type, isSelected, onClick, effectStyle }: VisualizationDataNodeProps) {
-  const typeColors = {
-    metric: 'border-cyan-100/20 bg-cyan-100/5',
-    signal: 'border-emerald-100/20 bg-emerald-100/5',
-    chart: 'border-purple-100/20 bg-purple-100/5',
-    source: 'border-amber-100/20 bg-amber-100/5',
-    dossier: 'border-rose-100/20 bg-rose-100/5',
-    risk: 'border-red-100/20 bg-red-100/5',
-    opportunity: 'border-green-100/20 bg-green-100/5'
-  };
-
-  return (
-    <motion.div
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      onClick={onClick}
-      className={`cursor-pointer rounded-xl border p-3 transition-all ${typeColors[type]} ${isSelected ? 'ring-2 ring-cyan-400/50' : ''} ${effectStyle}`}
-    >
-      <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-100/60">{label}</p>
-      <p className="mt-1 text-sm font-bold text-cyan-50">{typeof value === 'number' ? value.toLocaleString() : value}</p>
-    </motion.div>
-  );
 }
 
 interface VisualizationDetailDrawerProps {
@@ -199,6 +137,777 @@ function VisualizationFilterBar({ filters, onFilterChange }: VisualizationFilter
           {key.replace('show', '').replace(/([A-Z])/g, ' $1').trim()}
         </button>
       ))}
+    </div>
+  );
+}
+
+interface VisualizationCanvasProps {
+  activeMethod: string;
+  vizModel: ProfileVisualizationModel;
+  filteredData: any[];
+  activeSelection: any;
+  setActiveSelection: (selection: any) => void;
+  semanticZoomLevel: 'overview' | 'detail';
+  isExpanded: boolean;
+  filters: {
+    showMetrics: boolean;
+    showSignals: boolean;
+    showCharts: boolean;
+    showSources: boolean;
+    showDossier: boolean;
+    showRisk: boolean;
+    showOpportunity: boolean;
+  };
+}
+
+function VisualizationCanvas({ activeMethod, vizModel, filteredData, activeSelection, setActiveSelection, semanticZoomLevel, isExpanded, filters }: VisualizationCanvasProps) {
+  const dataToRender = activeMethod === 'interactive-filter' ? filteredData :
+    activeMethod === 'semantic-zoom' && semanticZoomLevel === 'overview' ? 
+      [...vizModel.metrics.slice(0, 8), ...vizModel.signals.slice(0, 4)] :
+      activeMethod === 'semantic-zoom' && semanticZoomLevel === 'detail' ?
+        [...vizModel.metrics, ...vizModel.signals] :
+      vizModel.metrics;
+
+  const getNodePosition = (index: number, total: number, method: string) => {
+    const centerX = 50;
+    const centerY = 50;
+    const radius = 35;
+    
+    switch (method) {
+      case 'vector-displacement':
+      case 'chromatic-aberration':
+      case 'procedural-grid':
+      case 'concentric-ripple':
+      case 'negative-space':
+      case 'vector-lattice':
+      case 'radiant-gradient':
+        const angle = (index / total) * 2 * Math.PI;
+        return {
+          x: centerX + radius * Math.cos(angle),
+          y: centerY + radius * Math.sin(angle)
+        };
+      case 'geometric-anchor':
+      case 'algorithmic-edge':
+      case 'synchronous-path':
+      case 'vector-node':
+      case 'holographic-depth':
+      case 'kinetic-vector':
+        const cols = Math.ceil(Math.sqrt(total));
+        const row = Math.floor(index / cols);
+        const col = index % cols;
+        return {
+          x: 10 + (col * 80 / cols),
+          y: 10 + (row * 80 / cols)
+        };
+      default:
+        const defaultAngle = (index / total) * 2 * Math.PI;
+        return {
+          x: centerX + radius * Math.cos(defaultAngle),
+          y: centerY + radius * Math.sin(defaultAngle)
+        };
+    }
+  };
+
+  const renderCanvas = () => {
+    if (dataToRender.length === 0) {
+      return <p className="flex h-full items-center justify-center text-sm text-cyan-100/40">No data available for current filter/zoom level</p>;
+    }
+
+    const displayData = dataToRender.slice(0, isExpanded ? 30 : 15);
+    const canvasHeight = isExpanded ? 700 : 500;
+
+    switch (activeMethod) {
+      case 'vector-displacement':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              <defs>
+                <radialGradient id="lensGradient" cx="50%" cy="50%" r="30%">
+                  <stop offset="0%" stopColor="rgba(34,211,238,0.1)" />
+                  <stop offset="100%" stopColor="rgba(34,211,238,0)" />
+                </radialGradient>
+              </defs>
+              <circle cx="50%" cy="50%" r="30%" fill="url(#lensGradient)" />
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                return (
+                  <g key={item.id || index}>
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
+                      stroke="rgba(34,211,238,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      case 'chromatic-aberration':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                return (
+                  <g key={item.id || index}>
+                    {isSelected && (
+                      <>
+                        <circle
+                          cx={`${pos.x + 0.5}%`}
+                          cy={`${pos.y}%`}
+                          r={8}
+                          fill="rgba(239,68,68,0.4)"
+                          className="pointer-events-none"
+                        />
+                        <circle
+                          cx={`${pos.x - 0.5}%`}
+                          cy={`${pos.y}%`}
+                          r={8}
+                          fill="rgba(6,182,212,0.4)"
+                          className="pointer-events-none"
+                        />
+                      </>
+                    )}
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
+                      stroke="rgba(34,211,238,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      case 'geometric-anchor':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                return (
+                  <g key={item.id || index}>
+                    {isSelected && (
+                      <>
+                        <line x1={`${pos.x}%`} y1="0%" x2={`${pos.x}%`} y2="100%" stroke="rgba(16,185,129,0.3)" strokeWidth="1" />
+                        <line x1="0%" y1={`${pos.y}%`} x2="100%" y2={`${pos.y}%`} stroke="rgba(16,185,129,0.3)" strokeWidth="1" />
+                        <line x1={`${pos.x - 10}%`} y1={`${pos.y - 10}%`} x2={`${pos.x + 10}%`} y2={`${pos.y + 10}%`} stroke="rgba(16,185,129,0.5)" strokeWidth="1" />
+                        <line x1={`${pos.x + 10}%`} y1={`${pos.y - 10}%`} x2={`${pos.x - 10}%`} y2={`${pos.y + 10}%`} stroke="rgba(16,185,129,0.5)" strokeWidth="1" />
+                      </>
+                    )}
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(16,185,129,0.8)' : 'rgba(16,185,129,0.4)'}
+                      stroke="rgba(16,185,129,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      case 'procedural-grid':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              <defs>
+                <pattern id="gridPattern" width="10" height="10" patternUnits="userSpaceOnUse">
+                  <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(34,211,238,0.1)" strokeWidth="0.5" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#gridPattern)" />
+              {activeSelection && (
+                <circle
+                  cx="50%"
+                  cy="50%"
+                  r="40%"
+                  fill="none"
+                  stroke="rgba(34,211,238,0.3)"
+                  strokeWidth="1"
+                >
+                  <animate attributeName="r" values="30%;45%;30%" dur="2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.5;0;0.5" dur="2s" repeatCount="indefinite" />
+                </circle>
+              )}
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                return (
+                  <g key={item.id || index}>
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
+                      stroke="rgba(34,211,238,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      case 'algorithmic-edge':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                return (
+                  <g key={item.id || index}>
+                    {isSelected && (
+                      <rect
+                        x={`${pos.x - 12}%`}
+                        y={`${pos.y - 12}%`}
+                        width="24%"
+                        height="24%"
+                        fill="none"
+                        stroke="rgba(34,211,238,0.8)"
+                        strokeWidth="2"
+                        strokeDasharray="4 2"
+                      >
+                        <animate attributeName="strokeDashoffset" from="0" to="12" dur="1s" repeatCount="indefinite" />
+                      </rect>
+                    )}
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
+                      stroke="rgba(34,211,238,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      case 'concentric-ripple':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              {activeSelection && displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                if (isSelected) {
+                  return (
+                    <g key={`ripple-${index}`}>
+                      {[1, 2, 3].map((i) => (
+                        <circle
+                          key={i}
+                          cx={`${pos.x}%`}
+                          cy={`${pos.y}%`}
+                          r={8 + i * 6}
+                          fill="none"
+                          stroke="rgba(34,211,238,0.4 - i * 0.1)"
+                          strokeWidth="1"
+                        >
+                          <animate attributeName="r" values={`${8 + i * 6};${20 + i * 6};${8 + i * 6}`} dur={`${1.5 + i * 0.3}s`} repeatCount="indefinite" />
+                          <animate attributeName="opacity" values="0.5;0;0.5" dur={`${1.5 + i * 0.3}s`} repeatCount="indefinite" />
+                        </circle>
+                      ))}
+                    </g>
+                  );
+                }
+                return null;
+              })}
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                return (
+                  <g key={item.id || index}>
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
+                      stroke="rgba(34,211,238,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      case 'negative-space':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                return (
+                  <g key={item.id || index}>
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(0,0,0,0.9)' : isDimmed ? 'rgba(34,211,238,0.2)' : 'rgba(34,211,238,0.4)'}
+                      stroke={isSelected ? 'rgba(34,211,238,1)' : 'rgba(34,211,238,0.8)'}
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill={isSelected ? 'rgba(34,211,238,1)' : isDimmed ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)'}
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      case 'vector-lattice':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                return (
+                  <g key={item.id || index}>
+                    {displayData.slice(0, index).map((otherItem, otherIndex) => {
+                      const otherPos = getNodePosition(otherIndex, displayData.length, activeMethod);
+                      const distance = Math.sqrt(Math.pow(pos.x - otherPos.x, 2) + Math.pow(pos.y - otherPos.y, 2));
+                      if (distance < 20) {
+                        return (
+                          <line
+                            key={`line-${index}-${otherIndex}`}
+                            x1={`${pos.x}%`}
+                            y1={`${pos.y}%`}
+                            x2={`${otherPos.x}%`}
+                            y2={`${otherPos.y}%`}
+                            stroke="rgba(168,85,247,0.2)"
+                            strokeWidth="0.5"
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(168,85,247,0.8)' : 'rgba(168,85,247,0.4)'}
+                      stroke="rgba(168,85,247,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      case 'synchronous-path':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                return (
+                  <g key={item.id || index}>
+                    <line
+                      x1={`${pos.x - 15}%`}
+                      y1={`${pos.y}%`}
+                      x2={`${pos.x + 15}%`}
+                      y2={`${pos.y}%`}
+                      stroke={isSelected ? 'rgba(251,191,36,0.8)' : 'rgba(251,191,36,0.3)'}
+                      strokeWidth={isSelected ? 2 : 1}
+                    >
+                      {isSelected && (
+                        <animate attributeName="stroke-dasharray" values="0,30;30,0" dur="1.5s" repeatCount="indefinite" />
+                      )}
+                    </line>
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(251,191,36,0.8)' : 'rgba(251,191,36,0.4)'}
+                      stroke="rgba(251,191,36,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      case 'vector-node':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                return (
+                  <g key={item.id || index}>
+                    {isSelected && (
+                      <>
+                        <circle cx={`${pos.x}%`} cy={`${pos.y}%`} r={12} fill="none" stroke="rgba(34,211,238,0.3)" strokeWidth="1" />
+                        <circle cx={`${pos.x}%`} cy={`${pos.y}%`} r={16} fill="none" stroke="rgba(34,211,238,0.2)" strokeWidth="1" />
+                      </>
+                    )}
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
+                      stroke="rgba(34,211,238,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      case 'radiant-gradient':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              <defs>
+                <radialGradient id="glowGradient" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="rgba(34,211,238,0.3)" />
+                  <stop offset="100%" stopColor="rgba(34,211,238,0)" />
+                </radialGradient>
+              </defs>
+              {activeSelection && <rect width="100%" height="100%" fill="url(#glowGradient)" />}
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                const isDimmed = activeSelection && !isSelected;
+                return (
+                  <g key={item.id || index}>
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(34,211,238,0.8)' : isDimmed ? 'rgba(34,211,238,0.2)' : 'rgba(34,211,238,0.4)'}
+                      stroke="rgba(34,211,238,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill={isDimmed ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)'}
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      case 'holographic-depth':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                const depth = index % 3;
+                const opacity = 0.3 + depth * 0.2;
+                const scale = 0.8 + depth * 0.1;
+                return (
+                  <g key={item.id || index} style={{ opacity }}>
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={(isSelected ? 8 : 5) * scale}
+                      fill={isSelected ? 'rgba(34,211,238,0.8)' : `rgba(34,211,238,${opacity})`}
+                      stroke="rgba(34,211,238,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize={8 * scale}
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      case 'kinetic-vector':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                return (
+                  <g key={item.id || index}>
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(20,184,166,0.8)' : 'rgba(20,184,166,0.4)'}
+                      stroke="rgba(20,184,166,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    >
+                      {isSelected && (
+                        <animate attributeName="r" values="8;10;8" dur="0.5s" repeatCount="indefinite" />
+                      )}
+                    </circle>
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      case 'contextual-morph':
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                const isRelated = activeSelection && activeSelection.category === item.category;
+                const isUnrelated = activeSelection && !isSelected && !isRelated;
+                const opacity = isUnrelated ? 0.3 : 1;
+                return (
+                  <g key={item.id || index} style={{ opacity }}>
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(139,92,246,0.8)' : isRelated ? 'rgba(139,92,246,0.6)' : 'rgba(139,92,246,0.4)'}
+                      stroke="rgba(139,92,246,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+
+      default:
+        return (
+          <div className="relative h-full" style={{ height: canvasHeight }}>
+            <svg className="absolute inset-0 h-full w-full">
+              {displayData.map((item, index) => {
+                const pos = getNodePosition(index, displayData.length, activeMethod);
+                const isSelected = activeSelection && activeSelection.id === item.id;
+                return (
+                  <g key={item.id || index}>
+                    <circle
+                      cx={`${pos.x}%`}
+                      cy={`${pos.y}%`}
+                      r={isSelected ? 8 : 5}
+                      fill={isSelected ? 'rgba(34,211,238,0.8)' : 'rgba(34,211,238,0.4)'}
+                      stroke="rgba(34,211,238,0.8)"
+                      strokeWidth={isSelected ? 2 : 1}
+                      className="cursor-pointer transition-all hover:fill-opacity-80"
+                      onClick={() => setActiveSelection(item)}
+                    />
+                    <text
+                      x={`${pos.x}%`}
+                      y={`${pos.y - 8}%`}
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize="8"
+                      textAnchor="middle"
+                      className="pointer-events-none"
+                    >
+                      {item.label?.slice(0, 8) || 'N/A'}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-cyan-100/12 bg-black/18">
+      {renderCanvas()}
     </div>
   );
 }
@@ -454,70 +1163,67 @@ export default function DataVisualization() {
         />
         <DataQualityBanner warnings={status.dataQualityWarnings} />
 
-        {/* Profile Summary */}
-        <GlassCard className="mb-5 p-5">
-          <div className="mb-4 flex items-center justify-between gap-5">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-emerald-200/70">Profile visualization summary</p>
-              <h2 className="mt-2 text-2xl font-black text-white">{vizModel.company?.shortName || "Entity"} visualization model</h2>
-            </div>
-            <IntelligenceStatusBadge status={status.sourceStatus} lastUpdated={status.lastUpdated} />
+        {/* Profile Summary Strip */}
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-cyan-100/12 bg-black/18 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/60">Metrics:</p>
+            <span className="text-sm font-bold text-cyan-50">{vizModel.metrics.length}</span>
           </div>
-          <div className="grid gap-3 md:grid-cols-4">
-            <div className="rounded-2xl border border-cyan-100/12 bg-black/18 p-4 shadow-[inset_0_0_24px_rgba(45,212,191,.06)]">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Metric definitions</p>
-              <p className="mt-2 text-lg font-black text-cyan-50">{vizModel.metrics.length}</p>
-            </div>
-            <div className="rounded-2xl border border-cyan-100/12 bg-black/18 p-4 shadow-[inset_0_0_24px_rgba(45,212,191,.06)]">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Chart definitions</p>
-              <p className="mt-2 text-lg font-black text-cyan-50">{vizModel.charts.length}</p>
-            </div>
-            <div className="rounded-2xl border border-cyan-100/12 bg-black/18 p-4 shadow-[inset_0_0_24px_rgba(45,212,191,.06)]">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Dossier sections</p>
-              <p className="mt-2 text-lg font-black text-cyan-50">{vizModel.dossierSections.length}</p>
-            </div>
-            <div className="rounded-2xl border border-cyan-100/12 bg-black/18 p-4 shadow-[inset_0_0_24px_rgba(45,212,191,.06)]">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Source records</p>
-              <p className="mt-2 text-lg font-black text-cyan-50">{vizModel.sourceRecords.length}</p>
-            </div>
+          <div className="h-4 w-px bg-cyan-100/20" />
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/60">Charts:</p>
+            <span className="text-sm font-bold text-cyan-50">{vizModel.charts.length}</span>
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <div className="rounded-2xl border border-cyan-100/12 bg-black/18 p-4 shadow-[inset_0_0_24px_rgba(45,212,191,.06)]">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Executive signals</p>
-              <p className="mt-2 text-lg font-black text-cyan-50">{vizModel.signals.length}</p>
-            </div>
-            <div className="rounded-2xl border border-cyan-100/12 bg-black/18 p-4 shadow-[inset_0_0_24px_rgba(45,212,191,.06)]">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Risk matrix</p>
-              <p className="mt-2 text-lg font-black text-cyan-50">{vizModel.riskMatrix.length > 0 ? "Available" : "N/A"}</p>
-            </div>
-            <div className="rounded-2xl border border-cyan-100/12 bg-black/18 p-4 shadow-[inset_0_0_24px_rgba(45,212,191,.06)]">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/42">Opportunity matrix</p>
-              <p className="mt-2 text-lg font-black text-cyan-50">{vizModel.opportunityMatrix.length > 0 ? "Available" : "N/A"}</p>
-            </div>
+          <div className="h-4 w-px bg-cyan-100/20" />
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/60">Signals:</p>
+            <span className="text-sm font-bold text-cyan-50">{vizModel.signals.length}</span>
           </div>
-        </GlassCard>
+          <div className="h-4 w-px bg-cyan-100/20" />
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/60">Sources:</p>
+            <span className="text-sm font-bold text-cyan-50">{vizModel.sourceRecords.length}</span>
+          </div>
+          <div className="h-4 w-px bg-cyan-100/20" />
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/60">Dossier:</p>
+            <span className="text-sm font-bold text-cyan-50">{vizModel.dossierSections.length}</span>
+          </div>
+          <div className="h-4 w-px bg-cyan-100/20" />
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/60">Risk:</p>
+            <span className="text-sm font-bold text-cyan-50">{vizModel.riskMatrix.length > 0 ? "✓" : "—"}</span>
+          </div>
+          <div className="h-4 w-px bg-cyan-100/20" />
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/60">Opp:</p>
+            <span className="text-sm font-bold text-cyan-50">{vizModel.opportunityMatrix.length > 0 ? "✓" : "—"}</span>
+          </div>
+        </div>
 
-        {/* Visualization Method Navigator */}
+        {/* Method Rail */}
         <div className="mb-5">
-          <p className="mb-3 text-xs uppercase tracking-[0.25em] text-cyan-100/35">Visualization method navigator</p>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <p className="mb-3 text-xs uppercase tracking-[0.25em] text-cyan-100/35">Visualization method</p>
+          <div className="flex flex-wrap gap-2">
             {visualizationMethods.map((method) => (
-              <VisualizationMethodCard
+              <button
                 key={method.id}
-                title={method.title}
-                description={method.description}
-                isActive={activeMethod === method.id}
                 onClick={() => setActiveMethod(method.id)}
-                effectClass={method.effectClass}
-                dataCount={getMethodDataCount(method.id)}
-              />
+                className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                  activeMethod === method.id
+                    ? 'border-cyan-100/30 bg-cyan-100/10 text-cyan-50'
+                    : 'border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20'
+                }`}
+              >
+                {method.title}
+              </button>
             ))}
           </div>
         </div>
 
         {/* Active Method Canvas */}
         {activeMethod && (
-          <GlassCard className={`p-6 transition-all ${isExpanded ? 'min-h-[600px]' : ''}`}>
+          <div className="mb-4">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-cyan-100/35">Active method canvas</p>
@@ -525,115 +1231,59 @@ export default function DataVisualization() {
                   {visualizationMethods.find(m => m.id === activeMethod)?.title}
                 </h3>
               </div>
-              {activeMethod === 'zoom-pan' && (
-                <button
-                  onClick={() => setIsExpanded(!isExpanded)}
-                  className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-3 py-1.5 text-xs text-cyan-50 transition hover:bg-cyan-100/10"
-                >
-                  {isExpanded ? 'Collapse' : 'Expand'}
-                </button>
-              )}
+              <div className="flex gap-2">
+                {activeMethod === 'zoom-pan' && (
+                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-3 py-1.5 text-xs text-cyan-50 transition hover:bg-cyan-100/10"
+                  >
+                    {isExpanded ? 'Collapse' : 'Expand'}
+                  </button>
+                )}
+                {activeMethod === 'semantic-zoom' && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSemanticZoomLevel('overview')}
+                      className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                        semanticZoomLevel === 'overview'
+                          ? 'border-cyan-100/30 bg-cyan-100/10 text-cyan-50'
+                          : 'border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20'
+                      }`}
+                    >
+                      Overview
+                    </button>
+                    <button
+                      onClick={() => setSemanticZoomLevel('detail')}
+                      className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                        semanticZoomLevel === 'detail'
+                          ? 'border-cyan-100/30 bg-cyan-100/10 text-cyan-50'
+                          : 'border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20'
+                      }`}
+                    >
+                      Detail
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             
-            {activeMethod === 'semantic-zoom' && (
-              <div className="mb-4">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setSemanticZoomLevel('overview')}
-                    className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                      semanticZoomLevel === 'overview'
-                        ? 'border-cyan-100/30 bg-cyan-100/10 text-cyan-50'
-                        : 'border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20'
-                    }`}
-                  >
-                    Overview
-                  </button>
-                  <button
-                    onClick={() => setSemanticZoomLevel('detail')}
-                    className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                      semanticZoomLevel === 'detail'
-                        ? 'border-cyan-100/30 bg-cyan-100/10 text-cyan-50'
-                        : 'border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20'
-                    }`}
-                  >
-                    Detail
-                  </button>
-                </div>
-              </div>
-            )}
-
             {activeMethod === 'interactive-filter' && (
               <div className="mb-4">
                 <VisualizationFilterBar filters={filters} onFilterChange={handleFilterChange} />
               </div>
             )}
 
-            <div className={`grid gap-3 ${isExpanded ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
-              {(() => {
-                const dataToRender = activeMethod === 'interactive-filter' ? filteredData :
-                  activeMethod === 'semantic-zoom' && semanticZoomLevel === 'overview' ? 
-                    [...vizModel.metrics.slice(0, 6), ...vizModel.signals.slice(0, 3)] :
-                    activeMethod === 'semantic-zoom' && semanticZoomLevel === 'detail' ?
-                      [...vizModel.metrics, ...vizModel.signals] :
-                    vizModel.metrics;
-
-                if (dataToRender.length === 0) {
-                  return <p className="col-span-full text-center text-sm text-cyan-100/40">No data available for current filter/zoom level</p>;
-                }
-
-                return dataToRender.slice(0, isExpanded ? 20 : 12).map((item, index) => {
-                  const effectStyles: Record<string, string> = {
-                    'vector-displacement': 'hover:shadow-[0_0_30px_rgba(34,211,238,.2)]',
-                    'chromatic-aberration': 'hover:shadow-[0_0_30px_rgba(239,68,68,.2),0_0_30px_rgba(6,182,212,.2)]',
-                    'geometric-anchor': 'hover:shadow-[0_0_30px_rgba(16,185,129,.2)]',
-                    'subtractive-masking': 'hover:shadow-[inset_0_0_30px_rgba(34,211,238,.15)]',
-                    'procedural-grid': 'hover:shadow-[0_0_30px_rgba(34,211,238,.25),0_0_60px_rgba(34,211,238,.15)]',
-                    'algorithmic-edge': 'hover:shadow-[0_0_2px_rgba(34,211,238,1),0_0_10px_rgba(34,211,238,.6)]',
-                    'concentric-ripple': 'hover:shadow-[0_0_0_6px_rgba(34,211,238,.4),0_0_0_12px_rgba(34,211,238,.2)]',
-                    'negative-space': 'hover:shadow-[inset_0_0_30px_rgba(0,0,0,.9),0_0_15px_rgba(34,211,238,.4)]',
-                    'vector-lattice': 'hover:shadow-[0_0_30px_rgba(168,85,247,.2)]',
-                    'color-shift': 'hover:shadow-[0_0_30px_rgba(236,72,153,.2)]',
-                    'synchronous-path': 'hover:shadow-[0_0_30px_rgba(251,191,36,.2)]',
-                    'vector-node': 'hover:shadow-[0_0_30px_rgba(34,211,238,.3)]',
-                    'radiant-gradient': 'hover:shadow-[0_0_50px_rgba(34,211,238,.25),0_0_80px_rgba(34,211,238,.15)]',
-                    'isometric-slice': 'hover:shadow-[6px_6px_0_rgba(34,211,238,.25)]',
-                    'holographic-depth': 'hover:shadow-[0_0_30px_rgba(34,211,238,.2),0_0_60px_rgba(34,211,238,.08)]',
-                    'kinetic-vector': 'hover:shadow-[0_0_30px_rgba(20,184,166,.2)]',
-                    'contextual-morph': 'hover:shadow-[0_0_30px_rgba(139,92,246,.2)]',
-                    'semantic-zoom': 'hover:shadow-[0_0_30px_rgba(99,102,241,.2)]',
-                    'interactive-filter': 'hover:shadow-[0_0_30px_rgba(234,88,12,.2)]',
-                    'zoom-pan': 'hover:shadow-[0_0_30px_rgba(14,165,233,.2)]',
-                    'linked-visualizations': 'hover:shadow-[0_0_30px_rgba(22,163,74,.2)]',
-                    'click-reveal': 'hover:shadow-[0_0_30px_rgba(244,63,94,.2)]'
-                  };
-
-                  const isSelected = activeSelection && activeSelection.id === item.id;
-                  const isRelated = activeSelection && activeSelection.category === item.category;
-                  const opacity = activeMethod === 'contextual-morph' && activeSelection ? 
-                    (isSelected ? 1 : isRelated ? 0.8 : 0.3) : 1;
-
-                  return (
-                    <motion.div
-                      key={item.id || index}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity, y: 0 }}
-                      transition={{ delay: index * 0.03 }}
-                      style={{ opacity }}
-                    >
-                      <VisualizationDataNode
-                        label={item.label || item.name || item.title || 'Unknown'}
-                        value={item.value || item.revenue || item.workers || item.data?.length || 0}
-                        type={item.type || 'metric'}
-                        isSelected={isSelected}
-                        onClick={() => handleNodeClick(item)}
-                        effectStyle={effectStyles[activeMethod] || ''}
-                      />
-                    </motion.div>
-                  );
-                });
-              })()}
-            </div>
-          </GlassCard>
+            <VisualizationCanvas
+              activeMethod={activeMethod}
+              vizModel={vizModel}
+              filteredData={filteredData}
+              activeSelection={activeSelection}
+              setActiveSelection={setActiveSelection}
+              semanticZoomLevel={semanticZoomLevel}
+              isExpanded={isExpanded}
+              filters={filters}
+            />
+          </div>
         )}
 
         {/* Click-to-Reveal Detail Drawer */}
