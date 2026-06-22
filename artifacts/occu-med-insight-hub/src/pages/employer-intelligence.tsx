@@ -16,6 +16,7 @@ import {
   fetchCmsProviderDataStatus,
   type OshaEstablishment,
   type BlsBenchmark,
+  type BlsAuthMode,
   type WorkersCompSource,
   type EntityMatch,
   type JobNormalization,
@@ -789,6 +790,9 @@ function BlsBenchmarkTab() {
   const [benchmark, setBenchmark] = useState<BlsBenchmark | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [configured, setConfigured] = useState(false);
+  const [authMode, setAuthMode] = useState<BlsAuthMode | null>(null);
+  const [attemptedSeriesIds, setAttemptedSeriesIds] = useState<string[]>([]);
+  const [limitation, setLimitation] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
 
   async function handleSearch() {
@@ -798,12 +802,18 @@ function BlsBenchmarkTab() {
     setSearched(true);
     setBenchmark(null);
     setMessage(null);
+    setAuthMode(null);
+    setAttemptedSeriesIds([]);
+    setLimitation(null);
     try {
       const result = await fetchBlsBenchmark({ naics: naics.trim(), year: year.trim() || undefined });
       if (result.ok) {
         setBenchmark(result.benchmark);
         setMessage(result.message || null);
         setConfigured(result.configured ?? true);
+        setAuthMode(result.authMode ?? null);
+        setAttemptedSeriesIds(result.attemptedSeriesIds ?? []);
+        setLimitation(result.limitation ?? null);
       } else {
         setError(result.error || "BLS query failed");
       }
@@ -817,7 +827,20 @@ function BlsBenchmarkTab() {
   return (
     <div className="space-y-5">
       <GlassCard className="p-6">
-        <SectionLabel>BLS Industry Benchmark Lookup</SectionLabel>
+        <div className="flex items-center justify-between">
+          <div>
+            <SectionLabel>BLS Industry Benchmark Lookup</SectionLabel>
+            <p className="mt-2 text-xs text-cyan-100/50">BLS IIF/SOII industry-level injury/illness benchmark rates by NAICS code.</p>
+          </div>
+          {authMode && (
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+              authMode === "registered-v2" ? "bg-emerald-400/10 text-emerald-200/80" : "bg-cyan-400/10 text-cyan-200/80"
+            }`}>
+              {authMode === "registered-v2" ? <CheckCircle2 size={11} /> : <Info size={11} />}
+              {authMode === "registered-v2" ? "Registered v2" : "Public v1"}
+            </span>
+          )}
+        </div>
         <div className="mt-4 flex flex-col gap-3 md:flex-row">
           <input value={naics} onChange={(e) => setNaics(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()} placeholder="NAICS code (e.g., 238100)..." className="min-h-12 flex-1 rounded-2xl border border-cyan-100/15 bg-[#07111d] px-4 text-sm text-cyan-50 outline-none placeholder:text-cyan-100/35" />
           <input value={year} onChange={(e) => setYear(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()} placeholder="Year (optional)..." className="min-h-12 w-full rounded-2xl border border-cyan-100/15 bg-[#07111d] px-4 text-sm text-cyan-50 outline-none placeholder:text-cyan-100/35 md:w-40" />
@@ -836,8 +859,8 @@ function BlsBenchmarkTab() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
             <div>
-              <p className="text-sm font-semibold text-amber-200">BLS Not Configured</p>
-              <p className="mt-1 text-xs text-amber-100/60">Set BLS_API_KEY or enable BLS_IMPORT_ENABLED on the server to fetch industry benchmark data.</p>
+              <p className="text-sm font-semibold text-amber-200">BLS Public Mode (No API Key)</p>
+              <p className="mt-1 text-xs text-amber-100/60">Using BLS public v1 API without registration key. Set BLS_API_KEY on the server for v2 access (more series, more years, higher rate limits).</p>
             </div>
           </div>
         </GlassCard>
@@ -856,17 +879,72 @@ function BlsBenchmarkTab() {
             {benchmark.fatalityRate !== undefined && <MetricChip label="Fatality Rate" value={String(benchmark.fatalityRate)} />}
           </div>
 
+          {attemptedSeriesIds.length > 0 && (
+            <div className="mt-5">
+              <SectionLabel>Attempted Series IDs</SectionLabel>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {attemptedSeriesIds.map((sid) => (
+                  <span key={sid} className="rounded-md border border-cyan-100/10 bg-white/[0.02] px-2 py-0.5 text-[10px] font-mono text-cyan-100/50">
+                    {sid}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="mt-5">
             <p className="text-xs text-cyan-100/40">{benchmark.sourceMetadata}</p>
-            <a href={benchmark.sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-cyan-300/60 hover:text-cyan-200">
-              <ExternalLink size={11} /> BLS IIF Source
-            </a>
+            <div className="mt-2 flex flex-wrap gap-3">
+              <a href={benchmark.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-cyan-300/60 hover:text-cyan-200">
+                <ExternalLink size={11} /> BLS IIF Source
+              </a>
+              <a href={benchmark.apiDocsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-cyan-300/60 hover:text-cyan-200">
+                <ExternalLink size={11} /> API Features
+              </a>
+              <a href={benchmark.developerDocsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-cyan-300/60 hover:text-cyan-200">
+                <ExternalLink size={11} /> Developer Docs
+              </a>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-amber-100/10 bg-amber-950/10 px-3 py-2">
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={12} className="mt-0.5 shrink-0 text-amber-300" />
+              <p className="text-xs text-amber-100/60">{benchmark.limitation}</p>
+            </div>
           </div>
         </GlassCard>
       )}
 
       {!loading && searched && !benchmark && message && (
-        <EmptyCard message={message} />
+        <>
+          {attemptedSeriesIds.length > 0 && (
+            <GlassCard className="p-4">
+              <SectionLabel>Attempted Series IDs</SectionLabel>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {attemptedSeriesIds.map((sid) => (
+                  <span key={sid} className="rounded-md border border-cyan-100/10 bg-white/[0.02] px-2 py-0.5 text-[10px] font-mono text-cyan-100/50">
+                    {sid}
+                  </span>
+                ))}
+              </div>
+            </GlassCard>
+          )}
+          {message.includes("mapping missing") && (
+            <GlassCard className="border-amber-200/15 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-200">Series Mapping Missing</p>
+                  <p className="mt-1 text-xs text-amber-100/60">{message}</p>
+                </div>
+              </div>
+            </GlassCard>
+          )}
+          {!message.includes("mapping missing") && (
+            <EmptyCard message={message} />
+          )}
+        </>
       )}
 
       {!loading && !searched && !error && (

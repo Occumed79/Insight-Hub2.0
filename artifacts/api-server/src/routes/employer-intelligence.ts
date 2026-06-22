@@ -6,7 +6,7 @@ import {
   nameSimilarity,
   type OshaEstablishmentRecord,
 } from "../services/oshaDataService";
-import { fetchBlsBenchmark as fetchBlsBenchmarkService, type BlsBenchmarkResult } from "../services/blsService";
+import { fetchBlsBenchmark as fetchBlsBenchmarkService, getBlsStatus as getBlsServiceStatus, type BlsBenchmarkResult } from "../services/blsService";
 import {
   searchOccupations,
   getOccupationDetails,
@@ -784,16 +784,26 @@ router.get("/bls/industry-benchmark", async (req: Request, res: Response) => {
         benchmark: null,
         message: blsResult.reason,
         configured: blsResult.configured,
+        enabled: blsResult.enabled,
+        authMode: blsResult.authMode,
         attempted: blsResult.attempted,
+        attemptedSeriesIds: blsResult.attemptedSeriesIds,
       });
     }
 
     return res.json({
       ok: true,
       benchmark: blsResult.benchmark,
-      source: "U.S. Bureau of Labor Statistics (IIF)",
+      source: blsResult.benchmark.source,
+      sourceUrl: blsResult.benchmark.sourceUrl,
+      apiDocsUrl: blsResult.benchmark.apiDocsUrl,
+      developerDocsUrl: blsResult.benchmark.developerDocsUrl,
+      limitation: blsResult.benchmark.limitation,
       configured: blsResult.configured,
+      enabled: blsResult.enabled,
+      authMode: blsResult.authMode,
       attempted: blsResult.attempted,
+      attemptedSeriesIds: blsResult.attemptedSeriesIds,
       message: blsResult.reason,
     });
   } catch (error) {
@@ -1082,9 +1092,9 @@ router.get("/sources/status", (_req: Request, res: Response) => {
       {
         source: "BLS IIF",
         configured: !!getEnv("BLS_API_KEY"),
-        enabled: isTruthy(getEnv("BLS_IMPORT_ENABLED")) || !!getEnv("BLS_API_KEY"),
-        dataType: !!getEnv("BLS_API_KEY") ? "live-api" : isTruthy(getEnv("BLS_IMPORT_ENABLED")) ? "cached-import" : "not-configured",
-        notes: "Industry injury/illness benchmark rates by NAICS. Series ID mapping may need correction for specific NAICS codes.",
+        enabled: true,
+        dataType: !!getEnv("BLS_API_KEY") ? "live-api" : isTruthy(getEnv("BLS_IMPORT_ENABLED")) ? "cached-import" : "live-api",
+        notes: `BLS IIF/SOII industry benchmark rates. Auth mode: ${getBlsServiceStatus().authMode}. Series ID mapping may need correction for specific NAICS codes.`,
       },
       {
         source: "SAM.gov Entity API",

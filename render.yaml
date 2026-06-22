@@ -79,3 +79,8 @@ services:
         sync: false
       - key: CMS_DATA_API_KEY
         sync: false
+      # --- BLS hardened connector ---
+      - key: BLS_AUTH_MODE
+        sync: false
+      - key: BLS_SERIES_MAPPING_ENABLED
+        sync: false

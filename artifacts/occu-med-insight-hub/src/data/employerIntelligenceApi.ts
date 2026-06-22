@@ -48,6 +48,8 @@ export type OshaResponse = {
   error?: string;
 };
 
+export type BlsAuthMode = "registered-v2" | "public-v1";
+
 export type BlsBenchmark = {
   naics: string;
   industryTitle: string;
@@ -56,9 +58,14 @@ export type BlsBenchmark = {
   dartRate?: number;
   daysAwayRate?: number;
   fatalityRate?: number;
+  source: string;
   sourceUrl: string;
+  apiDocsUrl: string;
+  developerDocsUrl: string;
   sourceMetadata: string;
-  attemptedSeriesIds?: string[];
+  limitation: string;
+  authMode: BlsAuthMode;
+  attemptedSeriesIds: string[];
 };
 
 export type BlsResponse = {
@@ -66,8 +73,15 @@ export type BlsResponse = {
   benchmark: BlsBenchmark | null;
   message?: string;
   configured?: boolean;
+  enabled?: boolean;
+  authMode?: BlsAuthMode;
   attempted?: boolean;
+  attemptedSeriesIds?: string[];
   source?: string;
+  sourceUrl?: string;
+  apiDocsUrl?: string;
+  developerDocsUrl?: string;
+  limitation?: string;
   error?: string;
 };
 

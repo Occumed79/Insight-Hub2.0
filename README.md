@@ -48,6 +48,8 @@ Set these in the Render dashboard (or via `render.yaml` with `sync: false`).
 | `DATABASE_URL` | Yes | Postgres connection string (Neon or Render Postgres) |
 | `ONET_API_KEY` | Yes | O*NET Web Services API key for occupation mapping |
 | `BLS_API_KEY` | Recommended | BLS public API v2 key for industry benchmark rates |
+| `BLS_AUTH_MODE` | Optional | BLS auth mode: `auto` (default) uses v2 if key present, v1 public fallback otherwise |
+| `BLS_SERIES_MAPPING_ENABLED` | Optional | Set to `true` to enable curated BLS SOII series ID mapping table (default: enabled) |
 | `SAM_API_KEY` | Optional | SAM.gov Entity API key for federal contractor resolution |
 | `COURTLISTENER_API_TOKEN` | Optional | CourtListener API token for litigation signals |
 | `SEC_USER_AGENT` | Optional | SEC EDGAR requires a User-Agent header (e.g. "Company admin@example.com") |
