@@ -5,6 +5,7 @@ import bulkManualLocationsRouter from "./bulkManualLocations";
 import intelligenceRouter from "./intelligence";
 import onetRouter from "./onet";
 import employerIntelligenceRouter from "./employer-intelligence";
+import dataVisualizationRouter from "./dataVisualization";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(bulkManualLocationsRouter);
 router.use(intelligenceRouter);
 router.use(onetRouter);
 router.use(employerIntelligenceRouter);
+router.use(dataVisualizationRouter);
 
 export default router;

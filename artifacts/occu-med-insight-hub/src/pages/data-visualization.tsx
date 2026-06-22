@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -46,6 +46,13 @@ import type {
   TooltipFormat,
 } from "@/company-configs/types";
 import type { IntelligenceFact, IntelligenceCategory, CompanyIntelligence } from "@/data/types";
+import {
+  fetchVisualizationFeed,
+  feedChartsToChartDefinitions,
+  feedFactsToIntelligenceFacts,
+  type DataVisualizationFeed,
+} from "@/data/visualizationIntelligenceAdapter";
+import { CheckCircle2, AlertTriangle, XCircle, Activity } from "lucide-react";
 
 interface ProfileVisualizationModel {
   company: { name: string; shortName: string; summary: string; tags: string[] } | null;
@@ -1419,9 +1426,97 @@ export default function DataVisualization() {
   const [localIntelligence, setLocalIntelligence] = useState<CompanyIntelligence | undefined>(undefined);
   const [chartCategoryTab, setChartCategoryTab] = useState<string>("primary");
   const [showAllCharts, setShowAllCharts] = useState(false);
+  const [feedMode, setFeedMode] = useState<"combined" | "static" | "live">("combined");
+  const [feed, setFeed] = useState<DataVisualizationFeed | null>(null);
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [feedError, setFeedError] = useState<string | null>(null);
+
+  // Fetch live intelligence feed
+  useEffect(() => {
+    if (feedMode === "static") {
+      setFeed(null);
+      return;
+    }
+    let cancelled = false;
+    setFeedLoading(true);
+    setFeedError(null);
+    fetchVisualizationFeed({
+      company: company?.name,
+    })
+      .then((result) => {
+        if (!cancelled) setFeed(result);
+      })
+      .catch((err) => {
+        if (!cancelled) setFeedError(err instanceof Error ? err.message : "Feed fetch failed");
+      })
+      .finally(() => {
+        if (!cancelled) setFeedLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [feedMode, company?.name]);
+
+  // Convert feed data to existing model shapes
+  const feedCharts = useMemo(() => {
+    if (!feed) return [];
+    return feedChartsToChartDefinitions(feed.charts);
+  }, [feed]);
+
+  const feedFacts = useMemo(() => {
+    if (!feed) return [];
+    return feedFactsToIntelligenceFacts(feed.facts);
+  }, [feed]);
+
+  const feedIntelligence: CompanyIntelligence | undefined = useMemo(() => {
+    if (!feed || feedFacts.length === 0) return undefined;
+    return {
+      companyId: "feed",
+      facts: feedFacts,
+      runs: [],
+      chartReady: {
+        awardValueTimeline: [],
+        opportunitiesByStage: [],
+        sourceConfidenceOverTime: [],
+        jobSignalTrend: [],
+        eventTimeline: [],
+        locationExposureByRegion: [],
+        networkGapScoreByRegion: [],
+      },
+    };
+  }, [feed, feedFacts]);
 
   const effectiveIntelligence = localIntelligence ?? intelligence;
-  const intelligenceCharts = useMemo(() => intelligenceFactsToCharts(effectiveIntelligence), [effectiveIntelligence]);
+
+  // Merge feed intelligence facts with existing intelligence
+  const mergedFacts = useMemo(() => {
+    const allFacts = [...(effectiveIntelligence?.facts ?? []), ...feedFacts];
+    return allFacts;
+  }, [effectiveIntelligence, feedFacts]);
+
+  const mergedIntelligence: CompanyIntelligence | undefined = useMemo(() => {
+    if (mergedFacts.length === 0) return effectiveIntelligence;
+    return {
+      companyId: effectiveIntelligence?.companyId ?? "merged",
+      facts: mergedFacts,
+      runs: effectiveIntelligence?.runs ?? [],
+      chartReady: effectiveIntelligence?.chartReady ?? {
+        awardValueTimeline: [],
+        opportunitiesByStage: [],
+        sourceConfidenceOverTime: [],
+        jobSignalTrend: [],
+        eventTimeline: [],
+        locationExposureByRegion: [],
+        networkGapScoreByRegion: [],
+      },
+    };
+  }, [mergedFacts, effectiveIntelligence]);
+
+  const intelligenceCharts = useMemo(() => {
+    const base = intelligenceFactsToCharts(mergedIntelligence);
+    // In live or combined mode, also include feed charts
+    if (feedMode === "live") return [...feedCharts];
+    if (feedMode === "combined") return [...base, ...feedCharts];
+    return base;
+  }, [mergedIntelligence, feedCharts, feedMode]);
 
   const vizModel = buildProfileVisualizationModel({
     company,
@@ -1435,7 +1530,7 @@ export default function DataVisualization() {
     if (activeMethod === "interactive-filter") {
       return filterIntelligenceCharts(
         intelligenceCharts,
-        effectiveIntelligence?.facts ?? [],
+        mergedIntelligence?.facts ?? [],
         filterCategory,
         filterConfidence,
         filterSourceType,
@@ -1443,24 +1538,25 @@ export default function DataVisualization() {
       );
     }
     return intelligenceCharts;
-  }, [activeMethod, intelligenceCharts, effectiveIntelligence, filterCategory, filterConfidence, filterSourceType, filterDateRange]);
+  }, [activeMethod, intelligenceCharts, mergedIntelligence, filterCategory, filterConfidence, filterSourceType, filterDateRange]);
 
   const morphedChart = useMemo(() => {
-    if (activeMethod === "contextual-morph" && effectiveIntelligence && effectiveIntelligence.facts.length > 0) {
-      return morphIntelligenceFacts(effectiveIntelligence.facts, morphMode);
+    if (activeMethod === "contextual-morph" && mergedIntelligence && mergedIntelligence.facts.length > 0) {
+      return morphIntelligenceFacts(mergedIntelligence.facts, morphMode);
     }
     return null;
-  }, [activeMethod, effectiveIntelligence, morphMode]);
+  }, [activeMethod, mergedIntelligence, morphMode]);
 
   const allCharts = useMemo(() => {
     if (activeMethod === "contextual-morph" && morphedChart) {
       return [morphedChart];
     }
+    if (feedMode === "live") return filteredIntelligenceCharts;
     const combined = [...primaryCharts, ...filteredIntelligenceCharts];
     if (chartCategoryTab === "primary") return primaryCharts;
     if (chartCategoryTab === "intelligence") return filteredIntelligenceCharts;
     return combined;
-  }, [primaryCharts, filteredIntelligenceCharts, activeMethod, morphedChart, chartCategoryTab]);
+  }, [primaryCharts, filteredIntelligenceCharts, activeMethod, morphedChart, chartCategoryTab, feedMode]);
 
   const handleSelectDatum = (selection: ChartDatumSelection) => {
     setActiveSelection(selection);
@@ -1534,7 +1630,7 @@ export default function DataVisualization() {
 
   const insightContext = {
     companyName: company?.name ?? resolvedCompanyId,
-    intelligence: effectiveIntelligence,
+    intelligence: mergedIntelligence,
     sourceRecords: vizModel.sourceRecords,
     signals: vizModel.signals,
     dossierSections: vizModel.dossierSections,
@@ -1556,24 +1652,101 @@ export default function DataVisualization() {
         />
         <DataQualityBanner warnings={status.dataQualityWarnings} />
 
+        {/* Data Source Selector */}
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-cyan-100/12 bg-black/18 px-4 py-3">
+          <span className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/60">Data Source:</span>
+          {([
+            { id: "combined" as const, label: "Combined View" },
+            { id: "static" as const, label: "Static Profile Data" },
+            { id: "live" as const, label: "Live Intelligence Feed" },
+          ]).map((mode) => (
+            <button
+              key={mode.id}
+              onClick={() => setFeedMode(mode.id)}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                feedMode === mode.id
+                  ? "border-cyan-100/30 bg-cyan-100/10 text-cyan-50"
+                  : "border-cyan-100/10 bg-white/[0.02] text-cyan-100/50 hover:border-cyan-100/20"
+              }`}
+            >
+              {mode.label}
+            </button>
+          ))}
+          {feedLoading && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-cyan-100/50">
+              <Activity size={12} className="animate-pulse" /> Loading feed...
+            </span>
+          )}
+          {feedError && (
+            <span className="text-xs text-amber-100/70">Feed error: {feedError}</span>
+          )}
+          {feed && (
+            <span className="ml-auto text-[10px] text-cyan-100/40">
+              {feed.charts.length} feed charts · {feed.facts.length} facts · {feed.sourceRecords.length} sources
+            </span>
+          )}
+        </div>
+
+        {/* Source Status / Missing Data Strip */}
+        {feed && (
+          <div className="mb-5 rounded-xl border border-cyan-100/10 bg-black/24 p-4">
+            <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-cyan-100/40">Intelligence Source Status</p>
+            <div className="flex flex-wrap gap-3">
+              {feed.sourceStatus.map((src) => (
+                <div key={src.source} className="flex items-center gap-2 rounded-lg border border-cyan-100/8 bg-white/[0.02] px-3 py-1.5">
+                  {src.enabled ? (
+                    <CheckCircle2 size={12} className="text-emerald-400" />
+                  ) : (
+                    <XCircle size={12} className="text-cyan-100/30" />
+                  )}
+                  <span className="text-xs text-cyan-50">{src.source}</span>
+                  {src.authMode && (
+                    <span className="rounded-full bg-cyan-100/10 px-1.5 py-0.5 text-[9px] text-cyan-100/60">{src.authMode}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            {feed.missingData.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {feed.missingData.map((md, i) => (
+                  <div key={i} className="flex items-center gap-1.5 rounded-lg border border-amber-200/15 bg-amber-200/[0.04] px-2.5 py-1">
+                    <AlertTriangle size={11} className="text-amber-300/70" />
+                    <span className="text-[10px] text-amber-100/70">{md.source}: {md.reason}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {feed.warnings.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {feed.warnings.map((w, i) => (
+                  <div key={i} className="flex items-center gap-1.5 rounded-lg border border-red-200/15 bg-red-200/[0.04] px-2.5 py-1">
+                    <AlertTriangle size={11} className="text-red-300/70" />
+                    <span className="text-[10px] text-red-100/70">{w.source}: {w.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Intelligence Overview */}
         <IntelligenceOverview
           companyName={company?.name ?? resolvedCompanyId}
           companyId={resolvedCompanyId}
-          intelligence={effectiveIntelligence}
+          intelligence={mergedIntelligence}
           onIngestComplete={(intel) => setLocalIntelligence(intel)}
         />
 
         {/* Intelligence Sections */}
         <IntelligenceSections
-          intelligence={effectiveIntelligence}
+          intelligence={mergedIntelligence}
           companyName={company?.name ?? resolvedCompanyId}
         />
 
         {/* Intelligence Answer Card — decision-ready output */}
         <IntelligenceAnswerCard
           companyName={company?.name ?? resolvedCompanyId}
-          intelligence={effectiveIntelligence}
+          intelligence={mergedIntelligence}
           metrics={vizModel.metrics}
           signals={vizModel.signals}
           dossierSections={vizModel.dossierSections}
@@ -1623,6 +1796,15 @@ export default function DataVisualization() {
               <div className="flex items-center gap-2">
                 <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-200/60">Intel:</p>
                 <span className="text-sm font-bold text-emerald-100">{intelligenceCharts.length}</span>
+              </div>
+            </>
+          )}
+          {feedCharts.length > 0 && (
+            <>
+              <div className="h-4 w-px bg-cyan-100/20" />
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-violet-200/60">Feed:</p>
+                <span className="text-sm font-bold text-violet-100">{feedCharts.length}</span>
               </div>
             </>
           )}
@@ -1707,7 +1889,7 @@ export default function DataVisualization() {
         {activeMethod !== "click-reveal" && <MethodExplanationPanel methodId={activeMethod} />}
 
         {/* Interactive filter controls */}
-        {activeMethod === "interactive-filter" && effectiveIntelligence && effectiveIntelligence.facts.length > 0 && (
+        {activeMethod === "interactive-filter" && mergedIntelligence && mergedIntelligence.facts.length > 0 && (
           <div className="method-filter-bar mb-5 flex flex-wrap gap-3 rounded-xl border border-cyan-100/10 bg-black/24 p-3">
             {[
               { label: "Category", value: filterCategory, options: ["all", "contractAwards", "opportunities", "secFilings", "jobSignals", "sourceConfidence", "timelineEvents", "locationExposure", "medicalNetworkGaps"], onChange: setFilterCategory },
@@ -1734,7 +1916,7 @@ export default function DataVisualization() {
         )}
 
         {/* Contextual morph controls */}
-        {activeMethod === "contextual-morph" && effectiveIntelligence && effectiveIntelligence.facts.length > 0 && (
+        {activeMethod === "contextual-morph" && mergedIntelligence && mergedIntelligence.facts.length > 0 && (
           <div className="method-filter-bar mb-5 flex flex-wrap gap-3 rounded-xl border border-cyan-100/10 bg-black/24 p-3">
             {([
               { key: "category", label: "Category" },
