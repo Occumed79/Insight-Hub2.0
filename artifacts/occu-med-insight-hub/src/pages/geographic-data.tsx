@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "wouter";
-import { Plus, WifiOff } from "lucide-react";
+import { WifiOff } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { MapPanel } from "@/components/insight/MapPanel";
@@ -145,10 +144,6 @@ export default function GeographicData() {
           subtitle={hasVerifiedImports ? "Showing imported company-location data only." : "Verified database is empty, so workbook locations are being used as fallback."}
           actions={
             <div className="flex flex-wrap items-center gap-3">
-              <Link href="/entity-discovery" className="inline-flex items-center gap-2 rounded-full border border-cyan-100/15 bg-cyan-100/5 px-4 py-2 text-sm font-semibold text-cyan-50 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]">
-                <Plus size={14} />
-                Add Entity
-              </Link>
               <select value={companyId} onChange={(event) => resetCompany(event.target.value)} className="rounded-full border border-cyan-100/15 bg-[#07111d] px-4 py-2 text-sm text-cyan-50 outline-none">
                 <option value="">Select company</option>
                 {hasVerifiedImports ? (

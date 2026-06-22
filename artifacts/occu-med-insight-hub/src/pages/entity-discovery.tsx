@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { Search, AlertTriangle, ExternalLink, CheckCircle2, ArrowLeft, MapPin, Pencil, Save, X, Activity } from "lucide-react";
+import { Search, AlertTriangle, ExternalLink, CheckCircle2, ArrowLeft, MapPin, Pencil, Save, X } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
@@ -227,7 +227,7 @@ export default function EntityDiscovery() {
     <main className="aurora-bg min-h-screen text-white">
       <Sidebar />
       <section className="relative z-10 px-5 py-8 lg:ml-[210px] lg:px-12">
-        <HeaderBar eyebrow="Portal 04" title="Add Entity" subtitle="Search for a company, correct candidates if needed, select good locations, and add them into Geographic Data." actions={<div className="flex items-center gap-2"><Link href="/employer-intelligence" className="inline-flex items-center gap-2 rounded-full border border-cyan-100/15 bg-cyan-100/5 px-4 py-2 text-sm font-semibold text-cyan-50 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]"><Activity size={14} />Employer Intelligence</Link><Link href="/geographic-data" className="inline-flex items-center gap-2 rounded-full border border-cyan-100/15 bg-cyan-100/5 px-4 py-2 text-sm font-semibold text-cyan-50 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]"><ArrowLeft size={14} />Geographic Data</Link></div>} />
+        <HeaderBar eyebrow="Portal 04" title="Add Entity" subtitle="Search for a company, correct candidates if needed, select good locations, and add them into Geographic Data." actions={<Link href="/geographic-data" className="inline-flex items-center gap-2 rounded-full border border-cyan-100/15 bg-cyan-100/5 px-4 py-2 text-sm font-semibold text-cyan-50 transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08]"><ArrowLeft size={14} />Geographic Data</Link>} />
 
         <GlassCard className="p-6">
           <p className="text-xs uppercase tracking-[0.26em] text-emerald-200/60">Company search</p>
