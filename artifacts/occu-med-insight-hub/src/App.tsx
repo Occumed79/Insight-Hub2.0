@@ -30,7 +30,7 @@ function Router() {
 }
 
 function App() {
-  // Force dark mode on body
+  // Keep the application locked in dark mode.
   React.useEffect(() => {
     document.documentElement.classList.add("dark");
   }, []);
