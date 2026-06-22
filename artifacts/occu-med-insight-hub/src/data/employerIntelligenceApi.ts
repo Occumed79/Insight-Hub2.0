@@ -240,3 +240,77 @@ export async function fetchSourcesStatus(): Promise<SourcesStatusResponse> {
   const response = await fetch("/api/sources/status");
   return await response.json();
 }
+
+// ─── HHS / HealthData.gov Catalog ────────────────────────────────────────────
+
+export type HhsDataset = {
+  id: string;
+  title: string;
+  description: string;
+  domain: string;
+  agency?: string;
+  publisher?: string;
+  category?: string;
+  tags: string[];
+  updatedAt?: string;
+  createdAt?: string;
+  rowCount?: number;
+  datasetUrl?: string;
+  apiEndpoint?: string;
+  exportLinks?: { format: string; url: string }[];
+};
+
+export type HhsCatalogSearchResponse = {
+  ok: boolean;
+  datasets: HhsDataset[];
+  total: number;
+  page: number;
+  pageSize: number;
+  authMode: "app-token" | "public";
+  domain: string;
+  message?: string;
+  error?: string;
+};
+
+export type HhsCatalogDatasetResponse = {
+  ok: boolean;
+  dataset: HhsDataset | null;
+  authMode: "app-token" | "public";
+  message?: string;
+  error?: string;
+};
+
+export type HhsCatalogStatusResponse = {
+  ok: boolean;
+  configured: boolean;
+  enabled: boolean;
+  authMode: "app-token" | "public";
+  domain: string;
+  notes: string;
+  error?: string;
+};
+
+export async function searchHhsCatalog(params: {
+  query?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+}): Promise<HhsCatalogSearchResponse> {
+  const qs = new URLSearchParams();
+  if (params.query) qs.set("query", params.query);
+  if (params.page) qs.set("page", String(params.page));
+  if (params.pageSize) qs.set("pageSize", String(params.pageSize));
+  if (params.sortBy) qs.set("sortBy", params.sortBy);
+  const response = await fetch(`/api/hhs/catalog/search?${qs}`);
+  return await response.json();
+}
+
+export async function fetchHhsDataset(id: string): Promise<HhsCatalogDatasetResponse> {
+  const response = await fetch(`/api/hhs/catalog/datasets/${encodeURIComponent(id)}`);
+  return await response.json();
+}
+
+export async function fetchHhsCatalogStatus(): Promise<HhsCatalogStatusResponse> {
+  const response = await fetch("/api/hhs/catalog/status");
+  return await response.json();
+}

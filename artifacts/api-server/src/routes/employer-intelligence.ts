@@ -16,6 +16,13 @@ import {
   getOccupationFamily,
   isConfigured as isOnetConfigured,
 } from "../services/onetService";
+import {
+  searchHhsCatalog,
+  getHhsDataset,
+  getHhsCatalogStatus,
+  isCatalogEnabled as isHhsCatalogEnabled,
+  sanitizeError as sanitizeHhsError,
+} from "../services/hhsCatalogService";
 
 const router: IRouter = Router();
 
@@ -847,6 +854,79 @@ router.post("/opportunity/score", async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/hhs/catalog/search
+router.get("/hhs/catalog/search", async (req: Request, res: Response) => {
+  try {
+    if (!isHhsCatalogEnabled()) {
+      return res.json({
+        ok: true,
+        datasets: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        authMode: "public",
+        domain: "healthdata.gov",
+        message: "HHS catalog discovery is disabled. Set HHS_CATALOG_ENABLED=true to enable.",
+      });
+    }
+
+    const query = String(req.query?.query || "").trim();
+    const page = Number(req.query?.page) || 1;
+    const pageSize = Number(req.query?.pageSize) || 20;
+    const sortBy = String(req.query?.sortBy || "newest").trim();
+
+    const result = await searchHhsCatalog({ query: query || undefined, page, pageSize, sortBy });
+
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: sanitizeError(error) || sanitizeHhsError(error) || "HHS catalog search failed",
+    });
+  }
+});
+
+// GET /api/hhs/catalog/datasets/:id
+router.get("/hhs/catalog/datasets/:id", async (req: Request, res: Response) => {
+  try {
+    if (!isHhsCatalogEnabled()) {
+      return res.json({
+        ok: true,
+        dataset: null,
+        authMode: "public",
+        message: "HHS catalog discovery is disabled. Set HHS_CATALOG_ENABLED=true to enable.",
+      });
+    }
+
+    const id = String(req.params?.id || "").trim();
+    if (!id) {
+      return res.status(400).json({ ok: false, error: "Dataset id is required" });
+    }
+
+    const result = await getHhsDataset(id);
+
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: sanitizeError(error) || sanitizeHhsError(error) || "HHS dataset lookup failed",
+    });
+  }
+});
+
+// GET /api/hhs/catalog/status
+router.get("/hhs/catalog/status", (_req: Request, res: Response) => {
+  try {
+    const status = getHhsCatalogStatus();
+    return res.json({ ok: true, ...status });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: sanitizeError(error) || "HHS catalog status failed",
+    });
+  }
+});
+
 // GET /api/sources/status
 router.get("/sources/status", (_req: Request, res: Response) => {
   try {
@@ -909,11 +989,11 @@ router.get("/sources/status", (_req: Request, res: Response) => {
         notes: "Occupational health datasets, workers' comp source discovery",
       },
       {
-        source: "HHS Socrata",
+        source: "HHS / HealthData.gov Catalog",
         configured: !!getEnv("HHS_SOCRATA_APP_TOKEN"),
-        enabled: !!getEnv("HHS_SOCRATA_APP_TOKEN"),
-        dataType: !!getEnv("HHS_SOCRATA_APP_TOKEN") ? "live-api" : "not-configured",
-        notes: "Public health context, environmental data",
+        enabled: isHhsCatalogEnabled(),
+        dataType: isHhsCatalogEnabled() ? "live-api" : "not-configured",
+        notes: `Public HealthData.gov catalog discovery; auth mode: ${getHhsCatalogStatus().authMode}. App token optional for higher rate limits.`,
       },
       {
         source: "CMS Data",

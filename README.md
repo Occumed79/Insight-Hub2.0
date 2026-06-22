@@ -55,6 +55,9 @@ Set these in the Render dashboard (or via `render.yaml` with `sync: false`).
 | `OSHA_DATA_DIR` | Optional | Path to OSHA ITA JSON cache directory (default: `data/osha-ita`) |
 | `WORKERS_COMP_SOURCE_INDEX_ENABLED` | Optional | Set to `true` to enable state workers' comp source index |
 | `USASPENDING_API_ENABLED` | Optional | Set to `true` to enable USAspending federal award lookups |
+| `HHS_SOCRATA_APP_TOKEN` | Optional | Socrata app token for HealthData.gov higher rate limits (catalog discovery works without it) |
+| `HHS_CATALOG_ENABLED` | Optional | Set to `true` to enable HHS/HealthData.gov catalog discovery (default: enabled) |
+| `HHS_CATALOG_DOMAIN` | Optional | HealthData.gov domain (default: `healthdata.gov`) |
 
 ### OSHA ITA Persistent Disk (Production)
 
