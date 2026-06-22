@@ -12,6 +12,7 @@ node_modules/
 # Build outputs
 artifacts/occu-med-insight-hub/dist/
 artifacts/mockup-sandbox/dist/
+artifacts/api-server/dist/
 
 # TypeScript build info
 *.tsbuildinfo
@@ -30,3 +31,6 @@ pnpm-debug.log*
 # Test artifacts
 artifacts/occu-med-insight-hub/test-results/
 artifacts/occu-med-insight-hub/playwright-report/
+
+# OSHA ITA cached data (large JSON files from import script)
+artifacts/api-server/data/osha-ita/

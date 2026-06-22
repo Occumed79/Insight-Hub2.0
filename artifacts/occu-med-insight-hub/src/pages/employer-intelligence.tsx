@@ -1264,9 +1264,27 @@ function SourcesStatusTab() {
                   <div>
                     <p className="text-sm font-semibold text-cyan-50">{src.source}</p>
                     <p className="text-xs text-cyan-100/40">{src.notes}</p>
+                    {src.lastSync && (
+                      <p className="mt-1 text-[10px] text-cyan-100/30">Last sync: {new Date(src.lastSync).toLocaleString()}</p>
+                    )}
+                    {src.nextRefresh && (
+                      <p className="text-[10px] text-cyan-100/30">Next refresh: {src.nextRefresh}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold ${
+                    src.dataType === "live-api" ? "border-emerald-200/20 text-emerald-200/70" :
+                    src.dataType === "cached-import" ? "border-cyan-200/20 text-cyan-200/70" :
+                    src.dataType === "static-index" ? "border-amber-200/20 text-amber-200/70" :
+                    "border-rose-200/20 text-rose-200/60"
+                  }`}>
+                    {src.dataType === "live-api" && <Activity size={10} />}
+                    {src.dataType === "cached-import" && <CheckCircle2 size={10} />}
+                    {src.dataType === "static-index" && <Info size={10} />}
+                    {src.dataType === "not-configured" && <XCircle size={10} />}
+                    {src.dataType}
+                  </span>
                   {src.configured ? (
                     <span className="inline-flex items-center gap-1 text-xs text-emerald-200/70">
                       <CheckCircle2 size={14} /> Configured
@@ -1274,15 +1292,6 @@ function SourcesStatusTab() {
                   ) : (
                     <span className="inline-flex items-center gap-1 text-xs text-rose-200/60">
                       <XCircle size={14} /> Not Configured
-                    </span>
-                  )}
-                  {src.enabled ? (
-                    <span className="inline-flex items-center gap-1 text-xs text-emerald-200/70">
-                      <CheckCircle2 size={14} /> Enabled
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-xs text-amber-200/60">
-                      <XCircle size={14} /> Disabled
                     </span>
                   )}
                 </div>

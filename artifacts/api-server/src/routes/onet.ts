@@ -1,20 +1,12 @@
 import { Router, type IRouter, type Response } from "express";
+import {
+  fetchOnetJson,
+  normalizeSearchResults,
+  isConfigured as isOnetConfigured,
+  type OnetItem,
+} from "../services/onetService";
 
 const router: IRouter = Router();
-
-const ONET_BASE_URL = "https://services.onetcenter.org/ws";
-
-type OnetItem = {
-  name?: string;
-  title?: string;
-  element_name?: string;
-  description?: string;
-  value?: unknown;
-};
-
-function getOnetApiKey(): string | undefined {
-  return process.env.ONET_API_KEY;
-}
 
 function missingKeyResponse(res: Response) {
   res.status(500).json({
@@ -23,35 +15,9 @@ function missingKeyResponse(res: Response) {
   });
 }
 
-async function fetchOnetJson(path: string, apiKey: string) {
-  const url = `${ONET_BASE_URL}${path}`;
-  const response = await fetch(url, {
-    headers: {
-      "Accept": "application/json",
-      "X-API-Key": apiKey,
-    },
-  });
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`O*NET request failed (${response.status}): ${body || response.statusText}`);
-  }
-  return (await response.json()) as unknown;
-}
-
-function normalizeSearchResults(data: unknown) {
-  const payload = data as Record<string, unknown>;
-  const occupations = (payload?.occupation ?? payload?.occupations ?? payload?.results ?? []) as Array<Record<string, unknown>>;
-  return occupations.map((item) => ({
-    title: String(item.title ?? item.name ?? ""),
-    code: String(item.code ?? item.onetsoc_code ?? ""),
-    score: typeof item.score === "number" ? item.score : undefined,
-    href: typeof item.href === "string" ? item.href : undefined,
-  })).filter((o) => o.code && o.title);
-}
-
 router.get("/onet/search", async (req, res) => {
   try {
-    const apiKey = getOnetApiKey();
+    const apiKey = isOnetConfigured();
     if (!apiKey) {
       missingKeyResponse(res);
       return;
@@ -64,7 +30,7 @@ router.get("/onet/search", async (req, res) => {
     }
 
     const path = `/mnm/search?keyword=${encodeURIComponent(keyword)}`;
-    const data = await fetchOnetJson(path, apiKey);
+    const data = await fetchOnetJson(path);
     const matches = normalizeSearchResults(data);
 
     res.json({
@@ -84,7 +50,7 @@ router.get("/onet/search", async (req, res) => {
 
 router.get("/onet/occupation/:code", async (req, res) => {
   try {
-    const apiKey = getOnetApiKey();
+    const apiKey = isOnetConfigured();
     if (!apiKey) {
       missingKeyResponse(res);
       return;
@@ -97,8 +63,8 @@ router.get("/onet/occupation/:code", async (req, res) => {
     }
 
     const [summary, details] = await Promise.allSettled([
-      fetchOnetJson(`/mnm/occupation/${encodeURIComponent(code)}`, apiKey),
-      fetchOnetJson(`/online/occupation/${encodeURIComponent(code)}/details`, apiKey),
+      fetchOnetJson(`/mnm/occupation/${encodeURIComponent(code)}`),
+      fetchOnetJson(`/online/occupation/${encodeURIComponent(code)}/details`),
     ]);
 
     const summaryData = summary.status === "fulfilled" ? (summary.value as Record<string, unknown>) : {};
@@ -156,7 +122,7 @@ function extractArray(data: Record<string, unknown>, key: string, _itemKey: stri
 
 router.get("/onet/job-context", async (req, res) => {
   try {
-    const apiKey = getOnetApiKey();
+    const apiKey = isOnetConfigured();
     if (!apiKey) {
       missingKeyResponse(res);
       return;
@@ -169,7 +135,7 @@ router.get("/onet/job-context", async (req, res) => {
     }
 
     const searchPath = `/mnm/search?keyword=${encodeURIComponent(keyword)}`;
-    const searchData = await fetchOnetJson(searchPath, apiKey);
+    const searchData = await fetchOnetJson(searchPath);
     const matches = normalizeSearchResults(searchData);
 
     if (matches.length === 0) {
@@ -185,8 +151,8 @@ router.get("/onet/job-context", async (req, res) => {
 
     const topMatch = matches[0];
     const [summary, details] = await Promise.allSettled([
-      fetchOnetJson(`/mnm/occupation/${encodeURIComponent(topMatch.code)}`, apiKey),
-      fetchOnetJson(`/online/occupation/${encodeURIComponent(topMatch.code)}/details`, apiKey),
+      fetchOnetJson(`/mnm/occupation/${encodeURIComponent(topMatch.code)}`),
+      fetchOnetJson(`/online/occupation/${encodeURIComponent(topMatch.code)}/details`),
     ]);
 
     const summaryData = summary.status === "fulfilled" ? (summary.value as Record<string, unknown>) : {};

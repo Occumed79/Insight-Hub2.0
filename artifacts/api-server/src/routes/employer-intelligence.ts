@@ -1,44 +1,29 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import {
+  queryOshaEstablishments,
+  getOshaImportInfo,
+  isOshaDataImported,
+  nameSimilarity,
+  type OshaEstablishmentRecord,
+} from "../services/oshaDataService";
+import { fetchBlsBenchmark as fetchBlsBenchmarkService, type BlsBenchmarkResult } from "../services/blsService";
+import {
+  searchOccupations,
+  getOccupationDetails,
+  getWorkContext,
+  extractWorkContextIndicators,
+  deriveServiceTags,
+  getOccupationFamily,
+  isConfigured as isOnetConfigured,
+} from "../services/onetService";
 
 const router: IRouter = Router();
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type OshaEstablishment = {
-  establishmentName: string;
-  companyName: string;
-  dbaName?: string;
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  naics: string;
-  year: number;
-  totalHoursWorked?: number;
-  totalCases?: number;
-  dartCases?: number;
-  daysAwayCases?: number;
-  jobTransferRestrictionCases?: number;
-  caseCategories?: string[];
-  sourceUrl: string;
-  datasetName: string;
-  lastImportedDate: string;
-  trcRate?: number;
-  dartRate?: number;
-  daysAwayRate?: number;
-};
+type OshaEstablishment = OshaEstablishmentRecord;
 
-type BlsBenchmark = {
-  naics: string;
-  industryTitle: string;
-  year: number;
-  trcRate?: number;
-  dartRate?: number;
-  daysAwayRate?: number;
-  fatalityRate?: number;
-  sourceUrl: string;
-  sourceMetadata: string;
-};
+type BlsBenchmark = BlsBenchmarkResult;
 
 type WorkersCompSource = {
   state: string;
@@ -98,6 +83,9 @@ type SourceStatus = {
   configured: boolean;
   enabled: boolean;
   lastSync?: string;
+  lastError?: string;
+  dataType: "live-api" | "cached-import" | "static-index" | "not-configured";
+  nextRefresh?: string;
   notes: string;
 };
 
@@ -112,90 +100,44 @@ function isTruthy(value: string | undefined): boolean {
   return value.toLowerCase() === "true" || value === "1" || value === "yes";
 }
 
-function safeFetch(url: string, options?: RequestInit): Promise<unknown | null> {
-  return fetch(url, options).then((r) => {
-    if (!r.ok) return null;
-    return r.json() as Promise<unknown>;
-  }).catch(() => null);
+/**
+ * Sanitize error messages — never include full URLs that might contain tokens/keys.
+ */
+function sanitizeError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message.replace(/https?:\/\/[^\s]+/g, "[URL redacted]");
+  }
+  return "Request failed";
 }
 
-function normalizeName(name: string): string {
-  return name.toLowerCase().replace(/[,.\s]+/g, " ").replace(/\b(inc|llc|corp|corporation|co|ltd|the)\b/g, "").trim();
-}
-
-function nameSimilarity(a: string, b: string): number {
-  const na = normalizeName(a);
-  const nb = normalizeName(b);
-  if (na === nb) return 1.0;
-  if (na.includes(nb) || nb.includes(na)) return 0.85;
-  const wordsA = na.split(" ").filter(Boolean);
-  const wordsB = nb.split(" ").filter(Boolean);
-  const common = wordsA.filter((w) => wordsB.includes(w));
-  if (wordsA.length === 0 || wordsB.length === 0) return 0;
-  return Math.min(common.length / Math.max(wordsA.length, wordsB.length), 0.8);
-}
-
-// ─── OSHA Connector ──────────────────────────────────────────────────────────
-
-function calculateRate(cases: number, hours: number): number | undefined {
-  if (!hours || hours === 0) return undefined;
-  return Number((cases * 200000 / hours).toFixed(2));
-}
-
-function getOshaEstablishments(company?: string, state?: string, naics?: string, year?: string): OshaEstablishment[] {
-  // OSHA ITA does not have a key-based API. This is a cached/import connector.
-  // Return empty array if import is not enabled or no cached data available.
-  const importEnabled = isTruthy(getEnv("OSHA_ITA_IMPORT_ENABLED"));
-  if (!importEnabled) return [];
-
-  // In production, this would query a cached OSHA ITA database table.
-  // For now, return empty — the frontend will show "no data" with appropriate warnings.
-  return [];
-}
-
-// ─── BLS Connector ───────────────────────────────────────────────────────────
-
-async function fetchBlsBenchmark(naics: string, year?: string): Promise<BlsBenchmark | null> {
-  const apiKey = getEnv("BLS_API_KEY");
-  const importEnabled = isTruthy(getEnv("BLS_IMPORT_ENABLED"));
-  if (!importEnabled && !apiKey) return null;
-
-  const targetYear = year || String(new Date().getFullYear() - 1);
-  const seriesId = `IIU${naics.padStart(6, "0")}`;
-
+/**
+ * Safe fetch wrapper — returns null on non-ok or error, never throws.
+ * Does not log URLs (which may contain API keys in query params).
+ */
+async function safeFetch(url: string, options?: RequestInit): Promise<unknown | null> {
   try {
-    const params = new URLSearchParams({
-      seriesid: seriesId,
-      startyear: targetYear,
-      endyear: targetYear,
-    });
-    if (apiKey) params.set("registrationkey", apiKey);
-
-    const data = await safeFetch(`https://api.bls.gov/publicAPI/v2/timeseries/data/?${params}`);
-    if (!data) return null;
-
-    const payload = data as Record<string, unknown>;
-    const results = payload?.Results as Record<string, unknown> | undefined;
-    const series = results?.series as Array<Record<string, unknown>> | undefined;
-    if (!series || series.length === 0) return null;
-
-    const seriesData = series[0];
-    const dataPoints = seriesData?.data as Array<Record<string, unknown>> | undefined;
-    if (!dataPoints || dataPoints.length === 0) return null;
-
-    const latest = dataPoints[0];
-    return {
-      naics,
-      industryTitle: String(seriesData?.seriesTitle ?? `NAICS ${naics}`),
-      year: Number(latest?.year || targetYear),
-      trcRate: latest?.value ? Number(latest.value) : undefined,
-      sourceUrl: "https://www.bls.gov/iif/",
-      sourceMetadata: "U.S. Bureau of Labor Statistics, Injuries, Illnesses, and Fatalities (IIF) program",
-    };
+    const r = await fetch(url, options);
+    if (!r.ok) return null;
+    return await r.json() as unknown;
   } catch {
     return null;
   }
 }
+
+// ─── OSHA Connector ──────────────────────────────────────────────────────────
+// OSHA ITA data layer is now in src/services/oshaDataService.ts
+// It reads from cached JSON files (data/osha-ita/) populated by scripts/import-osha.ts
+// If no data is imported, it returns an empty result with a clear message.
+
+function getOshaEstablishments(company?: string, state?: string, naics?: string, year?: string): OshaEstablishment[] {
+  const result = queryOshaEstablishments(company, state, naics, year);
+  return result.records;
+}
+
+// ─── BLS Connector ───────────────────────────────────────────────────────────
+// BLS benchmark logic is now in src/services/blsService.ts
+// It constructs proper SOII series IDs, queries the BLS API, and returns
+// structured results with clear status if data is unavailable.
 
 // ─── SAM.gov Connector ───────────────────────────────────────────────────────
 
@@ -204,8 +146,13 @@ async function fetchSamEntity(companyName: string): Promise<Record<string, unkno
   if (!apiKey) return null;
 
   try {
+    const params = new URLSearchParams({
+      api_key: apiKey,
+      legalBusinessName: companyName,
+      registrationStatus: "A",
+    });
     const data = await safeFetch(
-      `https://api.sam.gov/entity-information/v3/entities?api_key=${encodeURIComponent(apiKey)}&legalBusinessName=${encodeURIComponent(companyName)}&registrationStatus=A`,
+      `https://api.sam.gov/entity-information/v3/entities?${params}`,
     );
     if (!data) return null;
     const payload = data as Record<string, unknown>;
@@ -224,8 +171,14 @@ async function fetchSecEntity(companyName: string): Promise<Record<string, unkno
   if (!userAgent) return null;
 
   try {
+    const params = new URLSearchParams({
+      q: companyName,
+      dateRange: "custom",
+      startdt: "2020-01-01",
+      enddt: new Date().toISOString().split("T")[0],
+    });
     const data = await safeFetch(
-      `https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent(companyName)}&dateRange=custom&startdt=2020-01-01&enddt=${new Date().toISOString().split("T")[0]}`,
+      `https://efts.sec.gov/LATEST/search-index?${params}`,
       { headers: { "User-Agent": userAgent } },
     );
     if (!data) return null;
@@ -246,8 +199,12 @@ async function fetchCourtListenerResults(companyName: string): Promise<Record<st
   if (!token) return [];
 
   try {
+    const params = new URLSearchParams({
+      q: `${companyName} workplace injury OR workers compensation OR OSHA`,
+      court_type: "d",
+    });
     const data = await safeFetch(
-      `https://www.courtlistener.com/api/rest/v4/search/?q=${encodeURIComponent(companyName)}+workplace+injury+OR+workers+compensation+OR+OSHA&court_type=d`,
+      `https://www.courtlistener.com/api/rest/v4/search/?${params}`,
       { headers: { Authorization: `Token ${token}` } },
     );
     if (!data) return [];
@@ -345,15 +302,15 @@ function getWorkersCompSources(state: string): WorkersCompSource {
 }
 
 // ─── O*NET Job Normalization ─────────────────────────────────────────────────
+// Uses shared service module: src/services/onetService.ts
 
 async function normalizeJobTitle(
   title: string,
-  description?: string,
-  company?: string,
-  location?: string,
+  _description?: string,
+  _company?: string,
+  _location?: string,
 ): Promise<JobNormalization> {
-  const apiKey = getEnv("ONET_API_KEY");
-  if (!apiKey) {
+  if (!isOnetConfigured()) {
     return {
       inputTitle: title,
       occupationMatches: [],
@@ -366,11 +323,10 @@ async function normalizeJobTitle(
   }
 
   try {
-    const searchData = await safeFetch(
-      `https://services.onetcenter.org/ws/mnm/search?keyword=${encodeURIComponent(title)}`,
-      { headers: { Accept: "application/json", "X-API-Key": apiKey } },
-    );
-    if (!searchData) {
+    const matches = await searchOccupations(title);
+    const topMatches = matches.slice(0, 5);
+
+    if (topMatches.length === 0) {
       return {
         inputTitle: title,
         occupationMatches: [],
@@ -382,127 +338,32 @@ async function normalizeJobTitle(
       };
     }
 
-    const payload = searchData as Record<string, unknown>;
-    const occupations = (payload?.occupation ?? []) as Array<Record<string, unknown>>;
-    const matches = occupations.slice(0, 5).map((o) => ({
-      title: String(o.title ?? ""),
-      code: String(o.code ?? ""),
-      score: typeof o.relevance === "number" ? Number(o.relevance) : undefined,
-    })).filter((m) => m.code && m.title);
-
-    if (matches.length === 0) {
-      return {
-        inputTitle: title,
-        occupationMatches: [],
-        confidence: 0,
-        physicalDemandIndicators: [],
-        environmentalIndicators: [],
-        safetySensitiveIndicators: [],
-        serviceRelevanceTags: [],
-      };
-    }
-
-    // Fetch top match details for indicators
-    const topCode = matches[0].code;
+    const topCode = topMatches[0].code;
     const [detailsResult, contextResult] = await Promise.allSettled([
-      safeFetch(
-        `https://services.onetcenter.org/ws/online/occupation/${encodeURIComponent(topCode)}/details`,
-        { headers: { Accept: "application/json", "X-API-Key": apiKey } },
-      ),
-      safeFetch(
-        `https://services.onetcenter.org/ws/online/occupations/${encodeURIComponent(topCode)}/work_context`,
-        { headers: { Accept: "application/json", "X-API-Key": apiKey } },
-      ),
+      getOccupationDetails(topCode),
+      getWorkContext(topCode),
     ]);
 
-    const details = detailsResult.status === "fulfilled" && detailsResult.value ? detailsResult.value as Record<string, unknown> : {};
-    const contextData = contextResult.status === "fulfilled" && contextResult.value ? contextResult.value as Record<string, unknown> : {};
+    const details = detailsResult.status === "fulfilled" ? detailsResult.value : {};
+    const contextData = contextResult.status === "fulfilled" ? contextResult.value : {};
 
-    const workContext = (contextData?.element ?? []) as Array<Record<string, unknown>>;
-    const abilities = (details?.abilities ?? []) as Array<Record<string, unknown>>;
-    const workActivities = (details?.work_activities ?? []) as Array<Record<string, unknown>>;
+    const workContextRaw = (contextData as Record<string, unknown>)?.element ?? [];
+    const { physicalIndicators, environmentalIndicators, safetyIndicators } =
+      extractWorkContextIndicators(workContextRaw);
 
-    const physicalIndicators: string[] = [];
-    const environmentalIndicators: string[] = [];
-    const safetyIndicators: string[] = [];
-    const serviceTags: string[] = [];
-
-    for (const ctx of workContext) {
-      const name = String(ctx.name ?? ctx.element_name ?? "").toLowerCase();
-      const responseArr = ctx.response as Array<Record<string, unknown>> | undefined;
-      const value = String(responseArr?.[0]?.name ?? ctx.value ?? "");
-
-      if (/spend time standing|spend time walking|spend time bending|kneeling|crawling|climbing|lifting|carrying|reaching|using hands|repetitive motions|keeping.*balance/.test(name)) {
-        physicalIndicators.push(`${ctx.name ?? ctx.element_name}: ${value}`);
-      }
-      if (/outdoors|exposed to weather|exposed to contaminants|exposed to hazardous|exposed to noise|exposed to vibration|exposed to heat|exposed to cold|exposed to radiation/.test(name)) {
-        environmentalIndicators.push(`${ctx.name ?? ctx.element_name}: ${value}`);
-      }
-      if (/wear.*protective|responsible for others.*safety|exposed to hazardous equipment|exposed to high places|exposed to disease|exposed to infection/.test(name)) {
-        safetyIndicators.push(`${ctx.name ?? ctx.element_name}: ${value}`);
-      }
-    }
-
-    // Derive service relevance tags
-    const allContext = physicalIndicators.join(" ") + " " + environmentalIndicators.join(" ") + " " + safetyIndicators.join(" ");
-    if (/lifting|carrying|material handling|musculoskeletal|strength|standing|walking|bending/.test(allContext.toLowerCase())) {
-      serviceTags.push("fitness-for-duty", "return-to-work", "functional-capacity", "physical-exams");
-    }
-    if (/respirator|respiratory|contaminants|chemical|fumes|dust/.test(allContext.toLowerCase())) {
-      serviceTags.push("respirator-clearance", "pulmonary-function", "osha-medical-surveillance");
-    }
-    if (/noise|hearing|auditory/.test(allContext.toLowerCase())) {
-      serviceTags.push("audiograms", "hearing-conservation");
-    }
-    if (/driving|vehicle|transportation|truck|bus/.test(allContext.toLowerCase())) {
-      serviceTags.push("dot-exams", "drug-screens", "sleep-apnea-screening");
-    }
-    if (/outdoor|heat|weather|hot|cold/.test(allContext.toLowerCase())) {
-      serviceTags.push("heat-stress-surveillance", "annual-exams");
-    }
-    if (/hazardous|dangerous|protective equipment|safety equipment/.test(allContext.toLowerCase())) {
-      serviceTags.push("occupational-medical-surveillance", "labs", "respirator-evaluations");
-    }
-
-    // Determine occupation family from SOC code prefix
-    const socPrefix = topCode.split("-")[0];
-    const familyMap: Record<string, string> = {
-      "11": "Management",
-      "13": "Business and Financial Operations",
-      "15": "Computer and Mathematical",
-      "17": "Architecture and Engineering",
-      "19": "Life, Physical, and Social Science",
-      "21": "Community and Social Service",
-      "23": "Legal",
-      "25": "Education, Training, and Library",
-      "27": "Arts, Design, Entertainment, Sports, and Media",
-      "29": "Healthcare Practitioners",
-      "31": "Healthcare Support",
-      "33": "Protective Service",
-      "35": "Food Preparation and Serving",
-      "37": "Building and Grounds Cleaning and Maintenance",
-      "39": "Personal Care and Service",
-      "41": "Sales and Related",
-      "43": "Office and Administrative Support",
-      "45": "Farming, Fishing, and Forestry",
-      "47": "Construction and Extraction",
-      "49": "Installation, Maintenance, and Repair",
-      "51": "Production",
-      "53": "Transportation and Material Moving",
-    };
-    const occupationFamily = familyMap[socPrefix] || "Other";
-
-    const confidence = matches.length > 0 && matches[0].score ? Math.min(matches[0].score / 100, 1) : 0.5;
+    const serviceTags = deriveServiceTags(physicalIndicators, environmentalIndicators, safetyIndicators);
+    const occupationFamily = getOccupationFamily(topCode);
+    const confidence = topMatches[0].score ? Math.min(topMatches[0].score / 100, 1) : 0.5;
 
     return {
       inputTitle: title,
-      occupationMatches: matches,
+      occupationMatches: topMatches,
       socCode: topCode,
       occupationFamily,
       physicalDemandIndicators: physicalIndicators.slice(0, 10),
       environmentalIndicators: environmentalIndicators.slice(0, 10),
       safetySensitiveIndicators: safetyIndicators.slice(0, 10),
-      serviceRelevanceTags: Array.from(new Set(serviceTags)),
+      serviceRelevanceTags: serviceTags,
       confidence,
     };
   } catch {
@@ -832,7 +693,7 @@ router.post("/jobs/normalize", async (req: Request, res: Response) => {
   } catch (error) {
     return res.status(500).json({
       ok: false,
-      error: error instanceof Error ? error.message : "Job normalization failed",
+      error: sanitizeError(error) || "Job normalization failed",
     });
   }
 });
@@ -850,7 +711,7 @@ router.post("/employers/resolve", async (req: Request, res: Response) => {
   } catch (error) {
     return res.status(500).json({
       ok: false,
-      error: error instanceof Error ? error.message : "Entity resolution failed",
+      error: sanitizeError(error) || "Entity resolution failed",
     });
   }
 });
@@ -863,7 +724,7 @@ router.get("/osha/establishments", (req: Request, res: Response) => {
     const naics = String(req.query?.naics || "").trim();
     const year = String(req.query?.year || "").trim();
 
-    const records = getOshaEstablishments(
+    const result = queryOshaEstablishments(
       company || undefined,
       state || undefined,
       naics || undefined,
@@ -872,17 +733,19 @@ router.get("/osha/establishments", (req: Request, res: Response) => {
 
     return res.json({
       ok: true,
-      records,
-      count: records.length,
-      source: "OSHA ITA (cached/imported)",
+      records: result.records,
+      count: result.count,
+      source: result.dataSource === "cached-json" ? "OSHA ITA (cached/imported)" : "OSHA ITA (not imported)",
       importEnabled: isTruthy(getEnv("OSHA_ITA_IMPORT_ENABLED")),
-      warning: "OSHA/public injury data must not be used by the app to declare a company unsafe, negligent, dangerous, or noncompliant. The module should only surface service opportunity signals and data requiring human review.",
+      importRuns: result.importRuns,
+      dataSource: result.dataSource,
+      warning: result.warning,
       sourceUrl: "https://www.osha.gov/establishment-specific-injury-and-illness-data",
     });
   } catch (error) {
     return res.status(500).json({
       ok: false,
-      error: error instanceof Error ? error.message : "OSHA establishment query failed",
+      error: sanitizeError(error) || "OSHA establishment query failed",
     });
   }
 });
@@ -897,26 +760,30 @@ router.get("/bls/industry-benchmark", async (req: Request, res: Response) => {
       return res.status(400).json({ ok: false, error: "naics query parameter is required" });
     }
 
-    const benchmark = await fetchBlsBenchmark(naics, year);
+    const blsResult = await fetchBlsBenchmarkService(naics, year);
 
-    if (!benchmark) {
-      const apiKey = getEnv("BLS_API_KEY");
-      const importEnabled = isTruthy(getEnv("BLS_IMPORT_ENABLED"));
+    if (!blsResult.benchmark) {
       return res.json({
         ok: true,
         benchmark: null,
-        message: !apiKey && !importEnabled
-          ? "BLS API key not configured and import not enabled. Set BLS_API_KEY or enable BLS_IMPORT_ENABLED."
-          : "No BLS benchmark data found for the specified NAICS/year.",
-        configured: !!apiKey || importEnabled,
+        message: blsResult.reason,
+        configured: blsResult.configured,
+        attempted: blsResult.attempted,
       });
     }
 
-    return res.json({ ok: true, benchmark, source: "U.S. Bureau of Labor Statistics (IIF)" });
+    return res.json({
+      ok: true,
+      benchmark: blsResult.benchmark,
+      source: "U.S. Bureau of Labor Statistics (IIF)",
+      configured: blsResult.configured,
+      attempted: blsResult.attempted,
+      message: blsResult.reason,
+    });
   } catch (error) {
     return res.status(500).json({
       ok: false,
-      error: error instanceof Error ? error.message : "BLS benchmark query failed",
+      error: sanitizeError(error) || "BLS benchmark query failed",
     });
   }
 });
@@ -939,7 +806,7 @@ router.get("/workers-comp/sources", (req: Request, res: Response) => {
   } catch (error) {
     return res.status(500).json({
       ok: false,
-      error: error instanceof Error ? error.message : "Workers' comp source query failed",
+      error: sanitizeError(error) || "Workers' comp source query failed",
     });
   }
 });
@@ -975,7 +842,7 @@ router.post("/opportunity/score", async (req: Request, res: Response) => {
   } catch (error) {
     return res.status(500).json({
       ok: false,
-      error: error instanceof Error ? error.message : "Opportunity scoring failed",
+      error: sanitizeError(error) || "Opportunity scoring failed",
     });
   }
 });
@@ -983,83 +850,104 @@ router.post("/opportunity/score", async (req: Request, res: Response) => {
 // GET /api/sources/status
 router.get("/sources/status", (_req: Request, res: Response) => {
   try {
+    const oshaImportInfo = getOshaImportInfo();
+    const oshaDataImported = isOshaDataImported();
+    const oshaRefreshCron = getEnv("OSHA_DATA_REFRESH_CRON");
+
     const statuses: SourceStatus[] = [
       {
         source: "O*NET Web Services",
-        configured: !!getEnv("ONET_API_KEY"),
+        configured: isOnetConfigured(),
         enabled: true,
+        dataType: isOnetConfigured() ? "live-api" : "not-configured",
         notes: "Occupation mapping, job context, physical/cognitive/safety demands",
       },
       {
         source: "BLS IIF",
         configured: !!getEnv("BLS_API_KEY"),
         enabled: isTruthy(getEnv("BLS_IMPORT_ENABLED")) || !!getEnv("BLS_API_KEY"),
-        notes: "Industry injury/illness benchmark rates by NAICS",
+        dataType: !!getEnv("BLS_API_KEY") ? "live-api" : isTruthy(getEnv("BLS_IMPORT_ENABLED")) ? "cached-import" : "not-configured",
+        notes: "Industry injury/illness benchmark rates by NAICS. Series ID mapping may need correction for specific NAICS codes.",
       },
       {
         source: "SAM.gov Entity API",
         configured: !!getEnv("SAM_API_KEY") || !!getEnv("SAM_GOV_API_KEY"),
-        enabled: true,
+        enabled: !!getEnv("SAM_API_KEY") || !!getEnv("SAM_GOV_API_KEY"),
+        dataType: !!getEnv("SAM_API_KEY") || !!getEnv("SAM_GOV_API_KEY") ? "live-api" : "not-configured",
         notes: "Federal contractor entity resolution, UEI/CAGE, DBA names",
       },
       {
         source: "CourtListener",
         configured: !!getEnv("COURTLISTENER_API_TOKEN"),
-        enabled: true,
+        enabled: !!getEnv("COURTLISTENER_API_TOKEN"),
+        dataType: !!getEnv("COURTLISTENER_API_TOKEN") ? "live-api" : "not-configured",
         notes: "Workplace injury litigation signals (supporting signal only)",
       },
       {
         source: "OSHA ITA",
         configured: isTruthy(getEnv("OSHA_ITA_IMPORT_ENABLED")),
         enabled: isTruthy(getEnv("OSHA_ITA_IMPORT_ENABLED")),
-        notes: "Establishment-level injury/illness data (cached import, no API key)",
+        dataType: oshaDataImported ? "cached-import" : isTruthy(getEnv("OSHA_ITA_IMPORT_ENABLED")) ? "cached-import" : "not-configured",
+        lastSync: oshaImportInfo.importRuns.length > 0 ? oshaImportInfo.importRuns[oshaImportInfo.importRuns.length - 1].importedAt : undefined,
+        nextRefresh: oshaRefreshCron || undefined,
+        notes: oshaDataImported
+          ? `Establishment-level injury/illness data (${oshaImportInfo.totalRecords} records from ${oshaImportInfo.importRuns.length} dataset(s)). Cached import from data/osha-ita/.`
+          : "Import enabled but no dataset imported yet. Download OSHA ITA CSV files and run scripts/import-osha.ts.",
       },
       {
         source: "USAspending",
         configured: isTruthy(getEnv("USASPENDING_API_ENABLED")),
         enabled: isTruthy(getEnv("USASPENDING_API_ENABLED")),
+        dataType: isTruthy(getEnv("USASPENDING_API_ENABLED")) ? "live-api" : "not-configured",
         notes: "Federal contract award footprint (optional, not an injury source)",
       },
       {
         source: "CDC/NIOSH Socrata",
         configured: !!getEnv("CDC_SOCRATA_APP_TOKEN"),
         enabled: !!getEnv("CDC_SOCRATA_APP_TOKEN"),
+        dataType: !!getEnv("CDC_SOCRATA_APP_TOKEN") ? "live-api" : "not-configured",
         notes: "Occupational health datasets, workers' comp source discovery",
       },
       {
         source: "HHS Socrata",
         configured: !!getEnv("HHS_SOCRATA_APP_TOKEN"),
         enabled: !!getEnv("HHS_SOCRATA_APP_TOKEN"),
+        dataType: !!getEnv("HHS_SOCRATA_APP_TOKEN") ? "live-api" : "not-configured",
         notes: "Public health context, environmental data",
       },
       {
         source: "CMS Data",
         configured: !!getEnv("CMS_DATA_API_KEY"),
         enabled: !!getEnv("CMS_DATA_API_KEY"),
+        dataType: !!getEnv("CMS_DATA_API_KEY") ? "live-api" : "not-configured",
         notes: "Provider/facility density, healthcare access gaps",
       },
       {
         source: "HRSA",
         configured: !!getEnv("HRSA_API_KEY"),
         enabled: !!getEnv("HRSA_API_KEY"),
+        dataType: !!getEnv("HRSA_API_KEY") ? "live-api" : "not-configured",
         notes: "Rural/underserved area identification, service feasibility",
       },
       {
         source: "SEC EDGAR",
         configured: !!getEnv("SEC_USER_AGENT"),
         enabled: !!getEnv("SEC_USER_AGENT"),
+        dataType: !!getEnv("SEC_USER_AGENT") ? "live-api" : "not-configured",
         notes: "Public company aliases, CIK/ticker, corporate relationships",
       },
       {
         source: "FEC",
         configured: !!getEnv("FEC_API_KEY"),
         enabled: !!getEnv("FEC_API_KEY"),
+        dataType: !!getEnv("FEC_API_KEY") ? "live-api" : "not-configured",
         notes: "Supplemental entity/context layer (low priority)",
       },
       {
         source: "Workers' Comp Source Index",
         configured: isTruthy(getEnv("WORKERS_COMP_SOURCE_INDEX_ENABLED")),
         enabled: isTruthy(getEnv("WORKERS_COMP_SOURCE_INDEX_ENABLED")),
+        dataType: isTruthy(getEnv("WORKERS_COMP_SOURCE_INDEX_ENABLED")) ? "static-index" : "not-configured",
         notes: "State-by-state workers' comp dataset availability index",
       },
     ];
@@ -1068,7 +956,7 @@ router.get("/sources/status", (_req: Request, res: Response) => {
   } catch (error) {
     return res.status(500).json({
       ok: false,
-      error: error instanceof Error ? error.message : "Source status query failed",
+      error: sanitizeError(error) || "Source status query failed",
     });
   }
 });

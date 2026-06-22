@@ -18,10 +18,21 @@ export type OshaEstablishment = {
   caseCategories?: string[];
   sourceUrl: string;
   datasetName: string;
+  datasetYear: number;
+  sourceFileType: string;
   lastImportedDate: string;
   trcRate?: number;
   dartRate?: number;
   daysAwayRate?: number;
+};
+
+export type OshaImportRun = {
+  datasetName: string;
+  datasetYear: number;
+  sourceUrl: string;
+  sourceFileType: string;
+  importedAt: string;
+  recordCount: number;
 };
 
 export type OshaResponse = {
@@ -30,6 +41,8 @@ export type OshaResponse = {
   count: number;
   source: string;
   importEnabled: boolean;
+  importRuns?: OshaImportRun[];
+  dataSource: "cached-json" | "none";
   warning: string;
   sourceUrl: string;
   error?: string;
@@ -45,6 +58,7 @@ export type BlsBenchmark = {
   fatalityRate?: number;
   sourceUrl: string;
   sourceMetadata: string;
+  attemptedSeriesIds?: string[];
 };
 
 export type BlsResponse = {
@@ -52,6 +66,7 @@ export type BlsResponse = {
   benchmark: BlsBenchmark | null;
   message?: string;
   configured?: boolean;
+  attempted?: boolean;
   source?: string;
   error?: string;
 };
@@ -131,6 +146,9 @@ export type SourceStatus = {
   configured: boolean;
   enabled: boolean;
   lastSync?: string;
+  lastError?: string;
+  dataType: "live-api" | "cached-import" | "static-index" | "not-configured";
+  nextRefresh?: string;
   notes: string;
 };
 
