@@ -46,3 +46,22 @@ services:
         sync: false
       - key: ONET_API_KEY
         sync: false
+      # --- Employer Intelligence Module env vars ---
+      - key: BLS_API_KEY
+        sync: false
+      - key: BLS_IMPORT_ENABLED
+        sync: false
+      - key: SAM_API_KEY
+        sync: false
+      - key: COURTLISTENER_API_TOKEN
+        sync: false
+      - key: SEC_USER_AGENT
+        sync: false
+      - key: OSHA_ITA_IMPORT_ENABLED
+        sync: false
+      - key: OSHA_DATA_DIR
+        sync: false
+      - key: WORKERS_COMP_SOURCE_INDEX_ENABLED
+        sync: false
+      - key: USASPENDING_API_ENABLED
+        sync: false
