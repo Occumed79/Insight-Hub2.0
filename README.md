@@ -67,9 +67,17 @@ mounted at `/var/data` and `OSHA_DATA_DIR` must point to a directory on that dis
 4. Set `OSHA_ITA_IMPORT_ENABLED=true`.
 5. Import OSHA ITA CSV data by running the import script:
    ```bash
-   pnpm --filter @workspace/api-server run build
-   node artifacts/api-server/scripts/import-osha.ts --input <csv_file> --output /var/data/osha-ita/
+   # Using OSHA_DATA_DIR env var (preferred for Render):
+   OSHA_DATA_DIR=/var/data/osha-ita pnpm --filter @workspace/api-server run import:osha -- <csv_file> --year 2024 --name "OSHA ITA 2024"
+
+   # Or using --output flag:
+   pnpm --filter @workspace/api-server run import:osha -- --input <csv_file> --output /var/data/osha-ita --year 2024 --name "OSHA ITA 2024"
    ```
+
+   The import script resolves the output directory in this order:
+   1. `--output <dir>` flag (highest priority)
+   2. `OSHA_DATA_DIR` environment variable
+   3. `process.cwd()/data/osha-ita` (local fallback)
 
 Without a persistent disk, Render's filesystem is ephemeral — any imported OSHA
 data will be lost on redeploy.

@@ -2,11 +2,17 @@
  * OSHA ITA Establishment Data Import Script
  *
  * Usage:
- *   npx tsx scripts/import-osha.ts <input.csv> [--year 2022] [--name "OSHA ITA 2022"]
+ *   npx tsx scripts/import-osha.ts <input.csv> [--year 2022] [--name "OSHA ITA 2022"] [--output <dir>]
+ *   npx tsx scripts/import-osha.ts --input <input.csv> --year 2022 --name "OSHA ITA 2022" --output /var/data/osha-ita
+ *
+ * Output directory resolution (first match wins):
+ *   1. --output <dir>          (explicit flag)
+ *   2. OSHA_DATA_DIR env var   (e.g. /var/data/osha-ita on Render)
+ *   3. process.cwd()/data/osha-ita  (local fallback)
  *
  * This script reads an OSHA ITA establishment-specific injury/illness CSV file
  * (downloaded from https://www.osha.gov/establishment-specific-injury-and-illness-data),
- * parses it, and writes a JSON cache file to data/osha-ita/ (or OSHA_DATA_DIR).
+ * parses it, and writes a JSON cache file to the resolved output directory.
  *
  * The JSON file format is:
  * {
@@ -61,25 +67,30 @@ interface ParsedRecord {
   caseCategories?: string[];
 }
 
-function parseArgs(): { inputPath: string; year?: string; name?: string } {
+function parseArgs(): { inputPath: string; year?: string; name?: string; outputDir?: string } {
   const args = process.argv.slice(2);
   if (args.length === 0) {
-    console.error("Usage: npx tsx scripts/import-osha.ts <input.csv> [--year 2022] [--name 'OSHA ITA 2022']");
+    console.error("Usage: npx tsx scripts/import-osha.ts <input.csv> [--year 2022] [--name 'OSHA ITA 2022'] [--output <dir>]");
+    console.error("       npx tsx scripts/import-osha.ts --input <input.csv> --year 2022 --name 'OSHA ITA 2022' --output /var/data/osha-ita");
     process.exit(1);
   }
   let inputPath = "";
   let year: string | undefined;
   let name: string | undefined;
+  let outputDir: string | undefined;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--year") { year = args[++i]; continue; }
     if (args[i] === "--name") { name = args[++i]; continue; }
+    if (args[i] === "--output") { outputDir = args[++i]; continue; }
+    if (args[i] === "--input") { inputPath = args[++i]; continue; }
     if (!args[i].startsWith("--")) { inputPath = args[i]; }
   }
   if (!inputPath) {
     console.error("Error: input file path is required");
+    console.error("Provide a positional path or use --input <path>");
     process.exit(1);
   }
-  return { inputPath, year, name };
+  return { inputPath, year, name, outputDir };
 }
 
 function normalizeHeader(h: string): string {
@@ -146,8 +157,15 @@ function toNumber(val: string | undefined): number | undefined {
   return isNaN(num) ? undefined : num;
 }
 
+function resolveOutputDir(explicit?: string): string {
+  if (explicit) return resolve(explicit);
+  const envDir = process.env.OSHA_DATA_DIR;
+  if (envDir) return resolve(envDir);
+  return resolve(process.cwd(), "data", "osha-ita");
+}
+
 function main() {
-  const { inputPath, year, name } = parseArgs();
+  const { inputPath, year, name, outputDir } = parseArgs();
   const absPath = resolve(inputPath);
 
   if (!existsSync(absPath)) {
@@ -238,13 +256,13 @@ function main() {
 
   const datasetName = name || basename(absPath, extname(absPath));
   const datasetYear = Number(year) || records[0]?.year || new Date().getFullYear() - 1;
-  const outputDir = resolve(process.cwd(), "data", "osha-ita");
-  if (!existsSync(outputDir)) {
-    mkdirSync(outputDir, { recursive: true });
+  const resolvedOutputDir = resolveOutputDir(outputDir);
+  if (!existsSync(resolvedOutputDir)) {
+    mkdirSync(resolvedOutputDir, { recursive: true });
   }
 
   const outputFileName = `${datasetName.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
-  const outputPath = join(outputDir, outputFileName);
+  const outputPath = join(resolvedOutputDir, outputFileName);
 
   const output = {
     metadata: {
