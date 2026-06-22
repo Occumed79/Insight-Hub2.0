@@ -44,3 +44,5 @@ services:
         sync: false
       - key: YOU_API_KEY
         sync: false
+      - key: ONET_API_KEY
+        sync: false

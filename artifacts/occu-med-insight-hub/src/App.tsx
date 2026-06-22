@@ -10,6 +10,8 @@ import DataVisualization from "@/pages/data-visualization";
 import QuantifiableData from "@/pages/quantifiable-data";
 import GeographicData from "@/pages/geographic-data";
 import EntityDiscovery from "@/pages/entity-discovery";
+import JobIntelligence from "@/pages/job-intelligence";
+import EmployerIntelligence from "@/pages/employer-intelligence";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +24,8 @@ function Router() {
       <Route path="/quantifiable-data" component={QuantifiableData} />
       <Route path="/geographic-data" component={GeographicData} />
       <Route path="/entity-discovery" component={EntityDiscovery} />
+      <Route path="/job-intelligence" component={JobIntelligence} />
+      <Route path="/employer-intelligence" component={EmployerIntelligence} />
       <Route component={NotFound} />
     </Switch>
   );
