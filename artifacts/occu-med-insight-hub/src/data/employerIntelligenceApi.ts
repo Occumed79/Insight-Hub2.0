@@ -314,3 +314,87 @@ export async function fetchHhsCatalogStatus(): Promise<HhsCatalogStatusResponse>
   const response = await fetch("/api/hhs/catalog/status");
   return await response.json();
 }
+
+// ─── CMS Provider Data Catalog ───────────────────────────────────────────────
+
+export type CmsDistribution = {
+  identifier?: string;
+  title?: string;
+  format?: string;
+  downloadUrl?: string;
+  mediaType?: string;
+  apiEndpoint?: string;
+};
+
+export type CmsDataset = {
+  identifier: string;
+  title: string;
+  description: string;
+  publisher?: string;
+  bureauCode?: string[];
+  programCode?: string[];
+  theme?: string[];
+  keywords?: string[];
+  modified?: string;
+  released?: string;
+  accessLevel?: string;
+  distributions: CmsDistribution[];
+  apiEndpoint?: string;
+  downloadLinks?: { format: string; url: string }[];
+  sourceUrl?: string;
+};
+
+export type CmsSearchResponse = {
+  ok: boolean;
+  datasets: CmsDataset[];
+  total: number;
+  page: number;
+  pageSize: number;
+  authMode: "public";
+  baseUrl: string;
+  message?: string;
+  error?: string;
+};
+
+export type CmsDatasetResponse = {
+  ok: boolean;
+  dataset: CmsDataset | null;
+  authMode: "public";
+  message?: string;
+  error?: string;
+};
+
+export type CmsProviderDataStatusResponse = {
+  ok: boolean;
+  configured: boolean;
+  enabled: boolean;
+  authMode: "public";
+  baseUrl: string;
+  notes: string;
+  error?: string;
+};
+
+export async function searchCmsProviderData(params: {
+  query?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+}): Promise<CmsSearchResponse> {
+  const qs = new URLSearchParams();
+  if (params.query) qs.set("query", params.query);
+  if (params.page) qs.set("page", String(params.page));
+  if (params.pageSize) qs.set("pageSize", String(params.pageSize));
+  if (params.sort) qs.set("sort", params.sort);
+  const response = await fetch(`/api/cms/provider-data/search?${qs}`);
+  return await response.json();
+}
+
+export async function fetchCmsDataset(identifier: string): Promise<CmsDatasetResponse> {
+  const response = await fetch(`/api/cms/provider-data/datasets/${encodeURIComponent(identifier)}`);
+  return await response.json();
+}
+
+export async function fetchCmsProviderDataStatus(): Promise<CmsProviderDataStatusResponse> {
+  const response = await fetch("/api/cms/provider-data/status");
+  return await response.json();
+}

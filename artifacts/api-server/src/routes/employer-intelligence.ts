@@ -23,6 +23,15 @@ import {
   isCatalogEnabled as isHhsCatalogEnabled,
   sanitizeError as sanitizeHhsError,
 } from "../services/hhsCatalogService";
+import {
+  searchCmsProviderCatalog,
+  getCmsProviderDataset,
+  getCmsProviderDatastoreStats,
+  queryCmsProviderDatastore,
+  getCmsProviderDataStatus,
+  isCmsEnabled,
+  sanitizeError as sanitizeCmsError,
+} from "../services/cmsProviderDataService";
 
 const router: IRouter = Router();
 
@@ -927,6 +936,134 @@ router.get("/hhs/catalog/status", (_req: Request, res: Response) => {
   }
 });
 
+// GET /api/cms/provider-data/search
+router.get("/cms/provider-data/search", async (req: Request, res: Response) => {
+  try {
+    if (!isCmsEnabled()) {
+      return res.json({
+        ok: true,
+        datasets: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        authMode: "public",
+        baseUrl: "https://data.cms.gov/provider-data/api/1",
+        message: "CMS Provider Data catalog is disabled. Set CMS_PROVIDER_DATA_ENABLED=true to enable.",
+      });
+    }
+
+    const query = String(req.query?.query || "").trim();
+    const page = Number(req.query?.page) || 1;
+    const pageSize = Number(req.query?.pageSize) || 20;
+    const sort = String(req.query?.sort || "").trim() || undefined;
+
+    const result = await searchCmsProviderCatalog({ query: query || undefined, page, pageSize, sort });
+
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: sanitizeError(error) || sanitizeCmsError(error) || "CMS catalog search failed",
+    });
+  }
+});
+
+// GET /api/cms/provider-data/datasets/:identifier
+router.get("/cms/provider-data/datasets/:identifier", async (req: Request, res: Response) => {
+  try {
+    if (!isCmsEnabled()) {
+      return res.json({
+        ok: true, dataset: null, authMode: "public", message: "CMS Provider Data catalog is disabled." });
+    }
+
+    const identifier = String(req.params?.identifier || "").trim();
+    if (!identifier) {
+      return res.status(400).json({ ok: false, error: "Dataset identifier is required" });
+    }
+
+    const result = await getCmsProviderDataset(identifier);
+
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: sanitizeError(error) || sanitizeCmsError(error) || "CMS dataset lookup failed",
+    });
+  }
+});
+
+// GET /api/cms/provider-data/datastore/imports/:identifier
+router.get("/cms/provider-data/datastore/imports/:identifier", async (req: Request, res: Response) => {
+  try {
+    if (!isCmsEnabled()) {
+      return res.json({ ok: true, identifier: "", message: "CMS Provider Data catalog is disabled." });
+    }
+
+    const identifier = String(req.params?.identifier || "").trim();
+    if (!identifier) {
+      return res.status(400).json({ ok: false, error: "Dataset identifier is required" });
+    }
+
+    const result = await getCmsProviderDatastoreStats(identifier);
+
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: sanitizeError(error) || sanitizeCmsError(error) || "CMS datastore stats failed",
+    });
+  }
+});
+
+// POST /api/cms/provider-data/datastore/query
+router.post("/cms/provider-data/datastore/query", async (req: Request, res: Response) => {
+  try {
+    if (!isCmsEnabled()) {
+      return res.json({ ok: true, results: [], limit: 100, offset: 0, message: "CMS Provider Data catalog is disabled." });
+    }
+
+    const body = req.body as {
+      distributionId?: string;
+      datasetId?: string;
+      index?: string;
+      conditions?: Record<string, unknown>[];
+      limit?: number;
+      offset?: number;
+      sorts?: string[];
+    } || {};
+
+    const result = await queryCmsProviderDatastore({
+      distributionId: body.distributionId,
+      datasetId: body.datasetId,
+      index: body.index,
+      conditions: body.conditions,
+      limit: body.limit,
+      offset: body.offset,
+      sorts: body.sorts,
+    });
+
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: sanitizeError(error) || sanitizeCmsError(error) || "CMS datastore query failed",
+    });
+  }
+});
+
+// GET /api/cms/provider-data/status
+router.get("/cms/provider-data/status", (_req: Request, res: Response) => {
+  try {
+    const status = getCmsProviderDataStatus();
+    return res.json({ ok: true, ...status });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: sanitizeError(error) || "CMS provider data status failed",
+    });
+  }
+});
+
 // GET /api/sources/status
 router.get("/sources/status", (_req: Request, res: Response) => {
   try {
@@ -996,11 +1133,11 @@ router.get("/sources/status", (_req: Request, res: Response) => {
         notes: `Public HealthData.gov catalog discovery; auth mode: ${getHhsCatalogStatus().authMode}. App token optional for higher rate limits.`,
       },
       {
-        source: "CMS Data",
-        configured: !!getEnv("CMS_DATA_API_KEY"),
-        enabled: !!getEnv("CMS_DATA_API_KEY"),
-        dataType: !!getEnv("CMS_DATA_API_KEY") ? "live-api" : "not-configured",
-        notes: "Provider/facility density, healthcare access gaps",
+        source: "CMS Provider Data",
+        configured: isCmsEnabled(),
+        enabled: isCmsEnabled(),
+        dataType: isCmsEnabled() ? "live-api" : "not-configured",
+        notes: "CMS Provider Data Catalog public DKAN API; provider/facility density, healthcare access gaps, service feasibility context.",
       },
       {
         source: "HRSA",

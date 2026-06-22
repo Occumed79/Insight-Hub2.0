@@ -58,6 +58,9 @@ Set these in the Render dashboard (or via `render.yaml` with `sync: false`).
 | `HHS_SOCRATA_APP_TOKEN` | Optional | Socrata app token for HealthData.gov higher rate limits (catalog discovery works without it) |
 | `HHS_CATALOG_ENABLED` | Optional | Set to `true` to enable HHS/HealthData.gov catalog discovery (default: enabled) |
 | `HHS_CATALOG_DOMAIN` | Optional | HealthData.gov domain (default: `healthdata.gov`) |
+| `CMS_PROVIDER_DATA_ENABLED` | Optional | Set to `true` to enable CMS Provider Data catalog (default: enabled) |
+| `CMS_PROVIDER_DATA_BASE_URL` | Optional | CMS Provider Data API base URL (default: `https://data.cms.gov/provider-data/api/1`) |
+| `CMS_DATA_API_KEY` | Optional | Unused for public catalog access; reserved for future CMS API requirements |
 
 ### OSHA ITA Persistent Disk (Production)
 

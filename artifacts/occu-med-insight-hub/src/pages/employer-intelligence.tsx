@@ -12,6 +12,8 @@ import {
   fetchSourcesStatus,
   searchHhsCatalog,
   fetchHhsCatalogStatus,
+  searchCmsProviderData,
+  fetchCmsProviderDataStatus,
   type OshaEstablishment,
   type BlsBenchmark,
   type WorkersCompSource,
@@ -20,11 +22,13 @@ import {
   type OpportunityScore,
   type SourceStatus,
   type HhsDataset,
+  type CmsDataset,
 } from "@/data/employerIntelligenceApi";
 import {
   Search, Loader2, AlertTriangle, Info, Building2, Network, Table, TrendingUp,
   Briefcase, MapPin, Grid3x3, ShieldCheck, ChevronRight, Activity, HeartPulse,
   Wind, ListChecks, FileWarning, CheckCircle2, XCircle, ExternalLink, Database,
+  Hospital,
 } from "lucide-react";
 
 const DATA_WARNING = "Public injury, illness, workers' compensation, and litigation data may be incomplete, delayed, jurisdiction-specific, or affected by reporting rules. Insight Hub 2.0 uses these sources to identify occupational health service opportunity signals for review. It does not determine legal liability, safety compliance, negligence, or whether an employer is unsafe.";
@@ -33,7 +37,7 @@ const ONET_WARNING = "O*NET data provides generalized occupational context and d
 
 const SCORE_WARNING = "The Occu-Med opportunity score is a business development and research signal, not a safety rating or compliance determination.";
 
-type TabId = "injury" | "resolver" | "osha" | "bls" | "onet" | "workerscomp" | "matrix" | "heatmap" | "sources" | "hhs";
+type TabId = "injury" | "resolver" | "osha" | "bls" | "onet" | "workerscomp" | "matrix" | "heatmap" | "sources" | "hhs" | "cms";
 
 const TABS: { id: TabId; label: string; icon: typeof Activity }[] = [
   { id: "injury", label: "Employer Injury Intelligence", icon: Activity },
@@ -43,6 +47,7 @@ const TABS: { id: TabId; label: string; icon: typeof Activity }[] = [
   { id: "onet", label: "O*NET Occupation Mapping", icon: Briefcase },
   { id: "workerscomp", label: "Workers' Comp Source Coverage", icon: ShieldCheck },
   { id: "hhs", label: "HHS / HealthData.gov Catalog", icon: Database },
+  { id: "cms", label: "CMS Provider Data Catalog", icon: Hospital },
   { id: "matrix", label: "Occu-Med Service Opportunity Matrix", icon: Grid3x3 },
   { id: "heatmap", label: "Geographic Opportunity Heatmap", icon: MapPin },
   { id: "sources", label: "Source Confidence / Data Limitations", icon: FileWarning },
@@ -99,6 +104,7 @@ export default function EmployerIntelligence() {
         {activeTab === "onet" && <OnetMappingTab />}
         {activeTab === "workerscomp" && <WorkersCompTab />}
         {activeTab === "hhs" && <HhsCatalogTab />}
+        {activeTab === "cms" && <CmsProviderDataTab />}
         {activeTab === "matrix" && <ServiceMatrixTab />}
         {activeTab === "heatmap" && <HeatmapTab />}
         {activeTab === "sources" && <SourcesStatusTab />}
@@ -106,7 +112,7 @@ export default function EmployerIntelligence() {
         {/* Footer Attribution */}
         <footer className="mt-10 border-t border-cyan-100/10 pt-4">
           <p className="text-[10px] leading-5 text-cyan-100/35">
-            This application incorporates information from O*NET Web Services by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). O*NET® is a trademark of USDOL/ETA. Additional data from OSHA, BLS, SAM.gov, SEC EDGAR, CourtListener, USAspending, CDC/NIOSH, CMS, HRSA, and HHS/HealthData.gov.
+            This application incorporates information from O*NET Web Services by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). O*NET® is a trademark of USDOL/ETA. Additional data from OSHA, BLS, SAM.gov, SEC EDGAR, CourtListener, USAspending, CDC/NIOSH, CMS Provider Data, HRSA, and HHS/HealthData.gov.
           </p>
         </footer>
       </section>
@@ -1479,6 +1485,263 @@ function HhsCatalogTab() {
 
       {!loading && !error && !hasSearched && (
         <EmptyCard message="Search the HealthData.gov catalog to discover public health datasets." hint="Click a suggested search above or enter your own query." />
+      )}
+    </div>
+  );
+}
+
+// ─── Tab: CMS Provider Data Catalog ─────────────────────────────────────────
+
+const CMS_PROVIDER_WARNING = "CMS Provider Data supports provider access, facility density, and service feasibility research. It is not an injury-rate source and should not affect injury rate calculations directly.";
+
+const CMS_SUGGESTED_SEARCHES = [
+  "hospital", "clinic", "provider", "nursing home", "home health",
+  "dialysis", "laboratory", "rural", "quality", "facility",
+  "Medicare", "Medicaid",
+];
+
+function CmsProviderDataTab() {
+  const [query, setQuery] = useState("");
+  const [pageSize, setPageSize] = useState(20);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [datasets, setDatasets] = useState<CmsDataset[]>([]);
+  const [total, setTotal] = useState(0);
+  const [cmsEnabled, setCmsEnabled] = useState(true);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  async function handleSearch(searchPage?: number) {
+    const p = searchPage || 1;
+    setLoading(true);
+    setError(null);
+    setHasSearched(true);
+    try {
+      const result = await searchCmsProviderData({
+        query: query.trim() || undefined,
+        page: p,
+        pageSize,
+      });
+      if (result.ok) {
+        setDatasets(result.datasets);
+        setTotal(result.total);
+        setPage(result.page);
+        if (result.message) {
+          setError(result.message);
+        }
+      } else {
+        setError(result.error || "Search failed");
+        setDatasets([]);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Search failed");
+      setDatasets([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchCmsProviderDataStatus().then((status) => {
+      if (status.ok) {
+        setCmsEnabled(status.enabled);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const totalPages = Math.ceil(total / pageSize);
+
+  return (
+    <div className="space-y-5">
+      <GlassCard className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <SectionLabel>CMS Provider Data Catalog</SectionLabel>
+            <p className="mt-2 text-xs text-cyan-100/50">
+              Search the public CMS Provider Data Catalog for datasets related to hospitals, clinics, nursing homes, home health, dialysis facilities, laboratories, and more.
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-400/10 px-2.5 py-1 text-[10px] font-semibold text-cyan-200/80">
+            <Info size={11} /> Public API
+          </span>
+        </div>
+      </GlassCard>
+
+      <GlassCard className="border-amber-200/15 p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+          <p className="text-xs leading-5 text-amber-100/70">{CMS_PROVIDER_WARNING}</p>
+        </div>
+      </GlassCard>
+
+      {!cmsEnabled && (
+        <ErrorCard message="CMS Provider Data catalog is disabled. Set CMS_PROVIDER_DATA_ENABLED=true on the server to enable." />
+      )}
+
+      <GlassCard className="p-5">
+        <div className="flex flex-col gap-4">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-100/30" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                placeholder="Search CMS Provider Data catalog..."
+                className="w-full rounded-xl border border-cyan-100/10 bg-white/[0.03] py-2.5 pl-10 pr-4 text-sm text-cyan-50 placeholder:text-cyan-100/30 focus:border-cyan-200/25 focus:outline-none"
+              />
+            </div>
+            <button
+              onClick={() => handleSearch()}
+              disabled={loading || !cmsEnabled}
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-cyan-200/25 bg-cyan-300/14 px-5 text-xs font-semibold text-cyan-50 transition hover:bg-cyan-300/20 disabled:opacity-45"
+            >
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search size={14} />}
+              Search
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wider text-cyan-100/40">Page Size</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="rounded-lg border border-cyan-100/10 bg-white/[0.03] px-3 py-1.5 text-xs text-cyan-50 focus:border-cyan-200/25 focus:outline-none"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {CMS_SUGGESTED_SEARCHES.map((s) => (
+              <button
+                key={s}
+                onClick={() => { setQuery(s); handleSearch(); }}
+                className="rounded-full border border-cyan-100/10 bg-white/[0.02] px-2.5 py-1 text-[10px] text-cyan-100/50 transition hover:border-cyan-100/20 hover:bg-white/[0.05] hover:text-cyan-100/80"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      </GlassCard>
+
+      {error && <ErrorCard message={error} />}
+      {loading && <LoadingCard message="Searching CMS Provider Data catalog..." />}
+
+      {!loading && !error && datasets.length > 0 && (
+        <>
+          <div className="flex items-center justify-between px-1">
+            <p className="text-xs text-cyan-100/40">{total} dataset{total !== 1 ? "s" : ""} found</p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleSearch(page - 1)}
+                  disabled={page <= 1}
+                  className="rounded-lg border border-cyan-100/10 bg-white/[0.02] px-3 py-1 text-xs text-cyan-100/60 transition hover:bg-white/[0.05] disabled:opacity-30"
+                >
+                  Prev
+                </button>
+                <span className="text-xs text-cyan-100/40">Page {page} of {totalPages}</span>
+                <button
+                  onClick={() => handleSearch(page + 1)}
+                  disabled={page >= totalPages}
+                  className="rounded-lg border border-cyan-100/10 bg-white/[0.02] px-3 py-1 text-xs text-cyan-100/60 transition hover:bg-white/[0.05] disabled:opacity-30"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {datasets.map((ds) => (
+              <GlassCard key={ds.identifier} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-cyan-50">{ds.title}</p>
+                    {ds.description && (
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-cyan-100/50">{ds.description}</p>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {ds.publisher && (
+                        <span className="inline-flex items-center gap-1 rounded-md border border-cyan-100/10 bg-white/[0.03] px-2 py-0.5 text-[10px] text-cyan-100/50">
+                          <Building2 size={10} /> {ds.publisher}
+                        </span>
+                      )}
+                      {ds.accessLevel && (
+                        <span className="rounded-md border border-cyan-100/10 bg-white/[0.03] px-2 py-0.5 text-[10px] text-cyan-100/50">
+                          {ds.accessLevel}
+                        </span>
+                      )}
+                      {ds.modified && (
+                        <span className="text-[10px] text-cyan-100/30">
+                          Modified: {new Date(ds.modified).toLocaleDateString()}
+                        </span>
+                      )}
+                      {ds.released && (
+                        <span className="text-[10px] text-cyan-100/30">
+                          Released: {new Date(ds.released).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                    {(ds.theme && ds.theme.length > 0) && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {ds.theme.slice(0, 6).map((t) => (
+                          <span key={t} className="rounded-full bg-cyan-400/8 px-2 py-0.5 text-[9px] text-cyan-200/50">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {(ds.keywords && ds.keywords.length > 0) && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {ds.keywords.slice(0, 8).map((k) => (
+                          <span key={k} className="rounded-full bg-white/[0.03] px-2 py-0.5 text-[9px] text-cyan-100/40">
+                            {k}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {(ds.apiEndpoint || ds.downloadLinks) && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {ds.apiEndpoint && (
+                          <a href={ds.apiEndpoint} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px] text-cyan-300/60 hover:text-cyan-200">
+                            <ExternalLink size={10} /> API
+                          </a>
+                        )}
+                        {ds.downloadLinks?.map((dl) => (
+                          <a key={dl.format} href={dl.url} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px] text-cyan-300/60 hover:text-cyan-200">
+                            <ExternalLink size={10} /> {dl.format.toUpperCase()}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {ds.sourceUrl && (
+                    <a href={ds.sourceUrl} target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 rounded-lg border border-cyan-100/15 bg-cyan-200/10 px-3 py-1.5 text-[10px] font-semibold text-cyan-50 transition hover:bg-cyan-200/18">
+                      <ExternalLink size={12} className="inline" /> Open
+                    </a>
+                  )}
+                </div>
+              </GlassCard>
+            ))}
+          </div>
+        </>
+      )}
+
+      {!loading && !error && hasSearched && datasets.length === 0 && (
+        <EmptyCard message="No datasets found. Try a different search term." hint="Suggested: hospital, clinic, provider, nursing home, dialysis, Medicare" />
+      )}
+
+      {!loading && !error && !hasSearched && (
+        <EmptyCard message="Search the CMS Provider Data catalog to discover public provider/facility datasets." hint="Click a suggested search above or enter your own query." />
       )}
     </div>
   );

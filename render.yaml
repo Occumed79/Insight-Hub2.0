@@ -72,3 +72,10 @@ services:
         sync: false
       - key: HHS_CATALOG_DOMAIN
         sync: false
+      # --- CMS Provider Data Catalog ---
+      - key: CMS_PROVIDER_DATA_ENABLED
+        sync: false
+      - key: CMS_PROVIDER_DATA_BASE_URL
+        sync: false
+      - key: CMS_DATA_API_KEY
+        sync: false
