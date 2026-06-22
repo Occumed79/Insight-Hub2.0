@@ -20,6 +20,8 @@ router.get("/data-visualization/feed", async (req: Request, res: Response) => {
       include: includeArr,
     });
 
+    // Browser caches for 60s; server-side cache (5min) handles dedup
+    res.set("Cache-Control", "public, max-age=60");
     return res.json(feed);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Data visualization feed failed";

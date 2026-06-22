@@ -1437,23 +1437,40 @@ export default function DataVisualization() {
       setFeed(null);
       return;
     }
+    if (!company?.name) {
+      setFeed(null);
+      return;
+    }
+
+    // Parse state from headquarters (e.g. "Chantilly, Virginia" -> "Virginia")
+    const hq = company.headquarters ?? "";
+    const stateMatch = hq.match(/,\s*([A-Za-z ]+)$/);
+    const state = stateMatch ? stateMatch[1].trim() : undefined;
+
     let cancelled = false;
-    setFeedLoading(true);
-    setFeedError(null);
-    fetchVisualizationFeed({
-      company: company?.name,
-    })
-      .then((result) => {
-        if (!cancelled) setFeed(result);
+    const timer = setTimeout(() => {
+      setFeedLoading(true);
+      setFeedError(null);
+      fetchVisualizationFeed({
+        company: company.name,
+        state,
       })
-      .catch((err) => {
-        if (!cancelled) setFeedError(err instanceof Error ? err.message : "Feed fetch failed");
-      })
-      .finally(() => {
-        if (!cancelled) setFeedLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [feedMode, company?.name]);
+        .then((result) => {
+          if (!cancelled) setFeed(result);
+        })
+        .catch((err) => {
+          if (!cancelled) setFeedError(err instanceof Error ? err.message : "Feed fetch failed");
+        })
+        .finally(() => {
+          if (!cancelled) setFeedLoading(false);
+        });
+    }, 400); // 400ms debounce
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [feedMode, company?.name, company?.headquarters]);
 
   // Convert feed data to existing model shapes
   const feedCharts = useMemo(() => {

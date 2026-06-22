@@ -903,6 +903,36 @@ function buildCourtListenerChart(
   return charts;
 }
 
+// ─── In-Memory Cache ─────────────────────────────────────────────────────────
+
+const FEED_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const feedCache = new Map<string, { result: DataVisualizationFeed; expiresAt: number }>();
+
+function buildCacheKey(params: {
+  company?: string;
+  state?: string;
+  naics?: string;
+  year?: string;
+  include?: string[];
+}): string {
+  const includeSorted = params.include ? [...params.include].sort().join(",") : "";
+  return [params.company ?? "", params.state ?? "", params.naics ?? "", params.year ?? "", includeSorted].join("|");
+}
+
+function getCachedFeed(key: string): DataVisualizationFeed | null {
+  const entry = feedCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    feedCache.delete(key);
+    return null;
+  }
+  return entry.result;
+}
+
+function setCachedFeed(key: string, result: DataVisualizationFeed): void {
+  feedCache.set(key, { result, expiresAt: Date.now() + FEED_CACHE_TTL_MS });
+}
+
 // ─── Main Feed Builder ───────────────────────────────────────────────────────
 
 export async function buildVisualizationFeed(params: {
@@ -912,6 +942,10 @@ export async function buildVisualizationFeed(params: {
   year?: string;
   include?: string[];
 }): Promise<DataVisualizationFeed> {
+  const cacheKey = buildCacheKey(params);
+  const cached = getCachedFeed(cacheKey);
+  if (cached) return cached;
+
   const { company = "", state, naics, year, include } = params;
   const includeSet = include ? new Set(include) : null;
 
@@ -1007,7 +1041,7 @@ export async function buildVisualizationFeed(params: {
 
   const sourceStatus = buildSourceStatus();
 
-  return {
+  const result: DataVisualizationFeed = {
     ok: true,
     company,
     metrics,
@@ -1022,4 +1056,11 @@ export async function buildVisualizationFeed(params: {
     missingData,
     warnings,
   };
+
+  setCachedFeed(cacheKey, result);
+  return result;
+}
+
+export function clearVisualizationFeedCache(): void {
+  feedCache.clear();
 }
