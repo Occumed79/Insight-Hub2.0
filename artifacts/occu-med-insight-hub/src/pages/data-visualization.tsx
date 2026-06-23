@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, useRef } from "react";
-import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
+import { useMemo, useState, type ReactNode } from "react";
+import { motion } from "framer-motion";
 import {
   ResponsiveContainer,
   BarChart,
@@ -18,25 +18,19 @@ import {
   Legend,
   ReferenceLine,
   Cell,
-  Label,
-  LabelList,
 } from "recharts";
-import { HeaderBar } from "@/components/insight/HeaderBar";
+import { AlertTriangle, CheckCircle2, FileSearch, Link2, ShieldCheck, Sparkles } from "lucide-react";
 import { Sidebar } from "@/components/insight/Sidebar";
-import { GlassCard } from "@/components/insight/GlassCard";
 import { IntelligenceSelector } from "@/components/insight/IntelligenceSelector";
-import { IntelligenceStatusBadge } from "@/components/insight/IntelligenceStatusBadge";
-import { DataQualityBanner } from "@/components/insight/DataQualityBanner";
+import { IntelligenceOverview } from "@/components/insight/IntelligenceOverview";
+import { IntelligenceInsightPanel } from "@/components/insight/IntelligenceInsightPanel";
 import { LuminousChartTooltip } from "@/components/insight/LuminousChartTooltip";
 import { useInsightData, useSelectedCompany } from "@/data/useInsightData";
 import { getCompanyConfigOrDefault } from "@/company-configs";
 import { resolveConfigCompanyId } from "@/company-configs/configIds";
-import { getIntelligenceStatus } from "@/company-configs/intelligenceNavigation";
 import { intelligenceFactsToCharts } from "@/data/intelligenceCharts";
-import { IntelligenceOverview } from "@/components/insight/IntelligenceOverview";
-import { IntelligenceSections } from "@/components/insight/IntelligenceSections";
-import { IntelligenceInsightPanel } from "@/components/insight/IntelligenceInsightPanel";
-import { IntelligenceAnswerCard } from "@/components/insight/IntelligenceAnswerCard";
+import { evaluateChartSuitability, type ChartSuitabilityResult } from "@/data/chartSuitability";
+import { categoryLabel } from "@/data/intelligenceActions";
 import type {
   ChartDefinition,
   MetricDefinition,
@@ -46,15 +40,7 @@ import type {
   DossierSectionDefinition,
   TooltipFormat,
 } from "@/company-configs/types";
-import type { IntelligenceFact, IntelligenceCategory, CompanyIntelligence } from "@/data/types";
-import {
-  fetchVisualizationFeed,
-  feedChartsToChartDefinitions,
-  feedFactsToIntelligenceFacts,
-  type DataVisualizationFeed,
-} from "@/data/visualizationIntelligenceAdapter";
-import { CheckCircle2, AlertTriangle, XCircle, Activity } from "lucide-react";
-import { categoryLabel } from "@/data/intelligenceActions";
+import type { CompanyIntelligence, IntelligenceFact } from "@/data/types";
 
 interface ProfileVisualizationModel {
   company: { name: string; shortName: string; summary: string; tags: string[] } | null;
@@ -89,6 +75,19 @@ export interface ChartDatumSelection {
   rawSnippet?: string;
 }
 
+type EvidenceLabel = "verified" | "strong" | "search-derived" | "weak" | "lead" | "static";
+
+type EvidenceBucket = {
+  id: string;
+  title: string;
+  label: EvidenceLabel;
+  icon: ReactNode;
+  facts: IntelligenceFact[];
+  empty: string;
+};
+
+const PALETTE = ["#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#f472b6", "#fb7185", "#60a5fa", "#a3e635"];
+
 function buildProfileVisualizationModel({
   company,
   config,
@@ -121,6 +120,61 @@ function buildProfileVisualizationModel({
   };
 }
 
+function metricChartFromDefinitions(metrics: MetricDefinition[]): ChartDefinition[] {
+  if (!metrics.length) return [];
+  const categories = [...new Set(metrics.map((m) => m.category))];
+  return categories.map((category, index) => ({
+    id: `metric-proof-${category}-${index}`,
+    title: `${category.charAt(0).toUpperCase() + category.slice(1)} Metrics`,
+    subtitle: `Static profile metrics for ${category}. Single values render as proof objects instead of misleading charts.`,
+    type: "bar" as const,
+    xKey: "label",
+    data: metrics
+      .filter((m) => m.category === category)
+      .map((m) => ({
+        label: m.label,
+        value: m.value,
+        id: m.id,
+        unit: m.unit,
+        category: m.category,
+        sourceId: m.sourceId ?? "",
+        confidence: "static",
+        sourceType: "static",
+      })),
+    series: [{ dataKey: "value", name: "Value", color: PALETTE[index % PALETTE.length] }],
+    formatter: "plain",
+    headline: `${category} metric focus`,
+  }));
+}
+
+function enrichStaticChartSources(charts: ChartDefinition[], sources: any[]): ChartDefinition[] {
+  if (!sources.length) return charts;
+  return charts.map((chart) => ({
+    ...chart,
+    data: chart.data.map((row) => {
+      const sourceId = row.sourceId as string | undefined;
+      const matched = sourceId ? sources.find((s) => s.id === sourceId || s.sourceId === sourceId) : null;
+      if (!matched) return { ...row, confidence: row.confidence ?? "static", sourceType: row.sourceType ?? "static" };
+      return {
+        ...row,
+        sourceUrl: (matched.url ?? "") as string,
+        sourceName: (matched.name ?? matched.label ?? matched.sourceName ?? "") as string,
+        sourceType: (matched.type ?? "static") as string,
+        confidence: (matched.confidence ?? "static") as string,
+        date: (row.date ?? matched.date ?? "") as string,
+      };
+    }),
+  }));
+}
+
+function useChartPanels(vizModel: ProfileVisualizationModel) {
+  return useMemo(() => {
+    const baseCharts = vizModel.charts.length ? vizModel.charts : metricChartFromDefinitions(vizModel.metrics);
+    const primaryCharts = enrichStaticChartSources(baseCharts, vizModel.sourceRecords);
+    return { primaryCharts };
+  }, [vizModel.charts, vizModel.metrics, vizModel.sourceRecords]);
+}
+
 function formatTickByType(formatter: TooltipFormat | undefined) {
   if (formatter === "currencyM") return (v: number) => `$${v}M`;
   if (formatter === "currencyK") return (v: number) => `$${v}K`;
@@ -129,102 +183,34 @@ function formatTickByType(formatter: TooltipFormat | undefined) {
   return undefined;
 }
 
-function metricUnitLabel(unit: MetricDefinition["unit"]) {
-  switch (unit) {
-    case "usd":
-      return "$";
-    case "percent":
-      return "%";
-    case "count":
-      return "count";
-    case "score":
-      return "score";
-    default:
-      return "";
+function formatValue(value: number, formatter?: TooltipFormat, unit?: string) {
+  const formatted =
+    formatter === "currencyM"
+      ? `$${value.toLocaleString()}M`
+      : formatter === "currencyK"
+        ? `$${value.toLocaleString()}K`
+        : formatter === "percent"
+          ? `${value}%`
+          : formatter === "hoursM"
+            ? `${value.toLocaleString()}M hrs`
+            : value.toLocaleString();
+  return unit ? `${formatted} ${unit}` : formatted;
+}
+
+function sourceDomain(url?: string) {
+  if (!url) return "No source URL";
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url.replace(/^https?:\/\//, "").split("/")[0] || "Source URL";
   }
 }
 
-function metricChartFromDefinitions(metrics: MetricDefinition[]): ChartDefinition[] {
-  if (!metrics.length) return [];
-  const categories = [...new Set(metrics.map((m) => m.category))];
-  const byCategory = categories.map((category) => ({
-    category,
-    metrics: metrics.filter((m) => m.category === category),
-  }));
-
-  return byCategory.map((group, index) => {
-    const data: Record<string, string | number>[] = group.metrics.map((m) => {
-      const record: Record<string, string | number> = {
-        label: m.label,
-        value: m.value,
-        id: m.id,
-        unit: m.unit,
-        category: m.category,
-      };
-      if (m.sourceId) record.sourceId = m.sourceId;
-      if (m.trend !== undefined) record.trend = m.trend;
-      return record;
-    });
-    return {
-      id: `metric-fallback-${group.category}-${index}`,
-      title: `${group.category.charAt(0).toUpperCase() + group.category.slice(1)} Metrics`,
-      subtitle: `Comparison of ${group.category} metrics`,
-      type: "bar" as const,
-      xKey: "label",
-      data,
-      series: [{ dataKey: "value", name: "Value", color: "#22d3ee" }],
-      formatter: "plain",
-      headline: `${group.category} metric focus`,
-    };
-  });
-}
-
-function chartHeight(chart: ChartDefinition) {
-  const rowCount = chart.data.length;
-  const base = chart.fullWidth ? 340 : 300;
-  const expanded = base + Math.max(0, rowCount - 6) * 18;
-  return Math.min(chart.fullWidth ? 560 : 440, expanded);
-}
-
 function getSeriesColor(index: number, fallback?: string) {
-  const palette = ["#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#f472b6", "#fb7185", "#60a5fa", "#a3e635"];
-  return fallback ?? palette[index % palette.length];
+  return fallback ?? PALETTE[index % PALETTE.length];
 }
 
-function getHolographicLayer(chart: ChartDefinition) {
-  const title = chart.title.toLowerCase();
-  if (title.includes("injury") || title.includes("trir") || title.includes("lwcr") || title.includes("safety") || title.includes("rate")) return "holo-layer-safety";
-  if (title.includes("workforce") || title.includes("employee") || title.includes("exposure")) return "holo-layer-workforce";
-  if (title.includes("location") || title.includes("region") || title.includes("geographic")) return "holo-layer-location";
-  if (title.includes("network") || title.includes("gap") || title.includes("provider")) return "holo-layer-network";
-  if (title.includes("confidence") || title.includes("source")) return "holo-layer-confidence";
-  if (title.includes("risk") || title.includes("matrix")) return "holo-layer-risk";
-  if (title.includes("event") || title.includes("timeline")) return "holo-layer-event";
-  return "holo-layer-base";
-}
-
-function getConfidenceColor(confidence?: string): string {
-  const c = (confidence ?? "").toLowerCase();
-  if (c === "high") return "#34d399";
-  if (c === "medium") return "#fbbf24";
-  if (c === "low") return "#fb7185";
-  if (c === "link-only") return "#94a3b8";
-  return "#22d3ee";
-}
-
-function getColorByData(entry: Record<string, string | number>): string {
-  const confidence = String(entry.confidence ?? "");
-  const category = String(entry.category ?? "");
-  if (confidence) return getConfidenceColor(confidence);
-  if (category) return getCategoryColor(category);
-  const value = Number(entry.value ?? 0);
-  if (value > 75) return "#22d3ee";
-  if (value > 50) return "#a78bfa";
-  if (value > 25) return "#fbbf24";
-  return "#fb7185";
-}
-
-function getCategoryColor(category?: string): string {
+function getCategoryColor(category?: string) {
   const map: Record<string, string> = {
     safety: "#22d3ee",
     workforce: "#34d399",
@@ -245,446 +231,207 @@ function getCategoryColor(category?: string): string {
   return map[category ?? ""] ?? "#22d3ee";
 }
 
-function chartCategoryFromId(chartId: string): IntelligenceCategory | null {
-  if (chartId.includes("injury") || chartId.includes("safety") || chartId.includes("trir") || chartId.includes("lwcr") || chartId.includes("rate")) return "sourceConfidence";
-  if (chartId.includes("workforce") || chartId.includes("employee") || chartId.includes("exposure")) return "locationExposure";
-  if (chartId.includes("award")) return "contractAwards";
-  if (chartId.includes("opportunities")) return "opportunities";
-  if (chartId.includes("job")) return "jobSignals";
-  if (chartId.includes("confidence")) return "sourceConfidence";
-  if (chartId.includes("event")) return "timelineEvents";
-  if (chartId.includes("location")) return "locationExposure";
-  if (chartId.includes("network")) return "medicalNetworkGaps";
-  return null;
+function evidenceLabelColor(label: string) {
+  if (label === "verified") return "#34d399";
+  if (label === "strong") return "#22d3ee";
+  if (label === "search-derived" || label === "medium") return "#fbbf24";
+  if (label === "lead") return "#94a3b8";
+  if (label === "static") return "#a78bfa";
+  return "#fb7185";
 }
 
-function factsInDateRange(facts: IntelligenceFact[], range: string): IntelligenceFact[] {
-  if (range === "all") return facts;
-  const now = Date.now();
-  const ms = {
-    "7d": 7 * 24 * 60 * 60 * 1000,
-    "30d": 30 * 24 * 60 * 60 * 1000,
-    "90d": 90 * 24 * 60 * 60 * 1000,
-    "1y": 365 * 24 * 60 * 60 * 1000,
-  } as Record<string, number>;
-  const cutoff = now - (ms[range] ?? 0);
-  return facts.filter((f) => {
-    const d = Date.parse(f.date);
-    return !isNaN(d) && d >= cutoff;
-  });
+function getEvidenceConfidenceLabel(fact: IntelligenceFact | undefined): EvidenceLabel {
+  if (!fact) return "static";
+  const url = (fact.sourceUrl ?? "").toLowerCase();
+  const sourceType = (fact.sourceType ?? "").toLowerCase();
+  const provider = String(fact.metadata?.provider ?? "").toLowerCase();
+  const recordType = String(fact.metadata?.recordType ?? "").toLowerCase();
+  const extracted = fact.metadata?.extracted === true;
+
+  if (fact.confidence === "link-only" || recordType.includes("lead")) return "lead";
+  if (sourceType === "usaspending" || sourceType === "sec" || url.includes("usaspending.gov") || url.includes("sec.gov")) return "verified";
+  if (sourceType === "official" || extracted || url.includes(".gov") || url.includes(".mil")) return "strong";
+  if (sourceType === "web" || sourceType === "news" || provider === "serper" || provider === "exa" || provider === "tavily") return "search-derived";
+  if (recordType.includes("static")) return "static";
+  return "weak";
 }
 
-function filterIntelligenceCharts(
-  charts: ChartDefinition[],
-  facts: IntelligenceFact[],
-  categoryFilter: string,
-  confidenceFilter: string,
-  sourceTypeFilter: string,
-  dateRange: string
-): ChartDefinition[] {
-  return charts.filter((chart) => {
-    const category = chartCategoryFromId(chart.id);
-    if (categoryFilter !== "all" && category !== categoryFilter) return false;
-    let relevant = category ? facts.filter((f) => f.category === category) : facts;
-    relevant = factsInDateRange(relevant, dateRange);
-    if (confidenceFilter !== "all" && !relevant.some((f) => f.confidence === confidenceFilter)) return false;
-    if (sourceTypeFilter !== "all" && !relevant.some((f) => f.sourceType === sourceTypeFilter)) return false;
-    return true;
-  });
+function chartGroup(chart: ChartDefinition): "contract" | "workforce" | "location" | "risk" | "source" | "other" {
+  const text = `${chart.id} ${chart.title} ${chart.subtitle}`.toLowerCase();
+  if (/award|contract|opportunit|sam|procurement/.test(text)) return "contract";
+  if (/workforce|employee|job|hiring|safety|injury|trir|lwcr|rate/.test(text)) return "workforce";
+  if (/location|region|geographic|network|gap|provider/.test(text)) return "location";
+  if (/risk|matrix|opportunity/.test(text)) return "risk";
+  if (/source|confidence|event|timeline|evidence/.test(text)) return "source";
+  return "other";
 }
 
-function morphIntelligenceFacts(
-  facts: IntelligenceFact[],
-  mode: "category" | "sourceType" | "confidence" | "time"
-): ChartDefinition {
-  const keyBy = (f: IntelligenceFact) => {
-    if (mode === "category") return f.category;
-    if (mode === "sourceType") return f.sourceType;
-    if (mode === "confidence") return f.confidence;
-    const d = f.date.slice(0, 7);
-    return d || "unknown";
-  };
-  const grouped = facts.reduce<Record<string, { count: number; value: number; category: string }>>((acc, f) => {
-    const key = keyBy(f);
-    if (!acc[key]) acc[key] = { count: 0, value: 0, category: f.category };
-    acc[key].count += 1;
-    acc[key].value += f.value ?? 0;
-    return acc;
-  }, {});
-  const data = Object.entries(grouped)
-    .map(([label, g]) => ({ label, count: g.count, value: g.value, category: g.category }))
-    .sort((a, b) => b.count - a.count);
+function selectionFromDatum(chart: ChartDefinition, entry: Record<string, string | number>, seriesName: string, dataKey: string): ChartDatumSelection {
+  const category = String(entry[chart.xKey] ?? entry.label ?? entry.region ?? entry.stage ?? entry.name ?? "Selected datum");
   return {
-    id: `morph-${mode}`,
-    title: `Morph: ${mode === "category" ? "Category" : mode === "sourceType" ? "Source" : mode === "confidence" ? "Confidence" : "Time"}`,
-    subtitle: `Intelligence facts grouped by ${mode}`,
-    type: "bar",
-    xKey: "label",
-    data,
-    series: [{ dataKey: "count", name: "Facts", color: "#22d3ee" }],
-    formatter: "plain",
-    headline: "morphed intelligence view",
-    fullWidth: true,
+    chartId: chart.id,
+    chartTitle: chart.title,
+    chartType: chart.type,
+    category,
+    seriesName,
+    dataKey,
+    value: Number(entry[dataKey] ?? entry.value ?? entry.count ?? 0),
+    unit: entry.unit as string | undefined,
+    formatter: chart.formatter,
+    sourceId: entry.sourceId as string | undefined,
+    payload: entry,
+    sourceUrl: (entry.sourceUrl as string | undefined) || undefined,
+    confidence: (entry.confidence as string | undefined) || undefined,
+    date: (entry.date as string | undefined) || undefined,
+    sourceType: (entry.sourceType as string | undefined) || undefined,
+    intelligenceCategory: (entry.category as string | undefined) || undefined,
+    summary: (entry.summary as string | undefined) || undefined,
+    rawSnippet: (entry.rawSnippet as string | undefined) || undefined,
   };
 }
 
-function enrichStaticChartSources(charts: ChartDefinition[], sources: any[]): ChartDefinition[] {
-  if (!sources.length) return charts;
-  return charts.map((chart) => ({
-    ...chart,
-    data: chart.data.map((row) => {
-      const sourceId = row.sourceId as string | undefined;
-      const matched = sourceId ? sources.find((s) => s.id === sourceId || s.sourceId === sourceId) : null;
-      if (!matched) return row;
-      return {
-        ...row,
-        sourceUrl: (matched.url ?? "") as string,
-        sourceName: (matched.name ?? matched.sourceName ?? "") as string,
-        sourceType: (matched.type ?? "") as string,
-        confidence: (matched.confidence ?? "") as string,
-        date: (row.date ?? matched.date ?? "") as string,
-      };
-    }),
-  }));
-}
+function ReplacementVisualization({
+  chart,
+  suitability,
+  onSelectDatum,
+}: {
+  chart: ChartDefinition;
+  suitability: ChartSuitabilityResult;
+  onSelectDatum: (selection: ChartDatumSelection) => void;
+}) {
+  const seriesKey = chart.series[0]?.dataKey ?? "value";
+  const sorted = [...chart.data].sort((a, b) => Number(b[seriesKey] ?? 0) - Number(a[seriesKey] ?? 0));
+  const first = sorted[0] ?? chart.data[0];
+  const firstValue = Number(first?.[seriesKey] ?? first?.value ?? first?.count ?? 0);
+  const firstLabel = String(first?.[chart.xKey] ?? first?.label ?? first?.region ?? first?.stage ?? chart.title);
 
-function useChartPanels(vizModel: ProfileVisualizationModel) {
-  return useMemo(() => {
-    const baseCharts = vizModel.charts.length ? vizModel.charts : metricChartFromDefinitions(vizModel.metrics);
-    const primaryCharts = enrichStaticChartSources(baseCharts, vizModel.sourceRecords);
-    return { primaryCharts };
-  }, [vizModel.charts, vizModel.metrics, vizModel.sourceRecords]);
-}
+  if (suitability.representationType === "data-quality-warning" || suitability.representationType === "suppressed") {
+    return (
+      <div className="cinematic-proof-card cinematic-warning-card">
+        <div className="cinematic-proof-icon"><AlertTriangle size={22} /></div>
+        <p className="cinematic-proof-kicker">Data Quality Guardrail</p>
+        <h3>{chart.title}</h3>
+        <p>{suitability.reason}</p>
+        <div className="cinematic-warning-list">
+          {suitability.warnings.map((warning) => <span key={warning}>{warning}</span>)}
+        </div>
+      </div>
+    );
+  }
 
-function formatValue(value: number, formatter?: TooltipFormat, unit?: string) {
-  const formatted =
-    formatter === "currencyM"
-      ? `$${value.toLocaleString()}M`
-      : formatter === "currencyK"
-        ? `$${value.toLocaleString()}K`
-        : formatter === "percent"
-          ? `${value}%`
-          : formatter === "hoursM"
-            ? `${value.toLocaleString()}M hrs`
-            : value.toLocaleString();
-  return unit ? `${formatted} ${unit}` : formatted;
-}
+  if (suitability.representationType === "timeline-strip") {
+    return (
+      <div className="cinematic-proof-card">
+        <p className="cinematic-proof-kicker">Timeline Evidence · {suitability.confidenceLabel}</p>
+        <h3>{chart.title}</h3>
+        <p>{suitability.reason}</p>
+        <div className="cinematic-timeline-strip">
+          {chart.data.slice(0, 6).map((row, index) => {
+            const label = String(row[chart.xKey] ?? row.date ?? row.label ?? `Item ${index + 1}`);
+            return (
+              <button key={`${label}-${index}`} onClick={() => onSelectDatum(selectionFromDatum(chart, row, chart.series[0]?.name ?? "Evidence", seriesKey))}>
+                <span />
+                <b>{label}</b>
+                <small>{formatValue(Number(row[seriesKey] ?? row.value ?? 0), chart.formatter, row.unit as string | undefined)}</small>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
-const METHOD_BEHAVIOR: Record<
-  string,
-  { label: string; description: string; affects: string; mode: string }
-> = {
-  "vector-displacement": {
-    label: "Vector Displacement Mapping",
-    description: "Chart layers shift through 3D depth based on injury/safety/risk magnitude. Higher risk values push farther into the scene.",
-    affects: "scene depth, layer parallax",
-    mode: "displacement",
-  },
-  "chromatic-aberration": {
-    label: "Chromatic Aberration Highlighting",
-    description: "Selected safety/risk metric gets cinematic RGB edge split. The stage object fractures into spectral layers.",
-    affects: "stage object, focus element",
-    mode: "chromatic",
-  },
-  "geometric-anchor": {
-    label: "Geometric Anchor Snapping",
-    description: "Large callout lines pin exact injury/safety values. Anchor lines snap across the full scene like tech-spec callouts.",
-    affects: "full scene, value callouts",
-    mode: "anchor",
-  },
-  "subtractive-masking": {
-    label: "Subtractive Masking Overlays",
-    description: "Spotlight reveal isolates the selected risk signal. Background dims and the safety metric cuts through with luminous focus.",
-    affects: "full stage, spotlight",
-    mode: "masking",
-  },
-  "procedural-grid": {
-    label: "Procedural Grid Resonances",
-    description: "Full-stage grid resonance behind the safety/risk trend. Grid reacts to injury rate magnitude with pulsing waves.",
-    affects: "stage background, grid",
-    mode: "grid",
-  },
-  "algorithmic-edge": {
-    label: "Algorithmic Edge-Tracing",
-    description: "Animated outlines trace injury trend lines and rate bars. Feels like a product-page technical reveal.",
-    affects: "chart shapes, panel borders",
-    mode: "edge",
-  },
-  "concentric-ripple": {
-    label: "Concentric Ripple Metrics",
-    description: "Selected high-risk value emits impact ripples. Expanding luminous waves affect nearby scene elements.",
-    affects: "selected point, nearby elements",
-    mode: "ripple",
-  },
-  "negative-space": {
-    label: "Negative Space Inversion",
-    description: "Surrounding data glows while selected risk becomes a clean cutout. Scene inverts emphasis to isolate the safety signal.",
-    affects: "full scene, emphasis inversion",
-    mode: "invert",
-  },
-  "vector-lattice": {
-    label: "Vector Lattice Distortion",
-    description: "Luminous lattice bends around the active safety/workforce/risk category with cinematic distortion.",
-    affects: "background lattice, scene",
-    mode: "lattice",
-  },
-  "color-shift": {
-    label: "Color-Shift Isometry",
-    description: "Palette changes by metric type: safety, workforce, location, source, risk. Each data domain gets a distinct visual identity.",
-    affects: "full scene palette",
-    mode: "colorShift",
-  },
-  "synchronous-path": {
-    label: "Synchronous Path Illumination",
-    description: "Related safety, workforce, and location data lights up together across scenes. Matching categories illuminate in synchrony.",
-    affects: "cross-scene paths",
-    mode: "synchronous",
-  },
-  "vector-node": {
-    label: "Vector Node Expansion",
-    description: "Selected metric expands into a cinematic insight object with depth, shadow, and luminous detail.",
-    affects: "selected datum, info object",
-    mode: "node",
-  },
-  "radiant-gradient": {
-    label: "Radiant Gradient Focus",
-    description: "Full scene gradient focus follows selected safety/risk category. Unrelated elements recede into soft blur.",
-    affects: "full scene, gradient focus",
-    mode: "radiant",
-  },
-  "isometric-slice": {
-    label: "Isometric Slice-View",
-    description: "Injury/risk/workforce layers lift into 3D slabs with depth, shadow, and dimensional perspective.",
-    affects: "bars, matrix, slabs",
-    mode: "isometric",
-  },
-  "semantic-zoom": {
-    label: "Generative Semantic Zoom",
-    description: "Zoom from company-level risk to granular safety metric/source detail. Smooth cinematic zoom, not a drawer.",
-    affects: "scene zoom, detail level",
-    mode: "zoom",
-  },
-  "holographic-depth": {
-    label: "Holographic Depth Layers",
-    description: "Safety, workforce, location, source, and risk data sit on layered glass planes at different depths.",
-    affects: "layered glass planes",
-    mode: "holographic",
-  },
-  "kinetic-vector": {
-    label: "Kinetic Vector Transitions",
-    description: "Scene transitions move with directional momentum. Elements travel with purpose, not just fade.",
-    affects: "scene transitions, motion",
-    mode: "kinetic",
-  },
-  "contextual-morph": {
-    label: "Contextual Data Morphing",
-    description: "Morph between safety, workforce, location, source, and risk groupings with visible animated transformation.",
-    affects: "chart transformation",
-    mode: "morph",
-  },
-  "interactive-filter": {
-    label: "Interactive Filtering",
-    description: "Apple-style segmented controls filter by data category, source, and confidence. Changes the entire scene.",
-    affects: "scene composition, filters",
-    mode: "filter",
-  },
-  "zoom-pan": {
-    label: "Zoom and Pan",
-    description: "Focus on one large safety/risk scene with smooth zoom. The scene breathes as you focus.",
-    affects: "stage focus, zoom",
-    mode: "pan",
-  },
-  "linked-visualizations": {
-    label: "Linked Visualizations / Brushing",
-    description: "Selecting a value highlights related safety/workforce/risk metrics across all visible scenes with synchronized glow.",
-    affects: "cross-layer illumination",
-    mode: "linked",
-  },
-  "click-reveal": {
-    label: "Click-to-Reveal",
-    description: "Click reveals a cinematic insight callout attached to the scene. Not a generic drawer.",
-    affects: "insight callout, scene panel",
-    mode: "reveal",
-  },
-};
+  if (suitability.representationType === "ranked-list") {
+    return (
+      <div className="cinematic-proof-card">
+        <p className="cinematic-proof-kicker">Ranked Evidence · {suitability.confidenceLabel}</p>
+        <h3>{chart.title}</h3>
+        <p>{suitability.reason}</p>
+        <div className="cinematic-ranked-list">
+          {sorted.slice(0, 6).map((row, index) => {
+            const label = String(row[chart.xKey] ?? row.label ?? row.region ?? `Item ${index + 1}`);
+            return (
+              <button key={`${label}-${index}`} onClick={() => onSelectDatum(selectionFromDatum(chart, row, chart.series[0]?.name ?? "Evidence", seriesKey))}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <b>{label}</b>
+                <small>{formatValue(Number(row[seriesKey] ?? row.value ?? 0), chart.formatter, row.unit as string | undefined)}</small>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
-function methodName(methodId: string) {
-  return METHOD_BEHAVIOR[methodId]?.label ?? methodId;
-}
-
-function methodDescription(methodId: string) {
-  return METHOD_BEHAVIOR[methodId]?.description ?? "";
-}
-
-function MethodExplanationPanel({ methodId }: { methodId: string }) {
-  const behavior = METHOD_BEHAVIOR[methodId];
-  if (!behavior) return null;
   return (
-    <div className="cinematic-method-callout">
-      <p className="cinematic-method-affects">{behavior.affects}</p>
-      <h3 className="cinematic-method-title">{behavior.label}</h3>
-      <p className="cinematic-method-desc">{behavior.description}</p>
-    </div>
+    <button className="cinematic-proof-card cinematic-metric-proof" onClick={() => first && onSelectDatum(selectionFromDatum(chart, first, chart.series[0]?.name ?? "Evidence", seriesKey))}>
+      <p className="cinematic-proof-kicker">Metric Proof · {suitability.confidenceLabel}</p>
+      <h3>{chart.title}</h3>
+      <div className="cinematic-proof-value">{formatValue(firstValue, chart.formatter, first?.unit as string | undefined)}</div>
+      <p className="cinematic-proof-label">{firstLabel}</p>
+      <p>{suitability.reason}</p>
+      <span className="cinematic-proof-source">{sourceDomain(first?.sourceUrl as string | undefined)}</span>
+    </button>
   );
-}
-
-const SCENE_METHOD_CLASS: Record<string, string> = {
-  "vector-displacement": "scene-fx-displacement",
-  "chromatic-aberration": "scene-fx-chromatic",
-  "geometric-anchor": "scene-fx-anchor",
-  "subtractive-masking": "scene-fx-masking",
-  "procedural-grid": "scene-fx-grid",
-  "algorithmic-edge": "scene-fx-edge",
-  "concentric-ripple": "scene-fx-ripple",
-  "negative-space": "scene-fx-invert",
-  "vector-lattice": "scene-fx-lattice",
-  "color-shift": "scene-fx-colorshift",
-  "synchronous-path": "scene-fx-synchronous",
-  "vector-node": "scene-fx-node",
-  "radiant-gradient": "scene-fx-radiant",
-  "isometric-slice": "scene-fx-isometric",
-  "semantic-zoom": "scene-fx-zoom",
-  "holographic-depth": "scene-fx-holographic",
-  "kinetic-vector": "scene-fx-kinetic",
-  "contextual-morph": "scene-fx-morph",
-  "interactive-filter": "scene-fx-filter",
-  "zoom-pan": "scene-fx-pan",
-  "linked-visualizations": "scene-fx-linked",
-  "click-reveal": "scene-fx-reveal",
-};
-
-function sceneFxClass(method: string): string {
-  return SCENE_METHOD_CLASS[method] ?? "";
 }
 
 function CinematicChart({
   chart,
-  activeMethod,
   selectedCategory,
-  activeSelection,
   onSelectCategory,
   onSelectDatum,
-  height = 420,
+  height = 380,
 }: {
   chart: ChartDefinition;
-  activeMethod: string;
   selectedCategory: string | null;
-  activeSelection: ChartDatumSelection | null;
   onSelectCategory: (category: string | null) => void;
   onSelectDatum: (selection: ChartDatumSelection) => void;
   height?: number;
 }) {
-  const isColorShift = activeMethod === "color-shift";
-  const isLinkedBrushing = activeMethod === "linked-visualizations";
-  const isRadiant = activeMethod === "radiant-gradient";
-  const isChromatic = activeMethod === "chromatic-aberration";
-  const isGeometricAnchor = activeMethod === "geometric-anchor";
-  const isProceduralGrid = activeMethod === "procedural-grid";
-  const isAlgorithmicEdge = activeMethod === "algorithmic-edge";
-  const isConcentricRipple = activeMethod === "concentric-ripple";
-  const isSubtractiveMasking = activeMethod === "subtractive-masking";
-  const isPulse = activeMethod === "kinetic-vector";
-  const isVectorDisplacement = activeMethod === "vector-displacement";
-  const isSynchronousPath = activeMethod === "synchronous-path";
-  const isDimmed = activeMethod === "negative-space";
-  const isIsometric = activeMethod === "isometric-slice";
+  const suitability = evaluateChartSuitability(chart);
 
-  const handleBarClick = (entry: any, seriesName: string, dataKey: string) => {
-    const category = String(entry[chart.xKey] ?? entry.label ?? "");
-    onSelectCategory(category);
-    onSelectDatum({
-      chartId: chart.id,
-      chartTitle: chart.title,
-      chartType: chart.type,
-      category,
-      seriesName,
-      dataKey,
-      value: Number(entry[dataKey] ?? 0),
-      unit: entry.unit as string | undefined,
-      formatter: chart.formatter,
-      sourceId: entry.sourceId as string | undefined,
-      note: entry.note as string | undefined,
-      payload: entry as Record<string, string | number>,
-      sourceUrl: (entry.sourceUrl as string | undefined) || undefined,
-      confidence: (entry.confidence as string | undefined) || undefined,
-      date: (entry.date as string | undefined) || undefined,
-      sourceType: (entry.sourceType as string | undefined) || undefined,
-      intelligenceCategory: (entry.category as string | undefined) || undefined,
-      summary: (entry.summary as string | undefined) || undefined,
-      rawSnippet: (entry.rawSnippet as string | undefined) || undefined,
-    });
-  };
+  if (suitability.representationType !== "chart") {
+    return <ReplacementVisualization chart={chart} suitability={suitability} onSelectDatum={onSelectDatum} />;
+  }
 
-  const handleScatterClick = (entry: any) => {
-    const category = String(entry.name ?? entry[chart.xKey] ?? "");
+  const handleDatumClick = (entry: Record<string, string | number>, seriesName: string, dataKey: string) => {
+    const category = String(entry[chart.xKey] ?? entry.label ?? entry.region ?? entry.stage ?? entry.name ?? "Selected datum");
     onSelectCategory(category);
-    onSelectDatum({
-      chartId: chart.id,
-      chartTitle: chart.title,
-      chartType: chart.type,
-      category,
-      seriesName: chart.series[0]?.name ?? "Data",
-      dataKey: chart.series[0]?.dataKey ?? "x",
-      value: Number(entry[chart.series[0]?.dataKey ?? "x"] ?? 0),
-      unit: entry.unit as string | undefined,
-      formatter: chart.formatter,
-      sourceId: entry.sourceId as string | undefined,
-      payload: entry as Record<string, string | number>,
-      sourceUrl: (entry.sourceUrl as string | undefined) || undefined,
-      confidence: (entry.confidence as string | undefined) || undefined,
-      date: (entry.date as string | undefined) || undefined,
-      sourceType: (entry.sourceType as string | undefined) || undefined,
-      intelligenceCategory: (entry.category as string | undefined) || undefined,
-      summary: (entry.summary as string | undefined) || undefined,
-    });
+    onSelectDatum(selectionFromDatum(chart, entry, seriesName, dataKey));
   };
 
   const renderChart = () => {
     if (chart.type === "line") {
       return (
         <LineChart data={chart.data}>
-          <CartesianGrid stroke={isProceduralGrid ? "rgba(34,211,238,0.15)" : "rgba(255,255,255,.06)"} />
+          <CartesianGrid stroke="rgba(255,255,255,.06)" />
           <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.35)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatTickByType(chart.formatter)} />
           {chart.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
           <Tooltip content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? "data focus"} />} />
-          {chart.referenceLines?.map((ref, i) => (
-            <ReferenceLine key={i} y={ref.y} stroke={ref.stroke} strokeDasharray={ref.strokeDasharray} label={ref.label} />
-          ))}
+          {chart.referenceLines?.map((ref, i) => <ReferenceLine key={i} y={ref.y} stroke={ref.stroke} strokeDasharray={ref.strokeDasharray} label={ref.label} />)}
           {chart.series.map((s, i) => {
             const color = getSeriesColor(i, s.color);
             return (
-              <Line key={s.dataKey} type="monotone" dataKey={s.dataKey} name={s.name ?? s.dataKey} stroke={color} strokeWidth={3}
-                dot={(props: any) => {
-                  const category = String(props.payload?.[chart.xKey] ?? props.payload?.label ?? "");
-                  const isSelected = selectedCategory === category;
-                  return (
-                    <circle cx={props.cx} cy={props.cy} r={isSelected ? 7 : 4}
-                      fill={isColorShift ? getColorByData(props.payload) : color}
-                      stroke={isSelected ? "#ffffff" : color} strokeWidth={isSelected ? 3 : 2}
-                      opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : selectedCategory && !isSelected ? 0.4 : 1}
-                      className={[
-                        isChromatic && isSelected ? "chromatic-dot" : "",
-                        isAlgorithmicEdge && isSelected ? "algorithmic-edge-dot" : "",
-                        isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
-                        isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
-                        isPulse && isSelected ? "pulse-bar" : "",
-                      ].filter(Boolean).join(" ")}
-                    />
-                  );
-                }}
-                activeDot={{ r: 8, onClick: (_: any, entry: any) => handleBarClick(entry.payload, s.name ?? s.dataKey, s.dataKey) }}
-                className={isSynchronousPath ? "synchronous-path-line" : ""}
+              <Line
+                key={s.dataKey}
+                type="monotone"
+                dataKey={s.dataKey}
+                name={s.name ?? s.dataKey}
+                stroke={color}
+                strokeWidth={3}
+                activeDot={{ r: 8, onClick: (_: any, entry: any) => handleDatumClick(entry.payload, s.name ?? s.dataKey, s.dataKey) }}
               />
             );
           })}
         </LineChart>
       );
     }
+
     if (chart.type === "area") {
       return (
         <AreaChart data={chart.data}>
-          <CartesianGrid stroke={isProceduralGrid ? "rgba(34,211,238,0.15)" : "rgba(255,255,255,.06)"} />
+          <CartesianGrid stroke="rgba(255,255,255,.06)" />
           <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 10 }} />
           <YAxis stroke="rgba(207,250,254,.35)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatTickByType(chart.formatter)} />
           {chart.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
@@ -692,110 +439,53 @@ function CinematicChart({
           {chart.series.map((s, i) => {
             const color = getSeriesColor(i, s.color);
             return (
-              <Area key={s.dataKey} type="monotone" dataKey={s.dataKey} name={s.name ?? s.dataKey} stroke={color} fill={`${color}3d`} strokeWidth={3}
-                dot={(props: any) => {
-                  const category = String(props.payload?.[chart.xKey] ?? props.payload?.label ?? "");
-                  const isSelected = selectedCategory === category;
-                  return (
-                    <circle cx={props.cx} cy={props.cy} r={isSelected ? 6 : 3}
-                      fill={isColorShift ? getColorByData(props.payload) : color}
-                      stroke={isSelected ? "#ffffff" : color} strokeWidth={isSelected ? 2 : 1}
-                      opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : selectedCategory && !isSelected ? 0.4 : 1}
-                      className={[
-                        isChromatic && isSelected ? "chromatic-dot" : "",
-                        isAlgorithmicEdge && isSelected ? "algorithmic-edge-dot" : "",
-                        isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
-                        isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
-                        isPulse && isSelected ? "pulse-bar" : "",
-                      ].filter(Boolean).join(" ")}
-                    />
-                  );
-                }}
-                activeDot={{ r: 8, onClick: (_: any, entry: any) => handleBarClick(entry.payload, s.name ?? s.dataKey, s.dataKey) }}
-                className={isAlgorithmicEdge ? "algorithmic-edge-area" : ""}
+              <Area
+                key={s.dataKey}
+                type="monotone"
+                dataKey={s.dataKey}
+                name={s.name ?? s.dataKey}
+                stroke={color}
+                fill={`${color}3d`}
+                strokeWidth={3}
+                activeDot={{ r: 8, onClick: (_: any, entry: any) => handleDatumClick(entry.payload, s.name ?? s.dataKey, s.dataKey) }}
               />
             );
           })}
         </AreaChart>
       );
     }
+
     if (chart.type === "scatter") {
       const xDataKey = chart.series[0]?.dataKey ?? "x";
       const yDataKey = chart.series[1]?.dataKey ?? "y";
       return (
         <ScatterChart>
-          <CartesianGrid stroke={isProceduralGrid ? "rgba(34,211,238,0.15)" : "rgba(255,255,255,.06)"} />
-          <XAxis dataKey={xDataKey} name={chart.series[0]?.name ?? "X"} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 10 }} type="number" domain={[0, "auto"]} />
-          <YAxis dataKey={yDataKey} name={chart.series[1]?.name ?? "Y"} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 11 }} domain={chart.domain} type="number" />
+          <CartesianGrid stroke="rgba(255,255,255,.06)" />
+          <XAxis dataKey={xDataKey} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 10 }} type="number" domain={[0, "auto"]} />
+          <YAxis dataKey={yDataKey} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 11 }} domain={chart.domain} type="number" />
           {chart.series.length > 2 && <ZAxis dataKey={chart.series[2]?.dataKey ?? "z"} range={[80, 520]} />}
           <Tooltip cursor={{ stroke: "rgba(34,211,238,.35)", strokeDasharray: "4 4" }} content={<LuminousChartTooltip headline={chart.headline ?? "data focus"} />} />
-          <Scatter name="Data" data={chart.data} fill={chart.series[0]?.color ?? "#22d3ee"} onClick={handleScatterClick}
-            shape={(props: any) => {
-              const category = String(props.payload?.[chart.xKey] ?? props.payload?.name ?? "");
-              const isSelected = selectedCategory === category;
-              return (
-                <circle cx={props.cx} cy={props.cy} r={isSelected ? 8 : 6}
-                  fill={isColorShift ? getColorByData(props.payload) : chart.series[0]?.color ?? "#22d3ee"}
-                  stroke={isSelected ? "#ffffff" : "rgba(255,255,255,0.2)"} strokeWidth={isSelected ? 3 : 1}
-                  opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : selectedCategory && !isSelected ? 0.4 : 1}
-                  className={[
-                    isChromatic && isSelected ? "chromatic-dot" : "",
-                    isAlgorithmicEdge && isSelected ? "algorithmic-edge-dot" : "",
-                    isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
-                    isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
-                    isPulse && isSelected ? "pulse-bar" : "",
-                  ].filter(Boolean).join(" ")}
-                />
-              );
-            }}
-          />
+          <Scatter name="Data" data={chart.data} fill={chart.series[0]?.color ?? "#22d3ee"} onClick={(entry: any) => handleDatumClick(entry, "Data", xDataKey)} />
         </ScatterChart>
       );
     }
+
     return (
       <BarChart data={chart.data}>
-        <CartesianGrid stroke={isProceduralGrid ? "rgba(34,211,238,0.15)" : "rgba(255,255,255,.06)"} />
+        <CartesianGrid stroke="rgba(255,255,255,.06)" />
         <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 10 }} />
         <YAxis stroke="rgba(207,250,254,.35)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatTickByType(chart.formatter)} />
         {chart.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
         <Tooltip cursor={{ fill: "rgba(34,211,238,.06)" }} content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? "data focus"} />} />
-        {chart.referenceLines?.map((ref, i) => (
-          <ReferenceLine key={i} y={ref.y} stroke={ref.stroke} strokeDasharray={ref.strokeDasharray} label={ref.label} />
-        ))}
-        {isGeometricAnchor && selectedCategory && (
-          <>
-            <ReferenceLine x={selectedCategory} stroke="rgba(34,211,238,0.65)" strokeDasharray="5 5" />
-          </>
-        )}
+        {chart.referenceLines?.map((ref, i) => <ReferenceLine key={i} y={ref.y} stroke={ref.stroke} strokeDasharray={ref.strokeDasharray} label={ref.label} />)}
         {chart.series.map((s, i) => {
           const color = getSeriesColor(i, s.color);
           return (
-            <Bar key={s.dataKey} dataKey={s.dataKey} name={s.name ?? s.dataKey} fill={color}
-              radius={s.radius ?? [10, 10, 0, 0]} stackId={s.stackId}
-              onClick={(_, index) => handleBarClick(chart.data[index], s.name ?? s.dataKey, s.dataKey)}>
+            <Bar key={s.dataKey} dataKey={s.dataKey} name={s.name ?? s.dataKey} fill={color} radius={s.radius ?? [10, 10, 0, 0]} stackId={s.stackId} onClick={(_, index) => handleDatumClick(chart.data[index], s.name ?? s.dataKey, s.dataKey)}>
               {chart.data.map((entry, idx) => {
                 const category = String(entry[chart.xKey] ?? entry.label ?? "");
                 const isSelected = selectedCategory === category;
-                return (
-                  <Cell key={`cell-${idx}`} fill={color}
-                    opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : selectedCategory && !isSelected ? 0.4 : 1}
-                    className={[
-                      isSelected ? "selected-bar-cell" : "",
-                      isLinkedBrushing && isSelected ? "linked-bar-cell" : "",
-                      isChromatic && isSelected ? "chromatic-bar-cell" : "",
-                      isIsometric && isSelected ? "isometric-bar-cell" : "",
-                      isPulse && isSelected ? "pulse-bar" : "",
-                      isVectorDisplacement && isSelected ? "vector-displace-cell" : "",
-                      isAlgorithmicEdge && isSelected ? "algorithmic-edge-bar-cell" : "",
-                      isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
-                      isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
-                    ].filter(Boolean).join(" ")}
-                    style={{
-                      transform: isVectorDisplacement && isSelected ? `translateX(${Math.min(24, Math.max(-24, (Number(entry.value ?? 0) / 50)))}px)` : undefined,
-                      fill: isColorShift ? getColorByData(entry) : undefined,
-                    }}
-                  />
-                );
+                return <Cell key={`cell-${idx}`} fill={getCategoryColor(String(entry.category ?? "")) || color} opacity={selectedCategory ? (isSelected ? 1 : 0.35) : 1} />;
               })}
             </Bar>
           );
@@ -806,1412 +496,206 @@ function CinematicChart({
 
   return (
     <div className="cinematic-chart-stage" style={{ height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        {renderChart() as React.ReactElement}
-      </ResponsiveContainer>
+      <ResponsiveContainer width="100%" height="100%">{renderChart() as any}</ResponsiveContainer>
     </div>
   );
 }
 
-function SceneHero({
-  companyName,
-  metricsCount,
-  chartsCount,
-  signalsCount,
-  sourcesCount,
-  intelligenceCount,
-  feedLoading,
-  primaryMetricLabel,
-  primaryMetricValue,
-  primaryMetricUnit,
-  isStaticFallback,
-  children,
-}: {
-  companyName: string;
-  metricsCount: number;
-  chartsCount: number;
-  signalsCount: number;
-  sourcesCount: number;
-  intelligenceCount: number;
-  feedLoading: boolean;
-  primaryMetricLabel: string;
-  primaryMetricValue: string;
-  primaryMetricUnit: string;
-  isStaticFallback: boolean;
-  children: React.ReactNode;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const titleY = useTransform(scrollYProgress, [0, 1], [0, -120]);
-  const titleOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
-  const bgScale = useTransform(scrollYProgress, [0, 1], [1, 1.15]);
-  const bgBlur = useTransform(scrollYProgress, [0, 0.5, 1], [0, 4, 12]);
-  const orbScale = useTransform(scrollYProgress, [0, 0.5, 1], [1, 1.3, 0.6]);
-  const orbOpacity = useTransform(scrollYProgress, [0, 0.5, 1], [0.8, 0.5, 0]);
-
+function CinematicPanel({ chart, selectedCategory, onSelectCategory, onSelectDatum }: { chart: ChartDefinition; selectedCategory: string | null; onSelectCategory: (category: string | null) => void; onSelectDatum: (selection: ChartDatumSelection) => void }) {
+  const suitability = evaluateChartSuitability(chart);
   return (
-    <section ref={ref} className="cinematic-hero-section">
-      <motion.div className="cinematic-hero-bg" style={{ scale: bgScale, filter: useTransform(bgBlur, (b) => `blur(${b}px)`) }} />
-      <motion.div className="cinematic-hero-orb" style={{ scale: orbScale, opacity: orbOpacity }} />
-      <motion.div className="cinematic-hero-content" style={{ y: titleY, opacity: titleOpacity }}>
-        <motion.p
-          className="cinematic-hero-eyebrow"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-        >
-          Occupational Health & Safety Intelligence
-        </motion.p>
-        <motion.h1
-          className="cinematic-hero-title"
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1.0, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        >
-          {companyName}
-        </motion.h1>
-        <motion.div
-          className="cinematic-hero-selector"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.7 }}
-        >
-          {children}
-        </motion.div>
-        <motion.div
-          className="cinematic-hero-metrics"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.9 }}
-        >
-          <motion.div
-            className="cinematic-hero-primary-metric"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.85, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <span className="cinematic-hero-primary-label">{primaryMetricLabel}</span>
-            <span className="cinematic-hero-primary-value">{primaryMetricValue}<span className="cinematic-hero-primary-unit">{primaryMetricUnit}</span></span>
-            {isStaticFallback && <span className="cinematic-hero-fallback-badge">Static profile data</span>}
-          </motion.div>
-          {[
-            { label: "Safety Metrics", value: metricsCount },
-            { label: "Charts", value: chartsCount },
-            { label: "Signals", value: signalsCount },
-            { label: "Sources", value: sourcesCount },
-            { label: "Intelligence", value: intelligenceCount },
-          ].map((m, i) => (
-            <motion.div
-              key={m.label}
-              className="cinematic-hero-metric"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 1.0 + i * 0.1, ease: "easeOut" }}
-            >
-              <span className="cinematic-hero-metric-value">{m.value}</span>
-              <span className="cinematic-hero-metric-label">{m.label}</span>
-            </motion.div>
-          ))}
-        </motion.div>
-        {feedLoading && (
-          <motion.div
-            className="cinematic-hero-loading"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <Activity size={14} className="animate-pulse" />
-            <span>Loading live intelligence feed…</span>
-          </motion.div>
-        )}
-      </motion.div>
-      <motion.div
-        className="cinematic-hero-scroll-hint"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.8, duration: 0.8 }}
-        style={{ opacity: useTransform(scrollYProgress, [0, 0.1], [1, 0]) }}
-      >
-        <span>Scroll to explore</span>
-        <div className="cinematic-scroll-line" />
-      </motion.div>
-    </section>
-  );
-}
-
-function SceneInjurySafety({
-  charts,
-  activeMethod,
-  selectedCategory,
-  activeSelection,
-  onSelectCategory,
-  onSelectDatum,
-  fxClass,
-}: {
-  charts: ChartDefinition[];
-  activeMethod: string;
-  selectedCategory: string | null;
-  activeSelection: ChartDatumSelection | null;
-  onSelectCategory: (category: string | null) => void;
-  onSelectDatum: (selection: ChartDatumSelection) => void;
-  fxClass: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
-  const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
-
-  const safetyKeywords = ["injury", "safety", "trir", "lwcr", "rate", "trend", "goal", "award", "nsc", "reserve", "claim", "dart", "emr"];
-  const safetyCharts = charts.filter((c) =>
-    safetyKeywords.some((kw) => c.title.toLowerCase().includes(kw))
-  );
-  const displayCharts = safetyCharts.length > 0 ? safetyCharts : charts.slice(0, 2);
-
-  return (
-    <section ref={ref} className={`cinematic-scene-section ${fxClass}`}>
-      <div className="cinematic-scene-sticky">
-        <motion.div style={{ y: headerY, opacity: headerOpacity }}>
-          <p className="cinematic-scene-eyebrow">Scene 02</p>
-          <h2 className="cinematic-scene-title">Injury & Safety Rate Stage</h2>
-          <p className="cinematic-scene-subtitle">TRIR, LWCR, and safety award trends as large cinematic rate comparisons with masked reveal and depth.</p>
-        </motion.div>
-        <div className="cinematic-scene-stage">
-          {displayCharts.length > 0 ? (
-            displayCharts.map((chart, i) => (
-              <motion.div
-                key={chart.id}
-                className="cinematic-chart-panel"
-                initial={{ opacity: 0, y: 80 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-100px" }}
-                transition={{ duration: 0.8, delay: i * 0.15, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <div className="cinematic-chart-header">
-                  <h3 className="cinematic-chart-title">{chart.title}</h3>
-                  {chart.subtitle && <p className="cinematic-chart-subtitle">{chart.subtitle}</p>}
-                </div>
-                <CinematicChart
-                  chart={chart}
-                  activeMethod={activeMethod}
-                  selectedCategory={selectedCategory}
-                  activeSelection={activeSelection}
-                  onSelectCategory={onSelectCategory}
-                  onSelectDatum={onSelectDatum}
-                  height={380}
-                />
-              </motion.div>
-            ))
-          ) : (
-            <div className="cinematic-empty-stage">
-              <p>No injury or safety rate data available for this company.</p>
-              <p className="cinematic-empty-hint">Static profile metrics may still contain safety data — check the Workforce Exposure scene below.</p>
-            </div>
-          )}
+    <motion.div className={`cinematic-chart-panel validity-${suitability.representationType}`} initial={{ opacity: 0, y: 28 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}>
+      <div className="cinematic-panel-header">
+        <div>
+          <p className="cinematic-scene-eyebrow">{suitability.representationType === "chart" ? "Validated Chart" : "Chart Guardrail"}</p>
+          <h3>{chart.title}</h3>
+          <p>{chart.subtitle}</p>
         </div>
+        <span className="cinematic-confidence-badge" style={{ color: evidenceLabelColor(suitability.confidenceLabel), borderColor: `${evidenceLabelColor(suitability.confidenceLabel)}55` }}>{suitability.confidenceLabel}</span>
+      </div>
+      <CinematicChart chart={chart} selectedCategory={selectedCategory} onSelectCategory={onSelectCategory} onSelectDatum={onSelectDatum} />
+      {suitability.reason && <p className="cinematic-validity-reason">{suitability.reason}</p>}
+    </motion.div>
+  );
+}
+
+function SceneSection({ eyebrow, title, subtitle, children, alt = false }: { eyebrow: string; title: string; subtitle: string; children: ReactNode; alt?: boolean }) {
+  return (
+    <section className={`cinematic-scene-section ${alt ? "cinematic-scene-alt" : ""}`}>
+      <div className="cinematic-scene-sticky relaxed">
+        <motion.div initial={{ opacity: 0, y: 38 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}>
+          <p className="cinematic-scene-eyebrow">{eyebrow}</p>
+          <h2 className="cinematic-scene-title">{title}</h2>
+          <p className="cinematic-scene-subtitle">{subtitle}</p>
+        </motion.div>
+        {children}
       </div>
     </section>
   );
 }
 
-function SceneWorkforceExposure({
-  charts,
-  metrics,
-  activeMethod,
-  selectedCategory,
-  activeSelection,
-  onSelectCategory,
-  onSelectDatum,
-  fxClass,
-}: {
-  charts: ChartDefinition[];
-  metrics: MetricDefinition[];
-  activeMethod: string;
-  selectedCategory: string | null;
-  activeSelection: ChartDatumSelection | null;
-  onSelectCategory: (category: string | null) => void;
-  onSelectDatum: (selection: ChartDatumSelection) => void;
-  fxClass: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
-  const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
+function EmptyScene({ message }: { message: string }) {
+  return <div className="cinematic-proof-card cinematic-warning-card"><p className="cinematic-proof-kicker">No chart rendered</p><h3>{message}</h3><p>Evidence remains available in the Source Ledger below. The page does not create charts when the available data would be misleading.</p></div>;
+}
 
-  const workforceKeywords = ["workforce", "employee", "exposure", "job", "signal", "claim", "workflow", "documentation", "return", "ime"];
-  const workforceCharts = charts.filter((c) =>
-    workforceKeywords.some((kw) => c.title.toLowerCase().includes(kw))
+function ChartScene({ charts, selectedCategory, onSelectCategory, onSelectDatum }: { charts: ChartDefinition[]; selectedCategory: string | null; onSelectCategory: (category: string | null) => void; onSelectDatum: (selection: ChartDatumSelection) => void }) {
+  if (!charts.length) return <EmptyScene message="No analytically valid charts for this scene." />;
+  return (
+    <div className="cinematic-chart-grid">
+      {charts.slice(0, 3).map((chart) => <CinematicPanel key={chart.id} chart={chart} selectedCategory={selectedCategory} onSelectCategory={onSelectCategory} onSelectDatum={onSelectDatum} />)}
+    </div>
   );
-  const exposureMetrics = metrics.filter((m) =>
-    m.category === "workforce" || m.category === "safety" || m.category === "risk" || m.category === "financial"
-  );
-  const displayCharts = workforceCharts.length > 0 ? workforceCharts : charts.slice(0, 2);
+}
+
+function EvidenceItem({ fact }: { fact: IntelligenceFact }) {
+  const label = getEvidenceConfidenceLabel(fact);
+  const provider = String(fact.metadata?.provider ?? fact.sourceType ?? "unknown");
+  const alias = String(fact.metadata?.matchedAlias ?? "");
+  const query = String(fact.metadata?.query ?? "");
+  const extracted = fact.metadata?.extracted === true;
 
   return (
-    <section ref={ref} className={`cinematic-scene-section cinematic-scene-alt ${fxClass}`}>
-      <div className="cinematic-scene-sticky">
-        <motion.div style={{ y: headerY, opacity: headerOpacity }}>
-          <p className="cinematic-scene-eyebrow">Scene 03</p>
-          <h2 className="cinematic-scene-title">Workforce Exposure Stage</h2>
-          <p className="cinematic-scene-subtitle">Workforce scale, exposure measures, and safety-to-workforce relationships as cinematic ribbons and depth layers.</p>
-        </motion.div>
-        {exposureMetrics.length > 0 && (
-          <motion.div
-            className="cinematic-metric-ribbons"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-          >
-            {exposureMetrics.slice(0, 6).map((m, i) => (
-              <motion.div
-                key={m.id}
-                className="cinematic-metric-ribbon"
-                initial={{ opacity: 0, x: -40 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: 0.3 + i * 0.1 }}
-              >
-                <span className="cinematic-ribbon-label">{m.label}</span>
-                <span className="cinematic-ribbon-value">{formatValue(m.value, undefined, m.unit)}</span>
-              </motion.div>
-            ))}
-          </motion.div>
-        )}
-        <div className="cinematic-scene-stage">
-          {displayCharts.map((chart, i) => (
-            <motion.div
-              key={chart.id}
-              className="cinematic-chart-panel"
-              initial={{ opacity: 0, y: 80 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.8, delay: i * 0.15, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <div className="cinematic-chart-header">
-                <h3 className="cinematic-chart-title">{chart.title}</h3>
-                {chart.subtitle && <p className="cinematic-chart-subtitle">{chart.subtitle}</p>}
-              </div>
-              <CinematicChart
-                chart={chart}
-                activeMethod={activeMethod}
-                selectedCategory={selectedCategory}
-                activeSelection={activeSelection}
-                onSelectCategory={onSelectCategory}
-                onSelectDatum={onSelectDatum}
-                height={360}
-              />
-            </motion.div>
-          ))}
-        </div>
+    <article className="cinematic-ledger-item">
+      <div className="cinematic-ledger-item-top">
+        <span style={{ color: evidenceLabelColor(label), borderColor: `${evidenceLabelColor(label)}55` }}>{label}</span>
+        <small>{provider}</small>
       </div>
-    </section>
+      <h4>{fact.title}</h4>
+      <p>{fact.summary}</p>
+      <div className="cinematic-ledger-meta">
+        <span>{categoryLabel(fact.category)}</span>
+        <span>{sourceDomain(fact.sourceUrl)}</span>
+        {alias && <span>alias: {alias}</span>}
+        {extracted && <span>extracted page</span>}
+      </div>
+      {query && <p className="cinematic-ledger-query">query: {query}</p>}
+      {fact.sourceUrl && <a href={fact.sourceUrl} target="_blank" rel="noopener noreferrer">Open source <Link2 size={12} /></a>}
+    </article>
   );
 }
 
-function SceneLocationNetwork({
-  charts,
-  activeMethod,
-  selectedCategory,
-  activeSelection,
-  onSelectCategory,
-  onSelectDatum,
-  fxClass,
-}: {
-  charts: ChartDefinition[];
-  activeMethod: string;
-  selectedCategory: string | null;
-  activeSelection: ChartDatumSelection | null;
-  onSelectCategory: (category: string | null) => void;
-  onSelectDatum: (selection: ChartDatumSelection) => void;
-  fxClass: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
-  const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
-
-  const locationCharts = charts.filter((c) =>
-    c.title.toLowerCase().includes("location") || c.title.toLowerCase().includes("network") || c.title.toLowerCase().includes("region") || c.title.toLowerCase().includes("exposure") || c.title.toLowerCase().includes("gap")
-  );
-  const displayCharts = locationCharts.length > 0 ? locationCharts : charts.slice(0, 2);
-
-  return (
-    <section ref={ref} className={`cinematic-scene-section ${fxClass}`}>
-      <div className="cinematic-scene-sticky">
-        <motion.div style={{ y: headerY, opacity: headerOpacity }}>
-          <p className="cinematic-scene-eyebrow">Scene 04</p>
-          <h2 className="cinematic-scene-title">Geographic & Network Gap Stage</h2>
-          <p className="cinematic-scene-subtitle">Provider network coverage gaps and geographic risk concentration as a luminous spatial field.</p>
-        </motion.div>
-        <div className="cinematic-scene-stage cinematic-spatial-grid">
-          {displayCharts.length > 0 ? (
-            displayCharts.map((chart, i) => (
-              <motion.div
-                key={chart.id}
-                className="cinematic-chart-panel cinematic-spatial-panel"
-                initial={{ opacity: 0, scale: 0.92 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{ duration: 0.9, delay: i * 0.2, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <div className="cinematic-chart-header">
-                  <h3 className="cinematic-chart-title">{chart.title}</h3>
-                  {chart.subtitle && <p className="cinematic-chart-subtitle">{chart.subtitle}</p>}
-                </div>
-                <CinematicChart
-                  chart={chart}
-                  activeMethod={activeMethod}
-                  selectedCategory={selectedCategory}
-                  activeSelection={activeSelection}
-                  onSelectCategory={onSelectCategory}
-                  onSelectDatum={onSelectDatum}
-                  height={340}
-                />
-              </motion.div>
-            ))
-          ) : (
-            <div className="cinematic-empty-stage">
-              <p>No geographic or network gap data available for this company.</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SceneRiskMatrix({
-  riskMatrix,
-  opportunityMatrix,
-  activeMethod,
-  onSelectPoint,
-  fxClass,
-}: {
-  riskMatrix: RiskMatrixPoint[];
-  opportunityMatrix: OpportunityMatrixPoint[];
-  activeMethod: string;
-  onSelectPoint: (point: any) => void;
-  fxClass: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
-  const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
-  const [selectedPoint, setSelectedPoint] = useState<any | null>(null);
-  const isColorShift = activeMethod === "color-shift";
-  const isChromatic = activeMethod === "chromatic-aberration";
-  const isIsometric = activeMethod === "isometric-slice";
-  const isConcentricRipple = activeMethod === "concentric-ripple";
-  const isSubtractiveMasking = activeMethod === "subtractive-masking";
-  const isPulse = activeMethod === "kinetic-vector";
-  const isAlgorithmicEdge = activeMethod === "algorithmic-edge";
-  const isRadiant = activeMethod === "radiant-gradient";
-
-  const renderMatrix = (data: any[], xKey: string, yKey: string, zKey: string, xLabel: string, yLabel: string, color: string) => {
-    if (!data.length) return null;
-    return (
-      <div className="cinematic-matrix-stage">
-        <ResponsiveContainer width="100%" height="100%">
-          <ScatterChart>
-            <CartesianGrid stroke="rgba(255,255,255,.06)" />
-            <XAxis dataKey={xKey} name={xLabel} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 10 }} type="number" domain={[0, "auto"]}>
-              <Label value={xLabel} position="insideBottom" offset={-4} fill="rgba(207,250,254,0.55)" fontSize={11} />
-            </XAxis>
-            <YAxis dataKey={yKey} name={yLabel} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 11 }} type="number" domain={[0, "auto"]}>
-              <Label value={yLabel} angle={-90} position="insideLeft" fill="rgba(207,250,254,0.55)" fontSize={11} />
-            </YAxis>
-            <ZAxis dataKey={zKey} range={[100, 600]} />
-            <Tooltip cursor={{ stroke: "rgba(34,211,238,.35)", strokeDasharray: "4 4" }} content={<LuminousChartTooltip formatter="plain" headline="Matrix" />} />
-            <Scatter name="Data" data={data} fill={color}
-              onClick={(entry: any, index: number) => { setSelectedPoint(data[index]); onSelectPoint(data[index]); }}
-              shape={(props: any) => {
-                const point = props.payload;
-                const isSelected = selectedPoint && point === selectedPoint;
-                return (
-                  <g>
-                    <circle cx={props.cx} cy={props.cy} r={isSelected ? 10 : 7}
-                      fill={isColorShift ? getColorByData(point) : color}
-                      stroke={isSelected ? "#ffffff" : "rgba(255,255,255,0.2)"} strokeWidth={isSelected ? 3 : 1}
-                      opacity={isRadiant && selectedPoint ? (isSelected ? 1 : 0.3) : selectedPoint && !isSelected ? 0.4 : 1}
-                      className={[
-                        isChromatic && isSelected ? "chromatic-dot" : "",
-                        isAlgorithmicEdge && isSelected ? "algorithmic-edge-dot" : "",
-                        isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
-                        isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
-                        isPulse && isSelected ? "pulse-bar" : "",
-                        isIsometric && isSelected ? "isometric-matrix-point" : "",
-                      ].filter(Boolean).join(" ")}
-                    />
-                    {point?.name && (
-                      <text x={props.cx} y={props.cy - (isSelected ? 14 : 11)} textAnchor="middle"
-                        fill="rgba(207,250,254,0.8)" fontSize={isSelected ? 12 : 10} className="matrix-point-label">
-                        {point.name}
-                      </text>
-                    )}
-                  </g>
-                );
-              }}
-            />
-          </ScatterChart>
-        </ResponsiveContainer>
-      </div>
-    );
-  };
-
-  return (
-    <section ref={ref} className={`cinematic-scene-section cinematic-scene-alt ${fxClass}`}>
-      <div className="cinematic-scene-sticky">
-        <motion.div style={{ y: headerY, opacity: headerOpacity }}>
-          <p className="cinematic-scene-eyebrow">Scene 05</p>
-          <h2 className="cinematic-scene-title">Risk Matrix Stage</h2>
-          <p className="cinematic-scene-subtitle">Occupational health risk and strategic opportunity plotted as floating points in a cinematic stage. Click to expand.</p>
-        </motion.div>
-        <div className="cinematic-matrix-grid">
-          {riskMatrix.length > 0 && (
-            <motion.div
-              className="cinematic-chart-panel cinematic-matrix-panel"
-              initial={{ opacity: 0, y: 60 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <div className="cinematic-chart-header">
-                <h3 className="cinematic-chart-title">Risk Matrix</h3>
-                <p className="cinematic-chart-subtitle">Revenue exposure plotted against worker risk</p>
-              </div>
-              {renderMatrix(riskMatrix, "revenue", "risk", "workers", "Revenue ($M)", "Risk score", "#22d3ee")}
-            </motion.div>
-          )}
-          {opportunityMatrix.length > 0 && (
-            <motion.div
-              className="cinematic-chart-panel cinematic-matrix-panel"
-              initial={{ opacity: 0, y: 60 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.8, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <div className="cinematic-chart-header">
-                <h3 className="cinematic-chart-title">Opportunity Matrix</h3>
-                <p className="cinematic-chart-subtitle">Strategic value plotted against implementation complexity</p>
-              </div>
-              {renderMatrix(opportunityMatrix, "revenuePotential", "implementationComplexity", "strategicValue", "Revenue potential", "Complexity", "#a78bfa")}
-            </motion.div>
-          )}
-          {riskMatrix.length === 0 && opportunityMatrix.length === 0 && (
-            <div className="cinematic-empty-stage">
-              <p>No risk or opportunity matrix data available.</p>
-            </div>
-          )}
-        </div>
-        {selectedPoint && (
-          <motion.div
-            className="cinematic-matrix-narrative"
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="cinematic-narrative-header">
-              <h4>{selectedPoint.name ?? "Selected point"}</h4>
-              <button onClick={() => setSelectedPoint(null)}>Close</button>
-            </div>
-            <div className="cinematic-narrative-body">
-              {selectedPoint.revenue != null && <p><span>Revenue</span> {selectedPoint.revenue}</p>}
-              {selectedPoint.risk != null && <p><span>Risk</span> {selectedPoint.risk}</p>}
-              {selectedPoint.workers != null && <p><span>Workers</span> {selectedPoint.workers}</p>}
-              {selectedPoint.revenuePotential != null && <p><span>Revenue Potential</span> {selectedPoint.revenuePotential}</p>}
-              {selectedPoint.strategicValue != null && <p><span>Strategic Value</span> {selectedPoint.strategicValue}</p>}
-              {selectedPoint.implementationComplexity != null && <p><span>Complexity</span> {selectedPoint.implementationComplexity}</p>}
-            </div>
-          </motion.div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function SceneEvidence({
-  sources,
-  facts,
-  signals,
-  fxClass,
-  onSelectSignal,
-}: {
-  sources: any[];
-  facts: IntelligenceFact[];
-  signals: SignalDefinition[];
-  fxClass: string;
-  onSelectSignal: (signal: SignalDefinition) => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
-  const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
-
-  const liveFacts = facts.filter((f) => f.confidence !== "link-only");
-  const linkOnlyFacts = facts.filter((f) => f.confidence === "link-only");
-  const highConfidence = liveFacts.filter((f) => f.confidence === "high");
-  const mediumConfidence = liveFacts.filter((f) => f.confidence === "medium");
-  const lowConfidence = liveFacts.filter((f) => f.confidence === "low");
-
-  return (
-    <section ref={ref} className={`cinematic-scene-section ${fxClass}`}>
-      <div className="cinematic-scene-sticky">
-        <motion.div style={{ y: headerY, opacity: headerOpacity }}>
-          <p className="cinematic-scene-eyebrow">Scene 06</p>
-          <h2 className="cinematic-scene-title">Source Evidence Stage</h2>
-          <p className="cinematic-scene-subtitle">Verified safety intelligence, source leads, and static profile references as layered glass panels supporting the risk story.</p>
-        </motion.div>
-        <div className="cinematic-evidence-layers">
-          <motion.div
-            className="cinematic-evidence-layer cinematic-evidence-verified"
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="cinematic-evidence-header">
-              <CheckCircle2 size={16} className="text-emerald-400" />
-              <h3>Verified Intelligence</h3>
-              <span className="cinematic-evidence-count">{highConfidence.length}</span>
-            </div>
-            <div className="cinematic-evidence-items">
-              {highConfidence.slice(0, 5).map((fact) => (
-                <div key={fact.id} className="cinematic-evidence-item">
-                  <p className="cinematic-evidence-title">{fact.title}</p>
-                  <p className="cinematic-evidence-meta">{categoryLabel(fact.category)} — {fact.date}</p>
-                </div>
-              ))}
-              {highConfidence.length === 0 && <p className="cinematic-evidence-empty">No verified facts yet. Run intelligence ingestion.</p>}
-            </div>
-          </motion.div>
-          <motion.div
-            className="cinematic-evidence-layer cinematic-evidence-medium"
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="cinematic-evidence-header">
-              <AlertTriangle size={16} className="text-amber-400" />
-              <h3>Needs Review</h3>
-              <span className="cinematic-evidence-count">{mediumConfidence.length + lowConfidence.length}</span>
-            </div>
-            <div className="cinematic-evidence-items">
-              {[...mediumConfidence, ...lowConfidence].slice(0, 5).map((fact) => (
-                <div key={fact.id} className="cinematic-evidence-item">
-                  <p className="cinematic-evidence-title">{fact.title}</p>
-                  <p className="cinematic-evidence-meta">{fact.confidence} — {fact.sourceType}</p>
-                </div>
-              ))}
-              {mediumConfidence.length + lowConfidence.length === 0 && <p className="cinematic-evidence-empty">No items need review.</p>}
-            </div>
-          </motion.div>
-          <motion.div
-            className="cinematic-evidence-layer cinematic-evidence-leads"
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{ duration: 0.7, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="cinematic-evidence-header">
-              <XCircle size={16} className="text-slate-400" />
-              <h3>Source Leads</h3>
-              <span className="cinematic-evidence-count">{linkOnlyFacts.length}</span>
-            </div>
-            <div className="cinematic-evidence-items">
-              {linkOnlyFacts.slice(0, 5).map((fact) => (
-                <div key={fact.id} className="cinematic-evidence-item">
-                  <p className="cinematic-evidence-title">{fact.title}</p>
-                  <p className="cinematic-evidence-meta">link-only — {fact.sourceType}</p>
-                </div>
-              ))}
-              {linkOnlyFacts.length === 0 && <p className="cinematic-evidence-empty">No source leads.</p>}
-            </div>
-          </motion.div>
-        </div>
-        {signals.length > 0 && (
-          <motion.div
-            className="cinematic-signals-strip"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            <p className="cinematic-scene-eyebrow">Executive Signals</p>
-            <div className="cinematic-signals-row">
-              {signals.slice(0, 4).map((signal, i) => (
-                <button key={i} className="cinematic-signal-pill" onClick={() => onSelectSignal(signal)}>
-                  <span className="cinematic-signal-dot" />
-                  <span className="cinematic-signal-label">{signal.label}</span>
-                  <span className="cinematic-signal-value">{signal.value}</span>
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function SceneVisualModes({
-  activeMethod,
-  onSelectMethod,
-  dataCount,
-  fxClass,
-}: {
-  activeMethod: string;
-  onSelectMethod: (method: string) => void;
-  dataCount: (methodId: string) => number;
-  fxClass: string;
-}) {
-  const methods = [
-    "vector-displacement", "chromatic-aberration", "geometric-anchor", "subtractive-masking",
-    "procedural-grid", "algorithmic-edge", "concentric-ripple", "negative-space",
-    "vector-lattice", "color-shift", "synchronous-path", "vector-node",
-    "radiant-gradient", "isometric-slice", "semantic-zoom", "holographic-depth",
-    "kinetic-vector", "contextual-morph", "interactive-filter", "zoom-pan",
-    "linked-visualizations", "click-reveal",
+function EvidenceLedger({ facts, sourceRecords }: { facts: IntelligenceFact[]; sourceRecords: any[] }) {
+  const buckets: EvidenceBucket[] = [
+    { id: "verified", title: "Verified structured facts", label: "verified", icon: <ShieldCheck size={18} />, facts: facts.filter((f) => getEvidenceConfidenceLabel(f) === "verified"), empty: "No verified USASpending/SEC records yet." },
+    { id: "strong", title: "Strong primary-source facts", label: "strong", icon: <CheckCircle2 size={18} />, facts: facts.filter((f) => getEvidenceConfidenceLabel(f) === "strong"), empty: "No extracted/official primary source facts yet." },
+    { id: "search", title: "Search-derived facts", label: "search-derived", icon: <FileSearch size={18} />, facts: facts.filter((f) => getEvidenceConfidenceLabel(f) === "search-derived" || getEvidenceConfidenceLabel(f) === "weak"), empty: "No search-derived facts yet." },
+    { id: "lead", title: "Source leads", label: "lead", icon: <Link2 size={18} />, facts: facts.filter((f) => getEvidenceConfidenceLabel(f) === "lead"), empty: "No manual-review leads." },
   ];
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
-  const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
 
   return (
-    <section ref={ref} className={`cinematic-scene-section cinematic-scene-alt ${fxClass}`}>
-      <div className="cinematic-scene-sticky">
-        <motion.div style={{ y: headerY, opacity: headerOpacity }}>
-          <p className="cinematic-scene-eyebrow">Scene 07</p>
-          <h2 className="cinematic-scene-title">Visual Modes</h2>
-          <p className="cinematic-scene-subtitle">Twenty-two cinematic methods that transform the safety, workforce, and risk stage treatment.</p>
+    <div className="cinematic-ledger-grid">
+      {buckets.map((bucket) => (
+        <motion.div key={bucket.id} className="cinematic-ledger-bucket" initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.55 }}>
+          <div className="cinematic-ledger-bucket-header">
+            <span style={{ color: evidenceLabelColor(bucket.label) }}>{bucket.icon}</span>
+            <h3>{bucket.title}</h3>
+            <b>{bucket.facts.length}</b>
+          </div>
+          <div className="cinematic-ledger-items">
+            {bucket.facts.slice(0, 5).map((fact) => <EvidenceItem key={fact.id} fact={fact} />)}
+            {bucket.facts.length === 0 && <p className="cinematic-ledger-empty">{bucket.empty}</p>}
+          </div>
         </motion.div>
-        <div className="cinematic-modes-grid">
-          {methods.map((methodId, i) => (
-            <motion.button
-              key={methodId}
-              className={`cinematic-mode-card ${activeMethod === methodId ? "cinematic-mode-active" : ""}`}
-              onClick={() => onSelectMethod(methodId)}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: (i % 6) * 0.05 }}
-              whileHover={{ scale: 1.03, y: -2 }}
-            >
-              <span className="cinematic-mode-number">{String(i + 1).padStart(2, "0")}</span>
-              <span className="cinematic-mode-label">{methodName(methodId)}</span>
-              <span className="cinematic-mode-count">{dataCount(methodId)}</span>
-            </motion.button>
+      ))}
+      <motion.div className="cinematic-ledger-bucket" initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.55 }}>
+        <div className="cinematic-ledger-bucket-header">
+          <span style={{ color: evidenceLabelColor("static") }}><Sparkles size={18} /></span>
+          <h3>Static fallback sources</h3>
+          <b>{sourceRecords.length}</b>
+        </div>
+        <div className="cinematic-ledger-items">
+          {sourceRecords.slice(0, 5).map((source, index) => (
+            <article key={source.id ?? index} className="cinematic-ledger-item">
+              <div className="cinematic-ledger-item-top"><span style={{ color: evidenceLabelColor("static"), borderColor: `${evidenceLabelColor("static")}55` }}>static</span><small>{source.type ?? "source"}</small></div>
+              <h4>{source.label ?? source.name ?? source.sourceName ?? "Static source"}</h4>
+              <p>{source.note ?? source.summary ?? "Workbook/config/dossier source used as fallback context."}</p>
+              {source.url && <a href={source.url} target="_blank" rel="noopener noreferrer">Open source <Link2 size={12} /></a>}
+            </article>
           ))}
         </div>
-        {activeMethod !== "click-reveal" && (
-          <MethodExplanationPanel methodId={activeMethod} />
-        )}
-      </div>
-    </section>
+      </motion.div>
+    </div>
+  );
+}
+
+function MatrixScene({ riskMatrix, opportunityMatrix, onSelectPoint }: { riskMatrix: RiskMatrixPoint[]; opportunityMatrix: OpportunityMatrixPoint[]; onSelectPoint: (point: any) => void }) {
+  const points = [...riskMatrix.map((p) => ({ ...p, kind: "Risk", x: p.risk ?? 0, y: p.workers ?? 0 })), ...opportunityMatrix.map((p) => ({ ...p, kind: "Opportunity", x: p.revenuePotential ?? 0, y: p.strategicValue ?? 0 }))];
+  if (!points.length) return <EmptyScene message="No risk/opportunity matrix points available." />;
+  return (
+    <div className="cinematic-matrix-stage">
+      {points.slice(0, 14).map((point, index) => (
+        <button key={`${point.name}-${index}`} className="cinematic-matrix-orb" style={{ left: `${12 + (index % 7) * 12}%`, top: `${24 + Math.floor(index / 7) * 24}%`, borderColor: point.kind === "Risk" ? "rgba(251,113,133,.45)" : "rgba(52,211,153,.45)" }} onClick={() => onSelectPoint(point)}>
+          <span>{point.kind}</span>
+          <b>{point.name}</b>
+          <small>{point.kind === "Risk" ? `Risk ${point.risk ?? "N/A"}` : `Value ${point.revenuePotential ?? "N/A"}`}</small>
+        </button>
+      ))}
+    </div>
   );
 }
 
 function StyleInjector() {
   return (
     <style>{`
-      /* ===== CINEMATIC BASE ===== */
-      .cinematic-hero-section {
-        position: relative;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-      }
-      .cinematic-hero-bg {
-        position: absolute;
-        inset: 0;
-        background:
-          radial-gradient(ellipse 80% 60% at 50% 40%, rgba(34,211,238,0.12), transparent 70%),
-          radial-gradient(ellipse 60% 40% at 30% 70%, rgba(167,139,250,0.08), transparent 60%),
-          radial-gradient(ellipse 50% 50% at 70% 30%, rgba(52,211,153,0.06), transparent 60%),
-          linear-gradient(180deg, #030813 0%, #050d1a 50%, #030813 100%);
-        z-index: 0;
-      }
-      .cinematic-hero-orb {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 600px;
-        height: 600px;
-        margin: -300px 0 0 -300px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(34,211,238,0.15), rgba(34,211,238,0.05) 40%, transparent 70%);
-        filter: blur(40px);
-        z-index: 1;
-      }
-      .cinematic-hero-content {
-        position: relative;
-        z-index: 2;
-        text-align: center;
-        max-width: 900px;
-        padding: 0 2rem;
-      }
-      .cinematic-hero-eyebrow {
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.3em;
-        color: rgba(34,211,238,0.6);
-        margin-bottom: 1.5rem;
-      }
-      .cinematic-hero-title {
-        font-size: clamp(2.5rem, 8vw, 5.5rem);
-        font-weight: 800;
-        line-height: 1.05;
-        letter-spacing: -0.03em;
-        background: linear-gradient(135deg, #ffffff 0%, #22d3ee 50%, #a78bfa 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin-bottom: 2rem;
-      }
-      .cinematic-hero-selector {
-        margin-bottom: 3rem;
-      }
-      .cinematic-hero-selector select {
-        background: rgba(7,17,29,0.8);
-        border: 1px solid rgba(34,211,238,0.2);
-        border-radius: 9999px;
-        padding: 0.75rem 2rem;
-        color: rgba(207,250,254,0.9);
-        font-size: 0.875rem;
-        backdrop-filter: blur(20px);
-        outline: none;
-      }
-      .cinematic-hero-metrics {
-        display: flex;
-        gap: 2rem;
-        justify-content: center;
-        flex-wrap: wrap;
-      }
-      .cinematic-hero-metric {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.25rem;
-      }
-      .cinematic-hero-metric-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #22d3ee;
-      }
-      .cinematic-hero-metric-label {
-        font-size: 0.65rem;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        color: rgba(207,250,254,0.4);
-      }
-      .cinematic-hero-primary-metric {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.25rem;
-        margin-bottom: 1.5rem;
-        padding: 1.25rem 2rem;
-        background: rgba(7,17,29,0.5);
-        border: 1px solid rgba(34,211,238,0.15);
-        border-radius: 20px;
-        backdrop-filter: blur(20px);
-      }
-      .cinematic-hero-primary-label {
-        font-size: 0.65rem;
-        text-transform: uppercase;
-        letter-spacing: 0.25em;
-        color: rgba(207,250,254,0.5);
-      }
-      .cinematic-hero-primary-value {
-        font-size: clamp(2rem, 5vw, 3.5rem);
-        font-weight: 800;
-        line-height: 1;
-        background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
-      .cinematic-hero-primary-unit {
-        font-size: 0.875rem;
-        font-weight: 400;
-        color: rgba(207,250,254,0.4);
-        -webkit-text-fill-color: rgba(207,250,254,0.4);
-        margin-left: 0.35rem;
-      }
-      .cinematic-hero-fallback-badge {
-        font-size: 0.6rem;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        color: rgba(251,191,36,0.6);
-        border: 1px solid rgba(251,191,36,0.2);
-        border-radius: 9999px;
-        padding: 0.2rem 0.6rem;
-        margin-top: 0.35rem;
-      }
-      .cinematic-hero-loading {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-top: 1.5rem;
-        font-size: 0.75rem;
-        color: rgba(34,211,238,0.5);
-        justify-content: center;
-      }
-      .cinematic-hero-scroll-hint {
-        position: absolute;
-        bottom: 2rem;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 3;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.65rem;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        color: rgba(207,250,254,0.35);
-      }
-      .cinematic-scroll-line {
-        width: 1px;
-        height: 40px;
-        background: linear-gradient(180deg, rgba(34,211,238,0.5), transparent);
-        animation: scroll-line-pulse 2s ease-in-out infinite;
-      }
-      @keyframes scroll-line-pulse {
-        0%, 100% { opacity: 0.3; transform: scaleY(1); }
-        50% { opacity: 1; transform: scaleY(1.3); }
-      }
-
-      /* ===== SCENE SECTIONS ===== */
-      .cinematic-scene-section {
-        position: relative;
-        min-height: 100vh;
-        padding: 4rem 0;
-        overflow: hidden;
-      }
-      .cinematic-scene-alt {
-        background: linear-gradient(180deg, rgba(5,13,26,0.6) 0%, rgba(3,8,19,0.9) 100%);
-      }
-      .cinematic-scene-sticky {
-        position: sticky;
-        top: 0;
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        padding: 2rem 3rem;
-        max-width: 1400px;
-        margin: 0 auto;
-      }
-      .cinematic-scene-eyebrow {
-        font-size: 0.65rem;
-        text-transform: uppercase;
-        letter-spacing: 0.3em;
-        color: rgba(34,211,238,0.4);
-        margin-bottom: 0.75rem;
-      }
-      .cinematic-scene-title {
-        font-size: clamp(1.75rem, 4vw, 3rem);
-        font-weight: 700;
-        line-height: 1.1;
-        letter-spacing: -0.02em;
-        color: #ffffff;
-        margin-bottom: 0.75rem;
-      }
-      .cinematic-scene-subtitle {
-        font-size: 0.875rem;
-        color: rgba(207,250,254,0.5);
-        max-width: 600px;
-        line-height: 1.6;
-        margin-bottom: 2rem;
-      }
-
-      /* ===== CHART PANELS ===== */
-      .cinematic-scene-stage {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        gap: 1.5rem;
-      }
-      .cinematic-chart-panel {
-        background: rgba(7,17,29,0.6);
-        border: 1px solid rgba(34,211,238,0.1);
-        border-radius: 24px;
-        padding: 1.5rem;
-        backdrop-filter: blur(20px);
-        transition: border-color 0.4s ease, box-shadow 0.4s ease;
-      }
-      .cinematic-chart-panel:hover {
-        border-color: rgba(34,211,238,0.25);
-        box-shadow: 0 0 40px rgba(34,211,238,0.08);
-      }
-      .cinematic-chart-header {
-        margin-bottom: 1rem;
-      }
-      .cinematic-chart-title {
-        font-size: 1.125rem;
-        font-weight: 600;
-        color: #ffffff;
-      }
-      .cinematic-chart-subtitle {
-        font-size: 0.75rem;
-        color: rgba(207,250,254,0.4);
-        margin-top: 0.25rem;
-      }
-      .cinematic-chart-stage {
-        width: 100%;
-      }
-      .cinematic-empty-stage {
-        grid-column: 1 / -1;
-        text-align: center;
-        padding: 3rem;
-        color: rgba(207,250,254,0.35);
-      }
-      .cinematic-empty-hint {
-        font-size: 0.75rem;
-        color: rgba(207,250,254,0.25);
-        margin-top: 0.5rem;
-      }
-
-      /* ===== METRIC RIBBONS ===== */
-      .cinematic-metric-ribbons {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        margin-bottom: 1.5rem;
-      }
-      .cinematic-metric-ribbon {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0.75rem 1.5rem;
-        background: linear-gradient(90deg, rgba(34,211,238,0.08), transparent);
-        border-left: 2px solid rgba(34,211,238,0.4);
-        border-radius: 0 12px 12px 0;
-      }
-      .cinematic-ribbon-label {
-        font-size: 0.8rem;
-        color: rgba(207,250,254,0.7);
-      }
-      .cinematic-ribbon-value {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: #22d3ee;
-      }
-
-      /* ===== SPATIAL GRID ===== */
-      .cinematic-spatial-grid {
-        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-      }
-      .cinematic-spatial-panel {
-        background: linear-gradient(135deg, rgba(163,230,53,0.04), rgba(7,17,29,0.6));
-      }
-
-      /* ===== MATRIX ===== */
-      .cinematic-matrix-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        gap: 1.5rem;
-      }
-      .cinematic-matrix-panel {
-        background: linear-gradient(135deg, rgba(34,211,238,0.04), rgba(7,17,29,0.6));
-      }
-      .cinematic-matrix-stage {
-        width: 100%;
-        height: 380px;
-      }
-      .cinematic-matrix-narrative {
-        position: fixed;
-        bottom: 2rem;
-        right: 2rem;
-        width: 320px;
-        background: rgba(3,8,19,0.95);
-        border: 1px solid rgba(34,211,238,0.2);
-        border-radius: 20px;
-        padding: 1.5rem;
-        backdrop-filter: blur(24px);
-        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-        z-index: 40;
-      }
-      .cinematic-narrative-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1rem;
-      }
-      .cinematic-narrative-header h4 {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #fff;
-      }
-      .cinematic-narrative-header button {
-        font-size: 0.7rem;
-        color: rgba(207,250,254,0.5);
-        background: none;
-        border: none;
-        cursor: pointer;
-      }
-      .cinematic-narrative-body p {
-        font-size: 0.8rem;
-        color: rgba(207,250,254,0.7);
-        margin-bottom: 0.5rem;
-      }
-      .cinematic-narrative-body p span {
-        color: rgba(207,250,254,0.4);
-        margin-right: 0.5rem;
-      }
-
-      /* ===== EVIDENCE ===== */
-      .cinematic-evidence-layers {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 1rem;
-      }
-      .cinematic-evidence-layer {
-        border-radius: 20px;
-        padding: 1.25rem;
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(255,255,255,0.06);
-      }
-      .cinematic-evidence-verified {
-        background: linear-gradient(135deg, rgba(52,211,153,0.08), rgba(7,17,29,0.6));
-        border-color: rgba(52,211,153,0.15);
-      }
-      .cinematic-evidence-medium {
-        background: linear-gradient(135deg, rgba(251,191,36,0.08), rgba(7,17,29,0.6));
-        border-color: rgba(251,191,36,0.15);
-      }
-      .cinematic-evidence-leads {
-        background: linear-gradient(135deg, rgba(148,163,184,0.08), rgba(7,17,29,0.6));
-        border-color: rgba(148,163,184,0.12);
-      }
-      .cinematic-evidence-header {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-      }
-      .cinematic-evidence-header h3 {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: #fff;
-        flex: 1;
-      }
-      .cinematic-evidence-count {
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: rgba(34,211,238,0.6);
-        background: rgba(34,211,238,0.08);
-        padding: 0.15rem 0.5rem;
-        border-radius: 9999px;
-      }
-      .cinematic-evidence-items {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-      .cinematic-evidence-item {
-        padding: 0.5rem 0;
-        border-bottom: 1px solid rgba(255,255,255,0.04);
-      }
-      .cinematic-evidence-title {
-        font-size: 0.75rem;
-        font-weight: 500;
-        color: rgba(207,250,254,0.8);
-      }
-      .cinematic-evidence-meta {
-        font-size: 0.65rem;
-        color: rgba(207,250,254,0.35);
-        margin-top: 0.15rem;
-      }
-      .cinematic-evidence-empty {
-        font-size: 0.7rem;
-        color: rgba(207,250,254,0.3);
-        padding: 0.5rem 0;
-      }
-
-      /* ===== SIGNALS ===== */
-      .cinematic-signals-strip {
-        margin-top: 2rem;
-      }
-      .cinematic-signals-row {
-        display: flex;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-      }
-      .cinematic-signal-pill {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 1rem;
-        background: rgba(34,211,238,0.06);
-        border: 1px solid rgba(34,211,238,0.12);
-        border-radius: 9999px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-      }
-      .cinematic-signal-pill:hover {
-        background: rgba(34,211,238,0.12);
-        border-color: rgba(34,211,238,0.25);
-      }
-      .cinematic-signal-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: #34d399;
-      }
-      .cinematic-signal-label {
-        font-size: 0.7rem;
-        color: rgba(207,250,254,0.7);
-      }
-      .cinematic-signal-value {
-        font-size: 0.7rem;
-        font-weight: 600;
-        color: rgba(34,211,238,0.7);
-      }
-
-      /* ===== VISUAL MODES ===== */
-      .cinematic-modes-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 0.75rem;
-      }
-      .cinematic-mode-card {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.25rem;
-        padding: 1rem;
-        background: rgba(7,17,29,0.6);
-        border: 1px solid rgba(34,211,238,0.08);
-        border-radius: 16px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        text-align: left;
-      }
-      .cinematic-mode-card:hover {
-        border-color: rgba(34,211,238,0.2);
-        background: rgba(34,211,238,0.04);
-      }
-      .cinematic-mode-active {
-        border-color: rgba(34,211,238,0.4) !important;
-        background: rgba(34,211,238,0.08) !important;
-        box-shadow: 0 0 24px rgba(34,211,238,0.12);
-      }
-      .cinematic-mode-number {
-        font-size: 0.6rem;
-        font-weight: 700;
-        color: rgba(34,211,238,0.4);
-        letter-spacing: 0.1em;
-      }
-      .cinematic-mode-label {
-        font-size: 0.75rem;
-        font-weight: 500;
-        color: rgba(207,250,254,0.8);
-        line-height: 1.3;
-      }
-      .cinematic-mode-count {
-        font-size: 0.6rem;
-        color: rgba(207,250,254,0.3);
-      }
-
-      /* ===== METHOD CALLOUT ===== */
-      .cinematic-method-callout {
-        margin-top: 1.5rem;
-        padding: 1.25rem;
-        background: rgba(34,211,238,0.04);
-        border: 1px solid rgba(34,211,238,0.12);
-        border-radius: 16px;
-      }
-      .cinematic-method-affects {
-        font-size: 0.6rem;
-        text-transform: uppercase;
-        letter-spacing: 0.25em;
-        color: rgba(34,211,238,0.4);
-      }
-      .cinematic-method-title {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: #fff;
-        margin-top: 0.25rem;
-      }
-      .cinematic-method-desc {
-        font-size: 0.75rem;
-        color: rgba(207,250,254,0.55);
-        line-height: 1.6;
-        margin-top: 0.5rem;
-      }
-
-      /* ===== DATA SOURCE BAR ===== */
-      .cinematic-data-source-bar {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem 1rem;
-        background: rgba(7,17,29,0.5);
-        border: 1px solid rgba(34,211,238,0.08);
-        border-radius: 12px;
-        margin-bottom: 1rem;
-        backdrop-filter: blur(12px);
-      }
-      .cinematic-source-btn {
-        padding: 0.4rem 0.75rem;
-        border-radius: 8px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        border: 1px solid transparent;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        background: transparent;
-        color: rgba(207,250,254,0.4);
-      }
-      .cinematic-source-btn:hover {
-        color: rgba(207,250,254,0.7);
-        border-color: rgba(34,211,238,0.15);
-      }
-      .cinematic-source-btn-active {
-        background: rgba(34,211,238,0.1);
-        border-color: rgba(34,211,238,0.3);
-        color: rgba(207,250,254,0.9);
-      }
-
-      /* ===== SCENE FX CLASSES ===== */
-      .scene-fx-displacement .cinematic-chart-panel { perspective: 800px; }
-      .scene-fx-displacement .cinematic-chart-stage { transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.22,1,0.36,1); }
-      .scene-fx-chromatic .cinematic-chart-panel { box-shadow: 0 0 24px rgba(239,68,68,0.08), 0 0 24px rgba(6,182,212,0.08); }
-      .scene-fx-anchor .cinematic-chart-stage::before {
-        content: ''; position: absolute; inset: 0;
-        background: linear-gradient(90deg, transparent 49.5%, rgba(34,211,238,0.15) 49.5%, rgba(34,211,238,0.15) 50.5%, transparent 50.5%),
-                    linear-gradient(0deg, transparent 49.5%, rgba(34,211,238,0.15) 49.5%, rgba(34,211,238,0.15) 50.5%, transparent 50.5%);
-        opacity: 0.4; pointer-events: none;
-      }
-      .scene-fx-masking .cinematic-chart-panel { position: relative; }
-      .scene-fx-masking .cinematic-chart-panel::after {
-        content: ''; position: absolute; inset: 0;
-        background: radial-gradient(circle at 50% 50%, transparent 0%, rgba(0,0,0,0.4) 70%);
-        pointer-events: none; border-radius: 24px;
-      }
-      .scene-fx-grid .cinematic-chart-panel { background-image: linear-gradient(rgba(34,211,238,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.03) 1px, transparent 1px); background-size: 30px 30px; }
-      .scene-fx-edge .cinematic-chart-panel { animation: edge-glow 3s ease-in-out infinite; }
-      @keyframes edge-glow { 0%,100% { box-shadow: 0 0 0 rgba(34,211,238,0); } 50% { box-shadow: 0 0 20px rgba(34,211,238,0.15); } }
-      .scene-fx-ripple .cinematic-chart-panel { animation: ripple-bg 2s ease-out infinite; }
-      @keyframes ripple-bg { 0% { box-shadow: 0 0 0 rgba(34,211,238,0); } 50% { box-shadow: 0 0 30px rgba(34,211,238,0.1); } 100% { box-shadow: 0 0 0 rgba(34,211,238,0); } }
-      .scene-fx-invert .cinematic-chart-panel { filter: invert(0.05) hue-rotate(10deg); }
-      .scene-fx-lattice .cinematic-chart-panel { background-image: linear-gradient(rgba(34,211,238,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.04) 1px, transparent 1px); background-size: 20px 20px; animation: lattice-warp 4s ease-in-out infinite; }
-      @keyframes lattice-warp { 0%,100% { transform: scale(1); } 50% { transform: scale(1.01); } }
-      .scene-fx-colorshift .cinematic-chart-panel { transition: background 0.6s ease; }
-      .scene-fx-synchronous .cinematic-chart-panel { box-shadow: 0 0 16px rgba(34,211,238,0.06); }
-      .scene-fx-node .cinematic-chart-panel { transition: transform 0.5s cubic-bezier(0.22,1,0.36,1); }
-      .scene-fx-radiant .cinematic-chart-panel { background: radial-gradient(circle at 50% 50%, rgba(34,211,238,0.04), rgba(7,17,29,0.6) 70%); }
-      .scene-fx-isometric .cinematic-chart-panel { transform: translateY(-4px) rotateX(1deg); box-shadow: 6px 6px 0 rgba(34,211,238,0.1); }
-      .scene-fx-zoom .cinematic-chart-panel { transition: transform 0.6s cubic-bezier(0.22,1,0.36,1); }
-      .scene-fx-holographic .cinematic-chart-panel { border-style: solid; border-width: 1px; }
-      .scene-fx-kinetic .cinematic-chart-panel { animation: kinetic-snap 0.6s cubic-bezier(0.22,1,0.36,1) both; }
-      @keyframes kinetic-snap { 0% { transform: translateY(12px) scale(0.98); opacity: 0.7; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
-      .scene-fx-morph .cinematic-chart-stage { transition: opacity 0.5s ease; }
-      .scene-fx-filter .cinematic-chart-panel { transition: opacity 0.4s ease, transform 0.4s ease; }
-      .scene-fx-pan .cinematic-chart-panel { transition: transform 0.5s cubic-bezier(0.22,1,0.36,1); }
-      .scene-fx-linked .cinematic-chart-panel { box-shadow: 0 0 12px rgba(250,204,21,0.04); }
-      .scene-fx-reveal .cinematic-chart-panel { transition: all 0.4s ease; }
-
-      /* ===== LEGACY CHART FX (preserved for chart elements) ===== */
-      .selected-bar-cell {
-        stroke: rgba(255, 255, 255, 0.95) !important;
-        stroke-width: 3px !important;
-        filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.85)) drop-shadow(0 0 16px rgba(34, 211, 238, 0.45));
-        opacity: 1 !important;
-      }
-      .linked-bar-cell {
-        stroke: rgba(250, 204, 21, 1) !important;
-        stroke-width: 3px !important;
-        filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.8));
-        opacity: 1 !important;
-      }
-      .chromatic-bar-cell {
-        filter: drop-shadow(2px 0 0 rgba(239, 68, 68, 0.9)) drop-shadow(-2px 0 0 rgba(6, 182, 212, 0.9)) drop-shadow(0 0 6px rgba(34, 211, 238, 0.6));
-      }
-      .isometric-bar-cell {
-        transform: translateY(-5px);
-        filter: drop-shadow(5px 5px 0 rgba(34, 211, 238, 0.35)) drop-shadow(0 0 8px rgba(34, 211, 238, 0.5));
-      }
-      .isometric-matrix-point {
-        transform: translateY(-6px);
-        filter: drop-shadow(4px 4px 0 rgba(34, 211, 238, 0.3)) drop-shadow(0 0 6px rgba(34, 211, 238, 0.4));
-      }
-      .pulse-bar {
-        animation: pulse-bar-anim 1.2s ease-in-out 2;
-      }
-      @keyframes pulse-bar-anim {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.55; }
-      }
-      .synchronous-path-line path.recharts-line-curve {
-        filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.85));
-        stroke-dasharray: 12 1000;
-        animation: path-sweep 2.5s linear infinite;
-      }
-      @keyframes path-sweep {
-        0% { stroke-dashoffset: 1000; }
-        100% { stroke-dashoffset: 0; }
-      }
-      .chromatic-dot {
-        filter: drop-shadow(2px 0 0 rgba(239, 68, 68, 0.9)) drop-shadow(-2px 0 0 rgba(6, 182, 212, 0.9));
-      }
-      .matrix-quadrant-label {
-        font-size: 10px;
-        fill: rgba(207, 250, 254, 0.55);
-      }
-      .algorithmic-edge-bar-cell {
-        stroke: rgba(255, 255, 255, 0.9);
-        stroke-width: 2px;
-        stroke-dasharray: 200;
-        stroke-dashoffset: 0;
-        animation: edge-trace 1.5s ease-in-out infinite;
-      }
-      .algorithmic-edge-dot {
-        stroke: rgba(255, 255, 255, 0.95);
-        stroke-width: 2px;
-        animation: edge-dot-pulse 1.2s ease-in-out infinite;
-      }
-      @keyframes edge-dot-pulse {
-        0%, 100% { stroke-width: 2px; }
-        50% { stroke-width: 4px; }
-      }
-      @keyframes edge-trace {
-        0% { stroke-dashoffset: 200; }
-        100% { stroke-dashoffset: 0; }
-      }
-      .algorithmic-edge-area path.recharts-area-area {
-        animation: edge-trace 2s ease-in-out infinite;
-      }
-      .color-shift-panel .recharts-bar-rectangle path {
-        transition: fill 0.5s ease;
-      }
-      .vector-displace-cell {
-        transform-box: fill-box;
-        transform-origin: center;
-      }
-      .ripple-origin-cell {
-        animation: ripple-origin-pulse 1.4s ease-out infinite;
-      }
-      @keyframes ripple-origin-pulse {
-        0% { filter: drop-shadow(0 0 0 rgba(34, 211, 238, 0.9)); }
-        70% { filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.3)); }
-        100% { filter: drop-shadow(0 0 0 rgba(34, 211, 238, 0)); }
-      }
-      .mask-cutout-cell {
-        fill: rgba(15, 23, 42, 0.85) !important;
-        stroke: rgba(34, 211, 238, 0.8) !important;
-        stroke-width: 2px !important;
-        stroke-dasharray: 6 4;
-      }
-      .matrix-point-label {
-        font-size: 10px;
-        fill: rgba(207, 250, 254, 0.65);
-      }
+      .cinematic-page { color: white; }
+      .cinematic-topbar { position: sticky; top: 0; z-index: 30; display:flex; align-items:center; gap:.8rem; padding:.8rem 3rem; border-bottom:1px solid rgba(103,232,249,.14); background:rgba(3,8,19,.72); backdrop-filter: blur(22px); }
+      .cinematic-topbar-label { font-size:.68rem; letter-spacing:.22em; text-transform:uppercase; color:rgba(207,250,254,.55); }
+      .cinematic-overview-wrap { padding:1rem 3rem 0; }
+      .cinematic-hero-section { position:relative; min-height:92vh; display:grid; place-items:center; overflow:hidden; }
+      .cinematic-hero-section::before { content:""; position:absolute; inset:-20%; background:radial-gradient(circle at 50% 48%, rgba(34,211,238,.18), transparent 24rem), radial-gradient(circle at 28% 72%, rgba(167,139,250,.12), transparent 22rem); filter:blur(12px); }
+      .cinematic-hero-content { position:relative; max-width:1050px; padding:0 2rem; text-align:center; }
+      .cinematic-hero-eyebrow, .cinematic-scene-eyebrow, .cinematic-proof-kicker { font-size:.68rem; letter-spacing:.25em; text-transform:uppercase; color:rgba(103,232,249,.62); }
+      .cinematic-hero-title { margin-top:1.2rem; font-size:clamp(3.2rem, 8vw, 7rem); line-height:.95; letter-spacing:-.06em; font-weight:900; background:linear-gradient(135deg,#fff,#67e8f9 48%,#a78bfa); -webkit-background-clip:text; background-clip:text; color:transparent; }
+      .cinematic-hero-subtitle { max-width:860px; margin:1.4rem auto 0; color:rgba(207,250,254,.7); font-size:1.08rem; line-height:1.8; }
+      .cinematic-hero-selector { margin:2rem auto 0; display:flex; justify-content:center; }
+      .cinematic-hero-metrics { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:.8rem; margin-top:2.5rem; }
+      .cinematic-hero-metric { border:1px solid rgba(103,232,249,.14); border-radius:22px; padding:1rem; background:rgba(7,17,29,.58); backdrop-filter:blur(22px); }
+      .cinematic-hero-metric-value { display:block; font-size:1.8rem; font-weight:900; color:#67e8f9; }
+      .cinematic-hero-metric-label { display:block; margin-top:.3rem; color:rgba(207,250,254,.45); font-size:.68rem; text-transform:uppercase; letter-spacing:.16em; }
+      .cinematic-evidence-statement { margin:2rem auto 0; max-width:850px; border:1px solid rgba(251,191,36,.2); background:rgba(251,191,36,.055); border-radius:22px; padding:1rem 1.2rem; color:rgba(254,243,199,.78); line-height:1.7; }
+      .cinematic-scene-section { min-height:100vh; padding:5rem 3rem; position:relative; overflow:hidden; }
+      .cinematic-scene-alt { background:linear-gradient(180deg, rgba(5,13,26,.55), rgba(3,8,19,.9)); }
+      .cinematic-scene-sticky.relaxed { max-width:1280px; margin:0 auto; }
+      .cinematic-scene-title { margin-top:.8rem; font-size:clamp(2.6rem, 5vw, 5rem); line-height:1; letter-spacing:-.055em; font-weight:900; }
+      .cinematic-scene-subtitle { max-width:820px; margin:1rem 0 2.2rem; color:rgba(207,250,254,.64); line-height:1.75; }
+      .cinematic-chart-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:1rem; }
+      .cinematic-chart-panel, .cinematic-proof-card, .cinematic-ledger-bucket { border:1px solid rgba(103,232,249,.14); border-radius:28px; background:rgba(7,17,29,.62); padding:1.1rem; backdrop-filter:blur(22px); box-shadow:0 24px 80px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06); }
+      .cinematic-panel-header { display:flex; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
+      .cinematic-panel-header h3, .cinematic-proof-card h3, .cinematic-ledger-bucket h3 { font-size:1.1rem; font-weight:850; color:rgba(236,254,255,.94); }
+      .cinematic-panel-header p, .cinematic-proof-card p { color:rgba(207,250,254,.58); font-size:.86rem; line-height:1.6; }
+      .cinematic-confidence-badge { align-self:flex-start; border:1px solid; border-radius:999px; padding:.25rem .55rem; font-size:.68rem; text-transform:uppercase; letter-spacing:.12em; }
+      .cinematic-chart-stage { min-height:260px; }
+      .cinematic-validity-reason { margin-top:.8rem; color:rgba(207,250,254,.42); font-size:.78rem; line-height:1.55; }
+      .cinematic-proof-card { display:block; width:100%; text-align:left; min-height:260px; }
+      .cinematic-warning-card { border-color:rgba(251,191,36,.24); background:rgba(251,191,36,.055); }
+      .cinematic-proof-icon { color:#fbbf24; margin-bottom:.8rem; }
+      .cinematic-proof-value { margin:.9rem 0 .35rem; font-size:clamp(2.5rem,6vw,5rem); font-weight:900; line-height:1; color:#67e8f9; }
+      .cinematic-proof-label, .cinematic-proof-source { color:rgba(207,250,254,.62); font-size:.85rem; }
+      .cinematic-warning-list { display:flex; flex-wrap:wrap; gap:.45rem; margin-top:1rem; }
+      .cinematic-warning-list span, .cinematic-ledger-meta span { border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:.25rem .55rem; color:rgba(207,250,254,.58); font-size:.68rem; }
+      .cinematic-timeline-strip, .cinematic-ranked-list { display:grid; gap:.65rem; margin-top:1.1rem; }
+      .cinematic-timeline-strip button, .cinematic-ranked-list button { display:grid; grid-template-columns:auto 1fr auto; gap:.7rem; align-items:center; border:1px solid rgba(103,232,249,.12); border-radius:16px; padding:.7rem; background:rgba(255,255,255,.03); color:rgba(236,254,255,.9); text-align:left; }
+      .cinematic-timeline-strip span { width:10px; height:10px; border-radius:50%; background:#67e8f9; box-shadow:0 0 18px rgba(103,232,249,.7); }
+      .cinematic-ranked-list span { color:rgba(103,232,249,.7); font-weight:800; }
+      .cinematic-ledger-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(310px,1fr)); gap:1rem; }
+      .cinematic-ledger-bucket-header, .cinematic-ledger-item-top { display:flex; align-items:center; gap:.6rem; justify-content:space-between; }
+      .cinematic-ledger-bucket-header h3 { flex:1; }
+      .cinematic-ledger-items { display:grid; gap:.7rem; margin-top:1rem; }
+      .cinematic-ledger-item { border:1px solid rgba(255,255,255,.1); border-radius:18px; padding:.85rem; background:rgba(255,255,255,.035); }
+      .cinematic-ledger-item-top span { border:1px solid; border-radius:999px; padding:.18rem .45rem; font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; }
+      .cinematic-ledger-item h4 { margin-top:.65rem; color:white; font-weight:750; font-size:.92rem; }
+      .cinematic-ledger-item p { margin-top:.45rem; color:rgba(207,250,254,.58); font-size:.78rem; line-height:1.55; }
+      .cinematic-ledger-meta { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.65rem; }
+      .cinematic-ledger-query { color:rgba(251,191,36,.68)!important; }
+      .cinematic-ledger-item a { margin-top:.6rem; display:inline-flex; align-items:center; gap:.35rem; color:rgba(103,232,249,.8); font-size:.76rem; }
+      .cinematic-ledger-empty { color:rgba(207,250,254,.42); font-size:.82rem; }
+      .cinematic-matrix-stage { position:relative; min-height:520px; border:1px solid rgba(103,232,249,.14); border-radius:32px; background:radial-gradient(circle at 50% 50%,rgba(34,211,238,.1),transparent 26rem),rgba(7,17,29,.54); overflow:hidden; }
+      .cinematic-matrix-stage::before { content:""; position:absolute; inset:0; background-image:linear-gradient(rgba(103,232,249,.08) 1px, transparent 1px),linear-gradient(90deg,rgba(103,232,249,.08) 1px,transparent 1px); background-size:56px 56px; mask-image:radial-gradient(circle,black,transparent 78%); }
+      .cinematic-matrix-orb { position:absolute; z-index:1; width:150px; min-height:110px; border:1px solid; border-radius:24px; padding:.9rem; background:rgba(3,8,19,.74); backdrop-filter:blur(18px); color:white; text-align:left; box-shadow:0 18px 60px rgba(0,0,0,.28); }
+      .cinematic-matrix-orb span { display:block; color:rgba(103,232,249,.7); font-size:.65rem; letter-spacing:.16em; text-transform:uppercase; }
+      .cinematic-matrix-orb b { display:block; margin-top:.45rem; font-size:.9rem; }
+      .cinematic-matrix-orb small { display:block; margin-top:.45rem; color:rgba(207,250,254,.55); }
+      @media (max-width: 900px) { .cinematic-hero-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .cinematic-scene-section { padding:4rem 1rem; } .cinematic-topbar { padding:.8rem 1rem; } }
     `}</style>
   );
 }
@@ -2221,130 +705,48 @@ export default function DataVisualization() {
   const { companyId, setCompanyId, company } = useSelectedCompany(dataset.companies);
   const resolvedCompanyId = resolveConfigCompanyId(companyId);
   const config = getCompanyConfigOrDefault(resolvedCompanyId);
-  const status = getIntelligenceStatus(config);
   const sources = dataset.sources.filter((source) => resolveConfigCompanyId(source.companyId) === resolvedCompanyId);
-  const intelligence = dataset.intelligence.find((item) => resolveConfigCompanyId(item.companyId) === resolvedCompanyId);
+  const storedIntelligence = dataset.intelligence.find((item) => resolveConfigCompanyId(item.companyId) === resolvedCompanyId);
 
-  const [activeMethod, setActiveMethod] = useState<string>("click-reveal");
   const [activeSelection, setActiveSelection] = useState<ChartDatumSelection | null>(null);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [localIntelligence, setLocalIntelligence] = useState<CompanyIntelligence | undefined>(undefined);
-  const [feedMode, setFeedMode] = useState<"combined" | "static" | "live">("combined");
-  const [feed, setFeed] = useState<DataVisualizationFeed | null>(null);
-  const [feedLoading, setFeedLoading] = useState(false);
-  const [feedError, setFeedError] = useState<string | null>(null);
-  const [filterCategory, setFilterCategory] = useState<string>("all");
-  const [filterConfidence, setFilterConfidence] = useState<string>("all");
-  const [filterSourceType, setFilterSourceType] = useState<string>("all");
-  const [filterDateRange, setFilterDateRange] = useState<string>("all");
-  const [morphMode, setMorphMode] = useState<"category" | "sourceType" | "confidence" | "time">("category");
 
-  useEffect(() => {
-    if (feedMode === "static") { setFeed(null); return; }
-    if (!company?.name) { setFeed(null); return; }
-    const hq = company.headquarters ?? "";
-    const stateMatch = hq.match(/,\s*([A-Za-z ]+)$/);
-    const state = stateMatch ? stateMatch[1].trim() : undefined;
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      setFeedLoading(true); setFeedError(null);
-      fetchVisualizationFeed({ company: company.name, state })
-        .then((result) => { if (!cancelled) setFeed(result); })
-        .catch((err) => { if (!cancelled) setFeedError(err instanceof Error ? err.message : "Feed fetch failed"); })
-        .finally(() => { if (!cancelled) setFeedLoading(false); });
-    }, 400);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [feedMode, company?.name, company?.headquarters]);
-
-  const feedCharts = useMemo(() => feed ? feedChartsToChartDefinitions(feed.charts) : [], [feed]);
-  const feedFacts = useMemo(() => feed ? feedFactsToIntelligenceFacts(feed.facts) : [], [feed]);
-  const feedIntelligence: CompanyIntelligence | undefined = useMemo(() => {
-    if (!feed || feedFacts.length === 0) return undefined;
-    return { companyId: "feed", facts: feedFacts, runs: [], chartReady: { awardValueTimeline: [], opportunitiesByStage: [], sourceConfidenceOverTime: [], jobSignalTrend: [], eventTimeline: [], locationExposureByRegion: [], networkGapScoreByRegion: [] } };
-  }, [feed, feedFacts]);
-
-  const effectiveIntelligence = localIntelligence ?? intelligence;
-  const mergedFacts = useMemo(() => [...(effectiveIntelligence?.facts ?? []), ...feedFacts], [effectiveIntelligence, feedFacts]);
-  const mergedIntelligence: CompanyIntelligence | undefined = useMemo(() => {
-    if (mergedFacts.length === 0) return effectiveIntelligence;
-    return { companyId: effectiveIntelligence?.companyId ?? "merged", facts: mergedFacts, runs: effectiveIntelligence?.runs ?? [], chartReady: effectiveIntelligence?.chartReady ?? { awardValueTimeline: [], opportunitiesByStage: [], sourceConfidenceOverTime: [], jobSignalTrend: [], eventTimeline: [], locationExposureByRegion: [], networkGapScoreByRegion: [] } };
-  }, [mergedFacts, effectiveIntelligence]);
-
-  const intelligenceCharts = useMemo(() => {
-    const base = intelligenceFactsToCharts(mergedIntelligence);
-    if (feedMode === "live") return [...feedCharts];
-    if (feedMode === "combined") return [...base, ...feedCharts];
-    return base;
-  }, [mergedIntelligence, feedCharts, feedMode]);
-
+  const intelligence = localIntelligence ?? storedIntelligence;
+  const facts = intelligence?.facts ?? [];
   const vizModel = buildProfileVisualizationModel({
     company,
     config,
     metrics: dataset.metrics.filter((metric) => resolveConfigCompanyId(metric.companyId) === resolvedCompanyId),
     sources,
   });
-
   const { primaryCharts } = useChartPanels(vizModel);
+  const intelligenceCharts = useMemo(() => intelligenceFactsToCharts(intelligence), [intelligence]);
+  const allCharts = useMemo(() => [...primaryCharts, ...intelligenceCharts], [primaryCharts, intelligenceCharts]);
+  const invalidCharts = allCharts.filter((chart) => evaluateChartSuitability(chart).representationType !== "chart");
 
-  const filteredIntelligenceCharts = useMemo(() => {
-    if (activeMethod === "interactive-filter") {
-      return filterIntelligenceCharts(intelligenceCharts, mergedIntelligence?.facts ?? [], filterCategory, filterConfidence, filterSourceType, filterDateRange);
-    }
-    return intelligenceCharts;
-  }, [activeMethod, intelligenceCharts, mergedIntelligence, filterCategory, filterConfidence, filterSourceType, filterDateRange]);
+  const contractCharts = allCharts.filter((chart) => chartGroup(chart) === "contract");
+  const workforceCharts = allCharts.filter((chart) => chartGroup(chart) === "workforce" || chartGroup(chart) === "other");
+  const locationCharts = allCharts.filter((chart) => chartGroup(chart) === "location");
+  const evidenceCharts = allCharts.filter((chart) => chartGroup(chart) === "source");
 
-  const morphedChart = useMemo(() => {
-    if (activeMethod === "contextual-morph" && mergedIntelligence && mergedIntelligence.facts.length > 0) {
-      return morphIntelligenceFacts(mergedIntelligence.facts, morphMode);
-    }
-    return null;
-  }, [activeMethod, mergedIntelligence, morphMode]);
-
-  const allCharts = useMemo(() => {
-    if (activeMethod === "contextual-morph" && morphedChart) return [morphedChart];
-    if (feedMode === "live") return filteredIntelligenceCharts;
-    return [...primaryCharts, ...filteredIntelligenceCharts];
-  }, [primaryCharts, filteredIntelligenceCharts, activeMethod, morphedChart, feedMode]);
+  const liveFacts = facts.filter((fact) => fact.confidence !== "link-only");
+  const verifiedFacts = facts.filter((fact) => getEvidenceConfidenceLabel(fact) === "verified");
+  const searchDerivedFacts = facts.filter((fact) => getEvidenceConfidenceLabel(fact) === "search-derived" || getEvidenceConfidenceLabel(fact) === "weak");
+  const sourceLeads = facts.filter((fact) => getEvidenceConfidenceLabel(fact) === "lead");
+  const providerCount = new Set(facts.map((fact) => String(fact.metadata?.provider ?? fact.sourceType)).filter(Boolean)).size;
 
   const handleSelectDatum = (selection: ChartDatumSelection) => { setActiveSelection(selection); setDetailDrawerOpen(true); };
   const handleSelectCategory = (category: string | null) => { setSelectedCategory((prev) => (prev === category ? null : category)); };
-  const handleSelectSignal = (signal: SignalDefinition) => {
-    setActiveSelection({ chartId: "signal", chartTitle: "Executive Signal", chartType: "signal", category: signal.label, seriesName: "Signal", dataKey: "value", value: 0, note: signal.note, payload: signal as unknown as Record<string, string | number> });
-    setDetailDrawerOpen(true);
-  };
   const handleMatrixPoint = (point: any) => {
-    setActiveSelection({ chartId: "matrix", chartTitle: "Risk / Opportunity Matrix", chartType: "scatter", category: point.name, seriesName: "Matrix point", dataKey: "name", value: point.revenue ?? point.revenuePotential ?? 0, note: `Risk: ${point.risk ?? "N/A"}, Workers: ${point.workers ?? "N/A"}`, payload: point });
+    setActiveSelection({ chartId: "matrix", chartTitle: "Risk / Opportunity Matrix", chartType: "scatter", category: point.name, seriesName: point.kind ?? "Matrix point", dataKey: "name", value: Number(point.revenue ?? point.revenuePotential ?? point.risk ?? 0), note: `Risk: ${point.risk ?? "N/A"}, Workers: ${point.workers ?? "N/A"}`, payload: point });
     setDetailDrawerOpen(true);
   };
-
-  const visualizationMethods = [
-    "vector-displacement", "chromatic-aberration", "geometric-anchor", "subtractive-masking",
-    "procedural-grid", "algorithmic-edge", "concentric-ripple", "negative-space",
-    "vector-lattice", "color-shift", "synchronous-path", "vector-node",
-    "radiant-gradient", "isometric-slice", "semantic-zoom", "holographic-depth",
-    "kinetic-vector", "contextual-morph", "interactive-filter", "zoom-pan",
-    "linked-visualizations", "click-reveal",
-  ];
-
-  const getMethodDataCount = (methodId: string) => {
-    if (methodId === "click-reveal") return activeSelection ? 1 : 0;
-    if (methodId === "semantic-zoom") return vizModel.metrics.length + vizModel.signals.length;
-    return primaryCharts.length + vizModel.riskMatrix.length + vizModel.opportunityMatrix.length;
-  };
-
-  const safetyMetrics = vizModel.metrics.filter((m) => m.category === "safety");
-  const riskMetrics = vizModel.metrics.filter((m) => m.category === "risk");
-  const workforceMetrics = vizModel.metrics.filter((m) => m.category === "workforce");
-  const primaryMetric = safetyMetrics[0] ?? riskMetrics[0] ?? workforceMetrics[0] ?? vizModel.metrics[0];
-  const isStaticFallback = !mergedIntelligence || mergedIntelligence.facts.length === 0;
-  const primaryMetricLabel = primaryMetric ? primaryMetric.label : "No metrics available";
-  const primaryMetricValue = primaryMetric ? formatValue(primaryMetric.value, undefined, primaryMetric.unit) : "—";
-  const primaryMetricUnit = primaryMetric && primaryMetric.unit ? metricUnitLabel(primaryMetric.unit) : "";
 
   const insightContext = {
     companyName: company?.name ?? resolvedCompanyId,
-    intelligence: mergedIntelligence,
+    intelligence,
     sourceRecords: vizModel.sourceRecords,
     signals: vizModel.signals,
     dossierSections: vizModel.dossierSections,
@@ -2353,194 +755,72 @@ export default function DataVisualization() {
     opportunityMatrix: vizModel.opportunityMatrix,
   };
 
-  const fxClass = sceneFxClass(activeMethod);
-
   return (
-    <main className="aurora-bg min-h-screen text-white">
+    <main className="aurora-bg cinematic-page min-h-screen text-white">
+      <StyleInjector />
       <Sidebar />
       <section className="relative z-10 lg:ml-[210px]">
-        {/* Data Source Selector — floating bar */}
-        <div className="cinematic-data-source-bar" style={{ position: "sticky", top: 0, zIndex: 30, margin: 0, borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
-          <span className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/60">Data Source:</span>
-          {([
-            { id: "combined" as const, label: "Combined View" },
-            { id: "static" as const, label: "Static Profile Data" },
-            { id: "live" as const, label: "Live Intelligence Feed" },
-          ]).map((mode) => (
-            <button
-              key={mode.id}
-              onClick={() => setFeedMode(mode.id)}
-              className={`cinematic-source-btn ${feedMode === mode.id ? "cinematic-source-btn-active" : ""}`}
-            >
-              {mode.label}
-            </button>
-          ))}
-          {feedLoading && (
-            <span className="inline-flex items-center gap-1.5 text-xs text-cyan-100/50">
-              <Activity size={12} className="animate-pulse" /> Loading feed...
-            </span>
-          )}
-          {feedError && <span className="text-xs text-amber-100/70">Feed error: {feedError}</span>}
-          {feed && (
-            <span className="ml-auto text-[10px] text-cyan-100/40">
-              {feed.charts.length} feed charts · {feed.facts.length} facts · {feed.sourceRecords.length} sources
-            </span>
-          )}
-        </div>
-
-        {/* Intelligence Overview — compact, above scenes */}
-        <div style={{ padding: "1rem 3rem" }}>
-          <IntelligenceOverview
-            companyName={company?.name ?? resolvedCompanyId}
-            companyId={resolvedCompanyId}
-            intelligence={mergedIntelligence}
-            onIngestComplete={(intel) => setLocalIntelligence(intel)}
-          />
-        </div>
-
-        {/* ===== CINEMATIC SCENES ===== */}
-
-        {/* Scene 1 — Safety Intelligence Hero */}
-        <SceneHero
-          companyName={company?.name ?? resolvedCompanyId}
-          metricsCount={vizModel.metrics.length}
-          chartsCount={vizModel.charts.length}
-          signalsCount={vizModel.signals.length}
-          sourcesCount={vizModel.sourceRecords.length}
-          intelligenceCount={intelligenceCharts.length}
-          feedLoading={feedLoading}
-          primaryMetricLabel={primaryMetricLabel}
-          primaryMetricValue={primaryMetricValue}
-          primaryMetricUnit={primaryMetricUnit}
-          isStaticFallback={isStaticFallback}
-        >
+        <div className="cinematic-topbar">
+          <span className="cinematic-topbar-label">Data Visualization</span>
           <IntelligenceSelector companies={dataset.companies} value={companyId} onChange={setCompanyId} />
-        </SceneHero>
-
-        {/* Scene 2 — Injury / Safety Rate Stage */}
-        <SceneInjurySafety
-          charts={allCharts}
-          activeMethod={activeMethod}
-          selectedCategory={selectedCategory}
-          activeSelection={activeSelection}
-          onSelectCategory={handleSelectCategory}
-          onSelectDatum={handleSelectDatum}
-          fxClass={fxClass}
-        />
-
-        {/* Scene 3 — Workforce Exposure Stage */}
-        <SceneWorkforceExposure
-          charts={allCharts}
-          metrics={vizModel.metrics}
-          activeMethod={activeMethod}
-          selectedCategory={selectedCategory}
-          activeSelection={activeSelection}
-          onSelectCategory={handleSelectCategory}
-          onSelectDatum={handleSelectDatum}
-          fxClass={fxClass}
-        />
-
-        {/* Scene 4 — Geographic / Network Gap Stage */}
-        <SceneLocationNetwork
-          charts={allCharts}
-          activeMethod={activeMethod}
-          selectedCategory={selectedCategory}
-          activeSelection={activeSelection}
-          onSelectCategory={handleSelectCategory}
-          onSelectDatum={handleSelectDatum}
-          fxClass={fxClass}
-        />
-
-        {/* Scene 5 — Risk Matrix Stage */}
-        <SceneRiskMatrix
-          riskMatrix={vizModel.riskMatrix}
-          opportunityMatrix={vizModel.opportunityMatrix}
-          activeMethod={activeMethod}
-          onSelectPoint={handleMatrixPoint}
-          fxClass={fxClass}
-        />
-
-        {/* Scene 6 — Source Evidence Stage */}
-        <SceneEvidence
-          sources={vizModel.sourceRecords}
-          facts={mergedIntelligence?.facts ?? []}
-          signals={vizModel.signals}
-          fxClass={fxClass}
-          onSelectSignal={handleSelectSignal}
-        />
-
-        {/* Scene 7 — Visual Modes */}
-        <SceneVisualModes
-          activeMethod={activeMethod}
-          onSelectMethod={(m) => { setActiveMethod(m); }}
-          dataCount={getMethodDataCount}
-          fxClass={fxClass}
-        />
-
-        {/* Interactive filter controls (when active) */}
-        {activeMethod === "interactive-filter" && mergedIntelligence && mergedIntelligence.facts.length > 0 && (
-          <div style={{ padding: "1rem 3rem" }} className="cinematic-data-source-bar" >
-            {[
-              { label: "Category", value: filterCategory, options: ["all", "contractAwards", "opportunities", "secFilings", "jobSignals", "sourceConfidence", "timelineEvents", "locationExposure", "medicalNetworkGaps"], onChange: setFilterCategory },
-              { label: "Confidence", value: filterConfidence, options: ["all", "high", "medium", "low", "link-only"], onChange: setFilterConfidence },
-              { label: "Source type", value: filterSourceType, options: ["all", "usaspending", "sec", "sam", "official", "careers", "manual", "news", "web"], onChange: setFilterSourceType },
-              { label: "Date range", value: filterDateRange, options: ["all", "7d", "30d", "90d", "1y"], onChange: setFilterDateRange },
-            ].map((f) => (
-              <div key={f.label} className="flex items-center gap-2">
-                <label className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/50">{f.label}</label>
-                <select
-                  value={f.value}
-                  onChange={(e) => f.onChange(e.target.value)}
-                  className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-2 py-1 text-xs text-cyan-50 outline-none focus:border-cyan-100/40"
-                >
-                  {f.options.map((o) => <option key={o} value={o} className="bg-slate-950 text-cyan-50">{o}</option>)}
-                </select>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Contextual morph controls (when active) */}
-        {activeMethod === "contextual-morph" && mergedIntelligence && mergedIntelligence.facts.length > 0 && (
-          <div style={{ padding: "1rem 3rem" }} className="cinematic-data-source-bar">
-            {([
-              { key: "category", label: "Category" },
-              { key: "sourceType", label: "Source type" },
-              { key: "confidence", label: "Confidence" },
-              { key: "time", label: "Time" },
-            ] as { key: typeof morphMode; label: string }[]).map((m) => (
-              <button
-                key={m.key}
-                onClick={() => setMorphMode(m.key)}
-                className={`cinematic-source-btn ${morphMode === m.key ? "cinematic-source-btn-active" : ""}`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Intelligence Answer Card */}
-        <div style={{ padding: "2rem 3rem" }}>
-          <IntelligenceAnswerCard
-            companyName={company?.name ?? resolvedCompanyId}
-            intelligence={mergedIntelligence}
-            metrics={vizModel.metrics}
-            signals={vizModel.signals}
-            dossierSections={vizModel.dossierSections}
-            riskMatrix={vizModel.riskMatrix}
-            opportunityMatrix={vizModel.opportunityMatrix}
-          />
         </div>
 
-        {/* Intelligence Insight Panel */}
-        <IntelligenceInsightPanel
-          isOpen={detailDrawerOpen}
-          onClose={() => setDetailDrawerOpen(false)}
-          selection={activeSelection}
-          context={insightContext}
-        />
-        <StyleInjector />
+        <div className="cinematic-overview-wrap">
+          <IntelligenceOverview companyName={company?.name ?? resolvedCompanyId} companyId={resolvedCompanyId} intelligence={intelligence} onIngestComplete={(intel) => setLocalIntelligence(intel)} />
+        </div>
+
+        <section className="cinematic-hero-section">
+          <motion.div className="cinematic-hero-content" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
+            <p className="cinematic-hero-eyebrow">Source-aware visualization engine</p>
+            <h1 className="cinematic-hero-title">Cinematic intelligence without fake charts.</h1>
+            <p className="cinematic-hero-subtitle">
+              {company?.name ?? resolvedCompanyId} is shown through validated charts, proof objects, source ledgers, and data-quality guardrails. Single-value bars, unknown-region bars, and fake trends are suppressed.
+            </p>
+            <div className="cinematic-hero-metrics">
+              {[
+                [liveFacts.length, "live facts"],
+                [verifiedFacts.length, "verified"],
+                [searchDerivedFacts.length, "search-derived"],
+                [sourceLeads.length, "source leads"],
+                [sources.length, "static sources"],
+                [invalidCharts.length, "chart guardrails"],
+              ].map(([value, label]) => (
+                <div key={label as string} className="cinematic-hero-metric"><span className="cinematic-hero-metric-value">{value}</span><span className="cinematic-hero-metric-label">{label}</span></div>
+              ))}
+            </div>
+            <div className="cinematic-evidence-statement">
+              Live ingestion found {liveFacts.length} source-backed facts from {providerCount} provider/source type{providerCount === 1 ? "" : "s"}. {sourceLeads.length} item{sourceLeads.length === 1 ? "" : "s"} require manual review. {verifiedFacts.length === 0 && searchDerivedFacts.length > 0 ? "Data is source-led, not fully verified." : "Verified records are separated from search-derived evidence."}
+            </div>
+          </motion.div>
+        </section>
+
+        <SceneSection eyebrow="Scene 01" title="Contracts and opportunities" subtitle="Contract and opportunity visuals only render when the data has meaningful categories or time points. One-off signals become evidence capsules.">
+          <ChartScene charts={contractCharts} selectedCategory={selectedCategory} onSelectCategory={handleSelectCategory} onSelectDatum={handleSelectDatum} />
+        </SceneSection>
+
+        <SceneSection eyebrow="Scene 02" title="Workforce and safety" subtitle="Static and live workforce/safety signals are checked before charting. A single metric becomes a proof object, not a fake bar graph." alt>
+          <ChartScene charts={workforceCharts} selectedCategory={selectedCategory} onSelectCategory={handleSelectCategory} onSelectDatum={handleSelectDatum} />
+        </SceneSection>
+
+        <SceneSection eyebrow="Scene 03" title="Location and network exposure" subtitle="Unknown geography is not charted as a region. Resolved locations can chart; unresolved locations move to data-quality warnings and the evidence ledger.">
+          <ChartScene charts={locationCharts} selectedCategory={selectedCategory} onSelectCategory={handleSelectCategory} onSelectDatum={handleSelectDatum} />
+        </SceneSection>
+
+        <SceneSection eyebrow="Scene 04" title="Risk and opportunity matrix" subtitle="Matrix points remain interactive, but they are no longer mixed into the evidence ledger as fake chart categories." alt>
+          <MatrixScene riskMatrix={vizModel.riskMatrix} opportunityMatrix={vizModel.opportunityMatrix} onSelectPoint={handleMatrixPoint} />
+        </SceneSection>
+
+        <SceneSection eyebrow="Scene 05" title="Evidence ledger" subtitle="Verified facts, strong primary-source facts, search-derived facts, source leads, and static fallback are separated so the user can judge validity.">
+          <EvidenceLedger facts={facts} sourceRecords={vizModel.sourceRecords} />
+        </SceneSection>
+
+        {evidenceCharts.length > 0 && (
+          <SceneSection eyebrow="Scene 06" title="Source confidence charts" subtitle="Only valid source-confidence charts render here. Weak or one-point source data remains in the ledger." alt>
+            <ChartScene charts={evidenceCharts} selectedCategory={selectedCategory} onSelectCategory={handleSelectCategory} onSelectDatum={handleSelectDatum} />
+          </SceneSection>
+        )}
+
+        <IntelligenceInsightPanel isOpen={detailDrawerOpen} onClose={() => setDetailDrawerOpen(false)} selection={activeSelection} context={insightContext} />
       </section>
     </main>
   );
