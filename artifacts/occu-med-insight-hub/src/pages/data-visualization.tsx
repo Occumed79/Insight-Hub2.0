@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import {
   ResponsiveContainer,
   BarChart,
@@ -15,13 +16,16 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
   Cell,
+  Label,
+  LabelList,
 } from "recharts";
-import { Activity, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
 import { IntelligenceSelector } from "@/components/insight/IntelligenceSelector";
+import { IntelligenceStatusBadge } from "@/components/insight/IntelligenceStatusBadge";
 import { DataQualityBanner } from "@/components/insight/DataQualityBanner";
 import { LuminousChartTooltip } from "@/components/insight/LuminousChartTooltip";
 import { useInsightData, useSelectedCompany } from "@/data/useInsightData";
@@ -29,62 +33,95 @@ import { getCompanyConfigOrDefault } from "@/company-configs";
 import { resolveConfigCompanyId } from "@/company-configs/configIds";
 import { getIntelligenceStatus } from "@/company-configs/intelligenceNavigation";
 import { intelligenceFactsToCharts } from "@/data/intelligenceCharts";
-import type { ChartDefinition, MetricDefinition, TooltipFormat } from "@/company-configs/types";
-import type { CompanyIntelligence, IntelligenceFact } from "@/data/types";
+import { IntelligenceOverview } from "@/components/insight/IntelligenceOverview";
+import { IntelligenceSections } from "@/components/insight/IntelligenceSections";
+import { IntelligenceInsightPanel } from "@/components/insight/IntelligenceInsightPanel";
+import { IntelligenceAnswerCard } from "@/components/insight/IntelligenceAnswerCard";
+import type {
+  ChartDefinition,
+  MetricDefinition,
+  SignalDefinition,
+  RiskMatrixPoint,
+  OpportunityMatrixPoint,
+  DossierSectionDefinition,
+  TooltipFormat,
+} from "@/company-configs/types";
+import type { IntelligenceFact, IntelligenceCategory, CompanyIntelligence } from "@/data/types";
 import {
   fetchVisualizationFeed,
   feedChartsToChartDefinitions,
   feedFactsToIntelligenceFacts,
   type DataVisualizationFeed,
 } from "@/data/visualizationIntelligenceAdapter";
+import { CheckCircle2, AlertTriangle, XCircle, Activity } from "lucide-react";
+import { categoryLabel } from "@/data/intelligenceActions";
 
-type FeedMode = "combined" | "static" | "live";
-
-type ChartSelection = {
-  chartTitle: string;
-  category: string;
-  seriesName: string;
-  value: number;
-  sourceUrl?: string;
-  sourceName?: string;
-  confidence?: string;
-  summary?: string;
-};
-
-const METHOD_BEHAVIOR: Record<string, { label: string; description: string }> = {
-  "vector-displacement": { label: "Vector Displacement Mapping", description: "Offset selected chart elements by value for quick outlier review." },
-  "chromatic-aberration": { label: "Chromatic Aberration Highlighting", description: "Add a focused RGB halo to the selected datum." },
-  "geometric-anchor": { label: "Geometric Anchor Snapping", description: "Use anchor points and grid focus for selected values." },
-  "subtractive-masking": { label: "Subtractive Masking Overlays", description: "Dim surrounding elements so the selected data point is easier to read." },
-  "procedural-grid": { label: "Procedural Grid Resonances", description: "Make chart grids more visible while inspecting data." },
-  "algorithmic-edge": { label: "Algorithmic Edge-Tracing", description: "Trace selected bar and point outlines." },
-  "concentric-ripple": { label: "Concentric Ripple Metrics", description: "Mark clicked points with a ripple focus." },
-  "negative-space": { label: "Negative Space Inversion", description: "Invert emphasis so the selection reads as a cutout against the chart." },
-  "vector-lattice": { label: "Vector Lattice Distortion", description: "Overlay a subtle lattice for visual comparison." },
-  "color-shift": { label: "Color-Shift Isometry", description: "Shift chart colors by confidence, category, or value band." },
-  "synchronous-path": { label: "Synchronous Path Illumination", description: "Highlight related chart paths together." },
-  "vector-node": { label: "Vector Node Expansion", description: "Show compact detail for a selected datum." },
-  "radiant-gradient": { label: "Radiant Gradient Focus", description: "Glow the selected series while dimming surrounding context." },
-  "isometric-slice": { label: "Isometric Slice-View", description: "Lift selected chart segments for depth." },
-  "semantic-zoom": { label: "Generative Semantic Zoom", description: "Summarize at a high level before drilling into supporting evidence." },
-  "holographic-depth": { label: "Holographic Depth Layers", description: "Layer panels by contract, source, job, location, and network evidence." },
-  "kinetic-vector": { label: "Kinetic Vector Transitions", description: "Apply controlled motion during chart mode changes." },
-  "contextual-morph": { label: "Contextual Data Morphing", description: "Group intelligence facts by category, source type, confidence, or time." },
-  "interactive-filter": { label: "Interactive Filtering", description: "Filter charts by source type, confidence, category, and date range." },
-  "zoom-pan": { label: "Zoom and Pan", description: "Focus on one chart at a time." },
-  "linked-visualizations": { label: "Linked Visualizations / Brushing", description: "Click one element and highlight related points across charts." },
-  "click-reveal": { label: "Click-to-Reveal", description: "Inspect the source, value, and meaning behind a clicked data point." },
-};
-
-const EFFECT_IDS = Object.keys(METHOD_BEHAVIOR);
-const DEFAULT_CHART_LIMIT = 4;
-const PALETTE = ["#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#f472b6", "#fb7185", "#60a5fa", "#a3e635"];
-
-function getSeriesColor(index: number, fallback?: string) {
-  return fallback ?? PALETTE[index % PALETTE.length];
+interface ProfileVisualizationModel {
+  company: { name: string; shortName: string; summary: string; tags: string[] } | null;
+  metrics: MetricDefinition[];
+  charts: ChartDefinition[];
+  signals: SignalDefinition[];
+  dossierSections: DossierSectionDefinition[];
+  sourceRecords: any[];
+  riskMatrix: RiskMatrixPoint[];
+  opportunityMatrix: OpportunityMatrixPoint[];
 }
 
-function formatTick(formatter?: TooltipFormat) {
+export interface ChartDatumSelection {
+  chartId: string;
+  chartTitle: string;
+  chartType: string;
+  category: string;
+  seriesName: string;
+  dataKey: string;
+  value: number;
+  unit?: string;
+  formatter?: TooltipFormat;
+  sourceId?: string;
+  note?: string;
+  payload?: Record<string, string | number>;
+  sourceUrl?: string;
+  confidence?: string;
+  date?: string;
+  sourceType?: string;
+  intelligenceCategory?: string;
+  summary?: string;
+  rawSnippet?: string;
+}
+
+function buildProfileVisualizationModel({
+  company,
+  config,
+  metrics,
+  sources,
+}: {
+  company: { name: string; shortName: string; summary: string; tags: string[] } | null;
+  config: any;
+  metrics: MetricDefinition[];
+  sources: any[];
+}): ProfileVisualizationModel {
+  const configMetrics = (config.metricDefinitions ?? []).map((metric: MetricDefinition) => ({
+    ...metric,
+    companyId: config.companyId,
+  }));
+  const mergedMetrics = [
+    ...metrics,
+    ...configMetrics.filter((metric: MetricDefinition) => !metrics.some((existing) => existing.id === metric.id)),
+  ] as MetricDefinition[];
+
+  return {
+    company,
+    metrics: mergedMetrics,
+    charts: config.chartDefinitions ?? [],
+    signals: config.executiveSignals ?? [],
+    dossierSections: config.dossierSections ?? [],
+    sourceRecords: sources,
+    riskMatrix: config.riskMatrix ?? [],
+    opportunityMatrix: config.opportunityMatrix ?? [],
+  };
+}
+
+function formatTickByType(formatter: TooltipFormat | undefined) {
   if (formatter === "currencyM") return (v: number) => `$${v}M`;
   if (formatter === "currencyK") return (v: number) => `$${v}K`;
   if (formatter === "percent") return (v: number) => `${v}%`;
@@ -92,315 +129,2019 @@ function formatTick(formatter?: TooltipFormat) {
   return undefined;
 }
 
+function metricUnitLabel(unit: MetricDefinition["unit"]) {
+  switch (unit) {
+    case "usd":
+      return "$";
+    case "percent":
+      return "%";
+    case "count":
+      return "count";
+    case "score":
+      return "score";
+    default:
+      return "";
+  }
+}
+
 function metricChartFromDefinitions(metrics: MetricDefinition[]): ChartDefinition[] {
   if (!metrics.length) return [];
-  const topMetrics = metrics.slice(0, 10).map((metric) => ({
-    label: metric.label,
-    value: metric.value,
-    category: metric.category,
-    sourceId: metric.sourceId ?? "static-profile",
+  const categories = [...new Set(metrics.map((m) => m.category))];
+  const byCategory = categories.map((category) => ({
+    category,
+    metrics: metrics.filter((m) => m.category === category),
   }));
-  return [
-    {
-      id: "clean-static-metrics",
-      title: "Profile Metrics",
-      subtitle: "Key static metrics for the selected company",
-      type: "bar",
+
+  return byCategory.map((group, index) => {
+    const data: Record<string, string | number>[] = group.metrics.map((m) => {
+      const record: Record<string, string | number> = {
+        label: m.label,
+        value: m.value,
+        id: m.id,
+        unit: m.unit,
+        category: m.category,
+      };
+      if (m.sourceId) record.sourceId = m.sourceId;
+      if (m.trend !== undefined) record.trend = m.trend;
+      return record;
+    });
+    return {
+      id: `metric-fallback-${group.category}-${index}`,
+      title: `${group.category.charAt(0).toUpperCase() + group.category.slice(1)} Metrics`,
+      subtitle: `Comparison of ${group.category} metrics`,
+      type: "bar" as const,
       xKey: "label",
-      data: topMetrics,
-      series: [{ dataKey: "value", name: "Value", color: PALETTE[0] }],
+      data,
+      series: [{ dataKey: "value", name: "Value", color: "#22d3ee" }],
       formatter: "plain",
-      headline: "profile metrics",
-      fullWidth: true,
-    },
-  ];
-}
-
-function numericTotal(chart: ChartDefinition) {
-  return chart.data.reduce((total, row) => {
-    const seriesTotal = chart.series.reduce((sum, series) => {
-      const n = Number(row[series.dataKey] ?? row.value ?? 0);
-      return sum + (Number.isFinite(n) ? Math.abs(n) : 0);
-    }, 0);
-    return total + seriesTotal;
-  }, 0);
-}
-
-function hasUsefulChartData(chart: ChartDefinition) {
-  if (!chart.data?.length) return false;
-  const labels = chart.data.map((row) => String(row[chart.xKey] ?? row.label ?? "").trim().toLowerCase());
-  const allUnknown = labels.length > 0 && labels.every((label) => !label || label === "unknown" || label === "n/a");
-  if (allUnknown) return false;
-  if (numericTotal(chart) === 0) return false;
-  return true;
-}
-
-function compactCharts(charts: ChartDefinition[]) {
-  const seen = new Set<string>();
-  return charts.filter((chart) => {
-    if (seen.has(chart.id)) return false;
-    seen.add(chart.id);
-    return hasUsefulChartData(chart);
+      headline: `${group.category} metric focus`,
+    };
   });
 }
 
-function buildStaticCharts(configCharts: ChartDefinition[], metrics: MetricDefinition[], sources: any[]) {
-  const charts = configCharts.length ? configCharts : metricChartFromDefinitions(metrics);
+function chartHeight(chart: ChartDefinition) {
+  const rowCount = chart.data.length;
+  const base = chart.fullWidth ? 340 : 300;
+  const expanded = base + Math.max(0, rowCount - 6) * 18;
+  return Math.min(chart.fullWidth ? 560 : 440, expanded);
+}
+
+function getSeriesColor(index: number, fallback?: string) {
+  const palette = ["#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#f472b6", "#fb7185", "#60a5fa", "#a3e635"];
+  return fallback ?? palette[index % palette.length];
+}
+
+function getHolographicLayer(chart: ChartDefinition) {
+  const title = chart.title.toLowerCase();
+  if (title.includes("contract") || title.includes("award")) return "holo-layer-contract";
+  if (title.includes("opportunit")) return "holo-layer-opportunity";
+  if (title.includes("sec")) return "holo-layer-sec";
+  if (title.includes("job")) return "holo-layer-job";
+  if (title.includes("confidence")) return "holo-layer-confidence";
+  if (title.includes("location")) return "holo-layer-location";
+  if (title.includes("network")) return "holo-layer-network";
+  if (title.includes("event")) return "holo-layer-event";
+  return "holo-layer-base";
+}
+
+function getConfidenceColor(confidence?: string): string {
+  const c = (confidence ?? "").toLowerCase();
+  if (c === "high") return "#34d399";
+  if (c === "medium") return "#fbbf24";
+  if (c === "low") return "#fb7185";
+  if (c === "link-only") return "#94a3b8";
+  return "#22d3ee";
+}
+
+function getColorByData(entry: Record<string, string | number>): string {
+  const confidence = String(entry.confidence ?? "");
+  const category = String(entry.category ?? "");
+  if (confidence) return getConfidenceColor(confidence);
+  if (category) return getCategoryColor(category);
+  const value = Number(entry.value ?? 0);
+  if (value > 75) return "#22d3ee";
+  if (value > 50) return "#a78bfa";
+  if (value > 25) return "#fbbf24";
+  return "#fb7185";
+}
+
+function getCategoryColor(category?: string): string {
+  const map: Record<string, string> = {
+    contractAwards: "#22d3ee",
+    opportunities: "#a78bfa",
+    secFilings: "#fbbf24",
+    jobSignals: "#34d399",
+    sourceFacts: "#f472b6",
+    sourceConfidence: "#60a5fa",
+    timelineEvents: "#fb7185",
+    locationExposure: "#a3e635",
+    medicalNetworkGaps: "#fb923c",
+    competitorSignals: "#c084fc",
+    renewalOrExpirationEvents: "#2dd4bf",
+  };
+  return map[category ?? ""] ?? "#22d3ee";
+}
+
+function chartCategoryFromId(chartId: string): IntelligenceCategory | null {
+  if (chartId.includes("award")) return "contractAwards";
+  if (chartId.includes("opportunities")) return "opportunities";
+  if (chartId.includes("job")) return "jobSignals";
+  if (chartId.includes("confidence")) return "sourceConfidence";
+  if (chartId.includes("event")) return "timelineEvents";
+  if (chartId.includes("location")) return "locationExposure";
+  if (chartId.includes("network")) return "medicalNetworkGaps";
+  return null;
+}
+
+function factsInDateRange(facts: IntelligenceFact[], range: string): IntelligenceFact[] {
+  if (range === "all") return facts;
+  const now = Date.now();
+  const ms = {
+    "7d": 7 * 24 * 60 * 60 * 1000,
+    "30d": 30 * 24 * 60 * 60 * 1000,
+    "90d": 90 * 24 * 60 * 60 * 1000,
+    "1y": 365 * 24 * 60 * 60 * 1000,
+  } as Record<string, number>;
+  const cutoff = now - (ms[range] ?? 0);
+  return facts.filter((f) => {
+    const d = Date.parse(f.date);
+    return !isNaN(d) && d >= cutoff;
+  });
+}
+
+function filterIntelligenceCharts(
+  charts: ChartDefinition[],
+  facts: IntelligenceFact[],
+  categoryFilter: string,
+  confidenceFilter: string,
+  sourceTypeFilter: string,
+  dateRange: string
+): ChartDefinition[] {
+  return charts.filter((chart) => {
+    const category = chartCategoryFromId(chart.id);
+    if (categoryFilter !== "all" && category !== categoryFilter) return false;
+    let relevant = category ? facts.filter((f) => f.category === category) : facts;
+    relevant = factsInDateRange(relevant, dateRange);
+    if (confidenceFilter !== "all" && !relevant.some((f) => f.confidence === confidenceFilter)) return false;
+    if (sourceTypeFilter !== "all" && !relevant.some((f) => f.sourceType === sourceTypeFilter)) return false;
+    return true;
+  });
+}
+
+function morphIntelligenceFacts(
+  facts: IntelligenceFact[],
+  mode: "category" | "sourceType" | "confidence" | "time"
+): ChartDefinition {
+  const keyBy = (f: IntelligenceFact) => {
+    if (mode === "category") return f.category;
+    if (mode === "sourceType") return f.sourceType;
+    if (mode === "confidence") return f.confidence;
+    const d = f.date.slice(0, 7);
+    return d || "unknown";
+  };
+  const grouped = facts.reduce<Record<string, { count: number; value: number; category: string }>>((acc, f) => {
+    const key = keyBy(f);
+    if (!acc[key]) acc[key] = { count: 0, value: 0, category: f.category };
+    acc[key].count += 1;
+    acc[key].value += f.value ?? 0;
+    return acc;
+  }, {});
+  const data = Object.entries(grouped)
+    .map(([label, g]) => ({ label, count: g.count, value: g.value, category: g.category }))
+    .sort((a, b) => b.count - a.count);
+  return {
+    id: `morph-${mode}`,
+    title: `Morph: ${mode === "category" ? "Category" : mode === "sourceType" ? "Source" : mode === "confidence" ? "Confidence" : "Time"}`,
+    subtitle: `Intelligence facts grouped by ${mode}`,
+    type: "bar",
+    xKey: "label",
+    data,
+    series: [{ dataKey: "count", name: "Facts", color: "#22d3ee" }],
+    formatter: "plain",
+    headline: "morphed intelligence view",
+    fullWidth: true,
+  };
+}
+
+function enrichStaticChartSources(charts: ChartDefinition[], sources: any[]): ChartDefinition[] {
+  if (!sources.length) return charts;
   return charts.map((chart) => ({
     ...chart,
     data: chart.data.map((row) => {
       const sourceId = row.sourceId as string | undefined;
-      const matched = sourceId ? sources.find((source) => source.id === sourceId || source.sourceId === sourceId) : null;
-      return matched
-        ? {
-            ...row,
-            sourceUrl: matched.url ?? row.sourceUrl,
-            sourceName: matched.name ?? matched.sourceName ?? row.sourceName,
-            sourceType: matched.type ?? row.sourceType,
-            confidence: matched.confidence ?? row.confidence,
-            date: row.date ?? matched.date,
-          }
-        : row;
+      const matched = sourceId ? sources.find((s) => s.id === sourceId || s.sourceId === sourceId) : null;
+      if (!matched) return row;
+      return {
+        ...row,
+        sourceUrl: (matched.url ?? "") as string,
+        sourceName: (matched.name ?? matched.sourceName ?? "") as string,
+        sourceType: (matched.type ?? "") as string,
+        confidence: (matched.confidence ?? "") as string,
+        date: (row.date ?? matched.date ?? "") as string,
+      };
     }),
   }));
 }
 
-function mergeIntelligence(base: CompanyIntelligence | undefined, feedFacts: IntelligenceFact[]): CompanyIntelligence | undefined {
-  if (!base && feedFacts.length === 0) return undefined;
-  return {
-    companyId: base?.companyId ?? "live-feed",
-    facts: [...(base?.facts ?? []), ...feedFacts],
-    runs: base?.runs ?? [],
-    chartReady: base?.chartReady ?? {
-      awardValueTimeline: [],
-      opportunitiesByStage: [],
-      sourceConfidenceOverTime: [],
-      jobSignalTrend: [],
-      eventTimeline: [],
-      locationExposureByRegion: [],
-      networkGapScoreByRegion: [],
-    },
-  };
+function useChartPanels(vizModel: ProfileVisualizationModel) {
+  return useMemo(() => {
+    const baseCharts = vizModel.charts.length ? vizModel.charts : metricChartFromDefinitions(vizModel.metrics);
+    const primaryCharts = enrichStaticChartSources(baseCharts, vizModel.sourceRecords);
+    return { primaryCharts };
+  }, [vizModel.charts, vizModel.metrics, vizModel.sourceRecords]);
 }
 
-function sourceCounts(feed: DataVisualizationFeed | null) {
-  const enabled = feed?.sourceStatus.filter((source) => source.enabled).length ?? 0;
-  const missing = feed?.missingData.length ?? 0;
-  const warnings = feed?.warnings.length ?? 0;
-  return { enabled, missing, warnings };
+function formatValue(value: number, formatter?: TooltipFormat, unit?: string) {
+  const formatted =
+    formatter === "currencyM"
+      ? `$${value.toLocaleString()}M`
+      : formatter === "currencyK"
+        ? `$${value.toLocaleString()}K`
+        : formatter === "percent"
+          ? `${value}%`
+          : formatter === "hoursM"
+            ? `${value.toLocaleString()}M hrs`
+            : value.toLocaleString();
+  return unit ? `${formatted} ${unit}` : formatted;
 }
 
-function buildSummaryBullets(params: {
-  companyName: string;
-  facts: IntelligenceFact[];
-  charts: ChartDefinition[];
-  feed: DataVisualizationFeed | null;
-  fallbackSummary?: string;
-}) {
-  const bullets: string[] = [];
-  const { facts, charts, feed, fallbackSummary, companyName } = params;
-  if (feed?.facts?.length) bullets.push(`${feed.facts.length} live fact(s) are available for ${companyName}.`);
-  if (feed?.sourceRecords?.length) bullets.push(`${feed.sourceRecords.length} source record(s) are attached to the live feed.`);
-  if (charts.length) bullets.push(`${charts.length} clean chart(s) passed the default quality screen.`);
-  const highConfidence = facts.filter((fact) => fact.confidence === "high").length;
-  if (highConfidence) bullets.push(`${highConfidence} high-confidence evidence item(s) are available.`);
-  const firstFact = facts.find((fact) => fact.summary || fact.title);
-  if (firstFact) bullets.push(firstFact.summary || firstFact.title);
-  if (!bullets.length && fallbackSummary) bullets.push(fallbackSummary);
-  if (!bullets.length) bullets.push("Select a company and run the live feed only when you need source-backed intelligence.");
-  return bullets.slice(0, 5);
+const METHOD_BEHAVIOR: Record<
+  string,
+  { label: string; description: string; affects: string; mode: string }
+> = {
+  "vector-displacement": {
+    label: "Vector Displacement Mapping",
+    description: "Whole chart layers shift in 3D depth based on selected value. Higher values push farther into the scene.",
+    affects: "scene depth, layer parallax",
+    mode: "displacement",
+  },
+  "chromatic-aberration": {
+    label: "Chromatic Aberration Highlighting",
+    description: "Cinematic RGB edge split on selected evidence object. The stage object fractures into spectral layers.",
+    affects: "stage object, focus element",
+    mode: "chromatic",
+  },
+  "geometric-anchor": {
+    label: "Geometric Anchor Snapping",
+    description: "Large crosshair and anchor lines snap across the full scene. Value labels lock into place like tech-spec callouts.",
+    affects: "full scene, value callouts",
+    mode: "anchor",
+  },
+  "subtractive-masking": {
+    label: "Subtractive Masking Overlays",
+    description: "Large masked spotlight reveal. Background dims and selected intelligence cuts through with luminous focus.",
+    affects: "full stage, spotlight",
+    mode: "masking",
+  },
+  "procedural-grid": {
+    label: "Procedural Grid Resonances",
+    description: "Full-stage grid resonance behind the chart. Grid reacts to selected data magnitude with pulsing waves.",
+    affects: "stage background, grid",
+    mode: "grid",
+  },
+  "algorithmic-edge": {
+    label: "Algorithmic Edge-Tracing",
+    description: "Animated outlines trace around chart shapes, paths, and panels. Feels like a product-page technical reveal.",
+    affects: "chart shapes, panel borders",
+    mode: "edge",
+  },
+  "concentric-ripple": {
+    label: "Concentric Ripple Metrics",
+    description: "Large ripples emit from selected point and affect nearby scene elements with expanding luminous waves.",
+    affects: "selected point, nearby elements",
+    mode: "ripple",
+  },
+  "negative-space": {
+    label: "Negative Space Inversion",
+    description: "Entire scene inverts emphasis. Selected element becomes a clean cutout while related evidence glows.",
+    affects: "full scene, emphasis inversion",
+    mode: "invert",
+  },
+  "vector-lattice": {
+    label: "Vector Lattice Distortion",
+    description: "Full background lattice bends and warps around selected fact, region, or category with cinematic distortion.",
+    affects: "background lattice, scene",
+    mode: "lattice",
+  },
+  "color-shift": {
+    label: "Color-Shift Isometry",
+    description: "Scene palette shifts based on category, confidence, or value band. Contract, SEC, jobs, location, and risk data get distinct palettes.",
+    affects: "full scene palette",
+    mode: "colorShift",
+  },
+  "synchronous-path": {
+    label: "Synchronous Path Illumination",
+    description: "Related chart paths illuminate together across scenes. Matching dates, sources, and confidence light up in synchrony.",
+    affects: "cross-scene paths",
+    mode: "synchronous",
+  },
+  "vector-node": {
+    label: "Vector Node Expansion",
+    description: "Selected data expands into a cinematic information object with depth, shadow, and luminous detail.",
+    affects: "selected datum, info object",
+    mode: "node",
+  },
+  "radiant-gradient": {
+    label: "Radiant Gradient Focus",
+    description: "Full scene gradient focus follows selected series or category. Unrelated elements recede into soft blur.",
+    affects: "full scene, gradient focus",
+    mode: "radiant",
+  },
+  "isometric-slice": {
+    label: "Isometric Slice-View",
+    description: "Bars and matrix sections lift into isometric slabs with depth, shadow, and dimensional perspective.",
+    affects: "bars, matrix, slabs",
+    mode: "isometric",
+  },
+  "semantic-zoom": {
+    label: "Generative Semantic Zoom",
+    description: "Scroll or click zooms from high-level signal into granular facts. Smooth cinematic zoom, not a drawer.",
+    affects: "scene zoom, detail level",
+    mode: "zoom",
+  },
+  "holographic-depth": {
+    label: "Holographic Depth Layers",
+    description: "Contract, job, SEC, location, risk, and source data occupy layered glass planes at different depths.",
+    affects: "layered glass planes",
+    mode: "holographic",
+  },
+  "kinetic-vector": {
+    label: "Kinetic Vector Transitions",
+    description: "Scene changes use directional momentum with spring physics. Not fade-only — elements travel with purpose.",
+    affects: "scene transitions, motion",
+    mode: "kinetic",
+  },
+  "contextual-morph": {
+    label: "Contextual Data Morphing",
+    description: "Chart transforms between category, source, confidence, and time groupings with visible animated morphing.",
+    affects: "chart transformation",
+    mode: "morph",
+  },
+  "interactive-filter": {
+    label: "Interactive Filtering",
+    description: "Apple-style segmented controls. Filtering changes the entire scene, not just hiding cards.",
+    affects: "scene composition, filters",
+    mode: "filter",
+  },
+  "zoom-pan": {
+    label: "Zoom and Pan",
+    description: "Large stage focus mode with smooth zoom into chart detail. The scene breathes as you focus.",
+    affects: "stage focus, zoom",
+    mode: "pan",
+  },
+  "linked-visualizations": {
+    label: "Linked Visualizations / Brushing",
+    description: "Selecting one item illuminates related elements across all visible stage layers with synchronized glow.",
+    affects: "cross-layer illumination",
+    mode: "linked",
+  },
+  "click-reveal": {
+    label: "Click-to-Reveal",
+    description: "Click reveals an Apple-style insight callout panel attached to the scene. Not a generic drawer.",
+    affects: "insight callout, scene panel",
+    mode: "reveal",
+  },
+};
+
+function methodName(methodId: string) {
+  return METHOD_BEHAVIOR[methodId]?.label ?? methodId;
 }
 
-function ModeButton({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
+function methodDescription(methodId: string) {
+  return METHOD_BEHAVIOR[methodId]?.description ?? "";
+}
+
+function MethodExplanationPanel({ methodId }: { methodId: string }) {
+  const behavior = METHOD_BEHAVIOR[methodId];
+  if (!behavior) return null;
   return (
-    <button
-      onClick={onClick}
-      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-        active
-          ? "border-cyan-200/35 bg-cyan-200/12 text-cyan-50"
-          : "border-cyan-100/10 bg-white/[0.03] text-cyan-100/55 hover:border-cyan-100/25 hover:text-cyan-50"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function CollapsibleSection({
-  title,
-  subtitle,
-  open,
-  onToggle,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  open: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-cyan-100/10 bg-black/16">
-      <button onClick={onToggle} className="flex w-full items-center justify-between px-4 py-3 text-left">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100/55">{title}</p>
-          {subtitle ? <p className="mt-1 text-xs text-cyan-100/40">{subtitle}</p> : null}
-        </div>
-        {open ? <ChevronDown size={16} className="text-cyan-100/50" /> : <ChevronRight size={16} className="text-cyan-100/50" />}
-      </button>
-      {open ? <div className="border-t border-cyan-100/10 p-4">{children}</div> : null}
+    <div className="cinematic-method-callout">
+      <p className="cinematic-method-affects">{behavior.affects}</p>
+      <h3 className="cinematic-method-title">{behavior.label}</h3>
+      <p className="cinematic-method-desc">{behavior.description}</p>
     </div>
   );
 }
 
-function ChartPanel({
+const SCENE_METHOD_CLASS: Record<string, string> = {
+  "vector-displacement": "scene-fx-displacement",
+  "chromatic-aberration": "scene-fx-chromatic",
+  "geometric-anchor": "scene-fx-anchor",
+  "subtractive-masking": "scene-fx-masking",
+  "procedural-grid": "scene-fx-grid",
+  "algorithmic-edge": "scene-fx-edge",
+  "concentric-ripple": "scene-fx-ripple",
+  "negative-space": "scene-fx-invert",
+  "vector-lattice": "scene-fx-lattice",
+  "color-shift": "scene-fx-colorshift",
+  "synchronous-path": "scene-fx-synchronous",
+  "vector-node": "scene-fx-node",
+  "radiant-gradient": "scene-fx-radiant",
+  "isometric-slice": "scene-fx-isometric",
+  "semantic-zoom": "scene-fx-zoom",
+  "holographic-depth": "scene-fx-holographic",
+  "kinetic-vector": "scene-fx-kinetic",
+  "contextual-morph": "scene-fx-morph",
+  "interactive-filter": "scene-fx-filter",
+  "zoom-pan": "scene-fx-pan",
+  "linked-visualizations": "scene-fx-linked",
+  "click-reveal": "scene-fx-reveal",
+};
+
+function sceneFxClass(method: string): string {
+  return SCENE_METHOD_CLASS[method] ?? "";
+}
+
+function CinematicChart({
   chart,
-  index,
-  activeEffect,
-  onSelect,
+  activeMethod,
+  selectedCategory,
+  activeSelection,
+  onSelectCategory,
+  onSelectDatum,
+  height = 420,
 }: {
   chart: ChartDefinition;
-  index: number;
-  activeEffect: string;
-  onSelect: (selection: ChartSelection) => void;
+  activeMethod: string;
+  selectedCategory: string | null;
+  activeSelection: ChartDatumSelection | null;
+  onSelectCategory: (category: string | null) => void;
+  onSelectDatum: (selection: ChartDatumSelection) => void;
+  height?: number;
 }) {
-  const height = chart.fullWidth ? 340 : 300;
-  const effect = METHOD_BEHAVIOR[activeEffect];
-  const panelEffectClass = activeEffect === "holographic-depth" ? "ring-1 ring-cyan-300/20" : activeEffect === "radiant-gradient" ? "shadow-[0_0_36px_rgba(34,211,238,.12)]" : "";
+  const isColorShift = activeMethod === "color-shift";
+  const isLinkedBrushing = activeMethod === "linked-visualizations";
+  const isRadiant = activeMethod === "radiant-gradient";
+  const isChromatic = activeMethod === "chromatic-aberration";
+  const isGeometricAnchor = activeMethod === "geometric-anchor";
+  const isProceduralGrid = activeMethod === "procedural-grid";
+  const isAlgorithmicEdge = activeMethod === "algorithmic-edge";
+  const isConcentricRipple = activeMethod === "concentric-ripple";
+  const isSubtractiveMasking = activeMethod === "subtractive-masking";
+  const isPulse = activeMethod === "kinetic-vector";
+  const isVectorDisplacement = activeMethod === "vector-displacement";
+  const isSynchronousPath = activeMethod === "synchronous-path";
+  const isDimmed = activeMethod === "negative-space";
+  const isIsometric = activeMethod === "isometric-slice";
 
-  const selectDatum = (row: Record<string, string | number>, seriesName: string, dataKey: string) => {
-    const value = Number(row[dataKey] ?? row.value ?? 0);
-    onSelect({
+  const handleBarClick = (entry: any, seriesName: string, dataKey: string) => {
+    const category = String(entry[chart.xKey] ?? entry.label ?? "");
+    onSelectCategory(category);
+    onSelectDatum({
+      chartId: chart.id,
       chartTitle: chart.title,
-      category: String(row[chart.xKey] ?? row.label ?? "Data point"),
+      chartType: chart.type,
+      category,
       seriesName,
-      value: Number.isFinite(value) ? value : 0,
-      sourceUrl: row.sourceUrl as string | undefined,
-      sourceName: row.sourceName as string | undefined,
-      confidence: row.confidence as string | undefined,
-      summary: row.summary as string | undefined,
+      dataKey,
+      value: Number(entry[dataKey] ?? 0),
+      unit: entry.unit as string | undefined,
+      formatter: chart.formatter,
+      sourceId: entry.sourceId as string | undefined,
+      note: entry.note as string | undefined,
+      payload: entry as Record<string, string | number>,
+      sourceUrl: (entry.sourceUrl as string | undefined) || undefined,
+      confidence: (entry.confidence as string | undefined) || undefined,
+      date: (entry.date as string | undefined) || undefined,
+      sourceType: (entry.sourceType as string | undefined) || undefined,
+      intelligenceCategory: (entry.category as string | undefined) || undefined,
+      summary: (entry.summary as string | undefined) || undefined,
+      rawSnippet: (entry.rawSnippet as string | undefined) || undefined,
     });
   };
 
-  const cartesian = (children: React.ReactElement) => (
-    <GlassCard className={`p-5 ${panelEffectClass}`} delay={index * 0.02}>
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <h3 className="font-bold text-white">{chart.title}</h3>
-          {chart.subtitle ? <p className="mt-1 text-xs text-cyan-100/55">{chart.subtitle}</p> : null}
-        </div>
-        {effect ? <span className="rounded-full bg-cyan-100/8 px-2 py-1 text-[10px] text-cyan-100/45">{effect.label}</span> : null}
-      </div>
-      <div className="w-full" style={{ height }}>
-        <ResponsiveContainer width="100%" height="100%">
-          {children}
-        </ResponsiveContainer>
-      </div>
-    </GlassCard>
-  );
+  const handleScatterClick = (entry: any) => {
+    const category = String(entry.name ?? entry[chart.xKey] ?? "");
+    onSelectCategory(category);
+    onSelectDatum({
+      chartId: chart.id,
+      chartTitle: chart.title,
+      chartType: chart.type,
+      category,
+      seriesName: chart.series[0]?.name ?? "Data",
+      dataKey: chart.series[0]?.dataKey ?? "x",
+      value: Number(entry[chart.series[0]?.dataKey ?? "x"] ?? 0),
+      unit: entry.unit as string | undefined,
+      formatter: chart.formatter,
+      sourceId: entry.sourceId as string | undefined,
+      payload: entry as Record<string, string | number>,
+      sourceUrl: (entry.sourceUrl as string | undefined) || undefined,
+      confidence: (entry.confidence as string | undefined) || undefined,
+      date: (entry.date as string | undefined) || undefined,
+      sourceType: (entry.sourceType as string | undefined) || undefined,
+      intelligenceCategory: (entry.category as string | undefined) || undefined,
+      summary: (entry.summary as string | undefined) || undefined,
+    });
+  };
 
-  if (chart.type === "line") {
-    return cartesian(
-      <LineChart data={chart.data}>
-        <CartesianGrid stroke="rgba(255,255,255,.08)" />
-        <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
-        <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={formatTick(chart.formatter)} />
-        {chart.series.length > 1 ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null}
-        <Tooltip content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? chart.title} />} />
-        {chart.series.map((series, i) => (
-          <Line
-            key={series.dataKey}
-            type="monotone"
-            dataKey={series.dataKey}
-            name={series.name ?? series.dataKey}
-            stroke={getSeriesColor(i, series.color)}
-            strokeWidth={3}
-            dot={{ r: 4 }}
-            activeDot={{ r: 7, onClick: (_: unknown, entry: any) => selectDatum(entry.payload, series.name ?? series.dataKey, series.dataKey) }}
-          />
-        ))}
-      </LineChart>
-    );
-  }
-
-  if (chart.type === "area") {
-    return cartesian(
-      <AreaChart data={chart.data}>
-        <CartesianGrid stroke="rgba(255,255,255,.08)" />
-        <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
-        <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={formatTick(chart.formatter)} />
-        {chart.series.length > 1 ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null}
-        <Tooltip content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? chart.title} />} />
-        {chart.series.map((series, i) => {
-          const color = getSeriesColor(i, series.color);
-          return <Area key={series.dataKey} type="monotone" dataKey={series.dataKey} name={series.name ?? series.dataKey} stroke={color} fill={`${color}40`} strokeWidth={3} />;
-        })}
-      </AreaChart>
-    );
-  }
-
-  if (chart.type === "scatter") {
-    const xKey = chart.series[0]?.dataKey ?? "x";
-    const yKey = chart.series[1]?.dataKey ?? "y";
-    return cartesian(
-      <ScatterChart>
-        <CartesianGrid stroke="rgba(255,255,255,.08)" />
-        <XAxis dataKey={xKey} type="number" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
-        <YAxis dataKey={yKey} type="number" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} />
-        <ZAxis dataKey={chart.series[2]?.dataKey ?? "value"} range={[60, 320]} />
-        <Tooltip content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? chart.title} />} />
-        <Scatter
-          data={chart.data}
-          fill={chart.series[0]?.color ?? PALETTE[0]}
-          onClick={(entry: any) => selectDatum(entry, chart.series[0]?.name ?? "Data", xKey)}
-        />
-      </ScatterChart>
-    );
-  }
-
-  return cartesian(
-    <BarChart data={chart.data}>
-      <CartesianGrid stroke="rgba(255,255,255,.08)" />
-      <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
-      <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} tickFormatter={formatTick(chart.formatter)} />
-      {chart.series.length > 1 ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null}
-      <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? chart.title} />} />
-      {chart.series.map((series, i) => (
-        <Bar
-          key={series.dataKey}
-          dataKey={series.dataKey}
-          name={series.name ?? series.dataKey}
-          radius={[9, 9, 0, 0]}
-          onClick={(_, rowIndex) => selectDatum(chart.data[rowIndex], series.name ?? series.dataKey, series.dataKey)}
-        >
-          {chart.data.map((row, rowIndex) => (
-            <Cell key={`${series.dataKey}-${rowIndex}`} fill={(row.confidence && activeEffect === "color-shift") ? (row.confidence === "high" ? PALETTE[2] : row.confidence === "low" ? PALETTE[5] : PALETTE[3]) : getSeriesColor(i, series.color)} />
+  const renderChart = () => {
+    if (chart.type === "line") {
+      return (
+        <LineChart data={chart.data}>
+          <CartesianGrid stroke={isProceduralGrid ? "rgba(34,211,238,0.15)" : "rgba(255,255,255,.06)"} />
+          <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 10 }} />
+          <YAxis stroke="rgba(207,250,254,.35)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatTickByType(chart.formatter)} />
+          {chart.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
+          <Tooltip content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? "data focus"} />} />
+          {chart.referenceLines?.map((ref, i) => (
+            <ReferenceLine key={i} y={ref.y} stroke={ref.stroke} strokeDasharray={ref.strokeDasharray} label={ref.label} />
           ))}
-        </Bar>
-      ))}
-    </BarChart>
+          {chart.series.map((s, i) => {
+            const color = getSeriesColor(i, s.color);
+            return (
+              <Line key={s.dataKey} type="monotone" dataKey={s.dataKey} name={s.name ?? s.dataKey} stroke={color} strokeWidth={3}
+                dot={(props: any) => {
+                  const category = String(props.payload?.[chart.xKey] ?? props.payload?.label ?? "");
+                  const isSelected = selectedCategory === category;
+                  return (
+                    <circle cx={props.cx} cy={props.cy} r={isSelected ? 7 : 4}
+                      fill={isColorShift ? getColorByData(props.payload) : color}
+                      stroke={isSelected ? "#ffffff" : color} strokeWidth={isSelected ? 3 : 2}
+                      opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : selectedCategory && !isSelected ? 0.4 : 1}
+                      className={[
+                        isChromatic && isSelected ? "chromatic-dot" : "",
+                        isAlgorithmicEdge && isSelected ? "algorithmic-edge-dot" : "",
+                        isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
+                        isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
+                        isPulse && isSelected ? "pulse-bar" : "",
+                      ].filter(Boolean).join(" ")}
+                    />
+                  );
+                }}
+                activeDot={{ r: 8, onClick: (_: any, entry: any) => handleBarClick(entry.payload, s.name ?? s.dataKey, s.dataKey) }}
+                className={isSynchronousPath ? "synchronous-path-line" : ""}
+              />
+            );
+          })}
+        </LineChart>
+      );
+    }
+    if (chart.type === "area") {
+      return (
+        <AreaChart data={chart.data}>
+          <CartesianGrid stroke={isProceduralGrid ? "rgba(34,211,238,0.15)" : "rgba(255,255,255,.06)"} />
+          <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 10 }} />
+          <YAxis stroke="rgba(207,250,254,.35)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatTickByType(chart.formatter)} />
+          {chart.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
+          <Tooltip content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? "data focus"} />} />
+          {chart.series.map((s, i) => {
+            const color = getSeriesColor(i, s.color);
+            return (
+              <Area key={s.dataKey} type="monotone" dataKey={s.dataKey} name={s.name ?? s.dataKey} stroke={color} fill={`${color}3d`} strokeWidth={3}
+                dot={(props: any) => {
+                  const category = String(props.payload?.[chart.xKey] ?? props.payload?.label ?? "");
+                  const isSelected = selectedCategory === category;
+                  return (
+                    <circle cx={props.cx} cy={props.cy} r={isSelected ? 6 : 3}
+                      fill={isColorShift ? getColorByData(props.payload) : color}
+                      stroke={isSelected ? "#ffffff" : color} strokeWidth={isSelected ? 2 : 1}
+                      opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : selectedCategory && !isSelected ? 0.4 : 1}
+                      className={[
+                        isChromatic && isSelected ? "chromatic-dot" : "",
+                        isAlgorithmicEdge && isSelected ? "algorithmic-edge-dot" : "",
+                        isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
+                        isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
+                        isPulse && isSelected ? "pulse-bar" : "",
+                      ].filter(Boolean).join(" ")}
+                    />
+                  );
+                }}
+                activeDot={{ r: 8, onClick: (_: any, entry: any) => handleBarClick(entry.payload, s.name ?? s.dataKey, s.dataKey) }}
+                className={isAlgorithmicEdge ? "algorithmic-edge-area" : ""}
+              />
+            );
+          })}
+        </AreaChart>
+      );
+    }
+    if (chart.type === "scatter") {
+      const xDataKey = chart.series[0]?.dataKey ?? "x";
+      const yDataKey = chart.series[1]?.dataKey ?? "y";
+      return (
+        <ScatterChart>
+          <CartesianGrid stroke={isProceduralGrid ? "rgba(34,211,238,0.15)" : "rgba(255,255,255,.06)"} />
+          <XAxis dataKey={xDataKey} name={chart.series[0]?.name ?? "X"} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 10 }} type="number" domain={[0, "auto"]} />
+          <YAxis dataKey={yDataKey} name={chart.series[1]?.name ?? "Y"} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 11 }} domain={chart.domain} type="number" />
+          {chart.series.length > 2 && <ZAxis dataKey={chart.series[2]?.dataKey ?? "z"} range={[80, 520]} />}
+          <Tooltip cursor={{ stroke: "rgba(34,211,238,.35)", strokeDasharray: "4 4" }} content={<LuminousChartTooltip headline={chart.headline ?? "data focus"} />} />
+          <Scatter name="Data" data={chart.data} fill={chart.series[0]?.color ?? "#22d3ee"} onClick={handleScatterClick}
+            shape={(props: any) => {
+              const category = String(props.payload?.[chart.xKey] ?? props.payload?.name ?? "");
+              const isSelected = selectedCategory === category;
+              return (
+                <circle cx={props.cx} cy={props.cy} r={isSelected ? 8 : 6}
+                  fill={isColorShift ? getColorByData(props.payload) : chart.series[0]?.color ?? "#22d3ee"}
+                  stroke={isSelected ? "#ffffff" : "rgba(255,255,255,0.2)"} strokeWidth={isSelected ? 3 : 1}
+                  opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : selectedCategory && !isSelected ? 0.4 : 1}
+                  className={[
+                    isChromatic && isSelected ? "chromatic-dot" : "",
+                    isAlgorithmicEdge && isSelected ? "algorithmic-edge-dot" : "",
+                    isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
+                    isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
+                    isPulse && isSelected ? "pulse-bar" : "",
+                  ].filter(Boolean).join(" ")}
+                />
+              );
+            }}
+          />
+        </ScatterChart>
+      );
+    }
+    return (
+      <BarChart data={chart.data}>
+        <CartesianGrid stroke={isProceduralGrid ? "rgba(34,211,238,0.15)" : "rgba(255,255,255,.06)"} />
+        <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 10 }} />
+        <YAxis stroke="rgba(207,250,254,.35)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatTickByType(chart.formatter)} />
+        {chart.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
+        <Tooltip cursor={{ fill: "rgba(34,211,238,.06)" }} content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? "data focus"} />} />
+        {chart.referenceLines?.map((ref, i) => (
+          <ReferenceLine key={i} y={ref.y} stroke={ref.stroke} strokeDasharray={ref.strokeDasharray} label={ref.label} />
+        ))}
+        {isGeometricAnchor && selectedCategory && (
+          <>
+            <ReferenceLine x={selectedCategory} stroke="rgba(34,211,238,0.65)" strokeDasharray="5 5" />
+          </>
+        )}
+        {chart.series.map((s, i) => {
+          const color = getSeriesColor(i, s.color);
+          return (
+            <Bar key={s.dataKey} dataKey={s.dataKey} name={s.name ?? s.dataKey} fill={color}
+              radius={s.radius ?? [10, 10, 0, 0]} stackId={s.stackId}
+              onClick={(_, index) => handleBarClick(chart.data[index], s.name ?? s.dataKey, s.dataKey)}>
+              {chart.data.map((entry, idx) => {
+                const category = String(entry[chart.xKey] ?? entry.label ?? "");
+                const isSelected = selectedCategory === category;
+                return (
+                  <Cell key={`cell-${idx}`} fill={color}
+                    opacity={isRadiant && selectedCategory ? (isSelected ? 1 : 0.3) : selectedCategory && !isSelected ? 0.4 : 1}
+                    className={[
+                      isSelected ? "selected-bar-cell" : "",
+                      isLinkedBrushing && isSelected ? "linked-bar-cell" : "",
+                      isChromatic && isSelected ? "chromatic-bar-cell" : "",
+                      isIsometric && isSelected ? "isometric-bar-cell" : "",
+                      isPulse && isSelected ? "pulse-bar" : "",
+                      isVectorDisplacement && isSelected ? "vector-displace-cell" : "",
+                      isAlgorithmicEdge && isSelected ? "algorithmic-edge-bar-cell" : "",
+                      isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
+                      isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
+                    ].filter(Boolean).join(" ")}
+                    style={{
+                      transform: isVectorDisplacement && isSelected ? `translateX(${Math.min(24, Math.max(-24, (Number(entry.value ?? 0) / 50)))}px)` : undefined,
+                      fill: isColorShift ? getColorByData(entry) : undefined,
+                    }}
+                  />
+                );
+              })}
+            </Bar>
+          );
+        })}
+      </BarChart>
+    );
+  };
+
+  return (
+    <div className="cinematic-chart-stage" style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        {renderChart() as React.ReactElement}
+      </ResponsiveContainer>
+    </div>
   );
 }
 
-function DetailCard({ selection, onClear }: { selection: ChartSelection | null; onClear: () => void }) {
-  if (!selection) return null;
+function SceneHero({
+  companyName,
+  metricsCount,
+  chartsCount,
+  signalsCount,
+  sourcesCount,
+  intelligenceCount,
+  feedLoading,
+  children,
+}: {
+  companyName: string;
+  metricsCount: number;
+  chartsCount: number;
+  signalsCount: number;
+  sourcesCount: number;
+  intelligenceCount: number;
+  feedLoading: boolean;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
+  const titleY = useTransform(scrollYProgress, [0, 1], [0, -120]);
+  const titleOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
+  const bgScale = useTransform(scrollYProgress, [0, 1], [1, 1.15]);
+  const bgBlur = useTransform(scrollYProgress, [0, 0.5, 1], [0, 4, 12]);
+  const orbScale = useTransform(scrollYProgress, [0, 0.5, 1], [1, 1.3, 0.6]);
+  const orbOpacity = useTransform(scrollYProgress, [0, 0.5, 1], [0.8, 0.5, 0]);
+
   return (
-    <GlassCard className="mt-5 p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-cyan-100/40">Selected evidence</p>
-          <h3 className="mt-2 text-lg font-bold text-white">{selection.category}</h3>
-          <p className="mt-1 text-sm text-cyan-100/60">{selection.chartTitle} · {selection.seriesName} · {selection.value.toLocaleString()}</p>
-          {selection.summary ? <p className="mt-3 text-sm leading-6 text-cyan-100/70">{selection.summary}</p> : null}
-          <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-cyan-100/45">
-            {selection.sourceName ? <span>Source: {selection.sourceName}</span> : null}
-            {selection.confidence ? <span>Confidence: {selection.confidence}</span> : null}
-            {selection.sourceUrl ? <a href={selection.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-cyan-100/70 hover:text-cyan-50">Open source <ExternalLink size={11} /></a> : null}
-          </div>
+    <section ref={ref} className="cinematic-hero-section">
+      <motion.div className="cinematic-hero-bg" style={{ scale: bgScale, filter: useTransform(bgBlur, (b) => `blur(${b}px)`) }} />
+      <motion.div className="cinematic-hero-orb" style={{ scale: orbScale, opacity: orbOpacity }} />
+      <motion.div className="cinematic-hero-content" style={{ y: titleY, opacity: titleOpacity }}>
+        <motion.p
+          className="cinematic-hero-eyebrow"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+        >
+          Intelligence Visualization
+        </motion.p>
+        <motion.h1
+          className="cinematic-hero-title"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1.0, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {companyName}
+        </motion.h1>
+        <motion.div
+          className="cinematic-hero-selector"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.7 }}
+        >
+          {children}
+        </motion.div>
+        <motion.div
+          className="cinematic-hero-metrics"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.9 }}
+        >
+          {[
+            { label: "Metrics", value: metricsCount },
+            { label: "Charts", value: chartsCount },
+            { label: "Signals", value: signalsCount },
+            { label: "Sources", value: sourcesCount },
+            { label: "Intelligence", value: intelligenceCount },
+          ].map((m, i) => (
+            <motion.div
+              key={m.label}
+              className="cinematic-hero-metric"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 1.0 + i * 0.1, ease: "easeOut" }}
+            >
+              <span className="cinematic-hero-metric-value">{m.value}</span>
+              <span className="cinematic-hero-metric-label">{m.label}</span>
+            </motion.div>
+          ))}
+        </motion.div>
+        {feedLoading && (
+          <motion.div
+            className="cinematic-hero-loading"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <Activity size={14} className="animate-pulse" />
+            <span>Loading live intelligence feed…</span>
+          </motion.div>
+        )}
+      </motion.div>
+      <motion.div
+        className="cinematic-hero-scroll-hint"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.8, duration: 0.8 }}
+        style={{ opacity: useTransform(scrollYProgress, [0, 0.1], [1, 0]) }}
+      >
+        <span>Scroll to explore</span>
+        <div className="cinematic-scroll-line" />
+      </motion.div>
+    </section>
+  );
+}
+
+function SceneContractOpportunity({
+  charts,
+  activeMethod,
+  selectedCategory,
+  activeSelection,
+  onSelectCategory,
+  onSelectDatum,
+  fxClass,
+}: {
+  charts: ChartDefinition[];
+  activeMethod: string;
+  selectedCategory: string | null;
+  activeSelection: ChartDatumSelection | null;
+  onSelectCategory: (category: string | null) => void;
+  onSelectDatum: (selection: ChartDatumSelection) => void;
+  fxClass: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
+  const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
+
+  const contractCharts = charts.filter((c) =>
+    c.title.toLowerCase().includes("contract") || c.title.toLowerCase().includes("award") || c.title.toLowerCase().includes("opportunit")
+  );
+  const displayCharts = contractCharts.length > 0 ? contractCharts : charts.slice(0, 2);
+
+  return (
+    <section ref={ref} className={`cinematic-scene-section ${fxClass}`}>
+      <div className="cinematic-scene-sticky">
+        <motion.div style={{ y: headerY, opacity: headerOpacity }}>
+          <p className="cinematic-scene-eyebrow">Scene 02</p>
+          <h2 className="cinematic-scene-title">Contract & Opportunity Signal</h2>
+          <p className="cinematic-scene-subtitle">Federal contract awards and opportunity pipeline as luminous ribbons of value.</p>
+        </motion.div>
+        <div className="cinematic-scene-stage">
+          {displayCharts.length > 0 ? (
+            displayCharts.map((chart, i) => (
+              <motion.div
+                key={chart.id}
+                className="cinematic-chart-panel"
+                initial={{ opacity: 0, y: 80 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.8, delay: i * 0.15, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="cinematic-chart-header">
+                  <h3 className="cinematic-chart-title">{chart.title}</h3>
+                  {chart.subtitle && <p className="cinematic-chart-subtitle">{chart.subtitle}</p>}
+                </div>
+                <CinematicChart
+                  chart={chart}
+                  activeMethod={activeMethod}
+                  selectedCategory={selectedCategory}
+                  activeSelection={activeSelection}
+                  onSelectCategory={onSelectCategory}
+                  onSelectDatum={onSelectDatum}
+                  height={380}
+                />
+              </motion.div>
+            ))
+          ) : (
+            <div className="cinematic-empty-stage">
+              <p>No contract or opportunity data available.</p>
+              <p className="cinematic-empty-hint">Run intelligence ingestion to fetch live contract awards from USASpending.gov.</p>
+            </div>
+          )}
         </div>
-        <button onClick={onClear} className="rounded-full border border-cyan-100/15 px-3 py-1 text-xs text-cyan-100/60 hover:text-cyan-50">Clear</button>
       </div>
-    </GlassCard>
+    </section>
+  );
+}
+
+function SceneWorkforceSafety({
+  charts,
+  metrics,
+  activeMethod,
+  selectedCategory,
+  activeSelection,
+  onSelectCategory,
+  onSelectDatum,
+  fxClass,
+}: {
+  charts: ChartDefinition[];
+  metrics: MetricDefinition[];
+  activeMethod: string;
+  selectedCategory: string | null;
+  activeSelection: ChartDatumSelection | null;
+  onSelectCategory: (category: string | null) => void;
+  onSelectDatum: (selection: ChartDatumSelection) => void;
+  fxClass: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
+  const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
+
+  const workforceCharts = charts.filter((c) =>
+    c.title.toLowerCase().includes("job") || c.title.toLowerCase().includes("workforce") || c.title.toLowerCase().includes("safety") || c.title.toLowerCase().includes("signal")
+  );
+  const workforceMetrics = metrics.filter((m) => m.category === "workforce" || m.category === "safety");
+  const displayCharts = workforceCharts.length > 0 ? workforceCharts : charts.slice(0, 2);
+
+  return (
+    <section ref={ref} className={`cinematic-scene-section cinematic-scene-alt ${fxClass}`}>
+      <div className="cinematic-scene-sticky">
+        <motion.div style={{ y: headerY, opacity: headerOpacity }}>
+          <p className="cinematic-scene-eyebrow">Scene 03</p>
+          <h2 className="cinematic-scene-title">Workforce & Safety Signal</h2>
+          <p className="cinematic-scene-subtitle">Hiring signals and safety metrics morphing through depth and progressive reveal.</p>
+        </motion.div>
+        {workforceMetrics.length > 0 && (
+          <motion.div
+            className="cinematic-metric-ribbons"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
+            {workforceMetrics.slice(0, 4).map((m, i) => (
+              <motion.div
+                key={m.id}
+                className="cinematic-metric-ribbon"
+                initial={{ opacity: 0, x: -40 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.3 + i * 0.1 }}
+              >
+                <span className="cinematic-ribbon-label">{m.label}</span>
+                <span className="cinematic-ribbon-value">{formatValue(m.value, undefined, m.unit)}</span>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+        <div className="cinematic-scene-stage">
+          {displayCharts.map((chart, i) => (
+            <motion.div
+              key={chart.id}
+              className="cinematic-chart-panel"
+              initial={{ opacity: 0, y: 80 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.8, delay: i * 0.15, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="cinematic-chart-header">
+                <h3 className="cinematic-chart-title">{chart.title}</h3>
+                {chart.subtitle && <p className="cinematic-chart-subtitle">{chart.subtitle}</p>}
+              </div>
+              <CinematicChart
+                chart={chart}
+                activeMethod={activeMethod}
+                selectedCategory={selectedCategory}
+                activeSelection={activeSelection}
+                onSelectCategory={onSelectCategory}
+                onSelectDatum={onSelectDatum}
+                height={360}
+              />
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SceneLocationNetwork({
+  charts,
+  activeMethod,
+  selectedCategory,
+  activeSelection,
+  onSelectCategory,
+  onSelectDatum,
+  fxClass,
+}: {
+  charts: ChartDefinition[];
+  activeMethod: string;
+  selectedCategory: string | null;
+  activeSelection: ChartDatumSelection | null;
+  onSelectCategory: (category: string | null) => void;
+  onSelectDatum: (selection: ChartDatumSelection) => void;
+  fxClass: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
+  const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
+
+  const locationCharts = charts.filter((c) =>
+    c.title.toLowerCase().includes("location") || c.title.toLowerCase().includes("network") || c.title.toLowerCase().includes("region") || c.title.toLowerCase().includes("exposure") || c.title.toLowerCase().includes("gap")
+  );
+  const displayCharts = locationCharts.length > 0 ? locationCharts : charts.slice(0, 2);
+
+  return (
+    <section ref={ref} className={`cinematic-scene-section ${fxClass}`}>
+      <div className="cinematic-scene-sticky">
+        <motion.div style={{ y: headerY, opacity: headerOpacity }}>
+          <p className="cinematic-scene-eyebrow">Scene 04</p>
+          <h2 className="cinematic-scene-title">Location & Network Exposure</h2>
+          <p className="cinematic-scene-subtitle">Geographic concentration and network gap scores as a layered spatial matrix.</p>
+        </motion.div>
+        <div className="cinematic-scene-stage cinematic-spatial-grid">
+          {displayCharts.length > 0 ? (
+            displayCharts.map((chart, i) => (
+              <motion.div
+                key={chart.id}
+                className="cinematic-chart-panel cinematic-spatial-panel"
+                initial={{ opacity: 0, scale: 0.92 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true, margin: "-80px" }}
+                transition={{ duration: 0.9, delay: i * 0.2, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="cinematic-chart-header">
+                  <h3 className="cinematic-chart-title">{chart.title}</h3>
+                  {chart.subtitle && <p className="cinematic-chart-subtitle">{chart.subtitle}</p>}
+                </div>
+                <CinematicChart
+                  chart={chart}
+                  activeMethod={activeMethod}
+                  selectedCategory={selectedCategory}
+                  activeSelection={activeSelection}
+                  onSelectCategory={onSelectCategory}
+                  onSelectDatum={onSelectDatum}
+                  height={340}
+                />
+              </motion.div>
+            ))
+          ) : (
+            <div className="cinematic-empty-stage">
+              <p>No location or network exposure data available.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SceneRiskMatrix({
+  riskMatrix,
+  opportunityMatrix,
+  activeMethod,
+  onSelectPoint,
+  fxClass,
+}: {
+  riskMatrix: RiskMatrixPoint[];
+  opportunityMatrix: OpportunityMatrixPoint[];
+  activeMethod: string;
+  onSelectPoint: (point: any) => void;
+  fxClass: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
+  const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
+  const [selectedPoint, setSelectedPoint] = useState<any | null>(null);
+  const isColorShift = activeMethod === "color-shift";
+  const isChromatic = activeMethod === "chromatic-aberration";
+  const isIsometric = activeMethod === "isometric-slice";
+  const isConcentricRipple = activeMethod === "concentric-ripple";
+  const isSubtractiveMasking = activeMethod === "subtractive-masking";
+  const isPulse = activeMethod === "kinetic-vector";
+  const isAlgorithmicEdge = activeMethod === "algorithmic-edge";
+  const isRadiant = activeMethod === "radiant-gradient";
+
+  const renderMatrix = (data: any[], xKey: string, yKey: string, zKey: string, xLabel: string, yLabel: string, color: string) => {
+    if (!data.length) return null;
+    return (
+      <div className="cinematic-matrix-stage">
+        <ResponsiveContainer width="100%" height="100%">
+          <ScatterChart>
+            <CartesianGrid stroke="rgba(255,255,255,.06)" />
+            <XAxis dataKey={xKey} name={xLabel} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 10 }} type="number" domain={[0, "auto"]}>
+              <Label value={xLabel} position="insideBottom" offset={-4} fill="rgba(207,250,254,0.55)" fontSize={11} />
+            </XAxis>
+            <YAxis dataKey={yKey} name={yLabel} stroke="rgba(207,250,254,.35)" tick={{ fontSize: 11 }} type="number" domain={[0, "auto"]}>
+              <Label value={yLabel} angle={-90} position="insideLeft" fill="rgba(207,250,254,0.55)" fontSize={11} />
+            </YAxis>
+            <ZAxis dataKey={zKey} range={[100, 600]} />
+            <Tooltip cursor={{ stroke: "rgba(34,211,238,.35)", strokeDasharray: "4 4" }} content={<LuminousChartTooltip formatter="plain" headline="Matrix" />} />
+            <Scatter name="Data" data={data} fill={color}
+              onClick={(entry: any, index: number) => { setSelectedPoint(data[index]); onSelectPoint(data[index]); }}
+              shape={(props: any) => {
+                const point = props.payload;
+                const isSelected = selectedPoint && point === selectedPoint;
+                return (
+                  <g>
+                    <circle cx={props.cx} cy={props.cy} r={isSelected ? 10 : 7}
+                      fill={isColorShift ? getColorByData(point) : color}
+                      stroke={isSelected ? "#ffffff" : "rgba(255,255,255,0.2)"} strokeWidth={isSelected ? 3 : 1}
+                      opacity={isRadiant && selectedPoint ? (isSelected ? 1 : 0.3) : selectedPoint && !isSelected ? 0.4 : 1}
+                      className={[
+                        isChromatic && isSelected ? "chromatic-dot" : "",
+                        isAlgorithmicEdge && isSelected ? "algorithmic-edge-dot" : "",
+                        isConcentricRipple && isSelected ? "ripple-origin-cell" : "",
+                        isSubtractiveMasking && isSelected ? "mask-cutout-cell" : "",
+                        isPulse && isSelected ? "pulse-bar" : "",
+                        isIsometric && isSelected ? "isometric-matrix-point" : "",
+                      ].filter(Boolean).join(" ")}
+                    />
+                    {point?.name && (
+                      <text x={props.cx} y={props.cy - (isSelected ? 14 : 11)} textAnchor="middle"
+                        fill="rgba(207,250,254,0.8)" fontSize={isSelected ? 12 : 10} className="matrix-point-label">
+                        {point.name}
+                      </text>
+                    )}
+                  </g>
+                );
+              }}
+            />
+          </ScatterChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
+
+  return (
+    <section ref={ref} className={`cinematic-scene-section cinematic-scene-alt ${fxClass}`}>
+      <div className="cinematic-scene-sticky">
+        <motion.div style={{ y: headerY, opacity: headerOpacity }}>
+          <p className="cinematic-scene-eyebrow">Scene 05</p>
+          <h2 className="cinematic-scene-title">Risk & Opportunity Matrix</h2>
+          <p className="cinematic-scene-subtitle">Strategic exposure plotted as floating points in a cinematic stage. Click to expand.</p>
+        </motion.div>
+        <div className="cinematic-matrix-grid">
+          {riskMatrix.length > 0 && (
+            <motion.div
+              className="cinematic-chart-panel cinematic-matrix-panel"
+              initial={{ opacity: 0, y: 60 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="cinematic-chart-header">
+                <h3 className="cinematic-chart-title">Risk Matrix</h3>
+                <p className="cinematic-chart-subtitle">Revenue exposure plotted against worker risk</p>
+              </div>
+              {renderMatrix(riskMatrix, "revenue", "risk", "workers", "Revenue ($M)", "Risk score", "#22d3ee")}
+            </motion.div>
+          )}
+          {opportunityMatrix.length > 0 && (
+            <motion.div
+              className="cinematic-chart-panel cinematic-matrix-panel"
+              initial={{ opacity: 0, y: 60 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.8, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="cinematic-chart-header">
+                <h3 className="cinematic-chart-title">Opportunity Matrix</h3>
+                <p className="cinematic-chart-subtitle">Strategic value plotted against implementation complexity</p>
+              </div>
+              {renderMatrix(opportunityMatrix, "revenuePotential", "implementationComplexity", "strategicValue", "Revenue potential", "Complexity", "#a78bfa")}
+            </motion.div>
+          )}
+          {riskMatrix.length === 0 && opportunityMatrix.length === 0 && (
+            <div className="cinematic-empty-stage">
+              <p>No risk or opportunity matrix data available.</p>
+            </div>
+          )}
+        </div>
+        {selectedPoint && (
+          <motion.div
+            className="cinematic-matrix-narrative"
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="cinematic-narrative-header">
+              <h4>{selectedPoint.name ?? "Selected point"}</h4>
+              <button onClick={() => setSelectedPoint(null)}>Close</button>
+            </div>
+            <div className="cinematic-narrative-body">
+              {selectedPoint.revenue != null && <p><span>Revenue</span> {selectedPoint.revenue}</p>}
+              {selectedPoint.risk != null && <p><span>Risk</span> {selectedPoint.risk}</p>}
+              {selectedPoint.workers != null && <p><span>Workers</span> {selectedPoint.workers}</p>}
+              {selectedPoint.revenuePotential != null && <p><span>Revenue Potential</span> {selectedPoint.revenuePotential}</p>}
+              {selectedPoint.strategicValue != null && <p><span>Strategic Value</span> {selectedPoint.strategicValue}</p>}
+              {selectedPoint.implementationComplexity != null && <p><span>Complexity</span> {selectedPoint.implementationComplexity}</p>}
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SceneEvidence({
+  sources,
+  facts,
+  signals,
+  fxClass,
+  onSelectSignal,
+}: {
+  sources: any[];
+  facts: IntelligenceFact[];
+  signals: SignalDefinition[];
+  fxClass: string;
+  onSelectSignal: (signal: SignalDefinition) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
+  const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
+
+  const liveFacts = facts.filter((f) => f.confidence !== "link-only");
+  const linkOnlyFacts = facts.filter((f) => f.confidence === "link-only");
+  const highConfidence = liveFacts.filter((f) => f.confidence === "high");
+  const mediumConfidence = liveFacts.filter((f) => f.confidence === "medium");
+  const lowConfidence = liveFacts.filter((f) => f.confidence === "low");
+
+  return (
+    <section ref={ref} className={`cinematic-scene-section ${fxClass}`}>
+      <div className="cinematic-scene-sticky">
+        <motion.div style={{ y: headerY, opacity: headerOpacity }}>
+          <p className="cinematic-scene-eyebrow">Scene 06</p>
+          <h2 className="cinematic-scene-title">Evidence & Source Confidence</h2>
+          <p className="cinematic-scene-subtitle">Verified intelligence, source leads, and static references as layered glass panels.</p>
+        </motion.div>
+        <div className="cinematic-evidence-layers">
+          <motion.div
+            className="cinematic-evidence-layer cinematic-evidence-verified"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="cinematic-evidence-header">
+              <CheckCircle2 size={16} className="text-emerald-400" />
+              <h3>Verified Intelligence</h3>
+              <span className="cinematic-evidence-count">{highConfidence.length}</span>
+            </div>
+            <div className="cinematic-evidence-items">
+              {highConfidence.slice(0, 5).map((fact) => (
+                <div key={fact.id} className="cinematic-evidence-item">
+                  <p className="cinematic-evidence-title">{fact.title}</p>
+                  <p className="cinematic-evidence-meta">{categoryLabel(fact.category)} — {fact.date}</p>
+                </div>
+              ))}
+              {highConfidence.length === 0 && <p className="cinematic-evidence-empty">No verified facts yet. Run intelligence ingestion.</p>}
+            </div>
+          </motion.div>
+          <motion.div
+            className="cinematic-evidence-layer cinematic-evidence-medium"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="cinematic-evidence-header">
+              <AlertTriangle size={16} className="text-amber-400" />
+              <h3>Needs Review</h3>
+              <span className="cinematic-evidence-count">{mediumConfidence.length + lowConfidence.length}</span>
+            </div>
+            <div className="cinematic-evidence-items">
+              {[...mediumConfidence, ...lowConfidence].slice(0, 5).map((fact) => (
+                <div key={fact.id} className="cinematic-evidence-item">
+                  <p className="cinematic-evidence-title">{fact.title}</p>
+                  <p className="cinematic-evidence-meta">{fact.confidence} — {fact.sourceType}</p>
+                </div>
+              ))}
+              {mediumConfidence.length + lowConfidence.length === 0 && <p className="cinematic-evidence-empty">No items need review.</p>}
+            </div>
+          </motion.div>
+          <motion.div
+            className="cinematic-evidence-layer cinematic-evidence-leads"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.7, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="cinematic-evidence-header">
+              <XCircle size={16} className="text-slate-400" />
+              <h3>Source Leads</h3>
+              <span className="cinematic-evidence-count">{linkOnlyFacts.length}</span>
+            </div>
+            <div className="cinematic-evidence-items">
+              {linkOnlyFacts.slice(0, 5).map((fact) => (
+                <div key={fact.id} className="cinematic-evidence-item">
+                  <p className="cinematic-evidence-title">{fact.title}</p>
+                  <p className="cinematic-evidence-meta">link-only — {fact.sourceType}</p>
+                </div>
+              ))}
+              {linkOnlyFacts.length === 0 && <p className="cinematic-evidence-empty">No source leads.</p>}
+            </div>
+          </motion.div>
+        </div>
+        {signals.length > 0 && (
+          <motion.div
+            className="cinematic-signals-strip"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            <p className="cinematic-scene-eyebrow">Executive Signals</p>
+            <div className="cinematic-signals-row">
+              {signals.slice(0, 4).map((signal, i) => (
+                <button key={i} className="cinematic-signal-pill" onClick={() => onSelectSignal(signal)}>
+                  <span className="cinematic-signal-dot" />
+                  <span className="cinematic-signal-label">{signal.label}</span>
+                  <span className="cinematic-signal-value">{signal.value}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SceneVisualModes({
+  activeMethod,
+  onSelectMethod,
+  dataCount,
+  fxClass,
+}: {
+  activeMethod: string;
+  onSelectMethod: (method: string) => void;
+  dataCount: (methodId: string) => number;
+  fxClass: string;
+}) {
+  const methods = [
+    "vector-displacement", "chromatic-aberration", "geometric-anchor", "subtractive-masking",
+    "procedural-grid", "algorithmic-edge", "concentric-ripple", "negative-space",
+    "vector-lattice", "color-shift", "synchronous-path", "vector-node",
+    "radiant-gradient", "isometric-slice", "semantic-zoom", "holographic-depth",
+    "kinetic-vector", "contextual-morph", "interactive-filter", "zoom-pan",
+    "linked-visualizations", "click-reveal",
+  ];
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
+  const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
+
+  return (
+    <section ref={ref} className={`cinematic-scene-section cinematic-scene-alt ${fxClass}`}>
+      <div className="cinematic-scene-sticky">
+        <motion.div style={{ y: headerY, opacity: headerOpacity }}>
+          <p className="cinematic-scene-eyebrow">Scene 07</p>
+          <h2 className="cinematic-scene-title">Visual Modes</h2>
+          <p className="cinematic-scene-subtitle">Twenty-two cinematic methods that transform the entire stage treatment.</p>
+        </motion.div>
+        <div className="cinematic-modes-grid">
+          {methods.map((methodId, i) => (
+            <motion.button
+              key={methodId}
+              className={`cinematic-mode-card ${activeMethod === methodId ? "cinematic-mode-active" : ""}`}
+              onClick={() => onSelectMethod(methodId)}
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: (i % 6) * 0.05 }}
+              whileHover={{ scale: 1.03, y: -2 }}
+            >
+              <span className="cinematic-mode-number">{String(i + 1).padStart(2, "0")}</span>
+              <span className="cinematic-mode-label">{methodName(methodId)}</span>
+              <span className="cinematic-mode-count">{dataCount(methodId)}</span>
+            </motion.button>
+          ))}
+        </div>
+        {activeMethod !== "click-reveal" && (
+          <MethodExplanationPanel methodId={activeMethod} />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function StyleInjector() {
+  return (
+    <style>{`
+      /* ===== CINEMATIC BASE ===== */
+      .cinematic-hero-section {
+        position: relative;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .cinematic-hero-bg {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(ellipse 80% 60% at 50% 40%, rgba(34,211,238,0.12), transparent 70%),
+          radial-gradient(ellipse 60% 40% at 30% 70%, rgba(167,139,250,0.08), transparent 60%),
+          radial-gradient(ellipse 50% 50% at 70% 30%, rgba(52,211,153,0.06), transparent 60%),
+          linear-gradient(180deg, #030813 0%, #050d1a 50%, #030813 100%);
+        z-index: 0;
+      }
+      .cinematic-hero-orb {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 600px;
+        height: 600px;
+        margin: -300px 0 0 -300px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(34,211,238,0.15), rgba(34,211,238,0.05) 40%, transparent 70%);
+        filter: blur(40px);
+        z-index: 1;
+      }
+      .cinematic-hero-content {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        max-width: 900px;
+        padding: 0 2rem;
+      }
+      .cinematic-hero-eyebrow {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+        color: rgba(34,211,238,0.6);
+        margin-bottom: 1.5rem;
+      }
+      .cinematic-hero-title {
+        font-size: clamp(2.5rem, 8vw, 5.5rem);
+        font-weight: 800;
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+        background: linear-gradient(135deg, #ffffff 0%, #22d3ee 50%, #a78bfa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 2rem;
+      }
+      .cinematic-hero-selector {
+        margin-bottom: 3rem;
+      }
+      .cinematic-hero-selector select {
+        background: rgba(7,17,29,0.8);
+        border: 1px solid rgba(34,211,238,0.2);
+        border-radius: 9999px;
+        padding: 0.75rem 2rem;
+        color: rgba(207,250,254,0.9);
+        font-size: 0.875rem;
+        backdrop-filter: blur(20px);
+        outline: none;
+      }
+      .cinematic-hero-metrics {
+        display: flex;
+        gap: 2rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .cinematic-hero-metric {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+      }
+      .cinematic-hero-metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #22d3ee;
+      }
+      .cinematic-hero-metric-label {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: rgba(207,250,254,0.4);
+      }
+      .cinematic-hero-loading {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 1.5rem;
+        font-size: 0.75rem;
+        color: rgba(34,211,238,0.5);
+        justify-content: center;
+      }
+      .cinematic-hero-scroll-hint {
+        position: absolute;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: rgba(207,250,254,0.35);
+      }
+      .cinematic-scroll-line {
+        width: 1px;
+        height: 40px;
+        background: linear-gradient(180deg, rgba(34,211,238,0.5), transparent);
+        animation: scroll-line-pulse 2s ease-in-out infinite;
+      }
+      @keyframes scroll-line-pulse {
+        0%, 100% { opacity: 0.3; transform: scaleY(1); }
+        50% { opacity: 1; transform: scaleY(1.3); }
+      }
+
+      /* ===== SCENE SECTIONS ===== */
+      .cinematic-scene-section {
+        position: relative;
+        min-height: 100vh;
+        padding: 4rem 0;
+        overflow: hidden;
+      }
+      .cinematic-scene-alt {
+        background: linear-gradient(180deg, rgba(5,13,26,0.6) 0%, rgba(3,8,19,0.9) 100%);
+      }
+      .cinematic-scene-sticky {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 2rem 3rem;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+      .cinematic-scene-eyebrow {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+        color: rgba(34,211,238,0.4);
+        margin-bottom: 0.75rem;
+      }
+      .cinematic-scene-title {
+        font-size: clamp(1.75rem, 4vw, 3rem);
+        font-weight: 700;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+        color: #ffffff;
+        margin-bottom: 0.75rem;
+      }
+      .cinematic-scene-subtitle {
+        font-size: 0.875rem;
+        color: rgba(207,250,254,0.5);
+        max-width: 600px;
+        line-height: 1.6;
+        margin-bottom: 2rem;
+      }
+
+      /* ===== CHART PANELS ===== */
+      .cinematic-scene-stage {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+      }
+      .cinematic-chart-panel {
+        background: rgba(7,17,29,0.6);
+        border: 1px solid rgba(34,211,238,0.1);
+        border-radius: 24px;
+        padding: 1.5rem;
+        backdrop-filter: blur(20px);
+        transition: border-color 0.4s ease, box-shadow 0.4s ease;
+      }
+      .cinematic-chart-panel:hover {
+        border-color: rgba(34,211,238,0.25);
+        box-shadow: 0 0 40px rgba(34,211,238,0.08);
+      }
+      .cinematic-chart-header {
+        margin-bottom: 1rem;
+      }
+      .cinematic-chart-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #ffffff;
+      }
+      .cinematic-chart-subtitle {
+        font-size: 0.75rem;
+        color: rgba(207,250,254,0.4);
+        margin-top: 0.25rem;
+      }
+      .cinematic-chart-stage {
+        width: 100%;
+      }
+      .cinematic-empty-stage {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 3rem;
+        color: rgba(207,250,254,0.35);
+      }
+      .cinematic-empty-hint {
+        font-size: 0.75rem;
+        color: rgba(207,250,254,0.25);
+        margin-top: 0.5rem;
+      }
+
+      /* ===== METRIC RIBBONS ===== */
+      .cinematic-metric-ribbons {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+      }
+      .cinematic-metric-ribbon {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1.5rem;
+        background: linear-gradient(90deg, rgba(34,211,238,0.08), transparent);
+        border-left: 2px solid rgba(34,211,238,0.4);
+        border-radius: 0 12px 12px 0;
+      }
+      .cinematic-ribbon-label {
+        font-size: 0.8rem;
+        color: rgba(207,250,254,0.7);
+      }
+      .cinematic-ribbon-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #22d3ee;
+      }
+
+      /* ===== SPATIAL GRID ===== */
+      .cinematic-spatial-grid {
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      }
+      .cinematic-spatial-panel {
+        background: linear-gradient(135deg, rgba(163,230,53,0.04), rgba(7,17,29,0.6));
+      }
+
+      /* ===== MATRIX ===== */
+      .cinematic-matrix-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+      }
+      .cinematic-matrix-panel {
+        background: linear-gradient(135deg, rgba(34,211,238,0.04), rgba(7,17,29,0.6));
+      }
+      .cinematic-matrix-stage {
+        width: 100%;
+        height: 380px;
+      }
+      .cinematic-matrix-narrative {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        width: 320px;
+        background: rgba(3,8,19,0.95);
+        border: 1px solid rgba(34,211,238,0.2);
+        border-radius: 20px;
+        padding: 1.5rem;
+        backdrop-filter: blur(24px);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        z-index: 40;
+      }
+      .cinematic-narrative-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+      }
+      .cinematic-narrative-header h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #fff;
+      }
+      .cinematic-narrative-header button {
+        font-size: 0.7rem;
+        color: rgba(207,250,254,0.5);
+        background: none;
+        border: none;
+        cursor: pointer;
+      }
+      .cinematic-narrative-body p {
+        font-size: 0.8rem;
+        color: rgba(207,250,254,0.7);
+        margin-bottom: 0.5rem;
+      }
+      .cinematic-narrative-body p span {
+        color: rgba(207,250,254,0.4);
+        margin-right: 0.5rem;
+      }
+
+      /* ===== EVIDENCE ===== */
+      .cinematic-evidence-layers {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+      }
+      .cinematic-evidence-layer {
+        border-radius: 20px;
+        padding: 1.25rem;
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255,255,255,0.06);
+      }
+      .cinematic-evidence-verified {
+        background: linear-gradient(135deg, rgba(52,211,153,0.08), rgba(7,17,29,0.6));
+        border-color: rgba(52,211,153,0.15);
+      }
+      .cinematic-evidence-medium {
+        background: linear-gradient(135deg, rgba(251,191,36,0.08), rgba(7,17,29,0.6));
+        border-color: rgba(251,191,36,0.15);
+      }
+      .cinematic-evidence-leads {
+        background: linear-gradient(135deg, rgba(148,163,184,0.08), rgba(7,17,29,0.6));
+        border-color: rgba(148,163,184,0.12);
+      }
+      .cinematic-evidence-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      .cinematic-evidence-header h3 {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #fff;
+        flex: 1;
+      }
+      .cinematic-evidence-count {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: rgba(34,211,238,0.6);
+        background: rgba(34,211,238,0.08);
+        padding: 0.15rem 0.5rem;
+        border-radius: 9999px;
+      }
+      .cinematic-evidence-items {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .cinematic-evidence-item {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+      }
+      .cinematic-evidence-title {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: rgba(207,250,254,0.8);
+      }
+      .cinematic-evidence-meta {
+        font-size: 0.65rem;
+        color: rgba(207,250,254,0.35);
+        margin-top: 0.15rem;
+      }
+      .cinematic-evidence-empty {
+        font-size: 0.7rem;
+        color: rgba(207,250,254,0.3);
+        padding: 0.5rem 0;
+      }
+
+      /* ===== SIGNALS ===== */
+      .cinematic-signals-strip {
+        margin-top: 2rem;
+      }
+      .cinematic-signals-row {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .cinematic-signal-pill {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: rgba(34,211,238,0.06);
+        border: 1px solid rgba(34,211,238,0.12);
+        border-radius: 9999px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      .cinematic-signal-pill:hover {
+        background: rgba(34,211,238,0.12);
+        border-color: rgba(34,211,238,0.25);
+      }
+      .cinematic-signal-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #34d399;
+      }
+      .cinematic-signal-label {
+        font-size: 0.7rem;
+        color: rgba(207,250,254,0.7);
+      }
+      .cinematic-signal-value {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: rgba(34,211,238,0.7);
+      }
+
+      /* ===== VISUAL MODES ===== */
+      .cinematic-modes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.75rem;
+      }
+      .cinematic-mode-card {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+        padding: 1rem;
+        background: rgba(7,17,29,0.6);
+        border: 1px solid rgba(34,211,238,0.08);
+        border-radius: 16px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: left;
+      }
+      .cinematic-mode-card:hover {
+        border-color: rgba(34,211,238,0.2);
+        background: rgba(34,211,238,0.04);
+      }
+      .cinematic-mode-active {
+        border-color: rgba(34,211,238,0.4) !important;
+        background: rgba(34,211,238,0.08) !important;
+        box-shadow: 0 0 24px rgba(34,211,238,0.12);
+      }
+      .cinematic-mode-number {
+        font-size: 0.6rem;
+        font-weight: 700;
+        color: rgba(34,211,238,0.4);
+        letter-spacing: 0.1em;
+      }
+      .cinematic-mode-label {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: rgba(207,250,254,0.8);
+        line-height: 1.3;
+      }
+      .cinematic-mode-count {
+        font-size: 0.6rem;
+        color: rgba(207,250,254,0.3);
+      }
+
+      /* ===== METHOD CALLOUT ===== */
+      .cinematic-method-callout {
+        margin-top: 1.5rem;
+        padding: 1.25rem;
+        background: rgba(34,211,238,0.04);
+        border: 1px solid rgba(34,211,238,0.12);
+        border-radius: 16px;
+      }
+      .cinematic-method-affects {
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        letter-spacing: 0.25em;
+        color: rgba(34,211,238,0.4);
+      }
+      .cinematic-method-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #fff;
+        margin-top: 0.25rem;
+      }
+      .cinematic-method-desc {
+        font-size: 0.75rem;
+        color: rgba(207,250,254,0.55);
+        line-height: 1.6;
+        margin-top: 0.5rem;
+      }
+
+      /* ===== DATA SOURCE BAR ===== */
+      .cinematic-data-source-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        background: rgba(7,17,29,0.5);
+        border: 1px solid rgba(34,211,238,0.08);
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        backdrop-filter: blur(12px);
+      }
+      .cinematic-source-btn {
+        padding: 0.4rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: transparent;
+        color: rgba(207,250,254,0.4);
+      }
+      .cinematic-source-btn:hover {
+        color: rgba(207,250,254,0.7);
+        border-color: rgba(34,211,238,0.15);
+      }
+      .cinematic-source-btn-active {
+        background: rgba(34,211,238,0.1);
+        border-color: rgba(34,211,238,0.3);
+        color: rgba(207,250,254,0.9);
+      }
+
+      /* ===== SCENE FX CLASSES ===== */
+      .scene-fx-displacement .cinematic-chart-panel { perspective: 800px; }
+      .scene-fx-displacement .cinematic-chart-stage { transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.22,1,0.36,1); }
+      .scene-fx-chromatic .cinematic-chart-panel { box-shadow: 0 0 24px rgba(239,68,68,0.08), 0 0 24px rgba(6,182,212,0.08); }
+      .scene-fx-anchor .cinematic-chart-stage::before {
+        content: ''; position: absolute; inset: 0;
+        background: linear-gradient(90deg, transparent 49.5%, rgba(34,211,238,0.15) 49.5%, rgba(34,211,238,0.15) 50.5%, transparent 50.5%),
+                    linear-gradient(0deg, transparent 49.5%, rgba(34,211,238,0.15) 49.5%, rgba(34,211,238,0.15) 50.5%, transparent 50.5%);
+        opacity: 0.4; pointer-events: none;
+      }
+      .scene-fx-masking .cinematic-chart-panel { position: relative; }
+      .scene-fx-masking .cinematic-chart-panel::after {
+        content: ''; position: absolute; inset: 0;
+        background: radial-gradient(circle at 50% 50%, transparent 0%, rgba(0,0,0,0.4) 70%);
+        pointer-events: none; border-radius: 24px;
+      }
+      .scene-fx-grid .cinematic-chart-panel { background-image: linear-gradient(rgba(34,211,238,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.03) 1px, transparent 1px); background-size: 30px 30px; }
+      .scene-fx-edge .cinematic-chart-panel { animation: edge-glow 3s ease-in-out infinite; }
+      @keyframes edge-glow { 0%,100% { box-shadow: 0 0 0 rgba(34,211,238,0); } 50% { box-shadow: 0 0 20px rgba(34,211,238,0.15); } }
+      .scene-fx-ripple .cinematic-chart-panel { animation: ripple-bg 2s ease-out infinite; }
+      @keyframes ripple-bg { 0% { box-shadow: 0 0 0 rgba(34,211,238,0); } 50% { box-shadow: 0 0 30px rgba(34,211,238,0.1); } 100% { box-shadow: 0 0 0 rgba(34,211,238,0); } }
+      .scene-fx-invert .cinematic-chart-panel { filter: invert(0.05) hue-rotate(10deg); }
+      .scene-fx-lattice .cinematic-chart-panel { background-image: linear-gradient(rgba(34,211,238,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.04) 1px, transparent 1px); background-size: 20px 20px; animation: lattice-warp 4s ease-in-out infinite; }
+      @keyframes lattice-warp { 0%,100% { transform: scale(1); } 50% { transform: scale(1.01); } }
+      .scene-fx-colorshift .cinematic-chart-panel { transition: background 0.6s ease; }
+      .scene-fx-synchronous .cinematic-chart-panel { box-shadow: 0 0 16px rgba(34,211,238,0.06); }
+      .scene-fx-node .cinematic-chart-panel { transition: transform 0.5s cubic-bezier(0.22,1,0.36,1); }
+      .scene-fx-radiant .cinematic-chart-panel { background: radial-gradient(circle at 50% 50%, rgba(34,211,238,0.04), rgba(7,17,29,0.6) 70%); }
+      .scene-fx-isometric .cinematic-chart-panel { transform: translateY(-4px) rotateX(1deg); box-shadow: 6px 6px 0 rgba(34,211,238,0.1); }
+      .scene-fx-zoom .cinematic-chart-panel { transition: transform 0.6s cubic-bezier(0.22,1,0.36,1); }
+      .scene-fx-holographic .cinematic-chart-panel { border-style: solid; border-width: 1px; }
+      .scene-fx-kinetic .cinematic-chart-panel { animation: kinetic-snap 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+      @keyframes kinetic-snap { 0% { transform: translateY(12px) scale(0.98); opacity: 0.7; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+      .scene-fx-morph .cinematic-chart-stage { transition: opacity 0.5s ease; }
+      .scene-fx-filter .cinematic-chart-panel { transition: opacity 0.4s ease, transform 0.4s ease; }
+      .scene-fx-pan .cinematic-chart-panel { transition: transform 0.5s cubic-bezier(0.22,1,0.36,1); }
+      .scene-fx-linked .cinematic-chart-panel { box-shadow: 0 0 12px rgba(250,204,21,0.04); }
+      .scene-fx-reveal .cinematic-chart-panel { transition: all 0.4s ease; }
+
+      /* ===== LEGACY CHART FX (preserved for chart elements) ===== */
+      .selected-bar-cell {
+        stroke: rgba(255, 255, 255, 0.95) !important;
+        stroke-width: 3px !important;
+        filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.85)) drop-shadow(0 0 16px rgba(34, 211, 238, 0.45));
+        opacity: 1 !important;
+      }
+      .linked-bar-cell {
+        stroke: rgba(250, 204, 21, 1) !important;
+        stroke-width: 3px !important;
+        filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.8));
+        opacity: 1 !important;
+      }
+      .chromatic-bar-cell {
+        filter: drop-shadow(2px 0 0 rgba(239, 68, 68, 0.9)) drop-shadow(-2px 0 0 rgba(6, 182, 212, 0.9)) drop-shadow(0 0 6px rgba(34, 211, 238, 0.6));
+      }
+      .isometric-bar-cell {
+        transform: translateY(-5px);
+        filter: drop-shadow(5px 5px 0 rgba(34, 211, 238, 0.35)) drop-shadow(0 0 8px rgba(34, 211, 238, 0.5));
+      }
+      .isometric-matrix-point {
+        transform: translateY(-6px);
+        filter: drop-shadow(4px 4px 0 rgba(34, 211, 238, 0.3)) drop-shadow(0 0 6px rgba(34, 211, 238, 0.4));
+      }
+      .pulse-bar {
+        animation: pulse-bar-anim 1.2s ease-in-out 2;
+      }
+      @keyframes pulse-bar-anim {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.55; }
+      }
+      .synchronous-path-line path.recharts-line-curve {
+        filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.85));
+        stroke-dasharray: 12 1000;
+        animation: path-sweep 2.5s linear infinite;
+      }
+      @keyframes path-sweep {
+        0% { stroke-dashoffset: 1000; }
+        100% { stroke-dashoffset: 0; }
+      }
+      .chromatic-dot {
+        filter: drop-shadow(2px 0 0 rgba(239, 68, 68, 0.9)) drop-shadow(-2px 0 0 rgba(6, 182, 212, 0.9));
+      }
+      .matrix-quadrant-label {
+        font-size: 10px;
+        fill: rgba(207, 250, 254, 0.55);
+      }
+      .algorithmic-edge-bar-cell {
+        stroke: rgba(255, 255, 255, 0.9);
+        stroke-width: 2px;
+        stroke-dasharray: 200;
+        stroke-dashoffset: 0;
+        animation: edge-trace 1.5s ease-in-out infinite;
+      }
+      .algorithmic-edge-dot {
+        stroke: rgba(255, 255, 255, 0.95);
+        stroke-width: 2px;
+        animation: edge-dot-pulse 1.2s ease-in-out infinite;
+      }
+      @keyframes edge-dot-pulse {
+        0%, 100% { stroke-width: 2px; }
+        50% { stroke-width: 4px; }
+      }
+      @keyframes edge-trace {
+        0% { stroke-dashoffset: 200; }
+        100% { stroke-dashoffset: 0; }
+      }
+      .algorithmic-edge-area path.recharts-area-area {
+        animation: edge-trace 2s ease-in-out infinite;
+      }
+      .color-shift-panel .recharts-bar-rectangle path {
+        transition: fill 0.5s ease;
+      }
+      .vector-displace-cell {
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+      .ripple-origin-cell {
+        animation: ripple-origin-pulse 1.4s ease-out infinite;
+      }
+      @keyframes ripple-origin-pulse {
+        0% { filter: drop-shadow(0 0 0 rgba(34, 211, 238, 0.9)); }
+        70% { filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.3)); }
+        100% { filter: drop-shadow(0 0 0 rgba(34, 211, 238, 0)); }
+      }
+      .mask-cutout-cell {
+        fill: rgba(15, 23, 42, 0.85) !important;
+        stroke: rgba(34, 211, 238, 0.8) !important;
+        stroke-width: 2px !important;
+        stroke-dasharray: 6 4;
+      }
+      .matrix-point-label {
+        font-size: 10px;
+        fill: rgba(207, 250, 254, 0.65);
+      }
+    `}</style>
   );
 }
 
@@ -411,175 +2152,311 @@ export default function DataVisualization() {
   const config = getCompanyConfigOrDefault(resolvedCompanyId);
   const status = getIntelligenceStatus(config);
   const sources = dataset.sources.filter((source) => resolveConfigCompanyId(source.companyId) === resolvedCompanyId);
-  const staticIntelligence = dataset.intelligence.find((item) => resolveConfigCompanyId(item.companyId) === resolvedCompanyId);
-  const metrics = dataset.metrics.filter((metric) => resolveConfigCompanyId(metric.companyId) === resolvedCompanyId);
+  const intelligence = dataset.intelligence.find((item) => resolveConfigCompanyId(item.companyId) === resolvedCompanyId);
 
-  const [feedMode, setFeedMode] = useState<FeedMode>("combined");
+  const [activeMethod, setActiveMethod] = useState<string>("click-reveal");
+  const [activeSelection, setActiveSelection] = useState<ChartDatumSelection | null>(null);
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [localIntelligence, setLocalIntelligence] = useState<CompanyIntelligence | undefined>(undefined);
+  const [feedMode, setFeedMode] = useState<"combined" | "static" | "live">("combined");
   const [feed, setFeed] = useState<DataVisualizationFeed | null>(null);
   const [feedLoading, setFeedLoading] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
-  const [showSourceDetails, setShowSourceDetails] = useState(false);
-  const [showEffects, setShowEffects] = useState(false);
-  const [showMoreCharts, setShowMoreCharts] = useState(false);
-  const [showEvidence, setShowEvidence] = useState(false);
-  const [activeEffect, setActiveEffect] = useState("click-reveal");
-  const [selection, setSelection] = useState<ChartSelection | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterConfidence, setFilterConfidence] = useState<string>("all");
+  const [filterSourceType, setFilterSourceType] = useState<string>("all");
+  const [filterDateRange, setFilterDateRange] = useState<string>("all");
+  const [morphMode, setMorphMode] = useState<"category" | "sourceType" | "confidence" | "time">("category");
 
   useEffect(() => {
-    if (feedMode === "static" || !company?.name) {
-      setFeed(null);
-      setFeedError(null);
-      return;
-    }
+    if (feedMode === "static") { setFeed(null); return; }
+    if (!company?.name) { setFeed(null); return; }
     const hq = company.headquarters ?? "";
     const stateMatch = hq.match(/,\s*([A-Za-z ]+)$/);
     const state = stateMatch ? stateMatch[1].trim() : undefined;
     let cancelled = false;
-    setFeedLoading(true);
-    setFeedError(null);
-    fetchVisualizationFeed({ company: company.name, state })
-      .then((result) => {
-        if (!cancelled) setFeed(result);
-      })
-      .catch((error) => {
-        if (!cancelled) setFeedError(error instanceof Error ? error.message : "Live feed failed");
-      })
-      .finally(() => {
-        if (!cancelled) setFeedLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    const timer = setTimeout(() => {
+      setFeedLoading(true); setFeedError(null);
+      fetchVisualizationFeed({ company: company.name, state })
+        .then((result) => { if (!cancelled) setFeed(result); })
+        .catch((err) => { if (!cancelled) setFeedError(err instanceof Error ? err.message : "Feed fetch failed"); })
+        .finally(() => { if (!cancelled) setFeedLoading(false); });
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [feedMode, company?.name, company?.headquarters]);
 
-  const feedCharts = useMemo(() => (feed ? feedChartsToChartDefinitions(feed.charts) : []), [feed]);
-  const feedFacts = useMemo(() => (feed ? feedFactsToIntelligenceFacts(feed.facts) : []), [feed]);
-  const mergedIntelligence = useMemo(() => mergeIntelligence(staticIntelligence, feedMode === "static" ? [] : feedFacts), [staticIntelligence, feedFacts, feedMode]);
-  const intelligenceCharts = useMemo(() => intelligenceFactsToCharts(mergedIntelligence), [mergedIntelligence]);
-  const staticCharts = useMemo(() => buildStaticCharts(config.chartDefinitions ?? [], metrics, sources), [config.chartDefinitions, metrics, sources]);
+  const feedCharts = useMemo(() => feed ? feedChartsToChartDefinitions(feed.charts) : [], [feed]);
+  const feedFacts = useMemo(() => feed ? feedFactsToIntelligenceFacts(feed.facts) : [], [feed]);
+  const feedIntelligence: CompanyIntelligence | undefined = useMemo(() => {
+    if (!feed || feedFacts.length === 0) return undefined;
+    return { companyId: "feed", facts: feedFacts, runs: [], chartReady: { awardValueTimeline: [], opportunitiesByStage: [], sourceConfidenceOverTime: [], jobSignalTrend: [], eventTimeline: [], locationExposureByRegion: [], networkGapScoreByRegion: [] } };
+  }, [feed, feedFacts]);
 
-  const rawCharts = useMemo(() => {
-    if (feedMode === "static") return [...staticCharts, ...intelligenceCharts];
-    if (feedMode === "live") return [...feedCharts, ...intelligenceCharts];
-    return [...staticCharts, ...intelligenceCharts, ...feedCharts];
-  }, [feedMode, staticCharts, intelligenceCharts, feedCharts]);
+  const effectiveIntelligence = localIntelligence ?? intelligence;
+  const mergedFacts = useMemo(() => [...(effectiveIntelligence?.facts ?? []), ...feedFacts], [effectiveIntelligence, feedFacts]);
+  const mergedIntelligence: CompanyIntelligence | undefined = useMemo(() => {
+    if (mergedFacts.length === 0) return effectiveIntelligence;
+    return { companyId: effectiveIntelligence?.companyId ?? "merged", facts: mergedFacts, runs: effectiveIntelligence?.runs ?? [], chartReady: effectiveIntelligence?.chartReady ?? { awardValueTimeline: [], opportunitiesByStage: [], sourceConfidenceOverTime: [], jobSignalTrend: [], eventTimeline: [], locationExposureByRegion: [], networkGapScoreByRegion: [] } };
+  }, [mergedFacts, effectiveIntelligence]);
 
-  const cleanCharts = useMemo(() => compactCharts(rawCharts), [rawCharts]);
-  const hiddenChartCount = Math.max(0, rawCharts.length - cleanCharts.length);
-  const visibleCharts = showMoreCharts ? cleanCharts : cleanCharts.slice(0, DEFAULT_CHART_LIMIT);
-  const counts = sourceCounts(feed);
-  const summaryBullets = buildSummaryBullets({
-    companyName: company?.name ?? resolvedCompanyId,
-    facts: mergedIntelligence?.facts ?? [],
-    charts: cleanCharts,
-    feed,
-    fallbackSummary: company?.summary,
+  const intelligenceCharts = useMemo(() => {
+    const base = intelligenceFactsToCharts(mergedIntelligence);
+    if (feedMode === "live") return [...feedCharts];
+    if (feedMode === "combined") return [...base, ...feedCharts];
+    return base;
+  }, [mergedIntelligence, feedCharts, feedMode]);
+
+  const vizModel = buildProfileVisualizationModel({
+    company,
+    config,
+    metrics: dataset.metrics.filter((metric) => resolveConfigCompanyId(metric.companyId) === resolvedCompanyId),
+    sources,
   });
+
+  const { primaryCharts } = useChartPanels(vizModel);
+
+  const filteredIntelligenceCharts = useMemo(() => {
+    if (activeMethod === "interactive-filter") {
+      return filterIntelligenceCharts(intelligenceCharts, mergedIntelligence?.facts ?? [], filterCategory, filterConfidence, filterSourceType, filterDateRange);
+    }
+    return intelligenceCharts;
+  }, [activeMethod, intelligenceCharts, mergedIntelligence, filterCategory, filterConfidence, filterSourceType, filterDateRange]);
+
+  const morphedChart = useMemo(() => {
+    if (activeMethod === "contextual-morph" && mergedIntelligence && mergedIntelligence.facts.length > 0) {
+      return morphIntelligenceFacts(mergedIntelligence.facts, morphMode);
+    }
+    return null;
+  }, [activeMethod, mergedIntelligence, morphMode]);
+
+  const allCharts = useMemo(() => {
+    if (activeMethod === "contextual-morph" && morphedChart) return [morphedChart];
+    if (feedMode === "live") return filteredIntelligenceCharts;
+    return [...primaryCharts, ...filteredIntelligenceCharts];
+  }, [primaryCharts, filteredIntelligenceCharts, activeMethod, morphedChart, feedMode]);
+
+  const handleSelectDatum = (selection: ChartDatumSelection) => { setActiveSelection(selection); setDetailDrawerOpen(true); };
+  const handleSelectCategory = (category: string | null) => { setSelectedCategory((prev) => (prev === category ? null : category)); };
+  const handleSelectSignal = (signal: SignalDefinition) => {
+    setActiveSelection({ chartId: "signal", chartTitle: "Executive Signal", chartType: "signal", category: signal.label, seriesName: "Signal", dataKey: "value", value: 0, note: signal.note, payload: signal as unknown as Record<string, string | number> });
+    setDetailDrawerOpen(true);
+  };
+  const handleMatrixPoint = (point: any) => {
+    setActiveSelection({ chartId: "matrix", chartTitle: "Risk / Opportunity Matrix", chartType: "scatter", category: point.name, seriesName: "Matrix point", dataKey: "name", value: point.revenue ?? point.revenuePotential ?? 0, note: `Risk: ${point.risk ?? "N/A"}, Workers: ${point.workers ?? "N/A"}`, payload: point });
+    setDetailDrawerOpen(true);
+  };
+
+  const visualizationMethods = [
+    "vector-displacement", "chromatic-aberration", "geometric-anchor", "subtractive-masking",
+    "procedural-grid", "algorithmic-edge", "concentric-ripple", "negative-space",
+    "vector-lattice", "color-shift", "synchronous-path", "vector-node",
+    "radiant-gradient", "isometric-slice", "semantic-zoom", "holographic-depth",
+    "kinetic-vector", "contextual-morph", "interactive-filter", "zoom-pan",
+    "linked-visualizations", "click-reveal",
+  ];
+
+  const getMethodDataCount = (methodId: string) => {
+    if (methodId === "click-reveal") return activeSelection ? 1 : 0;
+    if (methodId === "semantic-zoom") return vizModel.metrics.length + vizModel.signals.length;
+    return primaryCharts.length + vizModel.riskMatrix.length + vizModel.opportunityMatrix.length;
+  };
+
+  const insightContext = {
+    companyName: company?.name ?? resolvedCompanyId,
+    intelligence: mergedIntelligence,
+    sourceRecords: vizModel.sourceRecords,
+    signals: vizModel.signals,
+    dossierSections: vizModel.dossierSections,
+    metrics: vizModel.metrics,
+    riskMatrix: vizModel.riskMatrix,
+    opportunityMatrix: vizModel.opportunityMatrix,
+  };
+
+  const fxClass = sceneFxClass(activeMethod);
 
   return (
     <main className="aurora-bg min-h-screen text-white">
       <Sidebar />
-      <section className="relative z-10 px-5 py-8 lg:ml-[210px] lg:px-12">
-        <HeaderBar
-          eyebrow="Portal 02"
-          title="Data Visualization"
-          subtitle="Clean profile and live intelligence views. Live data is folded into this page only."
-          actions={<IntelligenceSelector companies={dataset.companies} value={companyId} onChange={setCompanyId} />}
+      <section className="relative z-10 lg:ml-[210px]">
+        {/* Data Source Selector — floating bar */}
+        <div className="cinematic-data-source-bar" style={{ position: "sticky", top: 0, zIndex: 30, margin: 0, borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
+          <span className="text-[10px] uppercase tracking-[0.22em] text-cyan-100/60">Data Source:</span>
+          {([
+            { id: "combined" as const, label: "Combined View" },
+            { id: "static" as const, label: "Static Profile Data" },
+            { id: "live" as const, label: "Live Intelligence Feed" },
+          ]).map((mode) => (
+            <button
+              key={mode.id}
+              onClick={() => setFeedMode(mode.id)}
+              className={`cinematic-source-btn ${feedMode === mode.id ? "cinematic-source-btn-active" : ""}`}
+            >
+              {mode.label}
+            </button>
+          ))}
+          {feedLoading && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-cyan-100/50">
+              <Activity size={12} className="animate-pulse" /> Loading feed...
+            </span>
+          )}
+          {feedError && <span className="text-xs text-amber-100/70">Feed error: {feedError}</span>}
+          {feed && (
+            <span className="ml-auto text-[10px] text-cyan-100/40">
+              {feed.charts.length} feed charts · {feed.facts.length} facts · {feed.sourceRecords.length} sources
+            </span>
+          )}
+        </div>
+
+        {/* Intelligence Overview — compact, above scenes */}
+        <div style={{ padding: "1rem 3rem" }}>
+          <IntelligenceOverview
+            companyName={company?.name ?? resolvedCompanyId}
+            companyId={resolvedCompanyId}
+            intelligence={mergedIntelligence}
+            onIngestComplete={(intel) => setLocalIntelligence(intel)}
+          />
+        </div>
+
+        {/* ===== CINEMATIC SCENES ===== */}
+
+        {/* Scene 1 — Hero Intelligence Stage */}
+        <SceneHero
+          companyName={company?.name ?? resolvedCompanyId}
+          metricsCount={vizModel.metrics.length}
+          chartsCount={vizModel.charts.length}
+          signalsCount={vizModel.signals.length}
+          sourcesCount={vizModel.sourceRecords.length}
+          intelligenceCount={intelligenceCharts.length}
+          feedLoading={feedLoading}
+        >
+          <IntelligenceSelector companies={dataset.companies} value={companyId} onChange={setCompanyId} />
+        </SceneHero>
+
+        {/* Scene 2 — Contract / Opportunity Signal */}
+        <SceneContractOpportunity
+          charts={allCharts}
+          activeMethod={activeMethod}
+          selectedCategory={selectedCategory}
+          activeSelection={activeSelection}
+          onSelectCategory={handleSelectCategory}
+          onSelectDatum={handleSelectDatum}
+          fxClass={fxClass}
         />
-        <DataQualityBanner warnings={status.dataQualityWarnings} />
 
-        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-cyan-100/10 bg-black/20 px-4 py-3">
-          <span className="text-xs uppercase tracking-[0.22em] text-cyan-100/50">Source mode</span>
-          <ModeButton active={feedMode === "combined"} onClick={() => setFeedMode("combined")}>Combined</ModeButton>
-          <ModeButton active={feedMode === "static"} onClick={() => setFeedMode("static")}>Static</ModeButton>
-          <ModeButton active={feedMode === "live"} onClick={() => setFeedMode("live")}>Live</ModeButton>
-          <div className="ml-auto flex flex-wrap items-center gap-3 text-xs text-cyan-100/50">
-            {feedLoading ? <span className="inline-flex items-center gap-1"><Activity size={12} className="animate-pulse" /> loading</span> : null}
-            {feedError ? <span className="text-amber-200/80">{feedError}</span> : null}
-          </div>
-        </div>
+        {/* Scene 3 — Workforce / Safety Signal */}
+        <SceneWorkforceSafety
+          charts={allCharts}
+          metrics={vizModel.metrics}
+          activeMethod={activeMethod}
+          selectedCategory={selectedCategory}
+          activeSelection={activeSelection}
+          onSelectCategory={handleSelectCategory}
+          onSelectDatum={handleSelectDatum}
+          fxClass={fxClass}
+        />
 
-        <div className="mb-5 grid gap-3 md:grid-cols-4">
-          <GlassCard className="p-4"><p className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/40">Metrics</p><p className="mt-2 text-2xl font-bold text-white">{metrics.length}</p></GlassCard>
-          <GlassCard className="p-4"><p className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/40">Clean charts</p><p className="mt-2 text-2xl font-bold text-white">{cleanCharts.length}</p></GlassCard>
-          <GlassCard className="p-4"><p className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/40">Live facts</p><p className="mt-2 text-2xl font-bold text-white">{feed?.facts.length ?? 0}</p></GlassCard>
-          <GlassCard className="p-4"><p className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/40">Sources</p><p className="mt-2 text-sm font-semibold text-cyan-50">{counts.enabled} enabled · {counts.missing} missing · {counts.warnings} warnings</p></GlassCard>
-        </div>
+        {/* Scene 4 — Location / Network Exposure */}
+        <SceneLocationNetwork
+          charts={allCharts}
+          activeMethod={activeMethod}
+          selectedCategory={selectedCategory}
+          activeSelection={activeSelection}
+          onSelectCategory={handleSelectCategory}
+          onSelectDatum={handleSelectDatum}
+          fxClass={fxClass}
+        />
 
-        <GlassCard className="mb-5 p-6">
-          <p className="text-xs uppercase tracking-[0.24em] text-emerald-200/55">What matters now</p>
-          <h2 className="mt-2 text-2xl font-bold text-white">{company?.name ?? resolvedCompanyId}</h2>
-          <ul className="mt-4 space-y-2 text-sm leading-6 text-cyan-100/70">
-            {summaryBullets.map((bullet, index) => <li key={index} className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300" />{bullet}</li>)}
-          </ul>
-        </GlassCard>
+        {/* Scene 5 — Risk / Opportunity Matrix */}
+        <SceneRiskMatrix
+          riskMatrix={vizModel.riskMatrix}
+          opportunityMatrix={vizModel.opportunityMatrix}
+          activeMethod={activeMethod}
+          onSelectPoint={handleMatrixPoint}
+          fxClass={fxClass}
+        />
 
-        <div className="mb-5 grid gap-3">
-          <CollapsibleSection title="Visual Effects" subtitle={`22 modes preserved · active: ${METHOD_BEHAVIOR[activeEffect]?.label ?? activeEffect}`} open={showEffects} onToggle={() => setShowEffects((value) => !value)}>
-            <div className="flex flex-wrap gap-2">
-              {EFFECT_IDS.map((effectId) => (
-                <button key={effectId} onClick={() => setActiveEffect(effectId)} className={`rounded-full border px-3 py-1.5 text-xs transition ${activeEffect === effectId ? "border-cyan-200/35 bg-cyan-200/12 text-cyan-50" : "border-cyan-100/10 bg-white/[0.03] text-cyan-100/55 hover:text-cyan-50"}`}>
-                  {METHOD_BEHAVIOR[effectId].label}
-                </button>
-              ))}
-            </div>
-            <p className="mt-3 text-xs leading-5 text-cyan-100/50">{METHOD_BEHAVIOR[activeEffect]?.description}</p>
-          </CollapsibleSection>
+        {/* Scene 6 — Evidence / Source Confidence */}
+        <SceneEvidence
+          sources={vizModel.sourceRecords}
+          facts={mergedIntelligence?.facts ?? []}
+          signals={vizModel.signals}
+          fxClass={fxClass}
+          onSelectSignal={handleSelectSignal}
+        />
 
-          <CollapsibleSection title="Source Details" subtitle={`${counts.enabled} enabled · ${counts.missing} missing · ${counts.warnings} warnings`} open={showSourceDetails} onToggle={() => setShowSourceDetails((value) => !value)}>
-            {feed ? (
-              <div className="space-y-4">
-                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  {feed.sourceStatus.map((source) => (
-                    <div key={source.source} className="rounded-xl border border-cyan-100/10 bg-white/[0.03] p-3">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-cyan-50">{source.enabled ? <CheckCircle2 size={14} className="text-emerald-300" /> : <AlertTriangle size={14} className="text-amber-300" />}{source.source}</div>
-                      <p className="mt-1 text-xs text-cyan-100/45">{source.authMode ? `${source.authMode} · ` : ""}{source.notes}</p>
-                    </div>
-                  ))}
-                </div>
-                {feed.missingData.length ? <div className="rounded-xl border border-amber-300/15 bg-amber-300/[0.04] p-3 text-xs text-amber-100/70">{feed.missingData.map((item) => <p key={`${item.source}-${item.field}`}>{item.source}: {item.reason}</p>)}</div> : null}
-                {feed.warnings.length ? <div className="rounded-xl border border-red-300/15 bg-red-300/[0.04] p-3 text-xs text-red-100/70">{feed.warnings.map((item) => <p key={`${item.source}-${item.message}`}>{item.source}: {item.message}</p>)}</div> : null}
-              </div>
-            ) : <p className="text-sm text-cyan-100/50">Switch to Combined or Live to load source details.</p>}
-          </CollapsibleSection>
-        </div>
+        {/* Scene 7 — Visual Modes */}
+        <SceneVisualModes
+          activeMethod={activeMethod}
+          onSelectMethod={(m) => { setActiveMethod(m); }}
+          dataCount={getMethodDataCount}
+          fxClass={fxClass}
+        />
 
-        {visibleCharts.length ? (
-          <div className="grid gap-5 xl:grid-cols-2">
-            {visibleCharts.map((chart, index) => (
-              <div key={chart.id} className={chart.fullWidth || visibleCharts.length === 1 ? "xl:col-span-2" : ""}>
-                <ChartPanel chart={chart} index={index} activeEffect={activeEffect} onSelect={setSelection} />
+        {/* Interactive filter controls (when active) */}
+        {activeMethod === "interactive-filter" && mergedIntelligence && mergedIntelligence.facts.length > 0 && (
+          <div style={{ padding: "1rem 3rem" }} className="cinematic-data-source-bar" >
+            {[
+              { label: "Category", value: filterCategory, options: ["all", "contractAwards", "opportunities", "secFilings", "jobSignals", "sourceConfidence", "timelineEvents", "locationExposure", "medicalNetworkGaps"], onChange: setFilterCategory },
+              { label: "Confidence", value: filterConfidence, options: ["all", "high", "medium", "low", "link-only"], onChange: setFilterConfidence },
+              { label: "Source type", value: filterSourceType, options: ["all", "usaspending", "sec", "sam", "official", "careers", "manual", "news", "web"], onChange: setFilterSourceType },
+              { label: "Date range", value: filterDateRange, options: ["all", "7d", "30d", "90d", "1y"], onChange: setFilterDateRange },
+            ].map((f) => (
+              <div key={f.label} className="flex items-center gap-2">
+                <label className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/50">{f.label}</label>
+                <select
+                  value={f.value}
+                  onChange={(e) => f.onChange(e.target.value)}
+                  className="rounded-lg border border-cyan-100/20 bg-cyan-100/5 px-2 py-1 text-xs text-cyan-50 outline-none focus:border-cyan-100/40"
+                >
+                  {f.options.map((o) => <option key={o} value={o} className="bg-slate-950 text-cyan-50">{o}</option>)}
+                </select>
               </div>
             ))}
           </div>
-        ) : (
-          <GlassCard className="p-8 text-center"><p className="text-sm text-cyan-100/55">No clean chart data is available for this view. Hidden empty/unknown charts are kept out of the main workspace.</p></GlassCard>
         )}
 
-        <DetailCard selection={selection} onClear={() => setSelection(null)} />
-
-        {cleanCharts.length > DEFAULT_CHART_LIMIT || hiddenChartCount > 0 ? (
-          <div className="mt-5 flex flex-wrap gap-3">
-            {cleanCharts.length > DEFAULT_CHART_LIMIT ? <button onClick={() => setShowMoreCharts((value) => !value)} className="rounded-full border border-cyan-100/15 bg-cyan-100/5 px-4 py-2 text-sm font-semibold text-cyan-50 hover:bg-cyan-100/10">{showMoreCharts ? "Show fewer charts" : `Show ${cleanCharts.length - DEFAULT_CHART_LIMIT} more chart(s)`}</button> : null}
-            {hiddenChartCount > 0 ? <span className="rounded-full border border-amber-300/15 bg-amber-300/[0.04] px-4 py-2 text-sm text-amber-100/70">{hiddenChartCount} empty / low-value chart(s) hidden</span> : null}
+        {/* Contextual morph controls (when active) */}
+        {activeMethod === "contextual-morph" && mergedIntelligence && mergedIntelligence.facts.length > 0 && (
+          <div style={{ padding: "1rem 3rem" }} className="cinematic-data-source-bar">
+            {([
+              { key: "category", label: "Category" },
+              { key: "sourceType", label: "Source type" },
+              { key: "confidence", label: "Confidence" },
+              { key: "time", label: "Time" },
+            ] as { key: typeof morphMode; label: string }[]).map((m) => (
+              <button
+                key={m.key}
+                onClick={() => setMorphMode(m.key)}
+                className={`cinematic-source-btn ${morphMode === m.key ? "cinematic-source-btn-active" : ""}`}
+              >
+                {m.label}
+              </button>
+            ))}
           </div>
-        ) : null}
+        )}
 
-        <div className="mt-5">
-          <CollapsibleSection title="Raw Evidence / Facts" subtitle={`${mergedIntelligence?.facts.length ?? 0} evidence item(s)`} open={showEvidence} onToggle={() => setShowEvidence((value) => !value)}>
-            <div className="grid gap-3 md:grid-cols-2">
-              {(mergedIntelligence?.facts ?? []).slice(0, 24).map((fact) => (
-                <div key={fact.id} className="rounded-xl border border-cyan-100/10 bg-white/[0.03] p-3">
-                  <p className="text-sm font-semibold text-cyan-50">{fact.title}</p>
-                  <p className="mt-1 text-xs leading-5 text-cyan-100/55">{fact.summary}</p>
-                  <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.16em] text-cyan-100/35">
-                    <span>{fact.category}</span><span>{fact.confidence}</span><span>{fact.sourceType}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
+        {/* Intelligence Answer Card */}
+        <div style={{ padding: "2rem 3rem" }}>
+          <IntelligenceAnswerCard
+            companyName={company?.name ?? resolvedCompanyId}
+            intelligence={mergedIntelligence}
+            metrics={vizModel.metrics}
+            signals={vizModel.signals}
+            dossierSections={vizModel.dossierSections}
+            riskMatrix={vizModel.riskMatrix}
+            opportunityMatrix={vizModel.opportunityMatrix}
+          />
         </div>
+
+        {/* Intelligence Insight Panel */}
+        <IntelligenceInsightPanel
+          isOpen={detailDrawerOpen}
+          onClose={() => setDetailDrawerOpen(false)}
+          selection={activeSelection}
+          context={insightContext}
+        />
+        <StyleInjector />
       </section>
     </main>
   );
