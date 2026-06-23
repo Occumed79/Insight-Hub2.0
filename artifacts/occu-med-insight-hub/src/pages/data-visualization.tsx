@@ -193,14 +193,13 @@ function getSeriesColor(index: number, fallback?: string) {
 
 function getHolographicLayer(chart: ChartDefinition) {
   const title = chart.title.toLowerCase();
-  if (title.includes("contract") || title.includes("award")) return "holo-layer-contract";
-  if (title.includes("opportunit")) return "holo-layer-opportunity";
-  if (title.includes("sec")) return "holo-layer-sec";
-  if (title.includes("job")) return "holo-layer-job";
-  if (title.includes("confidence")) return "holo-layer-confidence";
-  if (title.includes("location")) return "holo-layer-location";
-  if (title.includes("network")) return "holo-layer-network";
-  if (title.includes("event")) return "holo-layer-event";
+  if (title.includes("injury") || title.includes("trir") || title.includes("lwcr") || title.includes("safety") || title.includes("rate")) return "holo-layer-safety";
+  if (title.includes("workforce") || title.includes("employee") || title.includes("exposure")) return "holo-layer-workforce";
+  if (title.includes("location") || title.includes("region") || title.includes("geographic")) return "holo-layer-location";
+  if (title.includes("network") || title.includes("gap") || title.includes("provider")) return "holo-layer-network";
+  if (title.includes("confidence") || title.includes("source")) return "holo-layer-confidence";
+  if (title.includes("risk") || title.includes("matrix")) return "holo-layer-risk";
+  if (title.includes("event") || title.includes("timeline")) return "holo-layer-event";
   return "holo-layer-base";
 }
 
@@ -227,7 +226,11 @@ function getColorByData(entry: Record<string, string | number>): string {
 
 function getCategoryColor(category?: string): string {
   const map: Record<string, string> = {
-    contractAwards: "#22d3ee",
+    safety: "#22d3ee",
+    workforce: "#34d399",
+    risk: "#fb7185",
+    financial: "#fbbf24",
+    contractAwards: "#60a5fa",
     opportunities: "#a78bfa",
     secFilings: "#fbbf24",
     jobSignals: "#34d399",
@@ -243,6 +246,8 @@ function getCategoryColor(category?: string): string {
 }
 
 function chartCategoryFromId(chartId: string): IntelligenceCategory | null {
+  if (chartId.includes("injury") || chartId.includes("safety") || chartId.includes("trir") || chartId.includes("lwcr") || chartId.includes("rate")) return "sourceConfidence";
+  if (chartId.includes("workforce") || chartId.includes("employee") || chartId.includes("exposure")) return "locationExposure";
   if (chartId.includes("award")) return "contractAwards";
   if (chartId.includes("opportunities")) return "opportunities";
   if (chartId.includes("job")) return "jobSignals";
@@ -371,133 +376,133 @@ const METHOD_BEHAVIOR: Record<
 > = {
   "vector-displacement": {
     label: "Vector Displacement Mapping",
-    description: "Whole chart layers shift in 3D depth based on selected value. Higher values push farther into the scene.",
+    description: "Chart layers shift through 3D depth based on injury/safety/risk magnitude. Higher risk values push farther into the scene.",
     affects: "scene depth, layer parallax",
     mode: "displacement",
   },
   "chromatic-aberration": {
     label: "Chromatic Aberration Highlighting",
-    description: "Cinematic RGB edge split on selected evidence object. The stage object fractures into spectral layers.",
+    description: "Selected safety/risk metric gets cinematic RGB edge split. The stage object fractures into spectral layers.",
     affects: "stage object, focus element",
     mode: "chromatic",
   },
   "geometric-anchor": {
     label: "Geometric Anchor Snapping",
-    description: "Large crosshair and anchor lines snap across the full scene. Value labels lock into place like tech-spec callouts.",
+    description: "Large callout lines pin exact injury/safety values. Anchor lines snap across the full scene like tech-spec callouts.",
     affects: "full scene, value callouts",
     mode: "anchor",
   },
   "subtractive-masking": {
     label: "Subtractive Masking Overlays",
-    description: "Large masked spotlight reveal. Background dims and selected intelligence cuts through with luminous focus.",
+    description: "Spotlight reveal isolates the selected risk signal. Background dims and the safety metric cuts through with luminous focus.",
     affects: "full stage, spotlight",
     mode: "masking",
   },
   "procedural-grid": {
     label: "Procedural Grid Resonances",
-    description: "Full-stage grid resonance behind the chart. Grid reacts to selected data magnitude with pulsing waves.",
+    description: "Full-stage grid resonance behind the safety/risk trend. Grid reacts to injury rate magnitude with pulsing waves.",
     affects: "stage background, grid",
     mode: "grid",
   },
   "algorithmic-edge": {
     label: "Algorithmic Edge-Tracing",
-    description: "Animated outlines trace around chart shapes, paths, and panels. Feels like a product-page technical reveal.",
+    description: "Animated outlines trace injury trend lines and rate bars. Feels like a product-page technical reveal.",
     affects: "chart shapes, panel borders",
     mode: "edge",
   },
   "concentric-ripple": {
     label: "Concentric Ripple Metrics",
-    description: "Large ripples emit from selected point and affect nearby scene elements with expanding luminous waves.",
+    description: "Selected high-risk value emits impact ripples. Expanding luminous waves affect nearby scene elements.",
     affects: "selected point, nearby elements",
     mode: "ripple",
   },
   "negative-space": {
     label: "Negative Space Inversion",
-    description: "Entire scene inverts emphasis. Selected element becomes a clean cutout while related evidence glows.",
+    description: "Surrounding data glows while selected risk becomes a clean cutout. Scene inverts emphasis to isolate the safety signal.",
     affects: "full scene, emphasis inversion",
     mode: "invert",
   },
   "vector-lattice": {
     label: "Vector Lattice Distortion",
-    description: "Full background lattice bends and warps around selected fact, region, or category with cinematic distortion.",
+    description: "Luminous lattice bends around the active safety/workforce/risk category with cinematic distortion.",
     affects: "background lattice, scene",
     mode: "lattice",
   },
   "color-shift": {
     label: "Color-Shift Isometry",
-    description: "Scene palette shifts based on category, confidence, or value band. Contract, SEC, jobs, location, and risk data get distinct palettes.",
+    description: "Palette changes by metric type: safety, workforce, location, source, risk. Each data domain gets a distinct visual identity.",
     affects: "full scene palette",
     mode: "colorShift",
   },
   "synchronous-path": {
     label: "Synchronous Path Illumination",
-    description: "Related chart paths illuminate together across scenes. Matching dates, sources, and confidence light up in synchrony.",
+    description: "Related safety, workforce, and location data lights up together across scenes. Matching categories illuminate in synchrony.",
     affects: "cross-scene paths",
     mode: "synchronous",
   },
   "vector-node": {
     label: "Vector Node Expansion",
-    description: "Selected data expands into a cinematic information object with depth, shadow, and luminous detail.",
+    description: "Selected metric expands into a cinematic insight object with depth, shadow, and luminous detail.",
     affects: "selected datum, info object",
     mode: "node",
   },
   "radiant-gradient": {
     label: "Radiant Gradient Focus",
-    description: "Full scene gradient focus follows selected series or category. Unrelated elements recede into soft blur.",
+    description: "Full scene gradient focus follows selected safety/risk category. Unrelated elements recede into soft blur.",
     affects: "full scene, gradient focus",
     mode: "radiant",
   },
   "isometric-slice": {
     label: "Isometric Slice-View",
-    description: "Bars and matrix sections lift into isometric slabs with depth, shadow, and dimensional perspective.",
+    description: "Injury/risk/workforce layers lift into 3D slabs with depth, shadow, and dimensional perspective.",
     affects: "bars, matrix, slabs",
     mode: "isometric",
   },
   "semantic-zoom": {
     label: "Generative Semantic Zoom",
-    description: "Scroll or click zooms from high-level signal into granular facts. Smooth cinematic zoom, not a drawer.",
+    description: "Zoom from company-level risk to granular safety metric/source detail. Smooth cinematic zoom, not a drawer.",
     affects: "scene zoom, detail level",
     mode: "zoom",
   },
   "holographic-depth": {
     label: "Holographic Depth Layers",
-    description: "Contract, job, SEC, location, risk, and source data occupy layered glass planes at different depths.",
+    description: "Safety, workforce, location, source, and risk data sit on layered glass planes at different depths.",
     affects: "layered glass planes",
     mode: "holographic",
   },
   "kinetic-vector": {
     label: "Kinetic Vector Transitions",
-    description: "Scene changes use directional momentum with spring physics. Not fade-only — elements travel with purpose.",
+    description: "Scene transitions move with directional momentum. Elements travel with purpose, not just fade.",
     affects: "scene transitions, motion",
     mode: "kinetic",
   },
   "contextual-morph": {
     label: "Contextual Data Morphing",
-    description: "Chart transforms between category, source, confidence, and time groupings with visible animated morphing.",
+    description: "Morph between safety, workforce, location, source, and risk groupings with visible animated transformation.",
     affects: "chart transformation",
     mode: "morph",
   },
   "interactive-filter": {
     label: "Interactive Filtering",
-    description: "Apple-style segmented controls. Filtering changes the entire scene, not just hiding cards.",
+    description: "Apple-style segmented controls filter by data category, source, and confidence. Changes the entire scene.",
     affects: "scene composition, filters",
     mode: "filter",
   },
   "zoom-pan": {
     label: "Zoom and Pan",
-    description: "Large stage focus mode with smooth zoom into chart detail. The scene breathes as you focus.",
+    description: "Focus on one large safety/risk scene with smooth zoom. The scene breathes as you focus.",
     affects: "stage focus, zoom",
     mode: "pan",
   },
   "linked-visualizations": {
     label: "Linked Visualizations / Brushing",
-    description: "Selecting one item illuminates related elements across all visible stage layers with synchronized glow.",
+    description: "Selecting a value highlights related safety/workforce/risk metrics across all visible scenes with synchronized glow.",
     affects: "cross-layer illumination",
     mode: "linked",
   },
   "click-reveal": {
     label: "Click-to-Reveal",
-    description: "Click reveals an Apple-style insight callout panel attached to the scene. Not a generic drawer.",
+    description: "Click reveals a cinematic insight callout attached to the scene. Not a generic drawer.",
     affects: "insight callout, scene panel",
     mode: "reveal",
   },
@@ -816,6 +821,10 @@ function SceneHero({
   sourcesCount,
   intelligenceCount,
   feedLoading,
+  primaryMetricLabel,
+  primaryMetricValue,
+  primaryMetricUnit,
+  isStaticFallback,
   children,
 }: {
   companyName: string;
@@ -825,6 +834,10 @@ function SceneHero({
   sourcesCount: number;
   intelligenceCount: number;
   feedLoading: boolean;
+  primaryMetricLabel: string;
+  primaryMetricValue: string;
+  primaryMetricUnit: string;
+  isStaticFallback: boolean;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -847,7 +860,7 @@ function SceneHero({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
-          Intelligence Visualization
+          Occupational Health & Safety Intelligence
         </motion.p>
         <motion.h1
           className="cinematic-hero-title"
@@ -871,8 +884,18 @@ function SceneHero({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.9 }}
         >
+          <motion.div
+            className="cinematic-hero-primary-metric"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.85, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <span className="cinematic-hero-primary-label">{primaryMetricLabel}</span>
+            <span className="cinematic-hero-primary-value">{primaryMetricValue}<span className="cinematic-hero-primary-unit">{primaryMetricUnit}</span></span>
+            {isStaticFallback && <span className="cinematic-hero-fallback-badge">Static profile data</span>}
+          </motion.div>
           {[
-            { label: "Metrics", value: metricsCount },
+            { label: "Safety Metrics", value: metricsCount },
             { label: "Charts", value: chartsCount },
             { label: "Signals", value: signalsCount },
             { label: "Sources", value: sourcesCount },
@@ -915,7 +938,7 @@ function SceneHero({
   );
 }
 
-function SceneContractOpportunity({
+function SceneInjurySafety({
   charts,
   activeMethod,
   selectedCategory,
@@ -937,18 +960,19 @@ function SceneContractOpportunity({
   const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
   const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
 
-  const contractCharts = charts.filter((c) =>
-    c.title.toLowerCase().includes("contract") || c.title.toLowerCase().includes("award") || c.title.toLowerCase().includes("opportunit")
+  const safetyKeywords = ["injury", "safety", "trir", "lwcr", "rate", "trend", "goal", "award", "nsc", "reserve", "claim", "dart", "emr"];
+  const safetyCharts = charts.filter((c) =>
+    safetyKeywords.some((kw) => c.title.toLowerCase().includes(kw))
   );
-  const displayCharts = contractCharts.length > 0 ? contractCharts : charts.slice(0, 2);
+  const displayCharts = safetyCharts.length > 0 ? safetyCharts : charts.slice(0, 2);
 
   return (
     <section ref={ref} className={`cinematic-scene-section ${fxClass}`}>
       <div className="cinematic-scene-sticky">
         <motion.div style={{ y: headerY, opacity: headerOpacity }}>
           <p className="cinematic-scene-eyebrow">Scene 02</p>
-          <h2 className="cinematic-scene-title">Contract & Opportunity Signal</h2>
-          <p className="cinematic-scene-subtitle">Federal contract awards and opportunity pipeline as luminous ribbons of value.</p>
+          <h2 className="cinematic-scene-title">Injury & Safety Rate Stage</h2>
+          <p className="cinematic-scene-subtitle">TRIR, LWCR, and safety award trends as large cinematic rate comparisons with masked reveal and depth.</p>
         </motion.div>
         <div className="cinematic-scene-stage">
           {displayCharts.length > 0 ? (
@@ -978,8 +1002,8 @@ function SceneContractOpportunity({
             ))
           ) : (
             <div className="cinematic-empty-stage">
-              <p>No contract or opportunity data available.</p>
-              <p className="cinematic-empty-hint">Run intelligence ingestion to fetch live contract awards from USASpending.gov.</p>
+              <p>No injury or safety rate data available for this company.</p>
+              <p className="cinematic-empty-hint">Static profile metrics may still contain safety data — check the Workforce Exposure scene below.</p>
             </div>
           )}
         </div>
@@ -988,7 +1012,7 @@ function SceneContractOpportunity({
   );
 }
 
-function SceneWorkforceSafety({
+function SceneWorkforceExposure({
   charts,
   metrics,
   activeMethod,
@@ -1012,10 +1036,13 @@ function SceneWorkforceSafety({
   const headerY = useTransform(scrollYProgress, [0, 0.3], [60, 0]);
   const headerOpacity = useTransform(scrollYProgress, [0, 0.15, 0.3], [0, 1, 1]);
 
+  const workforceKeywords = ["workforce", "employee", "exposure", "job", "signal", "claim", "workflow", "documentation", "return", "ime"];
   const workforceCharts = charts.filter((c) =>
-    c.title.toLowerCase().includes("job") || c.title.toLowerCase().includes("workforce") || c.title.toLowerCase().includes("safety") || c.title.toLowerCase().includes("signal")
+    workforceKeywords.some((kw) => c.title.toLowerCase().includes(kw))
   );
-  const workforceMetrics = metrics.filter((m) => m.category === "workforce" || m.category === "safety");
+  const exposureMetrics = metrics.filter((m) =>
+    m.category === "workforce" || m.category === "safety" || m.category === "risk" || m.category === "financial"
+  );
   const displayCharts = workforceCharts.length > 0 ? workforceCharts : charts.slice(0, 2);
 
   return (
@@ -1023,10 +1050,10 @@ function SceneWorkforceSafety({
       <div className="cinematic-scene-sticky">
         <motion.div style={{ y: headerY, opacity: headerOpacity }}>
           <p className="cinematic-scene-eyebrow">Scene 03</p>
-          <h2 className="cinematic-scene-title">Workforce & Safety Signal</h2>
-          <p className="cinematic-scene-subtitle">Hiring signals and safety metrics morphing through depth and progressive reveal.</p>
+          <h2 className="cinematic-scene-title">Workforce Exposure Stage</h2>
+          <p className="cinematic-scene-subtitle">Workforce scale, exposure measures, and safety-to-workforce relationships as cinematic ribbons and depth layers.</p>
         </motion.div>
-        {workforceMetrics.length > 0 && (
+        {exposureMetrics.length > 0 && (
           <motion.div
             className="cinematic-metric-ribbons"
             initial={{ opacity: 0 }}
@@ -1034,7 +1061,7 @@ function SceneWorkforceSafety({
             viewport={{ once: true }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
-            {workforceMetrics.slice(0, 4).map((m, i) => (
+            {exposureMetrics.slice(0, 6).map((m, i) => (
               <motion.div
                 key={m.id}
                 className="cinematic-metric-ribbon"
@@ -1112,8 +1139,8 @@ function SceneLocationNetwork({
       <div className="cinematic-scene-sticky">
         <motion.div style={{ y: headerY, opacity: headerOpacity }}>
           <p className="cinematic-scene-eyebrow">Scene 04</p>
-          <h2 className="cinematic-scene-title">Location & Network Exposure</h2>
-          <p className="cinematic-scene-subtitle">Geographic concentration and network gap scores as a layered spatial matrix.</p>
+          <h2 className="cinematic-scene-title">Geographic & Network Gap Stage</h2>
+          <p className="cinematic-scene-subtitle">Provider network coverage gaps and geographic risk concentration as a luminous spatial field.</p>
         </motion.div>
         <div className="cinematic-scene-stage cinematic-spatial-grid">
           {displayCharts.length > 0 ? (
@@ -1143,7 +1170,7 @@ function SceneLocationNetwork({
             ))
           ) : (
             <div className="cinematic-empty-stage">
-              <p>No location or network exposure data available.</p>
+              <p>No geographic or network gap data available for this company.</p>
             </div>
           )}
         </div>
@@ -1235,8 +1262,8 @@ function SceneRiskMatrix({
       <div className="cinematic-scene-sticky">
         <motion.div style={{ y: headerY, opacity: headerOpacity }}>
           <p className="cinematic-scene-eyebrow">Scene 05</p>
-          <h2 className="cinematic-scene-title">Risk & Opportunity Matrix</h2>
-          <p className="cinematic-scene-subtitle">Strategic exposure plotted as floating points in a cinematic stage. Click to expand.</p>
+          <h2 className="cinematic-scene-title">Risk Matrix Stage</h2>
+          <p className="cinematic-scene-subtitle">Occupational health risk and strategic opportunity plotted as floating points in a cinematic stage. Click to expand.</p>
         </motion.div>
         <div className="cinematic-matrix-grid">
           {riskMatrix.length > 0 && (
@@ -1330,8 +1357,8 @@ function SceneEvidence({
       <div className="cinematic-scene-sticky">
         <motion.div style={{ y: headerY, opacity: headerOpacity }}>
           <p className="cinematic-scene-eyebrow">Scene 06</p>
-          <h2 className="cinematic-scene-title">Evidence & Source Confidence</h2>
-          <p className="cinematic-scene-subtitle">Verified intelligence, source leads, and static references as layered glass panels.</p>
+          <h2 className="cinematic-scene-title">Source Evidence Stage</h2>
+          <p className="cinematic-scene-subtitle">Verified safety intelligence, source leads, and static profile references as layered glass panels supporting the risk story.</p>
         </motion.div>
         <div className="cinematic-evidence-layers">
           <motion.div
@@ -1456,7 +1483,7 @@ function SceneVisualModes({
         <motion.div style={{ y: headerY, opacity: headerOpacity }}>
           <p className="cinematic-scene-eyebrow">Scene 07</p>
           <h2 className="cinematic-scene-title">Visual Modes</h2>
-          <p className="cinematic-scene-subtitle">Twenty-two cinematic methods that transform the entire stage treatment.</p>
+          <p className="cinematic-scene-subtitle">Twenty-two cinematic methods that transform the safety, workforce, and risk stage treatment.</p>
         </motion.div>
         <div className="cinematic-modes-grid">
           {methods.map((methodId, i) => (
@@ -1578,6 +1605,50 @@ function StyleInjector() {
         text-transform: uppercase;
         letter-spacing: 0.2em;
         color: rgba(207,250,254,0.4);
+      }
+      .cinematic-hero-primary-metric {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        margin-bottom: 1.5rem;
+        padding: 1.25rem 2rem;
+        background: rgba(7,17,29,0.5);
+        border: 1px solid rgba(34,211,238,0.15);
+        border-radius: 20px;
+        backdrop-filter: blur(20px);
+      }
+      .cinematic-hero-primary-label {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.25em;
+        color: rgba(207,250,254,0.5);
+      }
+      .cinematic-hero-primary-value {
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        font-weight: 800;
+        line-height: 1;
+        background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .cinematic-hero-primary-unit {
+        font-size: 0.875rem;
+        font-weight: 400;
+        color: rgba(207,250,254,0.4);
+        -webkit-text-fill-color: rgba(207,250,254,0.4);
+        margin-left: 0.35rem;
+      }
+      .cinematic-hero-fallback-badge {
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: rgba(251,191,36,0.6);
+        border: 1px solid rgba(251,191,36,0.2);
+        border-radius: 9999px;
+        padding: 0.2rem 0.6rem;
+        margin-top: 0.35rem;
       }
       .cinematic-hero-loading {
         display: flex;
@@ -2262,6 +2333,15 @@ export default function DataVisualization() {
     return primaryCharts.length + vizModel.riskMatrix.length + vizModel.opportunityMatrix.length;
   };
 
+  const safetyMetrics = vizModel.metrics.filter((m) => m.category === "safety");
+  const riskMetrics = vizModel.metrics.filter((m) => m.category === "risk");
+  const workforceMetrics = vizModel.metrics.filter((m) => m.category === "workforce");
+  const primaryMetric = safetyMetrics[0] ?? riskMetrics[0] ?? workforceMetrics[0] ?? vizModel.metrics[0];
+  const isStaticFallback = !mergedIntelligence || mergedIntelligence.facts.length === 0;
+  const primaryMetricLabel = primaryMetric ? primaryMetric.label : "No metrics available";
+  const primaryMetricValue = primaryMetric ? formatValue(primaryMetric.value, undefined, primaryMetric.unit) : "—";
+  const primaryMetricUnit = primaryMetric && primaryMetric.unit ? metricUnitLabel(primaryMetric.unit) : "";
+
   const insightContext = {
     companyName: company?.name ?? resolvedCompanyId,
     intelligence: mergedIntelligence,
@@ -2320,7 +2400,7 @@ export default function DataVisualization() {
 
         {/* ===== CINEMATIC SCENES ===== */}
 
-        {/* Scene 1 — Hero Intelligence Stage */}
+        {/* Scene 1 — Safety Intelligence Hero */}
         <SceneHero
           companyName={company?.name ?? resolvedCompanyId}
           metricsCount={vizModel.metrics.length}
@@ -2329,12 +2409,16 @@ export default function DataVisualization() {
           sourcesCount={vizModel.sourceRecords.length}
           intelligenceCount={intelligenceCharts.length}
           feedLoading={feedLoading}
+          primaryMetricLabel={primaryMetricLabel}
+          primaryMetricValue={primaryMetricValue}
+          primaryMetricUnit={primaryMetricUnit}
+          isStaticFallback={isStaticFallback}
         >
           <IntelligenceSelector companies={dataset.companies} value={companyId} onChange={setCompanyId} />
         </SceneHero>
 
-        {/* Scene 2 — Contract / Opportunity Signal */}
-        <SceneContractOpportunity
+        {/* Scene 2 — Injury / Safety Rate Stage */}
+        <SceneInjurySafety
           charts={allCharts}
           activeMethod={activeMethod}
           selectedCategory={selectedCategory}
@@ -2344,8 +2428,8 @@ export default function DataVisualization() {
           fxClass={fxClass}
         />
 
-        {/* Scene 3 — Workforce / Safety Signal */}
-        <SceneWorkforceSafety
+        {/* Scene 3 — Workforce Exposure Stage */}
+        <SceneWorkforceExposure
           charts={allCharts}
           metrics={vizModel.metrics}
           activeMethod={activeMethod}
@@ -2356,7 +2440,7 @@ export default function DataVisualization() {
           fxClass={fxClass}
         />
 
-        {/* Scene 4 — Location / Network Exposure */}
+        {/* Scene 4 — Geographic / Network Gap Stage */}
         <SceneLocationNetwork
           charts={allCharts}
           activeMethod={activeMethod}
@@ -2367,7 +2451,7 @@ export default function DataVisualization() {
           fxClass={fxClass}
         />
 
-        {/* Scene 5 — Risk / Opportunity Matrix */}
+        {/* Scene 5 — Risk Matrix Stage */}
         <SceneRiskMatrix
           riskMatrix={vizModel.riskMatrix}
           opportunityMatrix={vizModel.opportunityMatrix}
@@ -2376,7 +2460,7 @@ export default function DataVisualization() {
           fxClass={fxClass}
         />
 
-        {/* Scene 6 — Evidence / Source Confidence */}
+        {/* Scene 6 — Source Evidence Stage */}
         <SceneEvidence
           sources={vizModel.sourceRecords}
           facts={mergedIntelligence?.facts ?? []}
