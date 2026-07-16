@@ -106,3 +106,11 @@ export const companySignalSnapshotsTable = pgTable("company_signal_snapshots", {
 });
 
 export type CompanySignalSnapshot = typeof companySignalSnapshotsTable.$inferSelect;
+
+export const portalLinksTable = pgTable("portal_links", {
+  portalKey: text("portal_key").primaryKey(),
+  url: text("url").notNull().default(""),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type PortalLink = typeof portalLinksTable.$inferSelect;
