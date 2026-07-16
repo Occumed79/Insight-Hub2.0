@@ -6,6 +6,7 @@ import intelligenceRouter from "./intelligence";
 import onetRouter from "./onet";
 import employerIntelligenceRouter from "./employer-intelligence";
 import dataVisualizationRouter from "./dataVisualization";
+import portalLinksRouter from "./portalLinks";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(intelligenceRouter);
 router.use(onetRouter);
 router.use(employerIntelligenceRouter);
 router.use(dataVisualizationRouter);
+router.use(portalLinksRouter);
 
 export default router;
