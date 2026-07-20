@@ -185,6 +185,7 @@ export type RiskMatrixPoint = {
   revenue: number;
   risk: number;
   workers: number;
+  revenuePotential?: never;
 };
 
 export type OpportunityMatrixPoint = {
@@ -192,6 +193,7 @@ export type OpportunityMatrixPoint = {
   revenuePotential: number;
   implementationComplexity: number;
   strategicValue: number;
+  risk?: never;
 };
 
 export type MetricDefinition = {
