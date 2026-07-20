@@ -14,6 +14,9 @@ const EXCLUDED_DIRS = new Set(['.git', 'node_modules', '.pnpm-store']);
 const SOURCE_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css', '.json'];
 const FRONTEND_ROOT = 'artifacts/occu-med-insight-hub/src';
 const FRONTEND_ENTRY = `${FRONTEND_ROOT}/main.tsx`;
+const API_APP = 'artifacts/api-server/src/app.ts';
+const API_ROUTES = 'artifacts/api-server/src/routes/index.ts';
+const AUTH_FOUNDATION = 'artifacts/api-server/src/lib/auth.ts';
 
 function walk(dir) {
   const out = [];
@@ -25,6 +28,10 @@ function walk(dir) {
     else if (entry.isFile()) out.push(rel);
   }
   return out;
+}
+
+function readText(rel) {
+  try { return fs.readFileSync(path.join(root, rel), 'utf8'); } catch { return ''; }
 }
 
 function sha256(rel) {
@@ -54,13 +61,8 @@ function resolveImport(fromRel, spec) {
 }
 
 function importsFor(rel) {
-  const abs = path.join(root, rel);
-  let text;
-  try {
-    text = fs.readFileSync(abs, 'utf8');
-  } catch {
-    return [];
-  }
+  const text = readText(rel);
+  if (!text) return [];
   const specs = new Set();
   const patterns = [
     /\bimport\s+(?:[^'";]+?\s+from\s+)?['"]([^'"]+)['"]/g,
@@ -93,8 +95,7 @@ function scanCoordinates(files) {
   const issues = [];
   const coordPattern = /coordinates\s*:\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/g;
   for (const rel of files.filter((f) => /\.(ts|tsx|js|jsx|json)$/.test(f))) {
-    let text;
-    try { text = fs.readFileSync(path.join(root, rel), 'utf8'); } catch { continue; }
+    const text = readText(rel);
     let match;
     while ((match = coordPattern.exec(text))) {
       const lon = Number(match[1]);
@@ -107,22 +108,58 @@ function scanCoordinates(files) {
   return issues;
 }
 
-
 function countComponentInjectedStyles(allFiles) {
   const matches = [];
   for (const rel of allFiles.filter((f) => f.startsWith(`${FRONTEND_ROOT}/`) && /\.(tsx|jsx)$/.test(f))) {
-    let text;
-    try { text = fs.readFileSync(path.join(root, rel), 'utf8'); } catch { continue; }
-    if (/<style(?:\s|>)/.test(text)) matches.push(rel);
+    if (/<style(?:\s|>)/.test(readText(rel))) matches.push(rel);
   }
   return matches;
 }
 
 function countCssLayers() {
-  const entry = path.join(root, FRONTEND_ENTRY);
-  if (!fs.existsSync(entry)) return [];
-  const text = fs.readFileSync(entry, 'utf8');
+  const text = readText(FRONTEND_ENTRY);
   return [...text.matchAll(/import\s+['"]([^'"]+\.css)['"]/g)].map((m) => m[1]);
+}
+
+function scanSecurityPosture() {
+  const appText = readText(API_APP);
+  const routeText = readText(API_ROUTES);
+  const authText = readText(AUTH_FOUNDATION);
+  const issues = [];
+
+  if (/app\.use\(\s*cors\(\s*\)\s*\)/.test(appText)) {
+    issues.push({ file: API_APP, issue: 'unrestricted-cors' });
+  }
+  if (!appText.includes('cookieParser()')) {
+    issues.push({ file: API_APP, issue: 'missing-secure-cookie-parser' });
+  }
+  if (!routeText.includes('router.use(protectSharedWrites);')) {
+    issues.push({ file: API_ROUTES, issue: 'shared-write-middleware-not-registered' });
+  }
+
+  const requiredActions = [
+    'portal-links.update',
+    'entity-discovery.collect',
+    'locations.create-manual',
+    'locations.update',
+    'locations.verify',
+    'locations.import-text',
+    'locations.import-manual',
+    'intelligence.ingest',
+  ];
+  for (const action of requiredActions) {
+    if (!authText.includes(`action: "${action}"`)) {
+      issues.push({ file: AUTH_FOUNDATION, issue: `missing-write-rule:${action}` });
+    }
+  }
+  if (!authText.includes('sameSite: "strict"')) {
+    issues.push({ file: AUTH_FOUNDATION, issue: 'session-cookie-not-strict-samesite' });
+  }
+  if (!authText.includes('httpOnly: true')) {
+    issues.push({ file: AUTH_FOUNDATION, issue: 'session-cookie-not-http-only' });
+  }
+
+  return issues;
 }
 
 const files = walk(root).sort();
@@ -145,6 +182,7 @@ const unreachableFrontend = [...frontendFiles]
 const cssLayers = countCssLayers();
 const componentInjectedStyles = countComponentInjectedStyles(files);
 const coordinateIssues = scanCoordinates(files);
+const securityIssues = scanSecurityPosture();
 
 const appShells = [
   'app/page.tsx',
@@ -179,6 +217,8 @@ const report = {
   componentInjectedStyles,
   invalidCoordinateCount: coordinateIssues.length,
   invalidCoordinates: coordinateIssues,
+  securityGuardIssueCount: securityIssues.length,
+  securityIssues,
   knownArchitectureCandidateCount: knownArchitectureCandidates.length,
   knownArchitectureCandidates,
   duplicateSamples: duplicateGroups.slice(0, 20),
@@ -201,6 +241,7 @@ if (ciMode) {
       ['globalCssLayerCount', report.globalCssLayerCount],
       ['componentInjectedStyleCount', report.componentInjectedStyleCount],
       ['invalidCoordinateCount', report.invalidCoordinateCount],
+      ['securityGuardIssueCount', report.securityGuardIssueCount],
       ['knownArchitectureCandidateCount', report.knownArchitectureCandidateCount],
     ];
     for (const [key, current] of comparisons) {
@@ -234,6 +275,7 @@ if (jsonMode) {
   console.log(`Global CSS layers: ${report.globalCssLayerCount}`);
   console.log(`Component-injected style files: ${report.componentInjectedStyleCount}`);
   console.log(`Invalid coordinate literals: ${report.invalidCoordinateCount}`);
+  console.log(`Security guard issues: ${report.securityGuardIssueCount}`);
   console.log(`Known architecture candidates: ${report.knownArchitectureCandidateCount}`);
   if (failures.length) {
     console.error('\nRepository integrity regressions:');
