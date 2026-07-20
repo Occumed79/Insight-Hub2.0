@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Repository integrity audit
+        run: pnpm run audit:repository
+
       - name: Typecheck
         run: pnpm run typecheck
 
