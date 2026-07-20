@@ -1,11 +1,11 @@
 {
   "description": "Phase 5 structural-debt ceiling after consolidating the visual system. Values may be lowered by later cleanup PRs but must not be increased without an explicit review explanation.",
   "maximums": {
-    "totalFiles": 287,
+    "totalFiles": 286,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
-    "unreachableFrontendFiles": 66,
+    "unreachableFrontendFiles": 65,
     "appShellCount": 1,
     "globalCssLayerCount": 3,
     "invalidCoordinateCount": 0,
@@ -30,6 +30,6 @@
     "^app/page\\.tsx$",
     "^artifacts/mockup-sandbox/",
     "^attached_assets/Pasted-.*\\.txt$",
-    "^artifacts/occu-med-insight-hub/src/(index|visual-restore|logo-override|map-polish|cinematic-system)\\\\.css$"
+    "^artifacts/occu-med-insight-hub/src/(index|visual-restore|logo-override|map-polish|cinematic-system)\\.css$"
   ]
 }
