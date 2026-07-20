@@ -5,8 +5,9 @@ export type PortalConfig = {
   description: string;
   href: string;
   mode: "internal" | "external";
-  imageKind: "profile" | "quant" | "geo" | "entity" | "discovery" | "federal";
+  imageKind: "profile" | "visualization" | "quant" | "geo" | "entity" | "discovery" | "federal";
   portalKey?: PortalLinkKey;
+  featured?: boolean;
 };
 
 const env = import.meta.env as Record<string, string | undefined>;
@@ -18,6 +19,7 @@ const LEGACY_EXTERNAL_PORTAL_LINKS: Record<PortalLinkKey, string> = {
 };
 
 export const portalCards: PortalConfig[] = [
+  { title: "Data Visualization", description: "Enter the cinematic, source-aware visual intelligence workspace for validated charts, matrices, evidence lenses, and interactive drill-down.", href: "/data-visualization", mode: "internal", imageKind: "visualization", featured: true },
   { title: "Data Profiles", description: "Build reusable entity dossiers from filings, source notes, workforce signals, and public operating context.", href: "/data-profiles", mode: "internal", imageKind: "profile" },
   { title: "Quantifiable Data", description: "Convert public headcount, WC benchmarks, and methodology assumptions into executive cost signals.", href: "/quantifiable-data", mode: "internal", imageKind: "quant" },
   { title: "Geographic Data", description: "Map entity footprints, facilities, countries, activity clusters, and regional service opportunities.", href: "/geographic-data", mode: "internal", imageKind: "geo" },
