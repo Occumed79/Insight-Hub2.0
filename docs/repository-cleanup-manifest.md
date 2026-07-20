@@ -7,81 +7,47 @@ This file controls the staged cleanup of Insight Hub 2.0. Cleanup must proceed t
 ## Phase status
 
 - **Phase 1 — safety and inventory:** complete in PR #29.
-- **Phase 2 — proven garbage removal:** implemented in PR #30.
-- **Phase 3 — canonical data spine:** pending.
+- **Phase 2 — proven garbage removal:** complete in PR #30.
+- **Phase 3 — canonical data spine:** implemented in the current pull request.
 - **Phase 4 — visualization validity:** pending.
 - **Phase 5 — style consolidation:** pending.
 - **Phase 6 — shared-data security:** pending.
 
-## Classification
+## Canonical data path
 
-### Keep: production-critical
+The application now assembles data through one explicit precedence model:
 
-These areas require route, import, replacement, and build verification before removal:
+`seed -> configuration registry -> uploaded workbooks -> curated dossiers -> uploaded report replacements -> live intelligence`
 
-- `artifacts/occu-med-insight-hub/src/main.tsx`
-- `artifacts/occu-med-insight-hub/src/App.tsx`
-- `artifacts/occu-med-insight-hub/src/pages/`
-- `artifacts/occu-med-insight-hub/src/components/insight/`
-- `artifacts/occu-med-insight-hub/src/components/company/`
-- `artifacts/api-server/src/index.ts`
-- `artifacts/api-server/src/routes/`
-- `artifacts/api-server/src/services/`
-- `lib/db/src/`
-- `render.yaml`
-- `.github/workflows/build-check.yml`
+Every collection is normalized by canonical company ID and deduplicated through one assembler before it reaches a page. Uploaded-report replacements remain explicit rather than relying on array order.
 
-### Keep: source material
+## Phase 3 changes
 
-Preserve uploaded workbooks, reports, company dossier content, verified location imports, and source/provenance records until their information exists in the canonical data spine.
+- added `canonicalDataset.ts` as the only dataset assembly and validation layer;
+- added `datasetLayers.ts` as the authoritative source precedence registry;
+- removed the 20-company intelligence cap and replaced it with bounded-concurrency loading for every actual company;
+- classified company, portfolio, dashboard, network, methodology, and temporary entities so non-company collections are not queried as companies;
+- changed workbook ingestion from a competing full dataset into a normalized source layer;
+- stopped truncating proxy rows and geographic locations;
+- stopped replacing all seed locations when workbook locations exist;
+- stopped inventing workbook trend values;
+- preserved missing numeric values instead of automatically manufacturing zero-valued metrics;
+- added source linkage, record status, deduplication, layer diagnostics, orphan checks, and coordinate checks;
+- corrected the known Camp Patriot coordinate that previously plotted in Antarctica.
 
-### Removed in Phase 2
+## Keep: production-critical
 
-- the orphan root `app/page.tsx` shell;
-- the separate `artifacts/mockup-sandbox/` application and duplicate UI library;
-- committed `dist/` declaration output;
-- committed `*.tsbuildinfo` files;
-- committed declaration source maps;
-- pasted implementation-prompt text files in `attached_assets/`;
-- the stale mockup workspace importer and build exclusions.
+Production entrypoints, live routes, reachable components, API services, database schemas, migrations, Render configuration, and the current styling system remain protected.
 
-### Still quarantined for later verification
+## Keep: source material
 
-- unused generated UI wrappers;
-- unreachable frontend pages and panels;
-- duplicate company configuration files;
-- the alternate Data Visualization feed/adapter architecture.
-
-### Do not delete yet
-
-- any company dossier or workbook containing unique information;
-- any route registered by the production API;
-- any component reachable from the production frontend entrypoint;
-- any deployed database schema or migration;
-- any CSS rule before its visual effect is transferred to the consolidated style system.
-
-## Phase 2 acceptance criteria
-
-- one application shell remains;
-- no committed generated artifacts remain;
-- no exact duplicate file groups remain;
-- workspace configuration references only the two production applications;
-- GitHub Actions passes the repository audit, TypeScript typecheck, and production build;
-- no production data, routes, visual behavior, or CSS are changed.
+Uploaded workbooks, reports, company dossier content, verified location imports, and source/provenance records remain preserved until their information is represented in the canonical data spine.
 
 ## Remaining phases
 
-### Phase 3: canonical data spine
-
-Create one path:
-
-`source record -> normalized fact -> validated metric/location -> company profile -> visualization`
-
-Every fact must carry source identity, company identity, unit, effective date, confidence, actual/estimated/modeled status, and a stable deduplication key.
-
 ### Phase 4: visualization validity
 
-Reject mixed-unit charts, remove unsupported hard-coded projections, preserve missing values, position matrix points from real values, validate currency scaling and coordinates, and expose provenance/status in chart details.
+Reject mixed-unit charts, remove unsupported hard-coded projections, preserve missing values in chart data, position matrix points from real values, validate currency scaling, and expose provenance/status in chart details.
 
 ### Phase 5: style consolidation
 
@@ -93,4 +59,4 @@ Require authenticated, role-protected access for portal-link changes, entity ver
 
 ## Review rule
 
-Every cleanup pull request must state what it removes, how production behavior was validated, how the baseline changed, and whether data or visual behavior changed.
+Every cleanup pull request must state what it removes or replaces, how production behavior was validated, how the baseline changed, and whether data or visual behavior changed.
