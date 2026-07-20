@@ -39,24 +39,7 @@ jobs:
         run: pnpm run audit:repository
 
       - name: Typecheck
-        id: typecheck
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          pnpm run typecheck 2>&1 | tee typecheck.log
-
-      - name: Upload typecheck failure log
-        if: steps.typecheck.outcome == 'failure'
-        uses: actions/upload-artifact@v4
-        with:
-          name: typecheck-failure-log
-          path: typecheck.log
-          retention-days: 1
-
-      - name: Stop after typecheck failure
-        if: steps.typecheck.outcome == 'failure'
-        run: exit 1
+        run: pnpm run typecheck
 
       - name: Build
         run: pnpm run build
