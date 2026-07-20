@@ -1,6 +1,9 @@
 name: Internal Visualization Hero Finalizer
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - agent/internal-cinematic-visual-upgrade
