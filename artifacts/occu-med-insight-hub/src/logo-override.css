@@ -1,9 +1,0 @@
-.aurora-home img[alt="Occu-Med"] {
-  width: min(380px, 74vw) !important;
-  height: auto !important;
-  max-width: 74vw !important;
-  max-height: none !important;
-  object-fit: contain !important;
-  transform: none !important;
-  margin: 0 auto 4px !important;
-}

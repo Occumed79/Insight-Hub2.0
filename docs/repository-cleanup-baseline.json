@@ -1,15 +1,16 @@
 {
-  "description": "Phase 4 structural-debt ceiling after canonical data and visualization validity work. Values may be lowered by later cleanup PRs but must not be increased without an explicit review explanation.",
+  "description": "Phase 5 structural-debt ceiling after consolidating the visual system. Values may be lowered by later cleanup PRs but must not be increased without an explicit review explanation.",
   "maximums": {
-    "totalFiles": 290,
+    "totalFiles": 286,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
-    "unreachableFrontendFiles": 66,
+    "unreachableFrontendFiles": 65,
     "appShellCount": 1,
-    "globalCssLayerCount": 6,
+    "globalCssLayerCount": 3,
     "invalidCoordinateCount": 0,
-    "knownArchitectureCandidateCount": 3
+    "knownArchitectureCandidateCount": 3,
+    "componentInjectedStyleCount": 0
   },
   "requiredFiles": [
     "package.json",
@@ -18,7 +19,9 @@
     "artifacts/occu-med-insight-hub/src/main.tsx",
     "artifacts/occu-med-insight-hub/src/App.tsx",
     "artifacts/api-server/src/index.ts",
-    "lib/db/src/schema/index.ts"
+    "lib/db/src/schema/index.ts",
+    "artifacts/occu-med-insight-hub/src/styles/foundation.css",
+    "artifacts/occu-med-insight-hub/src/styles/application.css"
   ],
   "forbiddenNewPatterns": [
     "(^|/)dist/",
@@ -26,6 +29,7 @@
     "\\.d\\.ts\\.map$",
     "^app/page\\.tsx$",
     "^artifacts/mockup-sandbox/",
-    "^attached_assets/Pasted-.*\\.txt$"
+    "^attached_assets/Pasted-.*\\.txt$",
+    "^artifacts/occu-med-insight-hub/src/(index|visual-restore|logo-override|map-polish|cinematic-system)\\.css$"
   ]
 }

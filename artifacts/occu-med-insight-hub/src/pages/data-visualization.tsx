@@ -608,76 +608,6 @@ function MatrixScene({ riskMatrix, opportunityMatrix, onSelectPoint }: { riskMat
   return <div className="cinematic-matrix-grid"><MatrixPlane title="Risk" points={riskMatrix.map((point) => ({ ...point, kind: "Risk" }))} xKey="revenue" yKey="risk" borderColor="rgba(251,113,133,.45)" onSelectPoint={onSelectPoint} /><MatrixPlane title="Opportunity" points={opportunityMatrix.map((point) => ({ ...point, kind: "Opportunity" }))} xKey="revenuePotential" yKey="strategicValue" borderColor="rgba(52,211,153,.45)" onSelectPoint={onSelectPoint} /></div>;
 }
 
-function StyleInjector() {
-  return (
-    <style>{`
-      .cinematic-page { color: white; }
-      .cinematic-topbar { position: sticky; top: 0; z-index: 30; display:flex; align-items:center; gap:.8rem; padding:.8rem 3rem; border-bottom:1px solid rgba(103,232,249,.14); background:rgba(3,8,19,.72); backdrop-filter: blur(22px); }
-      .cinematic-topbar-label { font-size:.68rem; letter-spacing:.22em; text-transform:uppercase; color:rgba(207,250,254,.55); }
-      .cinematic-overview-wrap { padding:1rem 3rem 0; }
-      .cinematic-hero-section { position:relative; min-height:92vh; display:grid; place-items:center; overflow:hidden; }
-      .cinematic-hero-section::before { content:""; position:absolute; inset:-20%; background:radial-gradient(circle at 50% 48%, rgba(34,211,238,.18), transparent 24rem), radial-gradient(circle at 28% 72%, rgba(167,139,250,.12), transparent 22rem); filter:blur(12px); }
-      .cinematic-hero-content { position:relative; max-width:1050px; padding:0 2rem; text-align:center; }
-      .cinematic-hero-eyebrow, .cinematic-scene-eyebrow, .cinematic-proof-kicker { font-size:.68rem; letter-spacing:.25em; text-transform:uppercase; color:rgba(103,232,249,.62); }
-      .cinematic-hero-title { margin-top:1.2rem; font-size:clamp(3.2rem, 8vw, 7rem); line-height:.95; letter-spacing:-.06em; font-weight:900; background:linear-gradient(135deg,#fff,#67e8f9 48%,#a78bfa); -webkit-background-clip:text; background-clip:text; color:transparent; }
-      .cinematic-hero-subtitle { max-width:860px; margin:1.4rem auto 0; color:rgba(207,250,254,.7); font-size:1.08rem; line-height:1.8; }
-      .cinematic-hero-selector { margin:2rem auto 0; display:flex; justify-content:center; }
-      .cinematic-hero-metrics { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:.8rem; margin-top:2.5rem; }
-      .cinematic-hero-metric { border:1px solid rgba(103,232,249,.14); border-radius:22px; padding:1rem; background:rgba(7,17,29,.58); backdrop-filter:blur(22px); }
-      .cinematic-hero-metric-value { display:block; font-size:1.8rem; font-weight:900; color:#67e8f9; }
-      .cinematic-hero-metric-label { display:block; margin-top:.3rem; color:rgba(207,250,254,.45); font-size:.68rem; text-transform:uppercase; letter-spacing:.16em; }
-      .cinematic-evidence-statement { margin:2rem auto 0; max-width:850px; border:1px solid rgba(251,191,36,.2); background:rgba(251,191,36,.055); border-radius:22px; padding:1rem 1.2rem; color:rgba(254,243,199,.78); line-height:1.7; }
-      .cinematic-scene-section { min-height:100vh; padding:5rem 3rem; position:relative; overflow:hidden; }
-      .cinematic-scene-alt { background:linear-gradient(180deg, rgba(5,13,26,.55), rgba(3,8,19,.9)); }
-      .cinematic-scene-sticky.relaxed { max-width:1280px; margin:0 auto; }
-      .cinematic-scene-title { margin-top:.8rem; font-size:clamp(2.6rem, 5vw, 5rem); line-height:1; letter-spacing:-.055em; font-weight:900; }
-      .cinematic-scene-subtitle { max-width:820px; margin:1rem 0 2.2rem; color:rgba(207,250,254,.64); line-height:1.75; }
-      .cinematic-chart-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:1rem; }
-      .cinematic-chart-panel, .cinematic-proof-card, .cinematic-ledger-bucket { border:1px solid rgba(103,232,249,.14); border-radius:28px; background:rgba(7,17,29,.62); padding:1.1rem; backdrop-filter:blur(22px); box-shadow:0 24px 80px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06); }
-      .cinematic-panel-header { display:flex; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
-      .cinematic-panel-header h3, .cinematic-proof-card h3, .cinematic-ledger-bucket h3 { font-size:1.1rem; font-weight:850; color:rgba(236,254,255,.94); }
-      .cinematic-panel-header p, .cinematic-proof-card p { color:rgba(207,250,254,.58); font-size:.86rem; line-height:1.6; }
-      .cinematic-confidence-badge { align-self:flex-start; border:1px solid; border-radius:999px; padding:.25rem .55rem; font-size:.68rem; text-transform:uppercase; letter-spacing:.12em; }
-      .cinematic-chart-stage { min-height:260px; }
-      .cinematic-validity-reason { margin-top:.8rem; color:rgba(207,250,254,.42); font-size:.78rem; line-height:1.55; }
-      .cinematic-proof-card { display:block; width:100%; text-align:left; min-height:260px; }
-      .cinematic-warning-card { border-color:rgba(251,191,36,.24); background:rgba(251,191,36,.055); }
-      .cinematic-proof-icon { color:#fbbf24; margin-bottom:.8rem; }
-      .cinematic-proof-value { margin:.9rem 0 .35rem; font-size:clamp(2.5rem,6vw,5rem); font-weight:900; line-height:1; color:#67e8f9; }
-      .cinematic-proof-label, .cinematic-proof-source { color:rgba(207,250,254,.62); font-size:.85rem; }
-      .cinematic-warning-list { display:flex; flex-wrap:wrap; gap:.45rem; margin-top:1rem; }
-      .cinematic-warning-list span, .cinematic-ledger-meta span { border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:.25rem .55rem; color:rgba(207,250,254,.58); font-size:.68rem; }
-      .cinematic-timeline-strip, .cinematic-ranked-list { display:grid; gap:.65rem; margin-top:1.1rem; }
-      .cinematic-timeline-strip button, .cinematic-ranked-list button { display:grid; grid-template-columns:auto 1fr auto; gap:.7rem; align-items:center; border:1px solid rgba(103,232,249,.12); border-radius:16px; padding:.7rem; background:rgba(255,255,255,.03); color:rgba(236,254,255,.9); text-align:left; }
-      .cinematic-timeline-strip span { width:10px; height:10px; border-radius:50%; background:#67e8f9; box-shadow:0 0 18px rgba(103,232,249,.7); }
-      .cinematic-ranked-list span { color:rgba(103,232,249,.7); font-weight:800; }
-      .cinematic-ledger-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(310px,1fr)); gap:1rem; }
-      .cinematic-ledger-bucket-header, .cinematic-ledger-item-top { display:flex; align-items:center; gap:.6rem; justify-content:space-between; }
-      .cinematic-ledger-bucket-header h3 { flex:1; }
-      .cinematic-ledger-items { display:grid; gap:.7rem; margin-top:1rem; }
-      .cinematic-ledger-item { border:1px solid rgba(255,255,255,.1); border-radius:18px; padding:.85rem; background:rgba(255,255,255,.035); }
-      .cinematic-ledger-item-top span { border:1px solid; border-radius:999px; padding:.18rem .45rem; font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; }
-      .cinematic-ledger-item h4 { margin-top:.65rem; color:white; font-weight:750; font-size:.92rem; }
-      .cinematic-ledger-item p { margin-top:.45rem; color:rgba(207,250,254,.58); font-size:.78rem; line-height:1.55; }
-      .cinematic-ledger-meta { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.65rem; }
-      .cinematic-ledger-query { color:rgba(251,191,36,.68)!important; }
-      .cinematic-ledger-item a { margin-top:.6rem; display:inline-flex; align-items:center; gap:.35rem; color:rgba(103,232,249,.8); font-size:.76rem; }
-      .cinematic-ledger-empty { color:rgba(207,250,254,.42); font-size:.82rem; }
-      .cinematic-matrix-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
-      .cinematic-matrix-plane { position:relative; min-height:520px; border:1px solid rgba(103,232,249,.14); border-radius:32px; background:radial-gradient(circle at 50% 50%,rgba(34,211,238,.1),transparent 26rem),rgba(7,17,29,.54); overflow:hidden; }
-      .cinematic-matrix-plane::before { content:""; position:absolute; inset:0; background-image:linear-gradient(rgba(103,232,249,.08) 1px, transparent 1px),linear-gradient(90deg,rgba(103,232,249,.08) 1px,transparent 1px); background-size:56px 56px; mask-image:radial-gradient(circle,black,transparent 78%); }
-      .cinematic-matrix-axis { position:absolute; z-index:1; color:rgba(207,250,254,.38); font-size:.62rem; letter-spacing:.12em; text-transform:uppercase; }
-      .cinematic-matrix-axis-x { right:1rem; bottom:.5rem; }
-      .cinematic-matrix-axis-y { left:.5rem; top:50%; transform:rotate(-90deg) translateX(-50%); transform-origin:left top; }
-      .cinematic-matrix-orb { position:absolute; z-index:2; width:140px; min-height:100px; transform:translate(-50%,50%); border:1px solid; border-radius:24px; padding:.9rem; background:rgba(3,8,19,.74); backdrop-filter:blur(18px); color:white; text-align:left; box-shadow:0 18px 60px rgba(0,0,0,.28); }
-      .cinematic-matrix-orb span { display:block; color:rgba(103,232,249,.7); font-size:.65rem; letter-spacing:.16em; text-transform:uppercase; }
-      .cinematic-matrix-orb b { display:block; margin-top:.45rem; font-size:.9rem; }
-      .cinematic-matrix-orb small { display:block; margin-top:.45rem; color:rgba(207,250,254,.55); }
-      @media (max-width: 900px) { .cinematic-matrix-grid { grid-template-columns:1fr; } .cinematic-hero-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .cinematic-scene-section { padding:4rem 1rem; } .cinematic-topbar { padding:.8rem 1rem; } }
-    `}</style>
-  );
-}
-
 export default function DataVisualization() {
   const { dataset } = useInsightData();
   const { companyId, setCompanyId, company } = useSelectedCompany(dataset.companies);
@@ -735,7 +665,6 @@ export default function DataVisualization() {
 
   return (
     <main className="aurora-bg cinematic-page min-h-screen text-white">
-      <StyleInjector />
       <Sidebar />
       <section className="relative z-10 lg:ml-[210px]">
         <div className="cinematic-topbar">
