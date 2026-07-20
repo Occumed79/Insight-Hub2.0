@@ -66,82 +66,38 @@ import { jacobsConfig, baeConfig, alutiiqConfig, internationalSosConfig, hiiMiss
 import type { CompanyConfig } from "./types";
 import { resolveConfigCompanyId } from "./configIds";
 
+export type ConfigEntityType = "company" | "portfolio" | "dashboard" | "network" | "methodology" | "temporary";
+
+const CONFIG_ENTITY_TYPES: Record<string, ConfigEntityType> = {
+  "master-portfolio-intelligence": "portfolio",
+  "core-client-stats-dashboard": "dashboard",
+  "report-methodology-intelligence": "methodology",
+  "uploaded-pdf-fifth-intelligence": "temporary",
+  "network-expansion-intelligence": "network",
+  "multi-client-location-intelligence": "network",
+  "prospect-network-intelligence": "network",
+  "referral-demand-intelligence": "network",
+  "prospect-pipeline-intelligence": "network",
+  "perfect-coverage-prospects": "network",
+  "missing-federal-prospects": "network",
+  "network-gap-research-intelligence": "network",
+  "global-operational-sites-intelligence": "network",
+  "dba-carrier-network": "network",
+  "insurance-carrier-mapping": "network",
+  "v2x-dba-carrier-access": "network",
+  "amentum-claims-dba-intelligence": "network",
+};
+
+export function getConfigEntityType(companyId: string): ConfigEntityType {
+  return CONFIG_ENTITY_TYPES[resolveConfigCompanyId(companyId)] ?? "company";
+}
+
 const allConfigs: CompanyConfig[] = [
-  masterPortfolioIntelligenceConfig,
-  coreClientStatsDashboardConfig,
-  reportMethodologyIntelligenceConfig,
-  uploadedPdfFifthIntelligenceConfig,
-  networkExpansionIntelligenceConfig,
-  multiClientLocationIntelligenceConfig,
-  prospectNetworkIntelligenceConfig,
-  referralDemandIntelligenceConfig,
-  prospectPipelineIntelligenceConfig,
-  perfectCoverageProspectsConfig,
-  missingFederalProspectsConfig,
-  networkGapResearchIntelligenceConfig,
-  globalOperationalSitesIntelligenceConfig,
-  dbaCarrierNetworkConfig,
-  insuranceCarrierMappingConfig,
-  v2xDbaCarrierAccessConfig,
-  worldVisionConfig,
-  v2xConfig,
-  idsConfig,
-  kbrConfig,
-  paeAmentumConfig,
-  amentumClaimsDbaConfig,
-  s3InternationalConfig,
-  traceSystemsConfig,
-  weatherfordConfig,
-  valiantConfig,
-  peratonConfig,
-  caciConfig,
-  iapConfig,
-  constellisConfig,
-  parsonsConfig,
-  peckhamConfig,
-  qinetiqConfig,
-  sercoConfig,
-  magAerospaceConfig,
-  maximusFederalConfig,
-  northropGrummanConfig,
-  rheinmetallConfig,
-  rtxConfig,
-  saicConfig,
-  leidosConfig,
-  kongsbergConfig,
-  kapsuunConfig,
-  missionEssentialConfig,
-  sourceGroupConfig,
-  thalesConfig,
-  tecmotivConfig,
-  c3elConfig,
-  asrcFederalConfig,
-  sierraNevadaConfig,
-  skybridgeTacticalConfig,
-  sosiConfig,
-  freeportConfig,
-  leonardoConfig,
-  fluorConfig,
-  dynamicAviationConfig,
-  gditConfig,
-  clovehitchConfig,
-  versarConfig,
-  eccConfig,
-  jacobsConfig,
-  baeConfig,
-  alutiiqConfig,
-  internationalSosConfig,
-  hiiMissionTechConfig,
-  datapathConfig,
-  omniplexConfig,
-  ssiConfig,
-  platformAerospaceConfig,
+  masterPortfolioIntelligenceConfig, coreClientStatsDashboardConfig, reportMethodologyIntelligenceConfig, uploadedPdfFifthIntelligenceConfig, networkExpansionIntelligenceConfig, multiClientLocationIntelligenceConfig, prospectNetworkIntelligenceConfig, referralDemandIntelligenceConfig, prospectPipelineIntelligenceConfig, perfectCoverageProspectsConfig, missingFederalProspectsConfig, networkGapResearchIntelligenceConfig, globalOperationalSitesIntelligenceConfig, dbaCarrierNetworkConfig, insuranceCarrierMappingConfig, v2xDbaCarrierAccessConfig, worldVisionConfig, v2xConfig, idsConfig, kbrConfig, paeAmentumConfig, amentumClaimsDbaConfig, s3InternationalConfig, traceSystemsConfig, weatherfordConfig, valiantConfig, peratonConfig, caciConfig, iapConfig, constellisConfig, parsonsConfig, peckhamConfig, qinetiqConfig, sercoConfig, magAerospaceConfig, maximusFederalConfig, northropGrummanConfig, rheinmetallConfig, rtxConfig, saicConfig, leidosConfig, kongsbergConfig, kapsuunConfig, missionEssentialConfig, sourceGroupConfig, thalesConfig, tecmotivConfig, c3elConfig, asrcFederalConfig, sierraNevadaConfig, skybridgeTacticalConfig, sosiConfig, freeportConfig, leonardoConfig, fluorConfig, dynamicAviationConfig, gditConfig, clovehitchConfig, versarConfig, eccConfig, jacobsConfig, baeConfig, alutiiqConfig, internationalSosConfig, hiiMissionTechConfig, datapathConfig, omniplexConfig, ssiConfig, platformAerospaceConfig,
 ];
 
 const configMap = new Map<string, CompanyConfig>();
-for (const config of allConfigs) {
-  configMap.set(config.companyId, config);
-}
+for (const config of allConfigs) configMap.set(config.companyId, config);
 
 export function getCompanyConfig(companyId: string): CompanyConfig | undefined {
   return configMap.get(resolveConfigCompanyId(companyId));

@@ -1,3 +1,19 @@
+export type DataEntityType =
+  | "company"
+  | "portfolio"
+  | "dashboard"
+  | "network"
+  | "methodology"
+  | "temporary";
+
+export type DataValueStatus =
+  | "actual"
+  | "estimated"
+  | "modeled"
+  | "benchmark"
+  | "uploaded"
+  | "manual";
+
 export type Company = {
   id: string;
   name: string;
@@ -8,6 +24,7 @@ export type Company = {
   employeesAsOf: string;
   summary: string;
   tags: string[];
+  entityType?: DataEntityType;
 };
 
 export type SourceRecord = {
@@ -17,6 +34,8 @@ export type SourceRecord = {
   type: "SEC" | "Benchmark" | "Workbook" | "Manual" | "URL";
   url?: string;
   note: string;
+  collectedAt?: string;
+  effectiveDate?: string;
 };
 
 export type Metric = {
@@ -28,6 +47,10 @@ export type Metric = {
   category: "workforce" | "safety" | "financial" | "risk";
   trend?: number;
   sourceId?: string;
+  sourceIds?: string[];
+  effectiveDate?: string;
+  status?: DataValueStatus;
+  deduplicationKey?: string;
 };
 
 export type ProfileSection = {
@@ -62,6 +85,10 @@ export type LocationRecord = {
   placeName?: string;
   geocodeSource?: "manual" | "uploaded" | "osm" | "photon" | "google" | "mapbox" | "estimated";
   geocodeConfidence?: "exact" | "place" | "city" | "country" | "unknown";
+  sourceId?: string;
+  effectiveDate?: string;
+  status?: DataValueStatus;
+  deduplicationKey?: string;
 };
 
 export type Assumption = {
@@ -87,6 +114,25 @@ export type WorkbookStatus = {
   geographyRows: number;
   loaded: boolean;
   error?: string;
+};
+
+export type DataQualityIssue = {
+  code:
+    | "orphan-record"
+    | "missing-source"
+    | "invalid-coordinate"
+    | "empty-company-id";
+  severity: "warning" | "error";
+  layer?: string;
+  recordType: "company" | "profile" | "metric" | "location" | "source" | "report" | "intelligence";
+  recordId: string;
+  message: string;
+};
+
+export type DatasetDiagnostics = {
+  layers: Array<{ name: string; priority: number; records: number }>;
+  issues: DataQualityIssue[];
+  droppedRecords: number;
 };
 
 export type IntelligenceCategory =
@@ -192,4 +238,5 @@ export type InsightDataset = {
   assumptions: Assumption[];
   intelligence: CompanyIntelligence[];
   status: WorkbookStatus;
+  diagnostics?: DatasetDiagnostics;
 };

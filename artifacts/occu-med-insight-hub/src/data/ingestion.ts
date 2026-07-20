@@ -1,17 +1,18 @@
 import * as XLSX from "xlsx";
 import { workbookAssets } from "./assets";
-import { seedDataset } from "./seed";
 import type { Company, InsightDataset, LocationRecord, Metric, SourceRecord } from "./types";
 
 const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-const numberFrom = (value: unknown, fallback = 0) => {
+const numberFrom = (value: unknown): number | undefined => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
-    const parsed = Number(value.replace(/[$,]/g, ""));
-    return Number.isFinite(parsed) ? parsed : fallback;
+    const normalized = value.replace(/[$,]/g, "").trim();
+    if (!normalized) return undefined;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : undefined;
   }
-  return fallback;
+  return undefined;
 };
 
 async function readWorkbook(url: string) {
@@ -31,7 +32,8 @@ function normalizeProxyRows(rows: Record<string, unknown>[]) {
   const companies: Company[] = [];
   const metrics: Metric[] = [];
   const sources: SourceRecord[] = [];
-  rows.slice(0, 28).forEach((row) => {
+
+  rows.forEach((row) => {
     const name = String(row.Company || "").trim();
     if (!name) return;
     const id = slugify(name.replace(/, inc\.?/i, ""));
@@ -41,12 +43,24 @@ function normalizeProxyRows(rows: Record<string, unknown>[]) {
     const headcountSource = String(row.Headcount_source_url || "");
     const reserveSource = String(row.WC_reserve_source_url || "");
     const note = String(row.Notes || "Public workforce and workers' compensation proxy row from attached workbook.");
-    companies.push({ id, name, shortName: name.split(/[,(]/)[0].trim(), sector: id === "v2x" ? "Defense services, logistics, training, and mission support" : "Federal services and industrial operations", headquarters: id === "v2x" ? "McLean, Virginia" : "Public company / benchmark peer", employees, employeesAsOf: String(row.Employees_as_of || "Workbook source"), summary: note, tags: id === "v2x" ? ["Initial dataset", "Federal contractor", "WC reserve signal"] : ["Benchmark peer", "Proxy row"] });
     const sourceId = `${id}-proxy-source`;
+
+    companies.push({
+      id,
+      name,
+      shortName: name.split(/[,(]/)[0].trim(),
+      sector: id === "v2x" ? "Defense services, logistics, training, and mission support" : "Federal services and industrial operations",
+      headquarters: id === "v2x" ? "McLean, Virginia" : "Public company / benchmark peer",
+      employees: employees ?? 0,
+      employeesAsOf: String(row.Employees_as_of || "Workbook source"),
+      summary: note,
+      tags: id === "v2x" ? ["Initial dataset", "Federal contractor", "WC reserve signal"] : ["Benchmark peer", "Proxy row"],
+      entityType: "company",
+    });
     sources.push({ id: sourceId, companyId: id, label: `${name} proxy workbook row`, type: headcountSource || reserveSource ? "URL" : "Workbook", url: headcountSource || reserveSource || undefined, note });
-    metrics.push({ id: `${id}-employees`, companyId: id, label: "Employees", value: employees, unit: "count", category: "workforce", trend: 2.2, sourceId });
-    if (wcReserve > 0) metrics.push({ id: `${id}-wc-reserve`, companyId: id, label: "WC reserve / accrual", value: wcReserve, unit: "usd", category: "financial", trend: 3.1, sourceId });
-    if (wcProxy > 0) metrics.push({ id: `${id}-wc-proxy`, companyId: id, label: "Estimated annual WC proxy", value: wcProxy, unit: "usd", category: "financial", trend: 4.6, sourceId });
+    if (employees !== undefined) metrics.push({ id: `${id}-employees`, companyId: id, label: "Employees", value: employees, unit: "count", category: "workforce", sourceId, status: "uploaded" });
+    if (wcReserve !== undefined && wcReserve > 0) metrics.push({ id: `${id}-wc-reserve`, companyId: id, label: "WC reserve / accrual", value: wcReserve, unit: "usd", category: "financial", sourceId, status: "uploaded" });
+    if (wcProxy !== undefined && wcProxy > 0) metrics.push({ id: `${id}-wc-proxy`, companyId: id, label: "Estimated annual WC proxy", value: wcProxy, unit: "usd", category: "financial", sourceId, status: "estimated" });
   });
   return { companies, metrics, sources };
 }
@@ -78,7 +92,7 @@ const preciseCoordinateBook: Record<string, GeocodeHit> = {
   "kuwait international airport|kuwait": { coordinates: [47.955156, 29.220268], confidence: "place", source: "manual" },
   "camp buehring|kuwait": { coordinates: [47.420235, 29.699025], confidence: "place", source: "manual" },
   "camp buehring udairi|kuwait": { coordinates: [47.420235, 29.699025], confidence: "place", source: "manual" },
-  "camp patriot|kuwait": { coordinates: [-81.350225, -80.300001], confidence: "place", source: "manual" },
+  "camp patriot|kuwait": { coordinates: [48.121449, 29.044155], confidence: "place", source: "estimated" },
   "shuaiba sea port|kuwait": { coordinates: [48.121449, 29.044155], confidence: "place", source: "manual" },
   "isa air base|bahrain": { coordinates: [50.592636, 25.914427], confidence: "place", source: "manual" },
   "guantanamo bay|cuba": { coordinates: [-75.159326, 19.918556], confidence: "place", source: "manual" },
@@ -140,8 +154,6 @@ const preciseCoordinateBook: Record<string, GeocodeHit> = {
   "muwaffaq salti ab|jordan": { coordinates: [36.779415, 31.820508], confidence: "place", source: "manual" },
   "manda bay|kenya": { coordinates: [40.896473, -2.170203], confidence: "place", source: "manual" },
   "kwajalein atoll|marshall islands": { coordinates: [167.079554, 9.160464], confidence: "place", source: "manual" },
-  "agadez|niger": { coordinates: [7.990739, 16.972556], confidence: "place", source: "manual" },
-  "muscat|oman": { coordinates: [58.593813, 23.612363], confidence: "city", source: "manual" },
   "subic bay|philippines": { coordinates: [120.233980, 14.784979], confidence: "place", source: "manual" },
   "doha|qatar": { coordinates: [51.508181, 25.310881], confidence: "city", source: "manual" },
   "al udeid ab|qatar": { coordinates: [51.322184, 25.117317], confidence: "place", source: "manual" },
@@ -155,27 +167,7 @@ const preciseCoordinateBook: Record<string, GeocodeHit> = {
 };
 
 const countryCentroids: Record<string, [number, number]> = {
-  afghanistan: [67.71, 33.93],
-  albania: [20.16, 41.15],
-  australia: [133.78, -25.27],
-  bahamas: [-77.39, 25.03],
-  bahrain: [50.56, 26.07],
-  cuba: [-77.78, 21.52],
-  germany: [10.45, 51.17],
-  guam: [144.79, 13.44],
-  iraq: [43.68, 33.22],
-  italy: [12.57, 41.87],
-  japan: [138.25, 36.20],
-  korea: [127.77, 35.91],
-  kuwait: [47.48, 29.31],
-  philippines: [121.77, 12.88],
-  qatar: [51.18, 25.35],
-  "saudi arabia": [45.08, 23.89],
-  uae: [54.30, 24.35],
-  "united arab emirates": [54.30, 24.35],
-  "united kingdom": [-3.43, 55.38],
-  usa: [-98.58, 39.83],
-  "united states": [-98.58, 39.83],
+  afghanistan: [67.71, 33.93], albania: [20.16, 41.15], australia: [133.78, -25.27], bahamas: [-77.39, 25.03], bahrain: [50.56, 26.07], cuba: [-77.78, 21.52], germany: [10.45, 51.17], guam: [144.79, 13.44], iraq: [43.68, 33.22], italy: [12.57, 41.87], japan: [138.25, 36.20], korea: [127.77, 35.91], kuwait: [47.48, 29.31], philippines: [121.77, 12.88], qatar: [51.18, 25.35], "saudi arabia": [45.08, 23.89], uae: [54.30, 24.35], "united arab emirates": [54.30, 24.35], "united kingdom": [-3.43, 55.38], usa: [-98.58, 39.83], "united states": [-98.58, 39.83],
 };
 
 function resolveCoordinates(city: string, country: string): GeocodeHit {
@@ -212,10 +204,14 @@ function normalizeGeographyRows(rows: Record<string, unknown>[]) {
       geocodeSource: geocode.source,
       geocodeConfidence: geocode.confidence,
       coordinates: geocode.coordinates,
+      sourceId: "geography-workbook",
+      status: "uploaded",
     });
   });
   return locations;
 }
+
+const emptyDataset = (status: InsightDataset["status"]): InsightDataset => ({ companies: [], profiles: [], metrics: [], locations: [], sources: [], reports: [], assumptions: [], intelligence: [], status });
 
 export async function loadInsightDataset(): Promise<InsightDataset> {
   try {
@@ -226,17 +222,19 @@ export async function loadInsightDataset(): Promise<InsightDataset> {
     const geoRows = rowsFromSheet(geographyWorkbook, "Data");
     const normalized = normalizeProxyRows([...publicRows, ...privateRows]);
     const workbookLocations = normalizeGeographyRows(geoRows);
-    const companyMap = new Map(seedDataset.companies.map((company) => [company.id, company]));
-    normalized.companies.forEach((company) => companyMap.set(company.id, company));
-    const sourceMap = new Map(seedDataset.sources.map((source) => [source.id, source]));
-    normalized.sources.forEach((source) => sourceMap.set(source.id, source));
-    const metricMap = new Map(seedDataset.metrics.map((metric) => [metric.id, metric]));
-    normalized.metrics.forEach((metric) => metricMap.set(metric.id, metric));
-    const locations = workbookLocations.length > 0 ? workbookLocations.slice(0, 80) : seedDataset.locations;
-    metricMap.set("v2x-global-locations", { id: "v2x-global-locations", companyId: "v2x", label: "Mapped locations", value: locations.length, unit: "count", category: "risk", trend: 8.2, sourceId: "geography-workbook" });
-    return { ...seedDataset, companies: Array.from(companyMap.values()), sources: Array.from(sourceMap.values()), metrics: Array.from(metricMap.values()), locations, intelligence: [], status: { proxyRows: publicRows.length + privateRows.length, methodologyRows: methodologyRows.length, geographyRows: geoRows.length, loaded: true } };
+    const geographySource: SourceRecord = { id: "geography-workbook", companyId: "v2x", label: "V2X geographic workbook", type: "Workbook", note: "Uploaded geographic workbook rows where V2X is marked present." };
+    const metrics = [...normalized.metrics];
+    if (workbookLocations.length > 0) metrics.push({ id: "v2x-global-locations", companyId: "v2x", label: "Mapped locations", value: workbookLocations.length, unit: "count", category: "risk", sourceId: geographySource.id, status: "uploaded" });
+
+    return {
+      ...emptyDataset({ proxyRows: publicRows.length + privateRows.length, methodologyRows: methodologyRows.length, geographyRows: geoRows.length, loaded: true }),
+      companies: normalized.companies,
+      metrics,
+      locations: workbookLocations,
+      sources: [...normalized.sources, geographySource],
+    };
   } catch (error) {
-    return { ...seedDataset, intelligence: [], status: { proxyRows: 0, methodologyRows: 0, geographyRows: 0, loaded: false, error: error instanceof Error ? error.message : "Workbook parsing failed" } };
+    return emptyDataset({ proxyRows: 0, methodologyRows: 0, geographyRows: 0, loaded: false, error: error instanceof Error ? error.message : "Workbook parsing failed" });
   }
 }
 

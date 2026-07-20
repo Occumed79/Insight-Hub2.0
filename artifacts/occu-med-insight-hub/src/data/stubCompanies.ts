@@ -1,5 +1,5 @@
 import type { Company, CompanyProfile, Metric, SourceRecord } from "./types";
-import { getAllCompanyConfigs } from "../company-configs";
+import { getAllCompanyConfigs, getConfigEntityType } from "../company-configs";
 
 function configToCompany(config: ReturnType<typeof getAllCompanyConfigs>[number]): Company {
   return {
@@ -12,6 +12,7 @@ function configToCompany(config: ReturnType<typeof getAllCompanyConfigs>[number]
     employeesAsOf: config.employeesAsOf,
     summary: config.summary,
     tags: config.tags,
+    entityType: getConfigEntityType(config.companyId),
   };
 }
 
@@ -42,10 +43,7 @@ function configToProfile(config: ReturnType<typeof getAllCompanyConfigs>[number]
 }
 
 function configToMetrics(config: ReturnType<typeof getAllCompanyConfigs>[number]): Metric[] {
-  return (config.metricDefinitions || []).map((metric) => ({
-    ...metric,
-    companyId: config.companyId,
-  }));
+  return (config.metricDefinitions || []).map((metric) => ({ ...metric, companyId: config.companyId, status: "modeled" }));
 }
 
 function configToSource(config: ReturnType<typeof getAllCompanyConfigs>[number]): SourceRecord {
