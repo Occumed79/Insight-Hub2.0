@@ -45,43 +45,43 @@
 
 :root,
 .dark {
-  --background: 216 42% 3%;
-  --foreground: 190 42% 92%;
-  --border: 184 58% 16%;
-  --input: 184 58% 16%;
-  --ring: 178 72% 48%;
-  --card: 215 42% 6%;
-  --card-foreground: 190 42% 92%;
-  --card-border: 184 58% 18%;
-  --popover: 216 42% 5%;
-  --popover-foreground: 190 42% 92%;
-  --popover-border: 184 58% 18%;
-  --primary: 178 72% 48%;
-  --primary-foreground: 216 42% 3%;
-  --secondary: 190 55% 12%;
-  --secondary-foreground: 190 42% 92%;
-  --muted: 210 28% 12%;
-  --muted-foreground: 190 18% 62%;
-  --accent: 164 62% 16%;
-  --accent-foreground: 165 88% 86%;
+  --background: 240 38% 3%;
+  --foreground: 228 48% 96%;
+  --border: 258 35% 17%;
+  --input: 258 35% 17%;
+  --ring: 262 78% 74%;
+  --card: 244 39% 6%;
+  --card-foreground: 228 48% 96%;
+  --card-border: 258 35% 19%;
+  --popover: 244 39% 5%;
+  --popover-foreground: 228 48% 96%;
+  --popover-border: 258 35% 19%;
+  --primary: 262 78% 74%;
+  --primary-foreground: 244 39% 5%;
+  --secondary: 248 34% 13%;
+  --secondary-foreground: 228 48% 96%;
+  --muted: 238 25% 12%;
+  --muted-foreground: 226 17% 65%;
+  --accent: 278 52% 18%;
+  --accent-foreground: 273 88% 90%;
   --destructive: 0 62% 42%;
   --destructive-foreground: 0 0% 100%;
-  --sidebar: 218 50% 4%;
-  --sidebar-foreground: 190 42% 92%;
-  --sidebar-border: 184 58% 14%;
-  --sidebar-primary: 178 72% 48%;
-  --sidebar-primary-foreground: 216 42% 3%;
-  --sidebar-accent: 190 55% 12%;
-  --sidebar-accent-foreground: 190 42% 92%;
-  --sidebar-ring: 178 72% 48%;
-  --app-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --sidebar: 244 48% 4%;
+  --sidebar-foreground: 228 48% 96%;
+  --sidebar-border: 258 35% 15%;
+  --sidebar-primary: 262 78% 74%;
+  --sidebar-primary-foreground: 244 39% 4%;
+  --sidebar-accent: 248 34% 13%;
+  --sidebar-accent-foreground: 228 48% 96%;
+  --sidebar-ring: 262 78% 74%;
+  --app-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --radius: 1rem;
-  --chart-1: 178 72% 48%;
-  --chart-2: 158 64% 48%;
-  --chart-3: 190 92% 55%;
-  --chart-4: 251 55% 66%;
+  --chart-1: 262 78% 74%;
+  --chart-2: 190 92% 55%;
+  --chart-3: 158 64% 48%;
+  --chart-4: 314 62% 68%;
   --chart-5: 204 72% 52%;
 }
 
@@ -91,12 +91,14 @@
   }
 
   html {
-    background: #05070a;
+    background: #020108;
+    scroll-behavior: smooth;
   }
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
     min-height: 100vh;
+    text-rendering: optimizeLegibility;
   }
 
   button,
@@ -107,25 +109,29 @@
   }
 }
 
-/* Insight Hub 2.0 visual tokens — one source of truth for the dark glass system. */
+/* Insight Hub 2.0 visual tokens — one source of truth for premium dark Liquid Glass. */
 :root,
 .dark {
-  --surface-page: #030813;
-  --surface-page-deep: #03020e;
-  --surface-panel: rgba(7, 17, 29, 0.62);
-  --surface-panel-strong: rgba(4, 13, 26, 0.94);
-  --surface-panel-soft: rgba(255, 255, 255, 0.03);
-  --border-luminous: rgba(103, 232, 249, 0.16);
-  --border-luminous-strong: rgba(125, 211, 252, 0.22);
-  --text-luminous: rgba(236, 254, 255, 0.92);
-  --text-luminous-muted: rgba(207, 250, 254, 0.56);
-  --accent-cyan: #22d3ee;
-  --accent-cyan-soft: #67e8f9;
+  --surface-page: #04030b;
+  --surface-page-deep: #020108;
+  --surface-panel: rgba(10, 8, 24, 0.62);
+  --surface-panel-strong: rgba(8, 6, 19, 0.9);
+  --surface-panel-soft: rgba(255, 255, 255, 0.035);
+  --surface-panel-ink: rgba(3, 2, 10, 0.82);
+  --border-luminous: rgba(196, 181, 253, 0.17);
+  --border-luminous-strong: rgba(216, 180, 254, 0.25);
+  --text-luminous: rgba(248, 250, 252, 0.94);
+  --text-luminous-muted: rgba(226, 232, 240, 0.58);
+  --accent-cyan: #67e8f9;
+  --accent-cyan-soft: #a5f3fc;
   --accent-green: #34d399;
   --accent-violet: #a78bfa;
-  --glass-blur: 22px;
-  --glass-saturation: 1.2;
-  --glass-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 24px 80px rgba(0,0,0,0.28), 0 0 0 1px rgba(103,232,249,0.06);
+  --accent-plum: #d8b4fe;
+  --accent-orchid: #e879f9;
+  --accent-ice: #e0f2fe;
+  --glass-blur: 28px;
+  --glass-saturation: 1.35;
+  --glass-shadow: inset 0 1px 0 rgba(255,255,255,0.09), inset 0 -1px 0 rgba(255,255,255,0.025), 0 28px 90px rgba(0,0,0,0.42), 0 0 0 1px rgba(196,181,253,0.055);
   --cinema-bg: var(--surface-page);
   --cinema-panel: var(--surface-panel);
   --cinema-border: var(--border-luminous);
@@ -134,4 +140,5 @@
   --cinema-cyan: var(--accent-cyan);
   --cinema-green: var(--accent-green);
   --cinema-violet: var(--accent-violet);
+  --cinema-plum: var(--accent-plum);
 }
