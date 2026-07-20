@@ -10,41 +10,68 @@ This file controls the staged cleanup of Insight Hub 2.0. Cleanup must proceed t
 - **Phase 2 — proven garbage removal:** complete in PR #30.
 - **Phase 3 — canonical data spine:** complete in PR #31.
 - **Phase 4 — visualization validity:** complete in PR #32.
-- **Phase 5 — style consolidation:** implemented in PR #33.
-- **Phase 6 — shared-data security:** pending.
+- **Phase 5 — style consolidation:** complete in PR #33.
+- **Phase 6 — shared-data security:** implemented in the current pull request.
 
 ## Canonical data path
 
 `seed -> configuration registry -> uploaded workbooks -> curated dossiers -> uploaded report replacements -> live intelligence`
 
-## Phase 5 visual architecture
-
-The frontend now has one explicit style order:
+## Visual architecture
 
 `foundation.css -> Leaflet vendor CSS -> application.css`
 
-- `foundation.css` owns Tailwind integration, semantic theme values, typography, base elements, and the unified dark-glass token system.
-- `application.css` owns the aurora field, liquid-glass cards, landing page, map treatment, cinematic components, and Data Visualization page styles.
-- the five former patch files are removed;
-- the React-injected cinematic `<style>` block is removed;
-- broad CSS that hid arbitrary fixed-position widgets is removed;
-- old selectors that hid already-removed prototype components are removed;
-- broad utility matching is scoped beneath `.aurora-bg`;
-- CI now prevents the global import stack from growing beyond three layers and prevents component-injected style tags from returning.
+The current dark navy, luminous cyan/emerald/violet, aurora, liquid-glass, map, cinematic, motion, and reduced-motion language remains the protected presentation system.
 
-## Visual preservation rule
+## Phase 6 access model
 
-The consolidation preserves the existing dark navy palette, luminous cyan/emerald/violet accents, aurora depth, liquid-glass cards, landing logo sizing, Leaflet presentation, cinematic panels, motion behavior, and reduced-motion fallback. Phase 5 changes ownership and cascade structure rather than redesigning the interface.
+Insight Hub uses one shared workspace with two roles:
+
+- **Admin:** may change portal links, create/import/update/verify shared entity locations, run intelligence ingestion, create invitations, and manage user role/enabled status.
+- **User:** may sign in and use the shared read-only intelligence workspace but may not mutate shared records.
+
+The access model deliberately excludes organizations, employer accounts, multiple tenants, teams, departments, OAuth, SSO, public registration, password reset automation, and a complex permission matrix.
+
+## Phase 6 security controls
+
+- secure opaque session tokens stored as SHA-256 hashes in Postgres;
+- HTTP-only, secure-in-production, strict SameSite cookies;
+- scrypt password hashing with per-password random salts;
+- invite-only account creation with expiring, hashed, single-use invitation tokens;
+- automatic first-Admin bootstrap from server-only `AUTH_ADMIN_EMAIL` and `AUTH_ADMIN_PASSWORD` environment variables;
+- account disablement immediately revokes active sessions;
+- last-enabled-Admin protection prevents administrative lockout;
+- same-origin credential policy replaces unrestricted CORS;
+- successful security-sensitive operations write metadata-only audit events without logging passwords, invitation tokens, session tokens, or API keys;
+- CI audits the eight protected shared-write operations and rejects unrestricted CORS or weakened session-cookie settings.
+
+## Protected shared writes
+
+- portal-link changes;
+- entity discovery candidate persistence;
+- manual location creation;
+- location detail updates;
+- entity/location verification;
+- company-location text imports;
+- bulk manual location imports;
+- company intelligence ingestion.
+
+Read-only profile, chart, source-status, map, and public health endpoints remain available without forcing Insight Hub into an unnecessary full-SaaS access model.
+
+## Deployment requirement
+
+Set the following server-side environment variables before using protected writes:
+
+- `AUTH_ADMIN_EMAIL`
+- `AUTH_ADMIN_PASSWORD` — at least 12 characters
+- `AUTH_ADMIN_NAME` — optional
+- `PUBLIC_APP_URL` — recommended for generated invitation links
+
+Private provider credentials remain server-side only and must never use `VITE_` names.
 
 ## Keep: production-critical
 
-Production entrypoints, live routes, reachable components, API services, database schemas, migrations, Render configuration, company data, and uploaded source material remain protected.
-
-## Remaining phase
-
-### Phase 6: shared-data security
-
-Require authenticated, role-protected access for portal-link changes, entity verification, location imports, and intelligence ingestion.
+Production entrypoints, live routes, reachable components, API services, database schemas, Render configuration, company data, uploaded workbooks, reports, dossiers, and source material remain protected.
 
 ## Review rule
 
