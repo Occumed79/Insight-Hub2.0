@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
+import AccessPage from "@/pages/access";
 import DataProfiles from "@/pages/data-profiles";
 import DataVisualization from "@/pages/data-visualization";
 import QuantifiableData from "@/pages/quantifiable-data";
@@ -18,6 +19,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/access" component={AccessPage} />
       <Route path="/data-profiles" component={DataProfiles} />
       <Route path="/data-visualization" component={DataVisualization} />
       <Route path="/quantifiable-data" component={QuantifiableData} />
