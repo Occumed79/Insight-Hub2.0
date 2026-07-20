@@ -9,39 +9,38 @@ This file controls the staged cleanup of Insight Hub 2.0. Cleanup must proceed t
 - **Phase 1 — safety and inventory:** complete in PR #29.
 - **Phase 2 — proven garbage removal:** complete in PR #30.
 - **Phase 3 — canonical data spine:** complete in PR #31.
-- **Phase 4 — visualization validity:** implemented in PR #32.
-- **Phase 5 — style consolidation:** pending.
+- **Phase 4 — visualization validity:** complete in PR #32.
+- **Phase 5 — style consolidation:** implemented in the current pull request.
 - **Phase 6 — shared-data security:** pending.
 
 ## Canonical data path
 
 `seed -> configuration registry -> uploaded workbooks -> curated dossiers -> uploaded report replacements -> live intelligence`
 
-## Phase 4 visualization contract
+## Phase 5 visual architecture
 
-- incompatible units never share one chart axis;
-- missing or invalid values are not converted to zero;
-- raw dollar/hour values are normalized to the declared display scale;
-- single values and insufficient trends render as proof objects or warnings rather than exaggerated charts;
-- direct metric summaries are separated by unit;
-- modeled cost outputs are labeled modeled and no hard-coded future growth rates are manufactured;
-- matrix points are positioned from their actual X/Y values rather than array order;
-- matrices without explicit currency metadata use neutral source-unit labels instead of falsely claiming thousands or millions;
-- source, confidence, date, and status fields remain available to chart details and tooltips.
+The frontend now has one explicit style order:
+
+`foundation.css -> Leaflet vendor CSS -> application.css`
+
+- `foundation.css` owns Tailwind integration, semantic theme values, typography, base elements, and the unified dark-glass token system.
+- `application.css` owns the aurora field, liquid-glass cards, landing page, map treatment, cinematic components, and Data Visualization page styles.
+- the five former patch files are removed;
+- the React-injected cinematic `<style>` block is removed;
+- broad CSS that hid arbitrary fixed-position widgets is removed;
+- old selectors that hid already-removed prototype components are removed;
+- broad utility matching is scoped beneath `.aurora-bg`;
+- CI now prevents the global import stack from growing beyond three layers and prevents component-injected style tags from returning.
+
+## Visual preservation rule
+
+The consolidation preserves the existing dark navy palette, luminous cyan/emerald/violet accents, aurora depth, liquid-glass cards, landing logo sizing, Leaflet presentation, cinematic panels, motion behavior, and reduced-motion fallback. Phase 5 changes ownership and cascade structure rather than redesigning the interface.
 
 ## Keep: production-critical
 
-Production entrypoints, live routes, reachable components, API services, database schemas, migrations, Render configuration, and the current styling system remain protected.
+Production entrypoints, live routes, reachable components, API services, database schemas, migrations, Render configuration, company data, and uploaded source material remain protected.
 
-## Keep: source material
-
-Uploaded workbooks, reports, company dossier content, verified location imports, and source/provenance records remain preserved.
-
-## Remaining phases
-
-### Phase 5: style consolidation
-
-Replace global patch layers and component-injected CSS with one token system, one base layer, and scoped component styles while preserving the existing glassmorphic macOS Tahoe appearance.
+## Remaining phase
 
 ### Phase 6: shared-data security
 

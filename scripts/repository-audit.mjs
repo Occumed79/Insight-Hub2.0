@@ -107,6 +107,17 @@ function scanCoordinates(files) {
   return issues;
 }
 
+
+function countComponentInjectedStyles(allFiles) {
+  const matches = [];
+  for (const rel of allFiles.filter((f) => f.startsWith(`${FRONTEND_ROOT}/`) && /\.(tsx|jsx)$/.test(f))) {
+    let text;
+    try { text = fs.readFileSync(path.join(root, rel), 'utf8'); } catch { continue; }
+    if (/<style(?:\s|>)/.test(text)) matches.push(rel);
+  }
+  return matches;
+}
+
 function countCssLayers() {
   const entry = path.join(root, FRONTEND_ENTRY);
   if (!fs.existsSync(entry)) return [];
@@ -132,6 +143,7 @@ const unreachableFrontend = [...frontendFiles]
   .filter((f) => !/\.d\.ts$/.test(f))
   .sort();
 const cssLayers = countCssLayers();
+const componentInjectedStyles = countComponentInjectedStyles(files);
 const coordinateIssues = scanCoordinates(files);
 
 const appShells = [
@@ -163,6 +175,8 @@ const report = {
   appShells,
   globalCssLayerCount: cssLayers.length,
   globalCssLayers: cssLayers,
+  componentInjectedStyleCount: componentInjectedStyles.length,
+  componentInjectedStyles,
   invalidCoordinateCount: coordinateIssues.length,
   invalidCoordinates: coordinateIssues,
   knownArchitectureCandidateCount: knownArchitectureCandidates.length,
@@ -185,6 +199,7 @@ if (ciMode) {
       ['unreachableFrontendFiles', report.unreachableFrontendFiles],
       ['appShellCount', report.appShellCount],
       ['globalCssLayerCount', report.globalCssLayerCount],
+      ['componentInjectedStyleCount', report.componentInjectedStyleCount],
       ['invalidCoordinateCount', report.invalidCoordinateCount],
       ['knownArchitectureCandidateCount', report.knownArchitectureCandidateCount],
     ];
@@ -217,6 +232,7 @@ if (jsonMode) {
   console.log(`Frontend reachable/unreachable: ${report.reachableFrontendFiles}/${report.unreachableFrontendFiles}`);
   console.log(`Application shells: ${report.appShellCount}`);
   console.log(`Global CSS layers: ${report.globalCssLayerCount}`);
+  console.log(`Component-injected style files: ${report.componentInjectedStyleCount}`);
   console.log(`Invalid coordinate literals: ${report.invalidCoordinateCount}`);
   console.log(`Known architecture candidates: ${report.knownArchitectureCandidateCount}`);
   if (failures.length) {
