@@ -30,6 +30,7 @@ import { getCompanyConfigOrDefault } from "@/company-configs";
 import { resolveConfigCompanyId } from "@/company-configs/configIds";
 import { intelligenceFactsToCharts } from "@/data/intelligenceCharts";
 import { evaluateChartSuitability, type ChartSuitabilityResult } from "@/data/chartSuitability";
+import { buildMetricCharts, finiteChartNumber, formatChartTick, formatChartValue, prepareChartForRendering } from "@/data/visualizationValidity";
 import { categoryLabel } from "@/data/intelligenceActions";
 import type {
   ChartDefinition,
@@ -121,30 +122,7 @@ function buildProfileVisualizationModel({
 }
 
 function metricChartFromDefinitions(metrics: MetricDefinition[]): ChartDefinition[] {
-  if (!metrics.length) return [];
-  const categories = [...new Set(metrics.map((m) => m.category))];
-  return categories.map((category, index) => ({
-    id: `metric-proof-${category}-${index}`,
-    title: `${category.charAt(0).toUpperCase() + category.slice(1)} Metrics`,
-    subtitle: `Static profile metrics for ${category}. Single values render as proof objects instead of misleading charts.`,
-    type: "bar" as const,
-    xKey: "label",
-    data: metrics
-      .filter((m) => m.category === category)
-      .map((m) => ({
-        label: m.label,
-        value: m.value,
-        id: m.id,
-        unit: m.unit,
-        category: m.category,
-        sourceId: m.sourceId ?? "",
-        confidence: "static",
-        sourceType: "static",
-      })),
-    series: [{ dataKey: "value", name: "Value", color: PALETTE[index % PALETTE.length] }],
-    formatter: "plain",
-    headline: `${category} metric focus`,
-  }));
+  return buildMetricCharts(metrics, "metric-proof");
 }
 
 function enrichStaticChartSources(charts: ChartDefinition[], sources: any[]): ChartDefinition[] {
@@ -170,31 +148,17 @@ function enrichStaticChartSources(charts: ChartDefinition[], sources: any[]): Ch
 function useChartPanels(vizModel: ProfileVisualizationModel) {
   return useMemo(() => {
     const baseCharts = vizModel.charts.length ? vizModel.charts : metricChartFromDefinitions(vizModel.metrics);
-    const primaryCharts = enrichStaticChartSources(baseCharts, vizModel.sourceRecords);
+    const primaryCharts = enrichStaticChartSources(baseCharts, vizModel.sourceRecords).map((chart) => prepareChartForRendering(chart).chart);
     return { primaryCharts };
   }, [vizModel.charts, vizModel.metrics, vizModel.sourceRecords]);
 }
 
 function formatTickByType(formatter: TooltipFormat | undefined) {
-  if (formatter === "currencyM") return (v: number) => `$${v}M`;
-  if (formatter === "currencyK") return (v: number) => `$${v}K`;
-  if (formatter === "percent") return (v: number) => `${v}%`;
-  if (formatter === "hoursM") return (v: number) => `${v}M hrs`;
-  return undefined;
+  return formatChartTick(formatter);
 }
 
-function formatValue(value: number, formatter?: TooltipFormat, unit?: string) {
-  const formatted =
-    formatter === "currencyM"
-      ? `$${value.toLocaleString()}M`
-      : formatter === "currencyK"
-        ? `$${value.toLocaleString()}K`
-        : formatter === "percent"
-          ? `${value}%`
-          : formatter === "hoursM"
-            ? `${value.toLocaleString()}M hrs`
-            : value.toLocaleString();
-  return unit ? `${formatted} ${unit}` : formatted;
+function formatValue(value: unknown, formatter?: TooltipFormat, unit?: string) {
+  return formatChartValue(value, formatter, unit);
 }
 
 function sourceDomain(url?: string) {
@@ -275,7 +239,7 @@ function selectionFromDatum(chart: ChartDefinition, entry: Record<string, string
     category,
     seriesName,
     dataKey,
-    value: Number(entry[dataKey] ?? entry.value ?? entry.count ?? 0),
+    value: finiteChartNumber(entry[dataKey] ?? entry.value ?? entry.count) ?? Number.NaN,
     unit: entry.unit as string | undefined,
     formatter: chart.formatter,
     sourceId: entry.sourceId as string | undefined,
@@ -300,9 +264,9 @@ function ReplacementVisualization({
   onSelectDatum: (selection: ChartDatumSelection) => void;
 }) {
   const seriesKey = chart.series[0]?.dataKey ?? "value";
-  const sorted = [...chart.data].sort((a, b) => Number(b[seriesKey] ?? 0) - Number(a[seriesKey] ?? 0));
+  const sorted = [...chart.data].sort((a, b) => (finiteChartNumber(b[seriesKey]) ?? Number.NEGATIVE_INFINITY) - (finiteChartNumber(a[seriesKey]) ?? Number.NEGATIVE_INFINITY));
   const first = sorted[0] ?? chart.data[0];
-  const firstValue = Number(first?.[seriesKey] ?? first?.value ?? first?.count ?? 0);
+  const firstValue = finiteChartNumber(first?.[seriesKey] ?? first?.value ?? first?.count);
   const firstLabel = String(first?.[chart.xKey] ?? first?.label ?? first?.region ?? first?.stage ?? chart.title);
 
   if (suitability.representationType === "data-quality-warning" || suitability.representationType === "suppressed") {
@@ -389,6 +353,7 @@ function CinematicChart({
   height?: number;
 }) {
   const suitability = evaluateChartSuitability(chart);
+  chart = suitability.chart;
 
   if (suitability.representationType !== "chart") {
     return <ReplacementVisualization chart={chart} suitability={suitability} onSelectDatum={onSelectDatum} />;
@@ -618,20 +583,29 @@ function EvidenceLedger({ facts, sourceRecords }: { facts: IntelligenceFact[]; s
   );
 }
 
-function MatrixScene({ riskMatrix, opportunityMatrix, onSelectPoint }: { riskMatrix: RiskMatrixPoint[]; opportunityMatrix: OpportunityMatrixPoint[]; onSelectPoint: (point: any) => void }) {
-  const points = [...riskMatrix.map((p) => ({ ...p, kind: "Risk", x: p.risk ?? 0, y: p.workers ?? 0 })), ...opportunityMatrix.map((p) => ({ ...p, kind: "Opportunity", x: p.revenuePotential ?? 0, y: p.strategicValue ?? 0 }))];
-  if (!points.length) return <EmptyScene message="No risk/opportunity matrix points available." />;
+function MatrixPlane({ title, points, xKey, yKey, borderColor, onSelectPoint }: { title: string; points: any[]; xKey: string; yKey: string; borderColor: string; onSelectPoint: (point: any) => void }) {
+  const valid = points.filter((point) => finiteChartNumber(point[xKey]) !== undefined && finiteChartNumber(point[yKey]) !== undefined);
+  const xs = valid.map((point) => finiteChartNumber(point[xKey]) as number);
+  const ys = valid.map((point) => finiteChartNumber(point[yKey]) as number);
+  const minX = Math.min(...xs); const maxX = Math.max(...xs); const minY = Math.min(...ys); const maxY = Math.max(...ys);
+  const position = (value: number, min: number, max: number) => max === min ? 50 : 8 + ((value - min) / (max - min)) * 76;
   return (
-    <div className="cinematic-matrix-stage">
-      {points.slice(0, 14).map((point, index) => (
-        <button key={`${point.name}-${index}`} className="cinematic-matrix-orb" style={{ left: `${12 + (index % 7) * 12}%`, top: `${24 + Math.floor(index / 7) * 24}%`, borderColor: point.kind === "Risk" ? "rgba(251,113,133,.45)" : "rgba(52,211,153,.45)" }} onClick={() => onSelectPoint(point)}>
-          <span>{point.kind}</span>
-          <b>{point.name}</b>
-          <small>{point.kind === "Risk" ? `Risk ${point.risk ?? "N/A"}` : `Value ${point.revenuePotential ?? "N/A"}`}</small>
-        </button>
-      ))}
+    <div className="cinematic-matrix-plane">
+      <p className="cinematic-proof-kicker">{title}</p>
+      <span className="cinematic-matrix-axis cinematic-matrix-axis-x">Revenue / opportunity value →</span>
+      <span className="cinematic-matrix-axis cinematic-matrix-axis-y">Strength / risk →</span>
+      {valid.slice(0, 10).map((point) => {
+        const x = finiteChartNumber(point[xKey]) as number;
+        const y = finiteChartNumber(point[yKey]) as number;
+        return <button key={`${title}-${point.name}`} className="cinematic-matrix-orb" style={{ left: `${position(x, minX, maxX)}%`, bottom: `${position(y, minY, maxY)}%`, borderColor }} onClick={() => onSelectPoint(point)}><span>{title}</span><b>{point.name}</b><small>X {x.toLocaleString()} · Y {y.toLocaleString()}</small></button>;
+      })}
     </div>
   );
+}
+
+function MatrixScene({ riskMatrix, opportunityMatrix, onSelectPoint }: { riskMatrix: RiskMatrixPoint[]; opportunityMatrix: OpportunityMatrixPoint[]; onSelectPoint: (point: any) => void }) {
+  if (!riskMatrix.length && !opportunityMatrix.length) return <EmptyScene message="No risk/opportunity matrix points available." />;
+  return <div className="cinematic-matrix-grid"><MatrixPlane title="Risk" points={riskMatrix.map((point) => ({ ...point, kind: "Risk" }))} xKey="revenue" yKey="risk" borderColor="rgba(251,113,133,.45)" onSelectPoint={onSelectPoint} /><MatrixPlane title="Opportunity" points={opportunityMatrix.map((point) => ({ ...point, kind: "Opportunity" }))} xKey="revenuePotential" yKey="strategicValue" borderColor="rgba(52,211,153,.45)" onSelectPoint={onSelectPoint} /></div>;
 }
 
 function StyleInjector() {
@@ -689,13 +663,17 @@ function StyleInjector() {
       .cinematic-ledger-query { color:rgba(251,191,36,.68)!important; }
       .cinematic-ledger-item a { margin-top:.6rem; display:inline-flex; align-items:center; gap:.35rem; color:rgba(103,232,249,.8); font-size:.76rem; }
       .cinematic-ledger-empty { color:rgba(207,250,254,.42); font-size:.82rem; }
-      .cinematic-matrix-stage { position:relative; min-height:520px; border:1px solid rgba(103,232,249,.14); border-radius:32px; background:radial-gradient(circle at 50% 50%,rgba(34,211,238,.1),transparent 26rem),rgba(7,17,29,.54); overflow:hidden; }
-      .cinematic-matrix-stage::before { content:""; position:absolute; inset:0; background-image:linear-gradient(rgba(103,232,249,.08) 1px, transparent 1px),linear-gradient(90deg,rgba(103,232,249,.08) 1px,transparent 1px); background-size:56px 56px; mask-image:radial-gradient(circle,black,transparent 78%); }
-      .cinematic-matrix-orb { position:absolute; z-index:1; width:150px; min-height:110px; border:1px solid; border-radius:24px; padding:.9rem; background:rgba(3,8,19,.74); backdrop-filter:blur(18px); color:white; text-align:left; box-shadow:0 18px 60px rgba(0,0,0,.28); }
+      .cinematic-matrix-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+      .cinematic-matrix-plane { position:relative; min-height:520px; border:1px solid rgba(103,232,249,.14); border-radius:32px; background:radial-gradient(circle at 50% 50%,rgba(34,211,238,.1),transparent 26rem),rgba(7,17,29,.54); overflow:hidden; }
+      .cinematic-matrix-plane::before { content:""; position:absolute; inset:0; background-image:linear-gradient(rgba(103,232,249,.08) 1px, transparent 1px),linear-gradient(90deg,rgba(103,232,249,.08) 1px,transparent 1px); background-size:56px 56px; mask-image:radial-gradient(circle,black,transparent 78%); }
+      .cinematic-matrix-axis { position:absolute; z-index:1; color:rgba(207,250,254,.38); font-size:.62rem; letter-spacing:.12em; text-transform:uppercase; }
+      .cinematic-matrix-axis-x { right:1rem; bottom:.5rem; }
+      .cinematic-matrix-axis-y { left:.5rem; top:50%; transform:rotate(-90deg) translateX(-50%); transform-origin:left top; }
+      .cinematic-matrix-orb { position:absolute; z-index:2; width:140px; min-height:100px; transform:translate(-50%,50%); border:1px solid; border-radius:24px; padding:.9rem; background:rgba(3,8,19,.74); backdrop-filter:blur(18px); color:white; text-align:left; box-shadow:0 18px 60px rgba(0,0,0,.28); }
       .cinematic-matrix-orb span { display:block; color:rgba(103,232,249,.7); font-size:.65rem; letter-spacing:.16em; text-transform:uppercase; }
       .cinematic-matrix-orb b { display:block; margin-top:.45rem; font-size:.9rem; }
       .cinematic-matrix-orb small { display:block; margin-top:.45rem; color:rgba(207,250,254,.55); }
-      @media (max-width: 900px) { .cinematic-hero-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .cinematic-scene-section { padding:4rem 1rem; } .cinematic-topbar { padding:.8rem 1rem; } }
+      @media (max-width: 900px) { .cinematic-matrix-grid { grid-template-columns:1fr; } .cinematic-hero-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .cinematic-scene-section { padding:4rem 1rem; } .cinematic-topbar { padding:.8rem 1rem; } }
     `}</style>
   );
 }
@@ -740,7 +718,7 @@ export default function DataVisualization() {
   const handleSelectDatum = (selection: ChartDatumSelection) => { setActiveSelection(selection); setDetailDrawerOpen(true); };
   const handleSelectCategory = (category: string | null) => { setSelectedCategory((prev) => (prev === category ? null : category)); };
   const handleMatrixPoint = (point: any) => {
-    setActiveSelection({ chartId: "matrix", chartTitle: "Risk / Opportunity Matrix", chartType: "scatter", category: point.name, seriesName: point.kind ?? "Matrix point", dataKey: "name", value: Number(point.revenue ?? point.revenuePotential ?? point.risk ?? 0), note: `Risk: ${point.risk ?? "N/A"}, Workers: ${point.workers ?? "N/A"}`, payload: point });
+    setActiveSelection({ chartId: "matrix", chartTitle: "Risk / Opportunity Matrix", chartType: "scatter", category: point.name, seriesName: point.kind ?? "Matrix point", dataKey: "name", value: finiteChartNumber(point.revenue ?? point.revenuePotential ?? point.risk) ?? Number.NaN, note: `Risk: ${point.risk ?? "N/A"}, Workers: ${point.workers ?? "N/A"}`, payload: point });
     setDetailDrawerOpen(true);
   };
 
