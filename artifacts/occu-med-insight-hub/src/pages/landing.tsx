@@ -1,7 +1,8 @@
-import { ArrowUpRight, Building2, Globe2, Landmark, Layers, Network, Save, Settings2, Sigma, X } from "lucide-react";
+import { ArrowUpRight, Building2, Globe2, Landmark, Layers, Network, Save, Settings2, ShieldCheck, Sigma, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
+import { fetchAuthSession, type AuthUser } from "@/data/authApi";
 import { portalCards } from "@/data/portals";
 import type { PortalConfig, PortalLinkKey } from "@/data/portals";
 import occuMedLogoDataUrl from "@/assets/occu-med-logo-data";
@@ -91,24 +92,14 @@ function PortalCard({ portal, index }: { portal: PortalConfig; index: number }) 
             <ArrowUpRight className="h-4 w-4 text-cyan-100/35 transition group-hover:text-cyan-100" />
           </div>
           <p className="mt-3 text-sm leading-6 text-cyan-100/66 transition group-hover:text-cyan-50/78">{portal.description}</p>
-          {missingExternalUrl && (
-            <p className="mt-2 text-[10px] text-yellow-300/70">
-              Add this URL through Manage portal links.
-            </p>
-          )}
+          {missingExternalUrl && <p className="mt-2 text-[10px] text-yellow-300/70">Add this URL through Manage portal links.</p>}
         </div>
       </div>
     </motion.div>
   );
 
-  if (missingExternalUrl) {
-    return <div className="block h-full cursor-not-allowed" title="Add this URL through Manage portal links.">{body}</div>;
-  }
-
-  if (portal.mode === "external") {
-    return <a href={portal.href} target="_blank" rel="noreferrer" className="block h-full">{body}</a>;
-  }
-
+  if (missingExternalUrl) return <div className="block h-full cursor-not-allowed" title="Add this URL through Manage portal links.">{body}</div>;
+  if (portal.mode === "external") return <a href={portal.href} target="_blank" rel="noreferrer" className="block h-full">{body}</a>;
   return <Link href={portal.href} className="block h-full">{body}</Link>;
 }
 
@@ -125,15 +116,12 @@ function PortalLinkManager({ links, onClose, onSaved }: { links: PortalLinks; on
     try {
       const response = await fetch("/api/portal-links", {
         method: "PUT",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ links: draft }),
       });
       const data = await response.json() as { links?: PortalLinks; error?: string };
-
-      if (!response.ok || !data.links) {
-        throw new Error(data.error || "Unable to save portal links.");
-      }
-
+      if (!response.ok || !data.links) throw new Error(data.error || "Unable to save portal links.");
       onSaved(data.links);
       onClose();
     } catch (saveError) {
@@ -145,47 +133,16 @@ function PortalLinkManager({ links, onClose, onSaved }: { links: PortalLinks; on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#02030d]/80 px-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="portal-link-manager-title">
-      <motion.form
-        initial={{ opacity: 0, y: 18, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        onSubmit={saveLinks}
-        className="w-full max-w-2xl rounded-[28px] border border-cyan-100/20 bg-[#080b1b]/95 p-6 shadow-[0_0_80px_rgba(34,211,238,.16)]"
-      >
+      <motion.form initial={{ opacity: 0, y: 18, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} onSubmit={saveLinks} className="w-full max-w-2xl rounded-[28px] border border-cyan-100/20 bg-[#080b1b]/95 p-6 shadow-[0_0_80px_rgba(34,211,238,.16)]">
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 id="portal-link-manager-title" className="text-2xl font-bold text-white">Manage portal links</h2>
-            <p className="mt-2 text-sm leading-6 text-cyan-50/62">These links are saved to the shared database and apply to every user and device.</p>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-xl border border-white/10 p-2 text-cyan-50/70 transition hover:border-cyan-100/30 hover:text-white" aria-label="Close portal link manager">
-            <X className="h-5 w-5" />
-          </button>
+          <div><h2 id="portal-link-manager-title" className="text-2xl font-bold text-white">Manage portal links</h2><p className="mt-2 text-sm leading-6 text-cyan-50/62">These links are saved to the shared database and apply to every user and device. Admin access is required.</p></div>
+          <button type="button" onClick={onClose} className="rounded-xl border border-white/10 p-2 text-cyan-50/70 transition hover:border-cyan-100/30 hover:text-white" aria-label="Close portal link manager"><X className="h-5 w-5" /></button>
         </div>
-
         <div className="mt-6 space-y-5">
-          {(Object.keys(portalLinkLabels) as PortalLinkKey[]).map((key) => (
-            <label key={key} className="block">
-              <span className="mb-2 block text-sm font-semibold text-cyan-50/86">{portalLinkLabels[key]}</span>
-              <input
-                type="text"
-                inputMode="url"
-                value={draft[key]}
-                onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))}
-                placeholder="https://portal.example.com"
-                className="w-full rounded-2xl border border-cyan-100/16 bg-white/[0.055] px-4 py-3 text-sm text-white outline-none transition placeholder:text-cyan-50/28 focus:border-cyan-200/45 focus:bg-white/[0.075]"
-              />
-            </label>
-          ))}
+          {(Object.keys(portalLinkLabels) as PortalLinkKey[]).map((key) => <label key={key} className="block"><span className="mb-2 block text-sm font-semibold text-cyan-50/86">{portalLinkLabels[key]}</span><input type="text" inputMode="url" value={draft[key]} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} placeholder="https://portal.example.com" className="w-full rounded-2xl border border-cyan-100/16 bg-white/[0.055] px-4 py-3 text-sm text-white outline-none transition placeholder:text-cyan-50/28 focus:border-cyan-200/45 focus:bg-white/[0.075]" /></label>)}
         </div>
-
         {error && <p className="mt-4 rounded-xl border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">{error}</p>}
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-cyan-50/70 transition hover:border-white/20 hover:text-white">Cancel</button>
-          <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-cyan-200/35 bg-cyan-200/12 px-4 py-2.5 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-200/18 disabled:cursor-wait disabled:opacity-60">
-            <Save className="h-4 w-4" />
-            {saving ? "Saving..." : "Save links"}
-          </button>
-        </div>
+        <div className="mt-6 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-cyan-50/70 transition hover:border-white/20 hover:text-white">Cancel</button><button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-cyan-200/35 bg-cyan-200/12 px-4 py-2.5 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-200/18 disabled:cursor-wait disabled:opacity-60"><Save className="h-4 w-4" />{saving ? "Saving..." : "Save links"}</button></div>
       </motion.form>
     </div>
   );
@@ -194,69 +151,46 @@ function PortalLinkManager({ links, onClose, onSaved }: { links: PortalLinks; on
 export default function Landing() {
   const [portalLinks, setPortalLinks] = useState<PortalLinks>(initialPortalLinks);
   const [managerOpen, setManagerOpen] = useState(false);
+  const [authUser, setAuthUser] = useState<AuthUser | undefined>();
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadPortalLinks() {
-      try {
-        const response = await fetch("/api/portal-links");
-        if (!response.ok) return;
-
-        const data = await response.json() as { links?: PortalLinks };
-        if (!cancelled && data.links) setPortalLinks(data.links);
-      } catch {
-        // Legacy build-time links remain available if the API is temporarily unavailable.
-      }
+    async function loadLandingState() {
+      await Promise.allSettled([
+        fetch("/api/portal-links").then(async (response) => {
+          if (!response.ok) return;
+          const data = await response.json() as { links?: PortalLinks };
+          if (!cancelled && data.links) setPortalLinks(data.links);
+        }),
+        fetchAuthSession().then((session) => {
+          if (!cancelled) setAuthUser(session.authenticated ? session.user : undefined);
+        }),
+      ]);
     }
 
-    void loadPortalLinks();
+    void loadLandingState();
     return () => { cancelled = true; };
   }, []);
 
-  const resolvedPortalCards = portalCards.map((portal) => {
-    if (!portal.portalKey) return portal;
-    return { ...portal, href: portalLinks[portal.portalKey] };
-  });
+  const resolvedPortalCards = portalCards.map((portal) => portal.portalKey ? { ...portal, href: portalLinks[portal.portalKey] } : portal);
 
   return (
     <main className="aurora-bg aurora-home min-h-screen px-6 py-8 text-white">
       <div className="aurora-orbs" aria-hidden="true" />
       <section className="relative z-10 mx-auto max-w-[900px] pt-1">
-        <motion.div
-          initial={{ opacity: 0, y: 16, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-        >
-          <OccuMedWordmark />
-        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}><OccuMedWordmark /></motion.div>
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-2 text-center">
           <h1 className="text-6xl font-black tracking-[-0.065em] text-white drop-shadow-[0_0_34px_rgba(167,139,250,.26)] md:text-7xl">Insight Hub</h1>
-          <p className="mx-auto mt-5 max-w-[620px] text-base leading-8 text-cyan-50/72">
-            The strategic intelligence command center for Occu-Med — surfacing occupational health opportunities, quantifying workforce risk, and mapping the competitive landscape.
-          </p>
-          <button
-            type="button"
-            onClick={() => setManagerOpen(true)}
-            className="mt-5 inline-flex items-center gap-2 rounded-full border border-cyan-100/18 bg-white/[0.045] px-4 py-2 text-xs font-semibold tracking-wide text-cyan-50/76 transition hover:border-cyan-100/36 hover:bg-white/[0.075] hover:text-white"
-          >
-            <Settings2 className="h-4 w-4" />
-            Manage portal links
-          </button>
+          <p className="mx-auto mt-5 max-w-[620px] text-base leading-8 text-cyan-50/72">The strategic intelligence command center for Occu-Med — surfacing occupational health opportunities, quantifying workforce risk, and mapping the competitive landscape.</p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <Link href="/access" className="inline-flex items-center gap-2 rounded-full border border-cyan-100/18 bg-white/[0.045] px-4 py-2 text-xs font-semibold tracking-wide text-cyan-50/76 transition hover:border-cyan-100/36 hover:bg-white/[0.075] hover:text-white"><ShieldCheck className="h-4 w-4" />{authUser ? `${authUser.displayName} · ${authUser.role}` : "Secure access"}</Link>
+            <button type="button" onClick={() => authUser?.role === "admin" ? setManagerOpen(true) : window.location.assign(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/access`)} className="inline-flex items-center gap-2 rounded-full border border-cyan-100/18 bg-white/[0.045] px-4 py-2 text-xs font-semibold tracking-wide text-cyan-50/76 transition hover:border-cyan-100/36 hover:bg-white/[0.075] hover:text-white"><Settings2 className="h-4 w-4" />{authUser?.role === "admin" ? "Manage portal links" : "Admin sign in"}</button>
+          </div>
         </motion.div>
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {resolvedPortalCards.map((portal, index) => (
-            <PortalCard key={portal.title} portal={portal} index={index} />
-          ))}
-        </div>
+        <div className="mt-10 grid gap-5 md:grid-cols-3">{resolvedPortalCards.map((portal, index) => <PortalCard key={portal.title} portal={portal} index={index} />)}</div>
       </section>
-
-      {managerOpen && (
-        <PortalLinkManager
-          links={portalLinks}
-          onClose={() => setManagerOpen(false)}
-          onSaved={setPortalLinks}
-        />
-      )}
+      {managerOpen && authUser?.role === "admin" && <PortalLinkManager links={portalLinks} onClose={() => setManagerOpen(false)} onSaved={setPortalLinks} />}
     </main>
   );
 }
