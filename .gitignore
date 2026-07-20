@@ -10,12 +10,11 @@ node_modules/
 *.env
 
 # Build outputs
-artifacts/occu-med-insight-hub/dist/
-artifacts/mockup-sandbox/dist/
-artifacts/api-server/dist/
+**/dist/
 
-# TypeScript build info
+# TypeScript generated output
 *.tsbuildinfo
+*.d.ts.map
 
 # Editor/OS
 .DS_Store

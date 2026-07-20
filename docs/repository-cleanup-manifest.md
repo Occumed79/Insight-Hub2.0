@@ -2,36 +2,22 @@
 
 ## Purpose
 
-This file is the controlling manifest for the staged cleanup of Insight Hub 2.0. It prevents broad deletion or visual rewrites before the production application has enough automated protection.
+This file controls the staged cleanup of Insight Hub 2.0. Cleanup must proceed through isolated pull requests, preserve production behavior, and lower—never silently raise—the repository integrity baseline.
 
-The cleanup must proceed through isolated pull requests. A later phase may reduce any baseline maximum, but it must not raise one without a written explanation in the pull request.
+## Phase status
 
-## Phase 1: safety and inventory
-
-Status: **in progress in this pull request**
-
-Changes allowed:
-
-- repository inventory and reachability reporting;
-- build, typecheck, and repository-integrity checks;
-- documentation of keep, quarantine, and deletion candidates;
-- no runtime visual changes;
-- no production data migration;
-- no removal of existing application files.
-
-Acceptance criteria:
-
-- `pnpm run audit:repository` runs without dependencies beyond Node;
-- pull requests run the repository audit before typecheck and build;
-- the current structural debt is captured as a baseline;
-- CI fails when structural debt increases;
-- the working production entrypoints remain present.
+- **Phase 1 — safety and inventory:** complete in PR #29.
+- **Phase 2 — proven garbage removal:** implemented in the current pull request.
+- **Phase 3 — canonical data spine:** pending.
+- **Phase 4 — visualization validity:** pending.
+- **Phase 5 — style consolidation:** pending.
+- **Phase 6 — shared-data security:** pending.
 
 ## Classification
 
 ### Keep: production-critical
 
-These files or areas are part of the deployed application and must not be removed without a replacement and route/build verification.
+These areas require route, import, replacement, and build verification before removal:
 
 - `artifacts/occu-med-insight-hub/src/main.tsx`
 - `artifacts/occu-med-insight-hub/src/App.tsx`
@@ -45,61 +31,45 @@ These files or areas are part of the deployed application and must not be remove
 - `render.yaml`
 - `.github/workflows/build-check.yml`
 
-These areas can still contain defects or unused files. “Keep” means they require import, route, or replacement analysis before deletion.
-
 ### Keep: source material
 
-These are not necessarily runtime architecture, but they contain source information that must be preserved until it has been normalized into the canonical data system.
+Preserve uploaded workbooks, reports, company dossier content, verified location imports, and source/provenance records until their information exists in the canonical data spine.
 
-- uploaded workbooks and reports;
-- company dossier source content;
-- verified location records and import source files;
-- data-source notes and provenance records.
+### Removed in Phase 2
 
-Source material must not be deleted merely because its current loader is being replaced.
-
-### Quarantine candidates
-
-These should be moved out of the production workspace or isolated in a later pull request after build and route checks prove they are not required.
-
-- `artifacts/mockup-sandbox/`
-- root `app/page.tsx`
-- pasted implementation-prompt and historical instruction files in `attached_assets/`
-- unused generated UI wrappers;
-- unreachable frontend pages and panels;
-- duplicate company configuration files;
-- the alternate Data Visualization feed/adapter architecture if the live page does not consume it.
-
-### Delete candidates
-
-These can be deleted in Phase 2 after the cleanup branch proves the build regenerates anything required.
-
+- the orphan root `app/page.tsx` shell;
+- the separate `artifacts/mockup-sandbox/` application and duplicate UI library;
 - committed `dist/` declaration output;
 - committed `*.tsbuildinfo` files;
 - committed declaration source maps;
-- stale generated API output that is regenerated from the API specification;
-- exact duplicate files whose surviving canonical copy is verified;
-- temporary verification output and generated reports.
+- pasted implementation-prompt text files in `attached_assets/`;
+- the stale mockup workspace importer and build exclusions.
+
+### Still quarantined for later verification
+
+- unused generated UI wrappers;
+- unreachable frontend pages and panels;
+- duplicate company configuration files;
+- the alternate Data Visualization feed/adapter architecture.
 
 ### Do not delete yet
 
-- any company dossier or workbook containing information not represented elsewhere;
+- any company dossier or workbook containing unique information;
 - any route registered by the production API;
 - any component reachable from the production frontend entrypoint;
-- any database schema or migration required by deployed data;
-- any CSS rule until its effect has been transferred to the consolidated style system.
+- any deployed database schema or migration;
+- any CSS rule before its visual effect is transferred to the consolidated style system.
 
-## Planned cleanup pull requests
+## Phase 2 acceptance criteria
 
-### Phase 2: proven garbage removal
+- one application shell remains;
+- no committed generated artifacts remain;
+- no exact duplicate file groups remain;
+- workspace configuration references only the two production applications;
+- GitHub Actions passes the repository audit, TypeScript typecheck, and production build;
+- no production data, routes, visual behavior, or CSS are changed.
 
-- remove committed build artifacts;
-- remove the orphan root application shell;
-- remove the mockup sandbox from the production workspace;
-- remove prompt dumps and temporary files from the code search surface;
-- remove unreachable UI wrappers only after import verification;
-- update workspace configuration, lockfile, and ignore rules;
-- lower the repository baseline.
+## Remaining phases
 
 ### Phase 3: canonical data spine
 
@@ -107,20 +77,15 @@ Create one path:
 
 `source record -> normalized fact -> validated metric/location -> company profile -> visualization`
 
-Required fields include source identity, company identity, unit, effective date, confidence, actual/estimated/modeled status, and a stable deduplication key.
+Every fact must carry source identity, company identity, unit, effective date, confidence, actual/estimated/modeled status, and a stable deduplication key.
 
 ### Phase 4: visualization validity
 
-- reject mixed-unit charts;
-- remove hard-coded projections not backed by a named assumption;
-- preserve missing values instead of replacing them with zero or one;
-- position matrix points from actual data values;
-- validate currency scaling and coordinates;
-- expose provenance and status in chart details.
+Reject mixed-unit charts, remove unsupported hard-coded projections, preserve missing values, position matrix points from real values, validate currency scaling and coordinates, and expose provenance/status in chart details.
 
 ### Phase 5: style consolidation
 
-Replace global patch layers and component-injected CSS with one token system, one base layer, and scoped component styles.
+Replace global patch layers and component-injected CSS with one token system, one base layer, and scoped component styles while preserving the existing glassmorphic macOS Tahoe appearance.
 
 ### Phase 6: shared-data security
 
@@ -128,10 +93,4 @@ Require authenticated, role-protected access for portal-link changes, entity ver
 
 ## Review rule
 
-A cleanup pull request must state:
-
-1. which manifest items it changes;
-2. which files are removed or replaced;
-3. how the production build and routes were validated;
-4. how the repository baseline changed;
-5. whether any data or visual behavior changed.
+Every cleanup pull request must state what it removes, how production behavior was validated, how the baseline changed, and whether data or visual behavior changed.

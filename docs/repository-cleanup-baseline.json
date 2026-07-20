@@ -1,15 +1,15 @@
 {
-  "description": "Phase 1 structural-debt ceiling. Values may be lowered by cleanup PRs but must not be increased without an explicit review explanation.",
+  "description": "Phase 2 structural-debt ceiling after removing proven garbage. Values may be lowered by later cleanup PRs but must not be increased without an explicit review explanation.",
   "maximums": {
-    "totalFiles": 381,
-    "duplicateGroups": 52,
-    "duplicateFiles": 104,
-    "generatedArtifactCount": 23,
+    "totalFiles": 287,
+    "duplicateGroups": 0,
+    "duplicateFiles": 0,
+    "generatedArtifactCount": 0,
     "unreachableFrontendFiles": 66,
-    "appShellCount": 3,
+    "appShellCount": 1,
     "globalCssLayerCount": 6,
     "invalidCoordinateCount": 0,
-    "knownArchitectureCandidateCount": 5
+    "knownArchitectureCandidateCount": 3
   },
   "requiredFiles": [
     "package.json",
@@ -19,5 +19,13 @@
     "artifacts/occu-med-insight-hub/src/App.tsx",
     "artifacts/api-server/src/index.ts",
     "lib/db/src/schema/index.ts"
+  ],
+  "forbiddenNewPatterns": [
+    "(^|/)dist/",
+    "\\.tsbuildinfo$",
+    "\\.d\\.ts\\.map$",
+    "^app/page\\.tsx$",
+    "^artifacts/mockup-sandbox/",
+    "^attached_assets/Pasted-.*\\.txt$"
   ]
 }

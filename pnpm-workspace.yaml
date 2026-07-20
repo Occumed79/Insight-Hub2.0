@@ -35,7 +35,8 @@ minimumReleaseAgeExclude:
   - stripe-replit-sync
 
 packages:
-  - artifacts/*
+  - artifacts/api-server
+  - artifacts/occu-med-insight-hub
   - lib/*
   - lib/integrations/*
   - scripts
