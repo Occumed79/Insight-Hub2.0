@@ -1,0 +1,25 @@
+name: Phase 5 Runner Probe
+
+on:
+  push:
+    branches:
+      - agent/phase-5-style-consolidation
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase-5-style-consolidation
+      - run: |
+          echo "Phase 5 runner operational" > phase5-runner-probe.txt
+          rm .github/workflows/phase5-runner-probe.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add phase5-runner-probe.txt .github/workflows/phase5-runner-probe.yml
+          git commit -m "Confirm Phase 5 branch runner"
+          git push origin HEAD:agent/phase-5-style-consolidation
