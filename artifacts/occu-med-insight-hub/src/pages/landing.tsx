@@ -14,7 +14,7 @@ const portalImageMap: Record<PortalConfig["imageKind"], string> = {
   geo: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80",
   entity: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80",
   discovery: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80",
-  federal: "https://images.unsplash.com/photo-1446776877081-d282a0f896e2e?auto=format&fit=crop&w=1200&q=80",
+  federal: "https://images.unsplash.com/photo-1446776877081-d282a0f896e2?auto=format&fit=crop&w=1200&q=80",
 };
 
 type PortalLinks = Record<PortalLinkKey, string>;
