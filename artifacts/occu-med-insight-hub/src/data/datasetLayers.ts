@@ -17,6 +17,18 @@ import { visualCompanies, visualLocations, visualMetrics, visualProfiles, visual
 import { uploadedReportCompanies, uploadedReportLocations, uploadedReportMetrics, uploadedReportProfiles, uploadedReportReports, uploadedReportSources } from "./uploadedReportDossiers";
 import { getStubCompanies, getStubMetrics, getStubProfiles, getStubSources } from "./stubCompanies";
 
+const seedLayer: InsightDatasetLayer = { name: "seed", priority: 0, data: seedDataset };
+const configurationLayer: InsightDatasetLayer = {
+  name: "configuration-registry",
+  priority: 10,
+  data: {
+    companies: getStubCompanies(),
+    profiles: getStubProfiles(),
+    metrics: getStubMetrics(),
+    sources: getStubSources(),
+  },
+};
+
 const curatedDossierLayers: InsightDatasetLayer[] = [
   { name: "v2x-visual-dossier", priority: 30, data: { metrics: v2xVisualMetrics, locations: v2xVisualLocations, sources: v2xVisualSources, reports: v2xVisualReports } },
   { name: "core-visual-dossiers", priority: 31, data: { companies: visualCompanies, profiles: visualProfiles, metrics: visualMetrics, locations: visualLocations, sources: visualSources, reports: visualReports } },
@@ -46,34 +58,9 @@ const curatedDossierLayers: InsightDatasetLayer[] = [
   },
 ];
 
-const staticLayers: InsightDatasetLayer[] = [
-  { name: "seed", priority: 0, data: seedDataset },
-  {
-    name: "configuration-registry",
-    priority: 10,
-    data: {
-      companies: getStubCompanies(),
-      profiles: getStubProfiles(),
-      metrics: getStubMetrics(),
-      sources: getStubSources(),
-    },
-  },
-  ...curatedDossierLayers,
-];
-
 export function buildCanonicalDataset(workbookDataset?: InsightDataset): InsightDataset {
-  const layers = workbookDataset
-    ? [...staticLayers, { name: "uploaded-workbooks", priority: 20, data: workbookDataset }, ...curatedDossierLayers.filter(() => false)]
-    : staticLayers;
-
-  if (workbookDataset) {
-    return assembleCanonicalDataset([
-      staticLayers[0],
-      staticLayers[1],
-      { name: "uploaded-workbooks", priority: 20, data: workbookDataset },
-      ...curatedDossierLayers,
-    ]);
-  }
-
-  return assembleCanonicalDataset(layers);
+  const workbookLayer: InsightDatasetLayer[] = workbookDataset
+    ? [{ name: "uploaded-workbooks", priority: 20, data: workbookDataset }]
+    : [];
+  return assembleCanonicalDataset([seedLayer, configurationLayer, ...workbookLayer, ...curatedDossierLayers]);
 }
