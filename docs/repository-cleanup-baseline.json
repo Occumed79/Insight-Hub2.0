@@ -1,7 +1,7 @@
 {
-  "description": "Phase 5 structural-debt ceiling after consolidating the visual system. Values may be lowered by later cleanup PRs but must not be increased without an explicit review explanation.",
+  "description": "Phase 6 structural and security ceiling after protecting shared-data writes. Values may be lowered by later cleanup PRs but must not be increased without an explicit review explanation.",
   "maximums": {
-    "totalFiles": 286,
+    "totalFiles": 291,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
@@ -10,7 +10,8 @@
     "globalCssLayerCount": 3,
     "invalidCoordinateCount": 0,
     "knownArchitectureCandidateCount": 3,
-    "componentInjectedStyleCount": 0
+    "componentInjectedStyleCount": 0,
+    "securityGuardIssueCount": 0
   },
   "requiredFiles": [
     "package.json",
@@ -21,7 +22,12 @@
     "artifacts/api-server/src/index.ts",
     "lib/db/src/schema/index.ts",
     "artifacts/occu-med-insight-hub/src/styles/foundation.css",
-    "artifacts/occu-med-insight-hub/src/styles/application.css"
+    "artifacts/occu-med-insight-hub/src/styles/application.css",
+    "artifacts/api-server/src/lib/auth.ts",
+    "artifacts/api-server/src/routes/auth.ts",
+    "artifacts/occu-med-insight-hub/src/data/authApi.ts",
+    "artifacts/occu-med-insight-hub/src/pages/access.tsx",
+    "artifacts/api-server/.env.example"
   ],
   "forbiddenNewPatterns": [
     "(^|/)dist/",
