@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 export type CinematicStat = {
   label: string;
