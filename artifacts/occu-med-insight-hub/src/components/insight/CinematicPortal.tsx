@@ -146,7 +146,7 @@ export function CostAperture({
       {rings.map((ring, index) => {
         const degrees = Math.min(359.5, ring.value / safeTotal * 360);
         return (
-          <div key={ring.label} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full p-[2px] shadow-[0_0_60px_rgba(139,92,246,.12)]" style={{ width: ring.size, height: ring.size, background: `conic-gradient(from -42deg, ${ring.color} 0deg ${degrees}deg, rgba(255,255,255,.045) ${degrees}deg 360deg)`, animation: `${index % 2 ? "spinReverse" : "spin"} ${30 + index * 8}s linear infinite` }}>
+          <div key={ring.label} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full p-[2px] shadow-[0_0_60px_rgba(139,92,246,.12)]" style={{ width: ring.size, height: ring.size, background: `conic-gradient(from -42deg, ${ring.color} 0deg ${degrees}deg, rgba(255,255,255,.045) ${degrees}deg 360deg)`, animation: `spin ${30 + index * 8}s linear infinite ${index % 2 ? "reverse" : "normal"}` }}>
             <div className="h-full w-full rounded-full border border-white/7 bg-[rgba(5,3,14,.86)] backdrop-blur-3xl" />
           </div>
         );
