@@ -1,12 +1,13 @@
 name: Build Check
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
-
-permissions:
-  contents: write
+  workflow_dispatch:
 
 jobs:
   typecheck-and-build:
@@ -16,109 +17,8 @@ jobs:
       NODE_ENV: test
       BASE_PATH: /
     steps:
-      - name: Checkout branch
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: agent/internal-cinematic-visual-upgrade
-
-      - name: Apply the Data Visualization hero polish
-        run: |
-          python <<'PY'
-          from pathlib import Path
-
-          path = Path('artifacts/occu-med-insight-hub/src/pages/data-visualization.tsx')
-          text = path.read_text()
-
-          old_import = 'import { LuminousChartTooltip } from "@/components/insight/LuminousChartTooltip";\n'
-          aperture_import = 'import { EvidenceAperture } from "@/components/insight/CinematicPortal";\n'
-          if aperture_import not in text:
-              if old_import not in text:
-                  raise SystemExit('Missing Data Visualization import anchor')
-              text = text.replace(old_import, old_import + aperture_import, 1)
-
-          old_hero = '''        <section className="cinematic-hero-section">
-          <motion.div className="cinematic-hero-content" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
-            <p className="cinematic-hero-eyebrow">Source-aware visualization engine</p>
-            <h1 className="cinematic-hero-title">Cinematic intelligence without fake charts.</h1>
-            <p className="cinematic-hero-subtitle">
-              {company?.name ?? resolvedCompanyId} is shown through validated charts, proof objects, source ledgers, and data-quality guardrails. Single-value bars, unknown-region bars, and fake trends are suppressed.
-            </p>
-            <div className="cinematic-hero-metrics">
-              {[
-                [liveFacts.length, "live facts"],
-                [verifiedFacts.length, "verified"],
-                [searchDerivedFacts.length, "search-derived"],
-                [sourceLeads.length, "source leads"],
-                [sources.length, "static sources"],
-                [invalidCharts.length, "chart guardrails"],
-              ].map(([value, label]) => (
-                <div key={label as string} className="cinematic-hero-metric"><span className="cinematic-hero-metric-value">{value}</span><span className="cinematic-hero-metric-label">{label}</span></div>
-              ))}
-            </div>
-            <div className="cinematic-evidence-statement">
-              Live ingestion found {liveFacts.length} source-backed facts from {providerCount} provider/source type{providerCount === 1 ? "" : "s"}. {sourceLeads.length} item{sourceLeads.length === 1 ? "" : "s"} require manual review. {verifiedFacts.length === 0 && searchDerivedFacts.length > 0 ? "Data is source-led, not fully verified." : "Verified records are separated from search-derived evidence."}
-            </div>
-          </motion.div>
-        </section>'''
-
-          new_hero = '''        <section className="cinematic-hero-section">
-          <motion.div
-            className="cinematic-hero-content grid items-center gap-12 xl:grid-cols-[minmax(0,1.05fr)_minmax(430px,.95fr)]"
-            style={{ maxWidth: 1380, textAlign: "left" }}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div>
-              <p className="cinematic-hero-eyebrow">Source-aware visualization engine</p>
-              <h1 className="cinematic-hero-title">Intelligence that changes shape with the evidence.</h1>
-              <p className="cinematic-hero-subtitle" style={{ marginLeft: 0, marginRight: 0 }}>
-                {company?.name ?? resolvedCompanyId} is revealed through validated charts, proof objects, spatial matrices, source ledgers, and explicit data-quality guardrails. The visual system expands only when the evidence earns it.
-              </p>
-              <div className="cinematic-hero-metrics">
-                {[
-                  [liveFacts.length, "live facts"],
-                  [verifiedFacts.length, "verified"],
-                  [searchDerivedFacts.length, "search-derived"],
-                  [sourceLeads.length, "source leads"],
-                  [sources.length, "static sources"],
-                  [invalidCharts.length, "chart guardrails"],
-                ].map(([value, label]) => (
-                  <div key={label as string} className="cinematic-hero-metric"><span className="cinematic-hero-metric-value">{value}</span><span className="cinematic-hero-metric-label">{label}</span></div>
-                ))}
-              </div>
-              <div className="cinematic-evidence-statement" style={{ marginLeft: 0, marginRight: 0 }}>
-                {liveFacts.length} source-backed facts are distributed across {providerCount} provider/source type{providerCount === 1 ? "" : "s"}. {sourceLeads.length} item{sourceLeads.length === 1 ? "" : "s"} require manual review. {verifiedFacts.length === 0 && searchDerivedFacts.length > 0 ? "This profile is source-led, not fully verified." : "Verified records remain visually separate from search-derived evidence."}
-              </div>
-            </div>
-            <EvidenceAperture
-              centerLabel="Visual evidence model"
-              centerValue={company?.shortName ?? resolvedCompanyId}
-              centerNote={`${liveFacts.length} live facts across ${providerCount} provider/source type${providerCount === 1 ? "" : "s"}, with ${invalidCharts.length} active chart guardrail${invalidCharts.length === 1 ? "" : "s"}.`}
-              segments={[
-                { label: "Verified", value: verifiedFacts.length, color: "#34d399" },
-                { label: "Search-derived", value: searchDerivedFacts.length, color: "#fbbf24" },
-                { label: "Source leads", value: sourceLeads.length, color: "#94a3b8" },
-                { label: "Static sources", value: sources.length, color: "#a78bfa" },
-              ]}
-            />
-          </motion.div>
-        </section>'''
-
-          if old_hero in text:
-              text = text.replace(old_hero, new_hero, 1)
-          elif 'Intelligence that changes shape with the evidence.' not in text:
-              raise SystemExit('Missing Data Visualization hero anchor')
-
-          path.write_text(text)
-          PY
-
-      - name: Remove temporary workflow and restore Build Check
-        run: |
-          git rm -f .github/workflows/internal-visualization-hero-finalizer.yml || true
-          git fetch origin main
-          git checkout origin/main -- .github/workflows/build-check.yml
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -143,12 +43,3 @@ jobs:
 
       - name: Build
         run: pnpm run build
-
-      - name: Commit validated final tree
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add artifacts/occu-med-insight-hub/src/pages/data-visualization.tsx .github/workflows/build-check.yml
-          git add -u .github/workflows
-          git commit -m "Polish the Data Visualization opening scene"
-          git push origin HEAD:agent/internal-cinematic-visual-upgrade
