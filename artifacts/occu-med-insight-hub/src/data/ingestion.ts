@@ -7,7 +7,9 @@ const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-
 const numberFrom = (value: unknown): number | undefined => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
-    const parsed = Number(value.replace(/[$,]/g, ""));
+    const normalized = value.replace(/[$,]/g, "").trim();
+    if (!normalized) return undefined;
+    const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
   return undefined;
