@@ -8,32 +8,26 @@ This file controls the staged cleanup of Insight Hub 2.0. Cleanup must proceed t
 
 - **Phase 1 — safety and inventory:** complete in PR #29.
 - **Phase 2 — proven garbage removal:** complete in PR #30.
-- **Phase 3 — canonical data spine:** implemented in PR #31.
-- **Phase 4 — visualization validity:** pending.
+- **Phase 3 — canonical data spine:** complete in PR #31.
+- **Phase 4 — visualization validity:** implemented in PR #32.
 - **Phase 5 — style consolidation:** pending.
 - **Phase 6 — shared-data security:** pending.
 
 ## Canonical data path
 
-The application now assembles data through one explicit precedence model:
-
 `seed -> configuration registry -> uploaded workbooks -> curated dossiers -> uploaded report replacements -> live intelligence`
 
-Every collection is normalized by canonical company ID and deduplicated through one assembler before it reaches a page. Uploaded-report replacements remain explicit rather than relying on array order.
+## Phase 4 visualization contract
 
-## Phase 3 changes
-
-- added `canonicalDataset.ts` as the only dataset assembly and validation layer;
-- added `datasetLayers.ts` as the authoritative source precedence registry;
-- removed the 20-company intelligence cap and replaced it with bounded-concurrency loading for every actual company;
-- classified company, portfolio, dashboard, network, methodology, and temporary entities so non-company collections are not queried as companies;
-- changed workbook ingestion from a competing full dataset into a normalized source layer;
-- stopped truncating proxy rows and geographic locations;
-- stopped replacing all seed locations when workbook locations exist;
-- stopped inventing workbook trend values;
-- preserved missing numeric values instead of automatically manufacturing zero-valued metrics;
-- added source linkage, record status, deduplication, layer diagnostics, orphan checks, and coordinate checks;
-- corrected the known Camp Patriot coordinate that previously plotted in Antarctica.
+- incompatible units never share one chart axis;
+- missing or invalid values are not converted to zero;
+- raw dollar/hour values are normalized to the declared display scale;
+- single values and insufficient trends render as proof objects or warnings rather than exaggerated charts;
+- direct metric summaries are separated by unit;
+- modeled cost outputs are labeled modeled and no hard-coded future growth rates are manufactured;
+- matrix points are positioned from their actual X/Y values rather than array order;
+- matrices without explicit currency metadata use neutral source-unit labels instead of falsely claiming thousands or millions;
+- source, confidence, date, and status fields remain available to chart details and tooltips.
 
 ## Keep: production-critical
 
@@ -41,13 +35,9 @@ Production entrypoints, live routes, reachable components, API services, databas
 
 ## Keep: source material
 
-Uploaded workbooks, reports, company dossier content, verified location imports, and source/provenance records remain preserved until their information is represented in the canonical data spine.
+Uploaded workbooks, reports, company dossier content, verified location imports, and source/provenance records remain preserved.
 
 ## Remaining phases
-
-### Phase 4: visualization validity
-
-Reject mixed-unit charts, remove unsupported hard-coded projections, preserve missing values in chart data, position matrix points from real values, validate currency scaling, and expose provenance/status in chart details.
 
 ### Phase 5: style consolidation
 

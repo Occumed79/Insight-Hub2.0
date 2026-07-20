@@ -1,3 +1,5 @@
+import { formatChartValue } from "../../data/visualizationValidity";
+
 type TooltipEntry = {
   dataKey?: string | number;
   name?: string | number;
@@ -14,13 +16,7 @@ type Props = {
 };
 
 function formatMetric(value: string | number | undefined, formatter: Props["formatter"] = "plain") {
-  const numeric = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(numeric)) return `${value ?? ""}`;
-  if (formatter === "currencyM") return `$${numeric.toLocaleString()}M`;
-  if (formatter === "currencyK") return `$${numeric.toLocaleString()}K`;
-  if (formatter === "percent") return `${numeric}%`;
-  if (formatter === "hoursM") return `${numeric}M hrs`;
-  return Number.isInteger(numeric) ? `${numeric}` : numeric.toFixed(2);
+  return formatChartValue(value, formatter);
 }
 
 export function LuminousChartTooltip({ active, payload, label, formatter = "plain", headline }: Props) {

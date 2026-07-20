@@ -3,15 +3,9 @@ import { motion } from "framer-motion";
 import { ChartBlock } from "../insight/ChartBlock";
 import { GlassCard } from "../insight/GlassCard";
 import { LuminousChartTooltip } from "../insight/LuminousChartTooltip";
-import type { ChartDefinition, CompanyInteractionConfig, RiskMatrixPoint, TooltipFormat } from "../../company-configs/types";
-
-function formatTickByType(formatter: TooltipFormat | undefined) {
-  if (formatter === "currencyM") return (v: number) => `$${v}M`;
-  if (formatter === "currencyK") return (v: number) => `$${v}K`;
-  if (formatter === "percent") return (v: number) => `${v}%`;
-  if (formatter === "hoursM") return (v: number) => `${v}M hrs`;
-  return undefined;
-}
+import type { ChartDefinition, CompanyInteractionConfig, RiskMatrixPoint } from "../../company-configs/types";
+import { evaluateChartSuitability } from "../../data/chartSuitability";
+import { finiteChartNumber, formatChartTick, formatChartValue } from "../../data/visualizationValidity";
 
 function chartHeight(chart: ChartDefinition) {
   const rowCount = chart.data.length;
@@ -45,7 +39,7 @@ function RenderBarChart({ chart }: { chart: ChartDefinition }) {
       <BarChart data={chart.data}>
         <CartesianGrid stroke="rgba(255,255,255,.08)" />
         <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
-        <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatTickByType(chart.formatter)} />
+        <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatChartTick(chart.formatter)} />
         {chart.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
         <Tooltip cursor={{ fill: "rgba(34,211,238,.08)" }} content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? "data focus"} />} />
         {chart.referenceLines?.map((ref, i) => <ReferenceLine key={i} y={ref.y} stroke={ref.stroke} strokeDasharray={ref.strokeDasharray} label={ref.label} />)}
@@ -61,7 +55,7 @@ function RenderAreaChart({ chart }: { chart: ChartDefinition }) {
       <AreaChart data={chart.data}>
         <CartesianGrid stroke="rgba(255,255,255,.08)" />
         <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
-        <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatTickByType(chart.formatter)} />
+        <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatChartTick(chart.formatter)} />
         {chart.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
         <Tooltip content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? "data focus"} />} />
         {chart.series.map((s) => <Area key={s.dataKey} type="monotone" dataKey={s.dataKey} name={s.name ?? s.dataKey} stroke={s.color ?? "#22d3ee"} fill={`${s.color ?? "#22d3ee"}4d`} strokeWidth={3} />)}
@@ -76,7 +70,7 @@ function RenderLineChart({ chart }: { chart: ChartDefinition }) {
       <LineChart data={chart.data}>
         <CartesianGrid stroke="rgba(255,255,255,.08)" />
         <XAxis dataKey={chart.xKey} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
-        <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatTickByType(chart.formatter)} />
+        <YAxis stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={chart.domain} tickFormatter={formatChartTick(chart.formatter)} />
         {chart.series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
         <Tooltip content={<LuminousChartTooltip formatter={chart.formatter ?? "plain"} headline={chart.headline ?? "data focus"} />} />
         {chart.referenceLines?.map((ref, i) => <ReferenceLine key={i} y={ref.y} stroke={ref.stroke} strokeDasharray={ref.strokeDasharray} label={ref.label} />)}
@@ -91,7 +85,7 @@ function RenderScatterChart({ chart }: { chart: ChartDefinition }) {
     <ChartBlock title={chart.title} subtitle={chart.subtitle} height={chartHeight(chart)}>
       <ScatterChart>
         <CartesianGrid stroke="rgba(255,255,255,.08)" />
-        <XAxis dataKey={chart.series[0]?.dataKey ?? "x"} name={chart.series[0]?.name ?? "X"} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} tickFormatter={formatTickByType(chart.formatter)} />
+        <XAxis dataKey={chart.series[0]?.dataKey ?? "x"} name={chart.series[0]?.name ?? "X"} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} tickFormatter={formatChartTick(chart.formatter)} />
         <YAxis dataKey={chart.series[1]?.dataKey ?? "y"} name={chart.series[1]?.name ?? "Y"} stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={chart.domain} />
         {chart.series.length > 2 && <ZAxis dataKey={chart.series[2]?.dataKey ?? "z"} range={[80, 520]} />}
         <Tooltip cursor={{ stroke: "rgba(34,211,238,.35)", strokeDasharray: "4 4" }} content={<LuminousChartTooltip headline={chart.headline ?? "data focus"} />} />
@@ -99,6 +93,12 @@ function RenderScatterChart({ chart }: { chart: ChartDefinition }) {
       </ScatterChart>
     </ChartBlock>
   );
+}
+
+function ChartGuardrail({ chart, reason, warnings }: { chart: ChartDefinition; reason: string; warnings: string[] }) {
+  const firstSeries = chart.series[0];
+  const firstValue = firstSeries ? chart.data.map((row) => finiteChartNumber(row[firstSeries.dataKey])).find((value) => value !== undefined) : undefined;
+  return <GlassCard className="p-6"><p className="text-xs uppercase tracking-[0.22em] text-amber-200/70">Visualization guardrail</p><h3 className="mt-2 text-lg font-bold text-white">{chart.title}</h3><p className="mt-3 text-sm leading-6 text-cyan-100/60">{reason}</p>{firstValue !== undefined ? <p className="mt-4 text-3xl font-black text-cyan-100">{formatChartValue(firstValue, chart.formatter)}</p> : null}<div className="mt-4 flex flex-wrap gap-2">{warnings.map((warning) => <span key={warning} className="rounded-full border border-amber-200/20 bg-amber-200/5 px-3 py-1 text-xs text-amber-100/70">{warning}</span>)}</div></GlassCard>;
 }
 
 function ChartRouter({ chart }: { chart: ChartDefinition }) {
@@ -118,12 +118,14 @@ export function CompanyChartRenderer({ charts, companyInteraction }: { charts: C
           <p className="mt-2 text-sm text-cyan-100/60">Preset: {companyInteraction.preset ?? "default"}. Configured interaction capabilities are surfaced on each chart so dashboards no longer hide the interaction schema.</p>
         </GlassCard>
       )}
-      {charts.map((chart, index) => (
-        <motion.div key={chart.id} className={chart.fullWidth ? "xl:col-span-2" : ""} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: index * 0.025 }}>
+      {charts.map((sourceChart, index) => {
+        const suitability = evaluateChartSuitability(sourceChart);
+        const chart = suitability.chart;
+        return <motion.div key={chart.id} className={chart.fullWidth ? "xl:col-span-2" : ""} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: index * 0.025 }}>
           <ChartInteractionBadges chart={chart} companyInteraction={companyInteraction} />
-          <ChartRouter chart={chart} />
-        </motion.div>
-      ))}
+          {suitability.representationType === "chart" ? <ChartRouter chart={chart} /> : <ChartGuardrail chart={chart} reason={suitability.reason} warnings={suitability.warnings} />}
+        </motion.div>;
+      })}
     </div>
   );
 }
@@ -135,7 +137,7 @@ export function RiskMatrixRenderer({ data, title }: { data: RiskMatrixPoint[]; t
       <ChartBlock title={title ?? "Opportunity / risk matrix"} subtitle="Revenue opportunity plotted against worker risk with worker count bubble size." height={360}>
         <ScatterChart>
           <CartesianGrid stroke="rgba(255,255,255,.08)" />
-          <XAxis dataKey="revenue" name="Revenue" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} tickFormatter={(v: number) => `$${v}M`} />
+          <XAxis dataKey="revenue" name="Revenue opportunity (source units)" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 10 }} />
           <YAxis dataKey="risk" name="Risk score" stroke="rgba(207,250,254,.45)" tick={{ fontSize: 11 }} domain={[0, 10]} />
           <ZAxis dataKey="workers" range={[80, 520]} />
           <Tooltip cursor={{ stroke: "rgba(34,211,238,.35)", strokeDasharray: "4 4" }} content={<LuminousChartTooltip headline="risk matrix" />} />
