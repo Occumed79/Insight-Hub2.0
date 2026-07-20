@@ -8,7 +8,7 @@ This file controls the staged cleanup of Insight Hub 2.0. Cleanup must proceed t
 
 - **Phase 1 — safety and inventory:** complete in PR #29.
 - **Phase 2 — proven garbage removal:** complete in PR #30.
-- **Phase 3 — canonical data spine:** implemented in the current pull request.
+- **Phase 3 — canonical data spine:** implemented in PR #31.
 - **Phase 4 — visualization validity:** pending.
 - **Phase 5 — style consolidation:** pending.
 - **Phase 6 — shared-data security:** pending.
