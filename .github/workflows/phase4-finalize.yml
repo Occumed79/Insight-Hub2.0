@@ -1,0 +1,268 @@
+name: Phase 4 Finalize
+
+on:
+  push:
+    branches:
+      - agent/phase-4-visualization-validity
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      NODE_ENV: test
+      BASE_PATH: /
+    steps:
+      - name: Checkout Phase 4 branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/phase-4-visualization-validity
+          fetch-depth: 0
+
+      - name: Apply cinematic validity fixes and finalize manifest
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('artifacts/occu-med-insight-hub/src/pages/data-visualization.tsx')
+          text = path.read_text()
+
+          def replace_once(old, new, label):
+              global text
+              if old not in text:
+                  raise SystemExit(f'missing replacement target: {label}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              'import { evaluateChartSuitability, type ChartSuitabilityResult } from "@/data/chartSuitability";',
+              'import { evaluateChartSuitability, type ChartSuitabilityResult } from "@/data/chartSuitability";\nimport { buildMetricCharts, finiteChartNumber, formatChartTick, formatChartValue, prepareChartForRendering } from "@/data/visualizationValidity";',
+              'visualization validity import',
+          )
+
+          text, count = re.subn(
+              r'function metricChartFromDefinitions\(metrics: MetricDefinition\[\]\): ChartDefinition\[\] \{.*?\n\}\n\nfunction enrichStaticChartSources',
+              'function metricChartFromDefinitions(metrics: MetricDefinition[]): ChartDefinition[] {\n  return buildMetricCharts(metrics, "metric-proof");\n}\n\nfunction enrichStaticChartSources',
+              text,
+              count=1,
+              flags=re.S,
+          )
+          if count != 1:
+              raise SystemExit('metric chart replacement failed')
+
+          replace_once(
+              'const primaryCharts = enrichStaticChartSources(baseCharts, vizModel.sourceRecords);',
+              'const primaryCharts = enrichStaticChartSources(baseCharts, vizModel.sourceRecords).map((chart) => prepareChartForRendering(chart).chart);',
+              'prepared primary charts',
+          )
+
+          text, count = re.subn(
+              r'function formatTickByType\(formatter: TooltipFormat \| undefined\) \{.*?\n\}\n\nfunction sourceDomain',
+              'function formatTickByType(formatter: TooltipFormat | undefined) {\n  return formatChartTick(formatter);\n}\n\nfunction formatValue(value: unknown, formatter?: TooltipFormat, unit?: string) {\n  return formatChartValue(value, formatter, unit);\n}\n\nfunction sourceDomain',
+              text,
+              count=1,
+              flags=re.S,
+          )
+          if count != 1:
+              raise SystemExit('formatter replacement failed')
+
+          replace_once(
+              'value: Number(entry[dataKey] ?? entry.value ?? entry.count ?? 0),',
+              'value: finiteChartNumber(entry[dataKey] ?? entry.value ?? entry.count) ?? Number.NaN,',
+              'datum missing value handling',
+          )
+          replace_once(
+              'const sorted = [...chart.data].sort((a, b) => Number(b[seriesKey] ?? 0) - Number(a[seriesKey] ?? 0));',
+              'const sorted = [...chart.data].sort((a, b) => (finiteChartNumber(b[seriesKey]) ?? Number.NEGATIVE_INFINITY) - (finiteChartNumber(a[seriesKey]) ?? Number.NEGATIVE_INFINITY));',
+              'rank sort missing values',
+          )
+          replace_once(
+              'const firstValue = Number(first?.[seriesKey] ?? first?.value ?? first?.count ?? 0);',
+              'const firstValue = finiteChartNumber(first?.[seriesKey] ?? first?.value ?? first?.count);',
+              'proof value missing handling',
+          )
+          replace_once(
+              '  const suitability = evaluateChartSuitability(chart);\n\n  if (suitability.representationType !== "chart") {',
+              '  const suitability = evaluateChartSuitability(chart);\n  chart = suitability.chart;\n\n  if (suitability.representationType !== "chart") {',
+              'render prepared chart',
+          )
+
+          matrix_pattern = r'function MatrixScene\(\{ riskMatrix, opportunityMatrix, onSelectPoint \}: \{ riskMatrix: RiskMatrixPoint\[\]; opportunityMatrix: OpportunityMatrixPoint\[\]; onSelectPoint: \(point: any\) => void \}\) \{.*?\n\}\n\nfunction StyleInjector'
+          matrix_replacement = '''function MatrixPlane({ title, points, xKey, yKey, borderColor, onSelectPoint }: { title: string; points: any[]; xKey: string; yKey: string; borderColor: string; onSelectPoint: (point: any) => void }) {
+            const valid = points.filter((point) => finiteChartNumber(point[xKey]) !== undefined && finiteChartNumber(point[yKey]) !== undefined);
+            const xs = valid.map((point) => finiteChartNumber(point[xKey]) as number);
+            const ys = valid.map((point) => finiteChartNumber(point[yKey]) as number);
+            const minX = Math.min(...xs); const maxX = Math.max(...xs); const minY = Math.min(...ys); const maxY = Math.max(...ys);
+            const position = (value: number, min: number, max: number) => max === min ? 50 : 8 + ((value - min) / (max - min)) * 76;
+            return (
+              <div className="cinematic-matrix-plane">
+                <p className="cinematic-proof-kicker">{title}</p>
+                <span className="cinematic-matrix-axis cinematic-matrix-axis-x">Revenue / opportunity value →</span>
+                <span className="cinematic-matrix-axis cinematic-matrix-axis-y">Strength / risk →</span>
+                {valid.slice(0, 10).map((point) => {
+                  const x = finiteChartNumber(point[xKey]) as number;
+                  const y = finiteChartNumber(point[yKey]) as number;
+                  return <button key={`${title}-${point.name}`} className="cinematic-matrix-orb" style={{ left: `${position(x, minX, maxX)}%`, bottom: `${position(y, minY, maxY)}%`, borderColor }} onClick={() => onSelectPoint(point)}><span>{title}</span><b>{point.name}</b><small>X {x.toLocaleString()} · Y {y.toLocaleString()}</small></button>;
+                })}
+              </div>
+            );
+          }
+
+          function MatrixScene({ riskMatrix, opportunityMatrix, onSelectPoint }: { riskMatrix: RiskMatrixPoint[]; opportunityMatrix: OpportunityMatrixPoint[]; onSelectPoint: (point: any) => void }) {
+            if (!riskMatrix.length && !opportunityMatrix.length) return <EmptyScene message="No risk/opportunity matrix points available." />;
+            return <div className="cinematic-matrix-grid"><MatrixPlane title="Risk" points={riskMatrix.map((point) => ({ ...point, kind: "Risk" }))} xKey="revenue" yKey="risk" borderColor="rgba(251,113,133,.45)" onSelectPoint={onSelectPoint} /><MatrixPlane title="Opportunity" points={opportunityMatrix.map((point) => ({ ...point, kind: "Opportunity" }))} xKey="revenuePotential" yKey="strategicValue" borderColor="rgba(52,211,153,.45)" onSelectPoint={onSelectPoint} /></div>;
+          }
+
+          function StyleInjector'''
+          text, count = re.subn(matrix_pattern, matrix_replacement, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('matrix replacement failed')
+
+          replace_once(
+              '      .cinematic-matrix-stage { position:relative; min-height:520px;',
+              '      .cinematic-matrix-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }\n      .cinematic-matrix-plane { position:relative; min-height:520px;',
+              'matrix grid styles',
+          )
+          replace_once('      .cinematic-matrix-stage::before', '      .cinematic-matrix-plane::before', 'matrix plane grid')
+          replace_once(
+              '      .cinematic-matrix-orb { position:absolute; z-index:1; width:150px; min-height:110px;',
+              '      .cinematic-matrix-axis { position:absolute; z-index:1; color:rgba(207,250,254,.38); font-size:.62rem; letter-spacing:.12em; text-transform:uppercase; }\n      .cinematic-matrix-axis-x { right:1rem; bottom:.5rem; }\n      .cinematic-matrix-axis-y { left:.5rem; top:50%; transform:rotate(-90deg) translateX(-50%); transform-origin:left top; }\n      .cinematic-matrix-orb { position:absolute; z-index:2; width:140px; min-height:100px; transform:translate(-50%,50%);',
+              'matrix orb positioning',
+          )
+          replace_once(
+              '@media (max-width: 900px) { .cinematic-hero-metrics',
+              '@media (max-width: 900px) { .cinematic-matrix-grid { grid-template-columns:1fr; } .cinematic-hero-metrics',
+              'matrix responsive styles',
+          )
+          replace_once(
+              'value: Number(point.revenue ?? point.revenuePotential ?? point.risk ?? 0),',
+              'value: finiteChartNumber(point.revenue ?? point.revenuePotential ?? point.risk) ?? Number.NaN,',
+              'matrix missing value handling',
+          )
+
+          path.write_text(text)
+
+          Path('docs/repository-cleanup-baseline.json').write_text('''{
+            "description": "Phase 4 structural-debt ceiling after canonical data and visualization validity work. Values may be lowered by later cleanup PRs but must not be increased without an explicit review explanation.",
+            "maximums": {
+              "totalFiles": 290,
+              "duplicateGroups": 0,
+              "duplicateFiles": 0,
+              "generatedArtifactCount": 0,
+              "unreachableFrontendFiles": 66,
+              "appShellCount": 1,
+              "globalCssLayerCount": 6,
+              "invalidCoordinateCount": 0,
+              "knownArchitectureCandidateCount": 3
+            },
+            "requiredFiles": [
+              "package.json",
+              "render.yaml",
+              ".github/workflows/build-check.yml",
+              "artifacts/occu-med-insight-hub/src/main.tsx",
+              "artifacts/occu-med-insight-hub/src/App.tsx",
+              "artifacts/api-server/src/index.ts",
+              "lib/db/src/schema/index.ts"
+            ],
+            "forbiddenNewPatterns": [
+              "(^|/)dist/",
+              "\\\\.tsbuildinfo$",
+              "\\\\.d\\\\.ts\\\\.map$",
+              "^app/page\\\\.tsx$",
+              "^artifacts/mockup-sandbox/",
+              "^attached_assets/Pasted-.*\\\\.txt$"
+            ]
+          }
+          ''')
+
+          Path('docs/repository-cleanup-manifest.md').write_text('''# Insight Hub 2.0 Repository Cleanup Manifest
+
+          ## Purpose
+
+          This file controls the staged cleanup of Insight Hub 2.0. Cleanup must proceed through isolated pull requests, preserve production behavior, and lower—never silently raise—the repository integrity baseline.
+
+          ## Phase status
+
+          - **Phase 1 — safety and inventory:** complete in PR #29.
+          - **Phase 2 — proven garbage removal:** complete in PR #30.
+          - **Phase 3 — canonical data spine:** complete in PR #31.
+          - **Phase 4 — visualization validity:** implemented in PR #32.
+          - **Phase 5 — style consolidation:** pending.
+          - **Phase 6 — shared-data security:** pending.
+
+          ## Canonical data path
+
+          `seed -> configuration registry -> uploaded workbooks -> curated dossiers -> uploaded report replacements -> live intelligence`
+
+          ## Phase 4 visualization contract
+
+          - incompatible units never share one chart axis;
+          - missing or invalid values are not converted to zero;
+          - raw dollar/hour values are normalized to the declared display scale;
+          - single values and insufficient trends render as proof objects or warnings rather than exaggerated charts;
+          - direct metric summaries are separated by unit;
+          - modeled cost outputs are labeled modeled and no hard-coded future growth rates are manufactured;
+          - matrix points are positioned from their actual X/Y values rather than array order;
+          - matrices without explicit currency metadata use neutral source-unit labels instead of falsely claiming thousands or millions;
+          - source, confidence, date, and status fields remain available to chart details and tooltips.
+
+          ## Keep: production-critical
+
+          Production entrypoints, live routes, reachable components, API services, database schemas, migrations, Render configuration, and the current styling system remain protected.
+
+          ## Keep: source material
+
+          Uploaded workbooks, reports, company dossier content, verified location imports, and source/provenance records remain preserved.
+
+          ## Remaining phases
+
+          ### Phase 5: style consolidation
+
+          Replace global patch layers and component-injected CSS with one token system, one base layer, and scoped component styles while preserving the existing glassmorphic macOS Tahoe appearance.
+
+          ### Phase 6: shared-data security
+
+          Require authenticated, role-protected access for portal-link changes, entity verification, location imports, and intelligence ingestion.
+
+          ## Review rule
+
+          Every cleanup pull request must state what it removes or replaces, how production behavior was validated, how the baseline changed, and whether data or visual behavior changed.
+          ''')
+          PY
+          rm .github/workflows/phase4-finalize.yml
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Repository integrity audit
+        run: pnpm run audit:repository
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Production build
+        run: pnpm run build
+
+      - name: Commit validated Phase 4 changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/occu-med-insight-hub/src/pages/data-visualization.tsx docs/repository-cleanup-baseline.json docs/repository-cleanup-manifest.md .github/workflows/phase4-finalize.yml
+          git commit -m "Finalize Phase 4 visualization validity"
+          git push origin HEAD:agent/phase-4-visualization-validity
