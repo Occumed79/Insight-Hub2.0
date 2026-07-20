@@ -28,6 +28,7 @@ const EMPTY_STATUS: WorkbookStatus = {
 };
 
 const canonicalCompanyId = (companyId: string) => resolveConfigCompanyId(companyId.trim());
+const scopedKey = (companyId: string, recordKey: string) => `${companyId}:${recordKey}`;
 
 function normalizeCompany(company: Company): Company {
   return {
@@ -152,19 +153,19 @@ export function assembleCanonicalDataset(layers: InsightDatasetLayer[]): Insight
     }
     for (const metric of layer.data.metrics ?? []) {
       const normalized = normalizeMetric(metric);
-      metrics.set(normalized.deduplicationKey ?? normalized.id, normalized);
+      metrics.set(scopedKey(normalized.companyId, normalized.deduplicationKey ?? normalized.id), normalized);
     }
     for (const location of layer.data.locations ?? []) {
       const normalized = normalizeLocation(location);
-      locations.set(normalized.deduplicationKey ?? normalized.id, normalized);
+      locations.set(scopedKey(normalized.companyId, normalized.deduplicationKey ?? normalized.id), normalized);
     }
     for (const source of layer.data.sources ?? []) {
       const normalized = normalizeSource(source);
-      sources.set(normalized.id, normalized);
+      sources.set(scopedKey(normalized.companyId, normalized.id), normalized);
     }
     for (const report of layer.data.reports ?? []) {
       const normalized = normalizeReport(report);
-      reports.set(normalized.id, normalized);
+      reports.set(scopedKey(normalized.companyId, normalized.id), normalized);
     }
     for (const assumption of layer.data.assumptions ?? []) assumptions.set(assumption.id, assumption);
     for (const item of layer.data.intelligence ?? []) {
@@ -200,7 +201,7 @@ export function assembleCanonicalDataset(layers: InsightDatasetLayer[]): Insight
   for (const metric of metrics.values()) {
     const sourceIds = metric.sourceIds ?? (metric.sourceId ? [metric.sourceId] : []);
     for (const sourceId of sourceIds) {
-      if (sources.has(sourceId)) continue;
+      if (sources.has(scopedKey(metric.companyId, sourceId))) continue;
       issues.push({
         code: "missing-source",
         severity: "warning",
