@@ -57,10 +57,13 @@ export async function ingestCompanyIntelligence(companyId: string, companyName: 
   try {
     const response = await fetch("/api/intelligence/ingest/company", {
       method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ companyId, companyName }),
     });
     const data = (await response.json()) as IngestResponse;
+    if (response.status === 401) return { ok: false, error: "Sign in through Secure access before running intelligence ingestion." };
+    if (response.status === 403) return { ok: false, error: "Admin access is required to run intelligence ingestion." };
     return data;
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Ingestion request failed" };
