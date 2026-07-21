@@ -6,6 +6,7 @@ import intelligenceRouter from "./intelligence";
 import onetRouter from "./onet";
 import employerIntelligenceRouter from "./employer-intelligence";
 import companyLiveIntelligenceRouter from "./company-live-intelligence";
+import workersCompCoverageRouter from "./workers-comp-coverage";
 import dataVisualizationRouter from "./dataVisualization";
 import portalLinksRouter from "./portalLinks";
 
@@ -18,6 +19,7 @@ router.use(intelligenceRouter);
 router.use(onetRouter);
 router.use(employerIntelligenceRouter);
 router.use(companyLiveIntelligenceRouter);
+router.use(workersCompCoverageRouter);
 router.use(dataVisualizationRouter);
 router.use(portalLinksRouter);
 
