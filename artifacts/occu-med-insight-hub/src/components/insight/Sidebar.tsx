@@ -20,6 +20,7 @@ const nav = [
 
 export function Sidebar() {
   const [location] = useLocation();
+  const currentPath = location.split("?")[0];
   return (
     <aside className="fixed left-0 top-0 z-30 hidden h-screen w-[210px] border-r border-cyan-100/14 bg-[#030813]/91 px-4 py-5 shadow-[18px_0_70px_rgba(0,0,0,.35)] backdrop-blur-2xl lg:block">
       <Link href="/" className="block py-1">
@@ -38,7 +39,7 @@ export function Sidebar() {
         <nav className="space-y-1">
           {nav.map((item) => {
             const Icon = item.icon;
-            const active = location === item.href;
+            const active = currentPath === item.href;
             return (
               <Link key={item.href} href={item.href} className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition duration-300", active ? "border border-cyan-200/20 bg-cyan-300/16 text-cyan-50 shadow-[0_0_26px_rgba(34,211,238,.14),inset_0_0_26px_rgba(34,211,238,.1)]" : "border border-transparent text-cyan-100/55 hover:border-cyan-100/10 hover:bg-white/[0.05] hover:text-cyan-50")}>
                 <Icon size={16} />
