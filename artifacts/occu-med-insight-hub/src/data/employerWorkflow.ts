@@ -5,7 +5,6 @@ export type EmployerWorkflowContext = {
   jobTitle: string;
   naics: string;
   country: string;
-  notes: string;
 };
 
 export type WorkflowStepId =
@@ -37,10 +36,10 @@ export const EMPTY_EMPLOYER_WORKFLOW_CONTEXT: EmployerWorkflowContext = {
   jobTitle: "",
   naics: "",
   country: "",
-  notes: "",
 };
 
-export const EMPLOYER_WORKFLOW_STORAGE_KEY = "occu-med:employer-workflow:v1";
+export const EMPLOYER_WORKFLOW_STORAGE_KEY = "insight-hub:public-employer-workflow:v2";
+export const LEGACY_EMPLOYER_WORKFLOW_STORAGE_KEY = "occu-med:employer-workflow:v1";
 
 export const WORKFLOW_STEPS: readonly WorkflowStep[] = [
   {
@@ -50,7 +49,7 @@ export const WORKFLOW_STEPS: readonly WorkflowStep[] = [
     shortLabel: "Employer Intel",
     route: "/employer-intelligence",
     scope: "employer-position",
-    purpose: "Establish the employer, injury-record, industry-benchmark, occupation, and service-opportunity baseline.",
+    purpose: "Establish the public employer, injury-record, industry-benchmark, occupation, and service-opportunity baseline.",
     output: "Employer evidence summary, position risk lens, source notes, and service-opportunity signal.",
     requiredFields: ["employer"],
     optionalFields: ["state", "jobTitle", "naics"],
@@ -62,7 +61,7 @@ export const WORKFLOW_STEPS: readonly WorkflowStep[] = [
     shortLabel: "Entity Resolution",
     route: "/entity-resolution",
     scope: "employer",
-    purpose: "Resolve the searched name against legal entities, DBAs, aliases, subsidiaries, and OSHA establishment names.",
+    purpose: "Resolve the searched name against public legal-entity, DBA, alias, and establishment evidence.",
     output: "Canonical identity, match confidence, evidence, warnings, and unresolved-name queue.",
     requiredFields: ["employer"],
     optionalFields: ["legalName", "state", "naics"],
@@ -74,7 +73,7 @@ export const WORKFLOW_STEPS: readonly WorkflowStep[] = [
     shortLabel: "Exposure Matrix",
     route: "/occupational-exposure",
     scope: "employer-position",
-    purpose: "Translate the position and industry context into explainable occupational-exposure and Occu-Med service-fit signals.",
+    purpose: "Translate public occupation and industry context into explainable exposure and service-fit signals.",
     output: "Exposure matrix, ranked service opportunities, evidence drilldowns, and source confidence.",
     requiredFields: ["employer", "jobTitle"],
     optionalFields: ["state", "naics"],
@@ -86,7 +85,7 @@ export const WORKFLOW_STEPS: readonly WorkflowStep[] = [
     shortLabel: "Company Live Intel",
     route: "/company-live-intelligence",
     scope: "employer",
-    purpose: "Run a manual current-source scan for entity, filing, litigation-reference, and federal-award footprint signals.",
+    purpose: "Run a manual public-source scan for entity, filing, litigation-reference, and federal-award footprint signals.",
     output: "Source-status rail, normalized signals, timeline, filters, and evidence panel.",
     requiredFields: ["employer"],
     optionalFields: ["state", "legalName"],
@@ -98,7 +97,7 @@ export const WORKFLOW_STEPS: readonly WorkflowStep[] = [
     shortLabel: "Workers’ Comp",
     route: "/workers-comp-coverage",
     scope: "state",
-    purpose: "Review the public workers’ compensation source landscape for the employer’s state context.",
+    purpose: "Review the public workers’ compensation source landscape for the selected state.",
     output: "State source coverage, publication type, review status, freshness, and limitations.",
     requiredFields: ["state"],
     optionalFields: ["employer"],
@@ -122,35 +121,16 @@ export const WORKFLOW_STEPS: readonly WorkflowStep[] = [
     shortLabel: "Source Governance",
     route: "/source-governance",
     scope: "system",
-    purpose: "Confirm which sources are configured, enabled, manual, current, authoritative, and limited before relying on results.",
+    purpose: "Confirm which public sources are configured, enabled, manual, current, authoritative, and limited.",
     output: "Source registry, dependency map, confidence, freshness, safeguards, and environment-key names.",
     requiredFields: [],
-    optionalFields: ["employer"],
+    optionalFields: [],
   },
 ] as const;
 
-export function buildWorkflowQuery(context: EmployerWorkflowContext): string {
-  const params = new URLSearchParams();
-  const entries: Array<[string, string]> = [
-    ["employer", context.employer],
-    ["legalName", context.legalName],
-    ["state", context.state],
-    ["job", context.jobTitle],
-    ["naics", context.naics],
-    ["country", context.country],
-  ];
-
-  for (const [key, value] of entries) {
-    const trimmed = value.trim();
-    if (trimmed) params.set(key, trimmed);
-  }
-
-  return params.toString();
-}
-
-export function buildWorkflowHref(route: string, context: EmployerWorkflowContext): string {
-  const query = buildWorkflowQuery(context);
-  return query ? `${route}?${query}` : route;
+/** Employer context is never encoded in links, browser history, or server request URLs. */
+export function buildWorkflowHref(route: string, _context?: EmployerWorkflowContext): string {
+  return route;
 }
 
 export function getMissingRequiredFields(
@@ -168,7 +148,6 @@ export function workflowContextLabel(field: keyof EmployerWorkflowContext): stri
     jobTitle: "Position",
     naics: "NAICS",
     country: "Country",
-    notes: "Notes",
   };
   return labels[field];
 }
