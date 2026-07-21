@@ -1,9 +1,10 @@
-import { Activity, BarChart3, Building2, ClipboardList, Globe2, Grid3X3, Home, Network, RadioTower, ScatterChart, ServerCog, ShieldCheck } from "lucide-react";
+import { Activity, BarChart3, Building2, ClipboardList, Globe2, Grid3X3, Home, Network, RadioTower, Route, ScatterChart, ServerCog, ShieldCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "Home", icon: Home },
+  { href: "/employer-workflow", label: "Employer Workflow", icon: Route },
   { href: "/data-profiles", label: "Data Profiles", icon: Building2 },
   { href: "/data-visualization", label: "Data Visualization", icon: ScatterChart },
   { href: "/quantifiable-data", label: "Quantifiable Data", icon: BarChart3 },
