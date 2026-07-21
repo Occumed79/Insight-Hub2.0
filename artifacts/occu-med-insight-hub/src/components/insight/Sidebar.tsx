@@ -1,4 +1,4 @@
-import { Activity, BarChart3, Building2, ClipboardList, Globe2, Grid3X3, Home, Network, RadioTower, ScatterChart } from "lucide-react";
+import { Activity, BarChart3, Building2, ClipboardList, Globe2, Grid3X3, Home, Network, RadioTower, ScatterChart, ShieldCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +13,7 @@ const nav = [
   { href: "/occupational-exposure", label: "Exposure Matrix", icon: Grid3X3 },
   { href: "/company-live-intelligence", label: "Company Live Intel", icon: RadioTower },
   { href: "/workers-comp-coverage", label: "Workers’ Comp Coverage", icon: ClipboardList },
+  { href: "/dba-intelligence", label: "DBA Intelligence", icon: ShieldCheck },
 ];
 
 export function Sidebar() {
