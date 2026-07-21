@@ -8,6 +8,7 @@ import employerIntelligenceRouter from "./employer-intelligence";
 import companyLiveIntelligenceRouter from "./company-live-intelligence";
 import workersCompCoverageRouter from "./workers-comp-coverage";
 import dbaIntelligenceRouter from "./dba-intelligence";
+import sourceGovernanceRouter from "./source-governance";
 import dataVisualizationRouter from "./dataVisualization";
 import portalLinksRouter from "./portalLinks";
 
@@ -22,6 +23,7 @@ router.use(employerIntelligenceRouter);
 router.use(companyLiveIntelligenceRouter);
 router.use(workersCompCoverageRouter);
 router.use(dbaIntelligenceRouter);
+router.use(sourceGovernanceRouter);
 router.use(dataVisualizationRouter);
 router.use(portalLinksRouter);
 
