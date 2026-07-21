@@ -5,6 +5,7 @@ import bulkManualLocationsRouter from "./bulkManualLocations";
 import intelligenceRouter from "./intelligence";
 import onetRouter from "./onet";
 import employerIntelligenceRouter from "./employer-intelligence";
+import companyLiveIntelligenceRouter from "./company-live-intelligence";
 import dataVisualizationRouter from "./dataVisualization";
 import portalLinksRouter from "./portalLinks";
 
@@ -16,6 +17,7 @@ router.use(bulkManualLocationsRouter);
 router.use(intelligenceRouter);
 router.use(onetRouter);
 router.use(employerIntelligenceRouter);
+router.use(companyLiveIntelligenceRouter);
 router.use(dataVisualizationRouter);
 router.use(portalLinksRouter);
 
