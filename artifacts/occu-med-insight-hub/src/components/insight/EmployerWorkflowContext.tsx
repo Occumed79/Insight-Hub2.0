@@ -10,6 +10,7 @@ import { useLocation } from "wouter";
 import {
   EMPLOYER_WORKFLOW_STORAGE_KEY,
   EMPTY_EMPLOYER_WORKFLOW_CONTEXT,
+  LEGACY_EMPLOYER_WORKFLOW_STORAGE_KEY,
   WORKFLOW_STEPS,
   type EmployerWorkflowContext as EmployerContext,
   type WorkflowStep,
@@ -41,21 +42,27 @@ function normalizeContext(value: Partial<EmployerContext> | undefined): Employer
     jobTitle: typeof value?.jobTitle === "string" ? value.jobTitle : "",
     naics: typeof value?.naics === "string" ? value.naics : "",
     country: typeof value?.country === "string" ? value.country : "",
-    notes: typeof value?.notes === "string" ? value.notes : "",
   };
 }
 
-function readStoredWorkflow(): StoredWorkflow {
-  const fallback: StoredWorkflow = {
+function emptyWorkflow(): StoredWorkflow {
+  return {
     context: { ...EMPTY_EMPLOYER_WORKFLOW_CONTEXT },
     completedStepIds: [],
     updatedAt: new Date().toISOString(),
   };
+}
 
+function readStoredWorkflow(): StoredWorkflow {
+  const fallback = emptyWorkflow();
   if (typeof window === "undefined") return fallback;
 
   try {
-    const raw = window.localStorage.getItem(EMPLOYER_WORKFLOW_STORAGE_KEY);
+    // Remove the prior persistent workflow record so legacy notes or employer
+    // values cannot remain in long-lived browser storage.
+    window.localStorage.removeItem(LEGACY_EMPLOYER_WORKFLOW_STORAGE_KEY);
+
+    const raw = window.sessionStorage.getItem(EMPLOYER_WORKFLOW_STORAGE_KEY);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as Partial<StoredWorkflow>;
     const validStepIds = new Set(WORKFLOW_STEPS.map((step) => step.id));
@@ -71,48 +78,13 @@ function readStoredWorkflow(): StoredWorkflow {
   }
 }
 
-function queryContext(): Partial<EmployerContext> {
-  if (typeof window === "undefined") return {};
-  const params = new URLSearchParams(window.location.search);
-  const employer = params.get("employer") ?? params.get("company") ?? params.get("companyName") ?? "";
-  const jobTitle = params.get("job") ?? params.get("jobTitle") ?? "";
-  const state = params.get("state") ?? "";
-  const legalName = params.get("legalName") ?? "";
-  const naics = params.get("naics") ?? "";
-  const country = params.get("country") ?? "";
-
-  return {
-    ...(employer.trim() ? { employer } : {}),
-    ...(legalName.trim() ? { legalName } : {}),
-    ...(state.trim() ? { state: state.toUpperCase() } : {}),
-    ...(jobTitle.trim() ? { jobTitle } : {}),
-    ...(naics.trim() ? { naics } : {}),
-    ...(country.trim() ? { country } : {}),
-  };
-}
-
-function sameContext(a: EmployerContext, b: EmployerContext): boolean {
-  return Object.keys(a).every((key) => a[key as keyof EmployerContext] === b[key as keyof EmployerContext]);
-}
-
 export function EmployerWorkflowProvider({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const [workflow, setWorkflow] = useState<StoredWorkflow>(readStoredWorkflow);
 
   useEffect(() => {
-    const patch = queryContext();
-    if (Object.keys(patch).length === 0) return;
-
-    setWorkflow((current) => {
-      const nextContext = normalizeContext({ ...current.context, ...patch });
-      if (sameContext(current.context, nextContext)) return current;
-      return { ...current, context: nextContext, updatedAt: new Date().toISOString() };
-    });
-  }, [location]);
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(EMPLOYER_WORKFLOW_STORAGE_KEY, JSON.stringify(workflow));
+    window.sessionStorage.setItem(EMPLOYER_WORKFLOW_STORAGE_KEY, JSON.stringify(workflow));
   }, [workflow]);
 
   const currentPath = location.split("?")[0];
@@ -152,11 +124,12 @@ export function EmployerWorkflowProvider({ children }: { children: ReactNode }) 
       }));
     },
     clearWorkflow: () => {
-      setWorkflow({
-        context: { ...EMPTY_EMPLOYER_WORKFLOW_CONTEXT },
-        completedStepIds: [],
-        updatedAt: new Date().toISOString(),
-      });
+      const next = emptyWorkflow();
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem(EMPLOYER_WORKFLOW_STORAGE_KEY);
+        window.localStorage.removeItem(LEGACY_EMPLOYER_WORKFLOW_STORAGE_KEY);
+      }
+      setWorkflow(next);
     },
   }), [currentStep, workflow]);
 
