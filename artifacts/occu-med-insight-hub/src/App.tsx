@@ -16,6 +16,7 @@ import OccupationalExposure from "@/pages/occupational-exposure";
 import CompanyLiveIntelligence from "@/pages/company-live-intelligence";
 import WorkersCompCoverage from "@/pages/workers-comp-coverage";
 import DbaIntelligence from "@/pages/dba-intelligence";
+import SourceGovernance from "@/pages/source-governance";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ function Router() {
       <Route path="/company-live-intelligence" component={CompanyLiveIntelligence} />
       <Route path="/workers-comp-coverage" component={WorkersCompCoverage} />
       <Route path="/dba-intelligence" component={DbaIntelligence} />
+      <Route path="/source-governance" component={SourceGovernance} />
       <Route component={NotFound} />
     </Switch>
   );
