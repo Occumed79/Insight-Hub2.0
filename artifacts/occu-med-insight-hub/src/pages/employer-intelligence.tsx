@@ -1,16 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
-import {
-  ResponsiveContainer,
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  ZAxis,
-  CartesianGrid,
-  Tooltip,
-  Cell,
-} from "recharts";
 import {
   Activity,
   AlertTriangle,
@@ -22,7 +11,6 @@ import {
   FileWarning,
   Gauge,
   Loader2,
-  MapPin,
   Radar,
   Search,
   ShieldCheck,
@@ -52,11 +40,20 @@ const DATA_WARNING =
   "Public injury, illness, workers’ compensation, litigation, and occupational-context data may be incomplete, delayed, jurisdiction-specific, or affected by reporting rules. This module identifies occupational-health service opportunity signals for review. It does not determine legal liability, negligence, safety compliance, or whether an employer is unsafe.";
 
 const MODEL_WARNING =
-  "BLS values are observed industry benchmarks when available. O*NET provides generalized occupation and work-context information. Task-level injury likelihood is a modeled interpretation for service planning, not a direct prediction for an individual worker or worksite.";
+  "BLS values are observed industry benchmarks when available. O*NET provides generalized occupation and work-context information. Task-level likelihood is a modeled interpretation for service planning, not a direct prediction for an individual worker or worksite.";
 
 const SOURCE_EXCLUSIONS = /cms|provider data|hrsa|healthdata|hhs/i;
 
-const RISK_COLORS = ["#38bdf8", "#2dd4bf", "#a78bfa", "#f59e0b", "#fb7185", "#34d399", "#60a5fa", "#c084fc"];
+const RISK_COLORS = [
+  "#38bdf8",
+  "#2dd4bf",
+  "#a78bfa",
+  "#f59e0b",
+  "#fb7185",
+  "#34d399",
+  "#60a5fa",
+  "#c084fc",
+];
 
 const exposureDefinitions = [
   {
@@ -154,7 +151,7 @@ async function settle<T>(operation: () => Promise<T>): Promise<SettledValue<T>> 
   }
 }
 
-function mostCommonNaics(records: OshaEstablishment[]) {
+function mostCommonNaics(records: OshaEstablishment[]): string | undefined {
   const counts = new Map<string, number>();
   for (const record of records) {
     if (!record.naics) continue;
@@ -163,7 +160,7 @@ function mostCommonNaics(records: OshaEstablishment[]) {
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 }
 
-function parseProminence(indicator: string) {
+function parseProminence(indicator: string): number {
   const value = indicator.toLowerCase();
   if (/continually|almost continually|every day|daily|more than half the time/.test(value)) return 5;
   if (/once a week|weekly|about half the time|several times/.test(value)) return 4;
@@ -181,16 +178,16 @@ function buildRiskPoints(onet: JobNormalization | null, bls: BlsBenchmark | null
     ...onet.environmentalIndicators,
     ...onet.safetySensitiveIndicators,
   ];
-  const tags = onet.serviceRelevanceTags;
   const benchmarkRate = Math.max(bls?.trcRate ?? 0, bls?.dartRate ?? 0, bls?.daysAwayRate ?? 0);
   const benchmarkIntensity = Math.min(benchmarkRate / 8, 1);
+  const points: RiskPoint[] = [];
 
-  return exposureDefinitions.flatMap((definition) => {
+  for (const definition of exposureDefinitions) {
     const evidence = indicators.filter((indicator) => definition.pattern.test(indicator));
-    const relatedTags = tags.filter((tag) => definition.servicePattern.test(tag));
-    if (evidence.length === 0 && relatedTags.length === 0) return [];
+    const relatedTags = onet.serviceRelevanceTags.filter((tag) => definition.servicePattern.test(tag));
+    if (evidence.length === 0 && relatedTags.length === 0) continue;
 
-    const prominence = evidence.length
+    const prominence = evidence.length > 0
       ? Math.round((evidence.reduce((sum, indicator) => sum + parseProminence(indicator), 0) / evidence.length) * 10) / 10
       : 2.5;
     const likelihood = Math.min(
@@ -198,33 +195,45 @@ function buildRiskPoints(onet: JobNormalization | null, bls: BlsBenchmark | null
       Math.round((prominence / 5) * 45 + definition.weight * 35 + benchmarkIntensity * 20),
     );
     const serviceFit = Math.min(100, Math.round(55 + relatedTags.length * 11 + definition.weight * 18));
-    const confidence = bls && onet.confidence >= 0.65 ? "high" : onet.confidence >= 0.45 ? "moderate" : "low";
+    const confidence: RiskPoint["confidence"] = bls && onet.confidence >= 0.65
+      ? "high"
+      : onet.confidence >= 0.45
+        ? "moderate"
+        : "low";
 
-    return [{
+    points.push({
       id: definition.id,
       category: definition.label,
       prominence,
       likelihood,
       serviceFit,
       confidence,
-      evidence: evidence.length ? evidence.slice(0, 4) : relatedTags.map((tag) => `Service relevance: ${tag}`),
+      evidence: evidence.length > 0
+        ? evidence.slice(0, 4)
+        : relatedTags.map((tag) => `Service relevance: ${tag}`),
       sourceLabel: bls ? "O*NET work context + BLS industry benchmark" : "O*NET work context only",
-    }];
-  }).sort((a, b) => b.likelihood - a.likelihood);
+    });
+  }
+
+  return points.sort((a, b) => b.likelihood - a.likelihood);
 }
 
-function formatRate(value?: number) {
+function formatRate(value?: number): string {
   return value === undefined ? "—" : value.toFixed(2);
 }
 
-function formatNumber(value?: number) {
+function formatNumber(value?: number): string {
   return value === undefined ? "—" : value.toLocaleString();
 }
 
-function confidenceTone(confidence: number) {
+function confidenceTone(confidence: number): string {
   if (confidence >= 0.7) return "text-emerald-200 border-emerald-200/20 bg-emerald-300/10";
   if (confidence >= 0.4) return "text-amber-200 border-amber-200/20 bg-amber-300/10";
   return "text-rose-200 border-rose-200/20 bg-rose-300/10";
+}
+
+function errorMessage(value: { ok: boolean; error?: string } | null): string | undefined {
+  return value && !value.ok ? value.error : undefined;
 }
 
 export default function EmployerIntelligence() {
@@ -241,10 +250,13 @@ export default function EmployerIntelligence() {
     let active = true;
     void fetchSourcesStatus()
       .then((result) => {
-        if (active && result.ok) setSourceStatuses(result.sources.filter((source) => !SOURCE_EXCLUSIONS.test(source.source)));
+        if (!active || !result.ok) return;
+        setSourceStatuses(result.sources.filter((source) => !SOURCE_EXCLUSIONS.test(source.source)));
       })
       .catch(() => undefined);
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   const riskPoints = useMemo(
@@ -252,7 +264,7 @@ export default function EmployerIntelligence() {
     [analysis?.onetMapping, analysis?.blsBenchmark],
   );
 
-  async function runAnalysis() {
+  async function runAnalysis(): Promise<void> {
     const employer = companyName.trim();
     if (!employer) {
       setError("Enter an employer or DBA name.");
@@ -267,72 +279,90 @@ export default function EmployerIntelligence() {
     const requestedNaics = naics.trim();
     const requestedJob = jobTitle.trim();
 
-    const [entityCall, oshaCall, onetCall, workersCompCall] = await Promise.all([
-      settle(() => resolveEmployer({ companyName: employer, state: stateCode || undefined, naics: requestedNaics || undefined })),
-      settle(() => fetchOshaEstablishments({ company: employer, state: stateCode || undefined, naics: requestedNaics || undefined })),
-      requestedJob
+    try {
+      const entityPromise = settle(() => resolveEmployer({
+        companyName: employer,
+        state: stateCode || undefined,
+        naics: requestedNaics || undefined,
+      }));
+      const oshaPromise = settle(() => fetchOshaEstablishments({
+        company: employer,
+        state: stateCode || undefined,
+        naics: requestedNaics || undefined,
+      }));
+      const onetPromise: Promise<SettledValue<JobNormalization>> = requestedJob
         ? settle(() => normalizeJob({ jobTitle: requestedJob, company: employer, location: stateCode || undefined }))
-        : Promise.resolve({ data: null } as SettledValue<JobNormalization>),
-      stateCode
+        : Promise.resolve({ data: null });
+      const workersCompPromise: Promise<SettledValue<WorkersCompSource>> = stateCode
         ? settle(() => fetchWorkersCompSources(stateCode))
-        : Promise.resolve({ data: null } as SettledValue<WorkersCompSource>),
-    ]);
+        : Promise.resolve({ data: null });
 
-    const entity = entityCall.data?.ok ? entityCall.data.entity : null;
-    const oshaRecords = oshaCall.data?.ok ? oshaCall.data.records : [];
-    const onetMapping = onetCall.data?.ok ? onetCall.data : null;
-    const workersComp = workersCompCall.data?.ok ? workersCompCall.data : null;
-    const resolvedNaics = requestedNaics || entity?.naicsCodes?.[0] || mostCommonNaics(oshaRecords);
+      const [entityCall, oshaCall, onetCall, workersCompCall] = await Promise.all([
+        entityPromise,
+        oshaPromise,
+        onetPromise,
+        workersCompPromise,
+      ] as const);
 
-    const blsCall = resolvedNaics
-      ? await settle(() => fetchBlsBenchmark({ naics: resolvedNaics }))
-      : ({ data: null } as SettledValue<Awaited<ReturnType<typeof fetchBlsBenchmark>>>);
-    const blsBenchmark = blsCall.data?.ok ? blsCall.data.benchmark : null;
+      const entity = entityCall.data?.ok ? entityCall.data.entity : null;
+      const oshaRecords = oshaCall.data?.ok ? oshaCall.data.records : [];
+      const onetMapping = onetCall.data?.ok ? onetCall.data : null;
+      const workersComp = workersCompCall.data?.ok ? workersCompCall.data : null;
+      const resolvedNaics = requestedNaics || entity?.naicsCodes?.[0] || mostCommonNaics(oshaRecords);
 
-    const scoreCall = await settle(() => scoreOpportunity({
-      companyName: employer,
-      oshaEstablishments: oshaRecords,
-      blsBenchmark,
-      onetMapping,
-      workersCompNotes: workersComp,
-      locationContext: stateCode || undefined,
-      entityConfidence: entity?.confidence,
-    }));
-    const opportunity = scoreCall.data?.ok ? scoreCall.data : null;
+      const blsCall: SettledValue<Awaited<ReturnType<typeof fetchBlsBenchmark>>> = resolvedNaics
+        ? await settle(() => fetchBlsBenchmark({ naics: resolvedNaics }))
+        : { data: null };
+      const blsBenchmark = blsCall.data?.ok ? blsCall.data.benchmark : null;
 
-    const messages = [
-      entityCall.error,
-      entityCall.data && !entityCall.data.ok ? entityCall.data.error : undefined,
-      oshaCall.error,
-      oshaCall.data && !oshaCall.data.ok ? oshaCall.data.error : undefined,
-      onetCall.error,
-      onetCall.data && !onetCall.data.ok ? onetCall.data.error : undefined,
-      workersCompCall.error,
-      workersCompCall.data && !workersCompCall.data.ok ? workersCompCall.data.error : undefined,
-      blsCall.error,
-      blsCall.data && !blsCall.data.ok ? blsCall.data.error : undefined,
-      scoreCall.error,
-      scoreCall.data && !scoreCall.data.ok ? scoreCall.data.error : undefined,
-      oshaCall.data?.warning,
-      blsCall.data?.message,
-    ].filter((message): message is string => Boolean(message));
+      const scoreCall = await settle(() => scoreOpportunity({
+        companyName: employer,
+        oshaEstablishments: oshaRecords,
+        blsBenchmark,
+        onetMapping,
+        workersCompNotes: workersComp,
+        locationContext: stateCode || undefined,
+        entityConfidence: entity?.confidence,
+      }));
+      const opportunity = scoreCall.data?.ok ? scoreCall.data : null;
 
-    setAnalysis({
-      employerName: employer,
-      state: stateCode || undefined,
-      jobTitle: requestedJob || undefined,
-      naics: resolvedNaics,
-      entity,
-      oshaRecords,
-      oshaWarning: oshaCall.data?.warning,
-      blsBenchmark,
-      onetMapping,
-      workersComp,
-      opportunity,
-      messages: [...new Set(messages)],
-      completedAt: new Date().toISOString(),
-    });
-    setLoading(false);
+      const messages = [
+        entityCall.error,
+        errorMessage(entityCall.data),
+        oshaCall.error,
+        errorMessage(oshaCall.data),
+        onetCall.error,
+        errorMessage(onetCall.data),
+        workersCompCall.error,
+        errorMessage(workersCompCall.data),
+        blsCall.error,
+        errorMessage(blsCall.data),
+        scoreCall.error,
+        errorMessage(scoreCall.data),
+        oshaCall.data?.warning,
+        blsCall.data?.message,
+      ].filter((message): message is string => Boolean(message));
+
+      setAnalysis({
+        employerName: employer,
+        state: stateCode || undefined,
+        jobTitle: requestedJob || undefined,
+        naics: resolvedNaics,
+        entity,
+        oshaRecords,
+        oshaWarning: oshaCall.data?.warning,
+        blsBenchmark,
+        onetMapping,
+        workersComp,
+        opportunity,
+        messages: [...new Set(messages)],
+        completedAt: new Date().toISOString(),
+      });
+    } catch (runError) {
+      setError(runError instanceof Error ? runError.message : "The analysis could not be completed.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -366,7 +396,7 @@ export default function EmployerIntelligence() {
                 One employer. One position. One source-aware opportunity lens.
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-cyan-100/58">
-                The analysis calls only Insight Hub’s server-side adapters. External credentials remain on the server, and partial source failures do not erase successful evidence.
+                The analysis calls only Insight Hub’s server-side adapters. Partial source failures remain visible without erasing successful evidence.
               </p>
 
               <div className="mt-6 grid gap-3 md:grid-cols-2">
@@ -378,7 +408,7 @@ export default function EmployerIntelligence() {
 
               <button
                 type="button"
-                onClick={runAnalysis}
+                onClick={() => void runAnalysis()}
                 disabled={loading || !companyName.trim()}
                 className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-cyan-100/20 bg-cyan-200/12 px-5 text-sm font-bold text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,.10)] transition hover:bg-cyan-200/18 disabled:cursor-not-allowed disabled:opacity-45"
               >
@@ -392,7 +422,7 @@ export default function EmployerIntelligence() {
             <div className="grid content-start gap-3 sm:grid-cols-2">
               <HeroPrinciple icon={<Database size={18} />} label="Observed" value="OSHA + BLS" note="Establishment records and industry benchmark values" />
               <HeroPrinciple icon={<BriefcaseBusiness size={18} />} label="Context" value="O*NET" note="Generalized occupation and work-context evidence" />
-              <HeroPrinciple icon={<Sparkles size={18} />} label="Modeled" value="Task lens" note="Transparent interpretation, never presented as a direct fact" />
+              <HeroPrinciple icon={<Sparkles size={18} />} label="Modeled" value="Position Risk Lens" note="Transparent interpretation, never presented as a direct fact" />
               <HeroPrinciple icon={<ShieldCheck size={18} />} label="Guardrail" value="Review signal" note="No legal, compliance, or unsafe-employer determination" />
             </div>
           </div>
@@ -411,7 +441,6 @@ export default function EmployerIntelligence() {
         {analysis && (
           <div className="mt-8 space-y-8">
             <AnalysisSummary analysis={analysis} />
-
             {riskPoints.length > 0 ? (
               <PositionRiskLens analysis={analysis} points={riskPoints} />
             ) : analysis.jobTitle ? (
@@ -421,13 +450,12 @@ export default function EmployerIntelligence() {
                   <div>
                     <p className="font-semibold text-amber-100">Position Risk Lens unavailable</p>
                     <p className="mt-1 text-xs leading-6 text-amber-100/55">
-                      No usable O*NET work-context indicators were returned for this position. The employer evidence remains available below.
+                      No usable O*NET work-context indicators were returned for this position. Employer evidence remains available below.
                     </p>
                   </div>
                 </div>
               </GlassCard>
             ) : null}
-
             <EvidenceGrid analysis={analysis} />
             <OpportunitySection analysis={analysis} />
             <SourceStatusSection statuses={sourceStatuses} />
@@ -436,7 +464,7 @@ export default function EmployerIntelligence() {
 
         <footer className="mt-10 border-t border-cyan-100/10 pt-4">
           <p className="text-[10px] leading-5 text-cyan-100/35">
-            Sources and adapters in this module include OSHA ITA imports, BLS IIF/SOII benchmarks, O*NET Web Services, SAM.gov entity information, SEC EDGAR, CourtListener supporting signals, USAspending supporting context, and state workers’ compensation source indexes. Provider feasibility and procurement systems are excluded.
+            Sources include OSHA ITA imports, BLS IIF/SOII benchmarks, O*NET Web Services, employer/entity adapters, state workers’ compensation source indexes, and the existing Occu-Med service-opportunity scoring engine. Provider feasibility and procurement systems are excluded.
           </p>
         </footer>
       </section>
@@ -451,9 +479,6 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") event.currentTarget.blur();
-        }}
         placeholder={placeholder}
         className="mt-2 min-h-12 w-full rounded-2xl border border-cyan-100/12 bg-black/20 px-4 text-sm text-cyan-50 outline-none transition placeholder:text-cyan-100/25 focus:border-cyan-200/30 focus:bg-black/28"
       />
@@ -461,7 +486,7 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
   );
 }
 
-function HeroPrinciple({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: string; note: string }) {
+function HeroPrinciple({ icon, label, value, note }: { icon: ReactNode; label: string; value: string; note: string }) {
   return (
     <div className="rounded-3xl border border-cyan-100/10 bg-white/[0.035] p-4 backdrop-blur-xl">
       <div className="flex items-center justify-between text-cyan-100/50">
@@ -519,7 +544,7 @@ function AnalysisSummary({ analysis }: { analysis: AnalysisResult }) {
   );
 }
 
-function MetricCard({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: string; note: string }) {
+function MetricCard({ icon, label, value, note }: { icon: ReactNode; label: string; value: string; note: string }) {
   return (
     <GlassCard className="p-4">
       <div className="flex items-center justify-between text-cyan-100/42">
@@ -546,37 +571,8 @@ function PositionRiskLens({ analysis, points }: { analysis: AnalysisResult; poin
         </span>
       </div>
 
-      <div className="mt-7 grid gap-6 xl:grid-cols-[1.3fr_.7fr]">
-        <div className="h-[430px] rounded-3xl border border-cyan-100/10 bg-black/18 p-3">
-          <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 24, right: 28, bottom: 30, left: 8 }}>
-              <CartesianGrid stroke="rgba(255,255,255,.06)" strokeDasharray="4 5" />
-              <XAxis
-                type="number"
-                dataKey="prominence"
-                domain={[0, 5.4]}
-                ticks={[1, 2, 3, 4, 5]}
-                stroke="rgba(207,250,254,.35)"
-                tick={{ fontSize: 10 }}
-                label={{ value: "O*NET work-context prominence →", position: "insideBottom", offset: -18, fill: "rgba(207,250,254,.40)", fontSize: 10 }}
-              />
-              <YAxis
-                type="number"
-                dataKey="likelihood"
-                domain={[0, 100]}
-                stroke="rgba(207,250,254,.35)"
-                tick={{ fontSize: 10 }}
-                label={{ value: "Modeled injury-exposure likelihood →", angle: -90, position: "insideLeft", fill: "rgba(207,250,254,.40)", fontSize: 10 }}
-              />
-              <ZAxis type="number" dataKey="serviceFit" range={[180, 900]} />
-              <Tooltip cursor={{ stroke: "rgba(167,139,250,.28)", strokeDasharray: "4 4" }} content={<RiskTooltip />} />
-              <Scatter data={points}>
-                {points.map((point, index) => <Cell key={point.id} fill={RISK_COLORS[index % RISK_COLORS.length]} fillOpacity={0.82} stroke="rgba(255,255,255,.55)" strokeWidth={1} />)}
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
-        </div>
-
+      <div className="mt-7 grid gap-6 xl:grid-cols-[1.25fr_.75fr]">
+        <RiskConstellation points={points} />
         <div className="space-y-3">
           {points.slice(0, 6).map((point, index) => (
             <motion.article
@@ -597,7 +593,7 @@ function PositionRiskLens({ analysis, points }: { analysis: AnalysisResult; poin
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/5">
                 <div className="h-full rounded-full bg-gradient-to-r from-cyan-300/70 via-violet-300/75 to-rose-300/75" style={{ width: `${point.likelihood}%` }} />
               </div>
-              <p className="mt-3 line-clamp-2 text-[11px] leading-5 text-cyan-100/45">{point.evidence[0]}</p>
+              <p className="mt-3 text-[11px] leading-5 text-cyan-100/45">{point.evidence[0]}</p>
             </motion.article>
           ))}
         </div>
@@ -606,28 +602,46 @@ function PositionRiskLens({ analysis, points }: { analysis: AnalysisResult; poin
   );
 }
 
-function RiskTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload?: RiskPoint }> }) {
-  const point = payload?.[0]?.payload;
-  if (!active || !point) return null;
+function RiskConstellation({ points }: { points: RiskPoint[] }) {
   return (
-    <div className="max-w-xs rounded-2xl border border-violet-200/20 bg-[#080b17]/95 p-4 shadow-2xl backdrop-blur-xl">
-      <p className="text-sm font-bold text-white">{point.category}</p>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <TooltipStat label="Prominence" value={point.prominence.toFixed(1)} />
-        <TooltipStat label="Likelihood" value={String(point.likelihood)} />
-        <TooltipStat label="Service fit" value={String(point.serviceFit)} />
+    <div className="relative h-[430px] overflow-hidden rounded-3xl border border-cyan-100/10 bg-black/18">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,.055)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,.055)_1px,transparent_1px)] bg-[size:20%_20%]" />
+      <div className="pointer-events-none absolute inset-x-5 bottom-4 flex justify-between text-[9px] uppercase tracking-[0.14em] text-cyan-100/32">
+        <span>Lower task prominence</span><span>Higher task prominence</span>
       </div>
-      <p className="mt-3 text-[10px] leading-5 text-cyan-100/48">{point.evidence.join(" · ")}</p>
-      <p className="mt-2 text-[9px] uppercase tracking-[0.16em] text-violet-200/45">Modeled interpretation · {point.confidence} confidence</p>
-    </div>
-  );
-}
+      <div className="pointer-events-none absolute left-3 top-5 bottom-10 flex flex-col justify-between text-[9px] uppercase tracking-[0.12em] text-cyan-100/32 [writing-mode:vertical-rl] rotate-180">
+        <span>Higher modeled likelihood</span><span>Lower</span>
+      </div>
 
-function TooltipStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-white/[0.04] p-2">
-      <p className="text-[8px] uppercase tracking-[0.14em] text-cyan-100/35">{label}</p>
-      <p className="mt-1 text-sm font-black text-white">{value}</p>
+      {points.map((point, index) => {
+        const left = 10 + (point.prominence / 5) * 80;
+        const top = Math.max(10, 84 - point.likelihood * 0.72);
+        const size = 44 + Math.round(point.serviceFit * 0.28);
+        return (
+          <motion.div
+            key={point.id}
+            initial={{ opacity: 0, scale: 0.55 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.55, delay: index * 0.05 }}
+            title={`${point.category}: ${point.likelihood} modeled likelihood, ${point.serviceFit} service fit`}
+            className="group absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/45 shadow-[0_0_34px_rgba(125,211,252,.18)] backdrop-blur-md"
+            style={{
+              left: `${left}%`,
+              top: `${top}%`,
+              width: size,
+              height: size,
+              background: `radial-gradient(circle at 35% 30%, rgba(255,255,255,.42), ${RISK_COLORS[index % RISK_COLORS.length]}cc 35%, ${RISK_COLORS[index % RISK_COLORS.length]}33 72%)`,
+            }}
+          >
+            <div className="flex h-full w-full items-center justify-center text-sm font-black text-white">{point.likelihood}</div>
+            <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-44 -translate-x-1/2 rounded-xl border border-cyan-100/15 bg-[#070b16]/95 p-2.5 text-center shadow-2xl group-hover:block">
+              <p className="text-[10px] font-semibold text-white">{point.category}</p>
+              <p className="mt-1 text-[9px] text-cyan-100/42">Prominence {point.prominence.toFixed(1)} · Service fit {point.serviceFit}</p>
+            </div>
+          </motion.div>
+        );
+      })}
     </div>
   );
 }
@@ -651,7 +665,6 @@ function EvidenceGrid({ analysis }: { analysis: AnalysisResult }) {
               <KeyValue label="Match type" value={`${entity.matchType} · ${Math.round(entity.confidence * 100)}% confidence`} />
               <KeyValue label="DBA / aliases" value={[...entity.dbaNames, ...entity.aliases].filter((value, index, array) => array.indexOf(value) === index).slice(0, 8).join(", ") || "None returned"} />
               <KeyValue label="Identifiers" value={[entity.uei && `UEI ${entity.uei}`, entity.cage && `CAGE ${entity.cage}`, entity.cik && `CIK ${entity.cik}`, entity.ticker && `Ticker ${entity.ticker}`].filter(Boolean).join(" · ") || "None returned"} />
-              {entity.evidenceFields.slice(0, 4).map((evidence) => <p key={evidence} className="text-[11px] leading-5 text-cyan-100/45">{evidence}</p>)}
             </div>
           ) : <EmptyEvidence text="No entity match was returned. Employer evidence may still exist under the exact search name." />}
         </EvidenceCard>
@@ -710,7 +723,7 @@ function EvidenceGrid({ analysis }: { analysis: AnalysisResult }) {
             OSHA source <ExternalLink size={12} />
           </a>
         </div>
-        {analysis.oshaRecords.length ? (
+        {analysis.oshaRecords.length > 0 ? (
           <div className="mt-4 overflow-x-auto">
             <table className="min-w-full text-left text-xs">
               <thead className="text-[9px] uppercase tracking-[0.16em] text-cyan-100/35">
@@ -745,7 +758,7 @@ function EvidenceGrid({ analysis }: { analysis: AnalysisResult }) {
   );
 }
 
-function EvidenceCard({ title, icon, source, sourceUrl, children }: { title: string; icon: React.ReactNode; source: string; sourceUrl?: string; children: React.ReactNode }) {
+function EvidenceCard({ title, icon, source, sourceUrl, children }: { title: string; icon: ReactNode; source: string; sourceUrl?: string; children: ReactNode }) {
   return (
     <GlassCard className="p-5">
       <div className="mb-4 flex items-start justify-between gap-4">
@@ -788,7 +801,9 @@ function IndicatorGroup({ label, values }: { label: string; values: string[] }) 
     <div>
       <p className="text-[9px] uppercase tracking-[0.16em] text-cyan-100/32">{label}</p>
       <div className="mt-2 flex flex-wrap gap-2">
-        {values.length ? values.slice(0, 6).map((value) => <span key={value} className="rounded-full border border-cyan-100/8 bg-white/[0.025] px-2.5 py-1 text-[10px] text-cyan-100/50">{value}</span>) : <span className="text-[10px] text-cyan-100/28">No indicators returned</span>}
+        {values.length > 0
+          ? values.slice(0, 6).map((value) => <span key={value} className="rounded-full border border-cyan-100/8 bg-white/[0.025] px-2.5 py-1 text-[10px] text-cyan-100/50">{value}</span>)
+          : <span className="text-[10px] text-cyan-100/28">No indicators returned</span>}
       </div>
     </div>
   );
@@ -818,7 +833,7 @@ function OpportunitySection({ analysis }: { analysis: AnalysisResult }) {
           <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/5">
             <div className="h-full rounded-full bg-gradient-to-r from-cyan-300/75 via-violet-300/75 to-emerald-300/75" style={{ width: `${opportunity.score}%` }} />
           </div>
-          <p className="mt-4 text-xs leading-6 text-amber-100/55">{opportunity.warnings[0]}</p>
+          {opportunity.warnings[0] && <p className="mt-4 text-xs leading-6 text-amber-100/55">{opportunity.warnings[0]}</p>}
           {opportunity.missingData.length > 0 && (
             <div className="mt-4 rounded-2xl border border-amber-200/12 bg-amber-200/[0.03] p-3">
               <p className="text-[9px] uppercase tracking-[0.18em] text-amber-200/45">Missing evidence</p>
@@ -845,7 +860,7 @@ function OpportunitySection({ analysis }: { analysis: AnalysisResult }) {
           <GlassCard className="p-5">
             <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/38">Matched Occu-Med services</p>
             <div className="mt-4 space-y-3">
-              {opportunity.matchedServices.length ? opportunity.matchedServices.slice(0, 10).map((service) => (
+              {opportunity.matchedServices.length > 0 ? opportunity.matchedServices.slice(0, 10).map((service) => (
                 <div key={`${service.service}-${service.reason}`} className="rounded-2xl border border-emerald-100/8 bg-emerald-200/[0.025] p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -877,7 +892,9 @@ function SourceStatusSection({ statuses }: { statuses: SourceStatus[] }) {
                 <p className="text-sm font-semibold text-cyan-50">{status.source}</p>
                 <p className="mt-1 text-[9px] uppercase tracking-[0.16em] text-cyan-100/32">{status.dataType}</p>
               </div>
-              {status.configured && status.enabled ? <CheckCircle2 size={17} className="text-emerald-300/75" /> : <FileWarning size={17} className="text-amber-300/65" />}
+              {status.configured && status.enabled
+                ? <CheckCircle2 size={17} className="text-emerald-300/75" />
+                : <FileWarning size={17} className="text-amber-300/65" />}
             </div>
             <p className="mt-3 text-[11px] leading-5 text-cyan-100/45">{status.notes}</p>
             {status.lastSync && <p className="mt-2 text-[9px] text-cyan-100/28">Last sync: {new Date(status.lastSync).toLocaleString()}</p>}
