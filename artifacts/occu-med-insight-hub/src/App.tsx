@@ -11,6 +11,7 @@ import QuantifiableData from "@/pages/quantifiable-data";
 import GeographicData from "@/pages/geographic-data";
 import JobIntelligence from "@/pages/job-intelligence";
 import EmployerIntelligence from "@/pages/employer-intelligence";
+import EntityResolution from "@/pages/entity-resolution";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/geographic-data" component={GeographicData} />
       <Route path="/job-intelligence" component={JobIntelligence} />
       <Route path="/employer-intelligence" component={EmployerIntelligence} />
+      <Route path="/entity-resolution" component={EntityResolution} />
       <Route component={NotFound} />
     </Switch>
   );

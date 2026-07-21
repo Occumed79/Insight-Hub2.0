@@ -1,4 +1,4 @@
-import { BarChart3, Building2, Globe2, Home, ScatterChart } from "lucide-react";
+import { Activity, BarChart3, Building2, Globe2, Home, Network, ScatterChart } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +8,8 @@ const nav = [
   { href: "/data-visualization", label: "Data Visualization", icon: ScatterChart },
   { href: "/quantifiable-data", label: "Quantifiable Data", icon: BarChart3 },
   { href: "/geographic-data", label: "Geographic Data", icon: Globe2 },
+  { href: "/employer-intelligence", label: "Employer Intelligence", icon: Activity },
+  { href: "/entity-resolution", label: "Entity Resolution", icon: Network },
 ];
 
 export function Sidebar() {
