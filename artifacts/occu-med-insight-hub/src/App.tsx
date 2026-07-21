@@ -13,6 +13,7 @@ import JobIntelligence from "@/pages/job-intelligence";
 import EmployerIntelligence from "@/pages/employer-intelligence";
 import EntityResolution from "@/pages/entity-resolution";
 import OccupationalExposure from "@/pages/occupational-exposure";
+import CompanyLiveIntelligence from "@/pages/company-live-intelligence";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/employer-intelligence" component={EmployerIntelligence} />
       <Route path="/entity-resolution" component={EntityResolution} />
       <Route path="/occupational-exposure" component={OccupationalExposure} />
+      <Route path="/company-live-intelligence" component={CompanyLiveIntelligence} />
       <Route component={NotFound} />
     </Switch>
   );
