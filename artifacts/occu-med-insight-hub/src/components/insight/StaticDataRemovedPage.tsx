@@ -1,4 +1,4 @@
-import { ArrowRight, DatabaseZap } from "lucide-react";
+import { ArrowRight, Database } from "lucide-react";
 import { Link } from "wouter";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
@@ -10,7 +10,7 @@ export function StaticDataRemovedPage({ title }: { title: string }) {
       <section className="relative z-10 flex min-h-screen items-center px-4 py-10 lg:ml-[210px] lg:px-10">
         <GlassCard className="mx-auto w-full max-w-3xl p-8 md:p-12">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-100/16 bg-cyan-200/[0.07]">
-            <DatabaseZap className="h-6 w-6 text-cyan-100" />
+            <Database className="h-6 w-6 text-cyan-100" />
           </div>
           <p className="mt-7 text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-100/48">Runtime-only workspace</p>
           <h1 className="mt-3 text-4xl font-black tracking-[-0.045em] text-white md:text-5xl">{title}</h1>
