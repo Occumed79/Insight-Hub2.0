@@ -19,7 +19,7 @@ import EmployerWorkflow from "@/pages/employer-workflow";
 import EmployerIntelligence from "@/pages/employer-intelligence";
 import EntityResolution from "@/pages/entity-resolution";
 import OccupationalExposure from "@/pages/occupational-exposure";
-import CompanyLiveIntelligence from "@/pages/company-live-intelligence";
+import CorporateSignals from "@/pages/company-live-intelligence";
 import SecFilings from "@/pages/sec-filings";
 import WorkersCompCoverage from "@/pages/workers-comp-coverage";
 import DbaIntelligence from "@/pages/dba-intelligence";
@@ -45,7 +45,8 @@ function Router() {
       <Route path="/entity-resolution" component={EntityResolution} />
       <Route path="/injury-workforce-exposure" component={OccupationalExposure} />
       <Route path="/occupational-exposure" component={OccupationalExposure} />
-      <Route path="/company-live-intelligence" component={CompanyLiveIntelligence} />
+      <Route path="/corporate-signals" component={CorporateSignals} />
+      <Route path="/company-live-intelligence" component={CorporateSignals} />
       <Route path="/sec-filings" component={SecFilings} />
       <Route path="/workers-comp-coverage" component={WorkersCompCoverage} />
       <Route path="/dba-intelligence" component={DbaIntelligence} />
