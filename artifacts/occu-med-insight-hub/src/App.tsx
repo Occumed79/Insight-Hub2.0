@@ -13,6 +13,7 @@ import QuantifiableData from "@/pages/quantifiable-data";
 import GeographicData from "@/pages/geographic-data";
 import JobIntelligence from "@/pages/job-intelligence";
 import HiringIntelligence from "@/pages/hiring-intelligence";
+import LeadershipMap from "@/pages/leadership-map";
 import EmployerWorkflow from "@/pages/employer-workflow";
 import EmployerIntelligence from "@/pages/employer-intelligence";
 import EntityResolution from "@/pages/entity-resolution";
@@ -35,6 +36,7 @@ function Router() {
       <Route path="/geographic-footprint" component={GeographicData} />
       <Route path="/geographic-data" component={GeographicData} />
       <Route path="/hiring-intelligence" component={HiringIntelligence} />
+      <Route path="/leadership-map" component={LeadershipMap} />
       <Route path="/job-intelligence" component={JobIntelligence} />
       <Route path="/employer-workflow" component={EmployerWorkflow} />
       <Route path="/employer-intelligence" component={EmployerIntelligence} />
