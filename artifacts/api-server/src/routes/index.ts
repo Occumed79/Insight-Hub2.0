@@ -13,6 +13,7 @@ import dataVisualizationRouter from "./dataVisualization";
 import portalLinksRouter from "./portalLinks";
 import secFilingsRouter from "./sec-filings";
 import hiringIntelligenceRouter from "./hiring-intelligence";
+import leadershipMapRouter from "./leadership-map";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(dataVisualizationRouter);
 router.use(portalLinksRouter);
 router.use(secFilingsRouter);
 router.use(hiringIntelligenceRouter);
+router.use(leadershipMapRouter);
 
 export default router;
