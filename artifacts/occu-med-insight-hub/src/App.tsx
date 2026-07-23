@@ -31,6 +31,7 @@ function Router() {
       <Route path="/data-profiles" component={DataProfiles} />
       <Route path="/data-visualization" component={DataVisualization} />
       <Route path="/quantifiable-data" component={QuantifiableData} />
+      <Route path="/geographic-footprint" component={GeographicData} />
       <Route path="/geographic-data" component={GeographicData} />
       <Route path="/job-intelligence" component={JobIntelligence} />
       <Route path="/employer-workflow" component={EmployerWorkflow} />
