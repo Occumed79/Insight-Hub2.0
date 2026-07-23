@@ -12,7 +12,7 @@ const nav = [
   { href: "/corporate-structure", label: "Corporate Structure", icon: Building2 },
   { href: "/entity-resolution", label: "Entity Resolution", icon: Network },
   { href: "/injury-workforce-exposure", label: "Injury & Exposure", icon: Grid3X3 },
-  { href: "/company-live-intelligence", label: "Company Live Intel", icon: RadioTower },
+  { href: "/corporate-signals", label: "Corporate Signals", icon: RadioTower },
   { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
   { href: "/workers-comp-coverage", label: "Workers’ Comp Coverage", icon: ClipboardList },
   { href: "/dba-intelligence", label: "DBA Intelligence", icon: ShieldCheck },
@@ -42,7 +42,8 @@ export function Sidebar() {
             const Icon = item.icon;
             const active = currentPath === item.href
               || (item.href === "/geographic-footprint" && currentPath === "/geographic-data")
-              || (item.href === "/injury-workforce-exposure" && currentPath === "/occupational-exposure");
+              || (item.href === "/injury-workforce-exposure" && currentPath === "/occupational-exposure")
+              || (item.href === "/corporate-signals" && currentPath === "/company-live-intelligence");
             return (
               <Link key={item.href} href={item.href} className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition duration-300", active ? "border border-cyan-200/20 bg-cyan-300/16 text-cyan-50 shadow-[0_0_26px_rgba(34,211,238,.14),inset_0_0_26px_rgba(34,211,238,.1)]" : "border border-transparent text-cyan-100/55 hover:border-cyan-100/10 hover:bg-white/[0.05] hover:text-cyan-50")}>
                 <Icon size={16} />
