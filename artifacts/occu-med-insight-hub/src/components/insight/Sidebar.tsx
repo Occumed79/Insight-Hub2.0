@@ -1,4 +1,4 @@
-import { Activity, ClipboardList, Grid3X3, Home, Network, RadioTower, Route, ServerCog, ShieldCheck } from "lucide-react";
+import { Activity, ClipboardList, FileSearch, Globe2, Grid3X3, Home, Network, RadioTower, Route, ServerCog, ShieldCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
@@ -6,9 +6,11 @@ const nav = [
   { href: "/", label: "Home", icon: Home },
   { href: "/employer-workflow", label: "Employer Workflow", icon: Route },
   { href: "/employer-intelligence", label: "Employer Intelligence", icon: Activity },
+  { href: "/geographic-footprint", label: "Geographic Footprint", icon: Globe2 },
   { href: "/entity-resolution", label: "Entity Resolution", icon: Network },
   { href: "/occupational-exposure", label: "Exposure Matrix", icon: Grid3X3 },
   { href: "/company-live-intelligence", label: "Company Live Intel", icon: RadioTower },
+  { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
   { href: "/workers-comp-coverage", label: "Workers’ Comp Coverage", icon: ClipboardList },
   { href: "/dba-intelligence", label: "DBA Intelligence", icon: ShieldCheck },
   { href: "/source-governance", label: "Source Governance", icon: ServerCog },
@@ -31,11 +33,11 @@ export function Sidebar() {
         </div>
       </Link>
       <div className="mt-8">
-        <p className="mb-2 px-1 text-[10px] uppercase tracking-[0.25em] text-cyan-100/35">Intelligence</p>
+        <p className="mb-2 px-1 text-[10px] uppercase tracking-[0.25em] text-cyan-100/35">Intelligence Tools</p>
         <nav className="space-y-1">
           {nav.map((item) => {
             const Icon = item.icon;
-            const active = currentPath === item.href;
+            const active = currentPath === item.href || (item.href === "/geographic-footprint" && currentPath === "/geographic-data");
             return (
               <Link key={item.href} href={item.href} className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition duration-300", active ? "border border-cyan-200/20 bg-cyan-300/16 text-cyan-50 shadow-[0_0_26px_rgba(34,211,238,.14),inset_0_0_26px_rgba(34,211,238,.1)]" : "border border-transparent text-cyan-100/55 hover:border-cyan-100/10 hover:bg-white/[0.05] hover:text-cyan-50")}>
                 <Icon size={16} />
