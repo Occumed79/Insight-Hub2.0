@@ -41,6 +41,7 @@ function Router() {
       <Route path="/employer-workflow" component={EmployerWorkflow} />
       <Route path="/employer-intelligence" component={EmployerIntelligence} />
       <Route path="/entity-resolution" component={EntityResolution} />
+      <Route path="/injury-workforce-exposure" component={OccupationalExposure} />
       <Route path="/occupational-exposure" component={OccupationalExposure} />
       <Route path="/company-live-intelligence" component={CompanyLiveIntelligence} />
       <Route path="/sec-filings" component={SecFilings} />
