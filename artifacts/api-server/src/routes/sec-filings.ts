@@ -276,10 +276,10 @@ router.post("/sec-filings/feed", async (req: Request, res: Response) => {
     return;
   }
 
-  const requestedForms = Array.isArray(req.body?.forms)
-    ? req.body.forms.map((value: unknown) => normalizeText(value)).filter(Boolean)
+  const requestedForms: string[] = Array.isArray(req.body?.forms)
+    ? req.body.forms.map((value: unknown) => normalizeText(value)).filter((value: string) => value.length > 0)
     : DEFAULT_FORMS;
-  const allowedForms = new Set(requestedForms);
+  const allowedForms = new Set<string>(requestedForms);
   const rawLimit = Number(req.body?.limitPerIssuer ?? 40);
   const limitPerIssuer = Number.isFinite(rawLimit) ? Math.max(1, Math.min(100, Math.floor(rawLimit))) : 40;
 
