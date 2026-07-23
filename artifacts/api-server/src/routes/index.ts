@@ -12,6 +12,7 @@ import sourceGovernanceRouter from "./source-governance";
 import dataVisualizationRouter from "./dataVisualization";
 import portalLinksRouter from "./portalLinks";
 import secFilingsRouter from "./sec-filings";
+import hiringIntelligenceRouter from "./hiring-intelligence";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(sourceGovernanceRouter);
 router.use(dataVisualizationRouter);
 router.use(portalLinksRouter);
 router.use(secFilingsRouter);
+router.use(hiringIntelligenceRouter);
 
 export default router;
