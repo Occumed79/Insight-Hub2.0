@@ -11,6 +11,7 @@ import dbaIntelligenceRouter from "./dba-intelligence";
 import sourceGovernanceRouter from "./source-governance";
 import dataVisualizationRouter from "./dataVisualization";
 import portalLinksRouter from "./portalLinks";
+import secFilingsRouter from "./sec-filings";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(dbaIntelligenceRouter);
 router.use(sourceGovernanceRouter);
 router.use(dataVisualizationRouter);
 router.use(portalLinksRouter);
+router.use(secFilingsRouter);
 
 export default router;
