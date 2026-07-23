@@ -14,6 +14,7 @@ import portalLinksRouter from "./portalLinks";
 import secFilingsRouter from "./sec-filings";
 import hiringIntelligenceRouter from "./hiring-intelligence";
 import leadershipMapRouter from "./leadership-map";
+import corporateStructureRouter from "./corporate-structure";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(portalLinksRouter);
 router.use(secFilingsRouter);
 router.use(hiringIntelligenceRouter);
 router.use(leadershipMapRouter);
+router.use(corporateStructureRouter);
 
 export default router;
