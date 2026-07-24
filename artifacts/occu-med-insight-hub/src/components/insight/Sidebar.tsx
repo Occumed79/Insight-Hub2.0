@@ -9,7 +9,7 @@ const nav = [
   { href: "/employer-intelligence", label: "Employer Intelligence", icon: Activity },
   { href: "/geographic-footprint", label: "Geographic Footprint", icon: Globe2 },
   { href: "/hiring-intelligence", label: "Hiring Intelligence", icon: BriefcaseBusiness },
-  { href: "/leadership-map", label: "Leadership Map", icon: GitBranch },
+  { href: "/leadership-map", label: "Organizational Chart", icon: GitBranch },
   { href: "/corporate-structure", label: "Corporate Structure", icon: Building2 },
   { href: "/entity-resolution", label: "Entity Resolution", icon: Network },
   { href: "/injury-workforce-exposure", label: "Injury & Exposure", icon: Grid3X3 },
