@@ -45,6 +45,14 @@ export type LeadershipSourceRecord = {
   note: string;
 };
 
+export type LeadershipProviderDiagnostic = {
+  source: "groq" | "cloudflare" | "gemini" | "cerebras";
+  status: "success" | "partial" | "no-results" | "not-configured" | "error";
+  resultsFound: number;
+  message: string;
+  error?: string;
+};
+
 export type LeadershipMapResponse = {
   companyName: string;
   startedAt: string;
@@ -65,6 +73,26 @@ export type LeadershipMapResponse = {
     gaps: number;
   };
   methodology: string;
+  providerDiagnostics?: LeadershipProviderDiagnostic[];
+  cacheHit?: boolean;
+  entityId?: number;
+  savedAt?: string;
+  pagesConsidered?: number;
+  aiPagesRead?: number;
+};
+
+export type SavedOrganizationalChart = {
+  id: number;
+  companyName: string;
+  savedAt: string;
+  people: number;
+  confirmed: number;
+  sourcesAnalyzed: number;
+};
+
+export type SavedOrganizationalChartsResponse = {
+  ok: true;
+  companies: SavedOrganizationalChart[];
 };
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -80,14 +108,25 @@ async function readJson<T>(response: Response): Promise<T> {
 
 export async function analyzeLeadershipMap(input: {
   companyName: string;
-  primaryUrl: string;
-  supportingUrls: string[];
+  primaryUrl?: string;
+  supportingUrls?: string[];
   secQuery?: string;
+  refresh?: boolean;
 }): Promise<LeadershipMapResponse> {
   const response = await fetch("/api/leadership-map/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
+  return readJson<LeadershipMapResponse>(response);
+}
+
+export async function getSavedOrganizationalCharts(): Promise<SavedOrganizationalChartsResponse> {
+  const response = await fetch("/api/leadership-map/saved");
+  return readJson<SavedOrganizationalChartsResponse>(response);
+}
+
+export async function getSavedOrganizationalChart(entityId: number): Promise<LeadershipMapResponse> {
+  const response = await fetch(`/api/leadership-map/saved/${entityId}`);
   return readJson<LeadershipMapResponse>(response);
 }
