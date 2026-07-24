@@ -1,0 +1,28 @@
+/*
+ * Flat content surfaces for Insight Hub intelligence tools.
+ *
+ * The landing page intentionally keeps its existing portal-card and glass-card
+ * treatment. Only components rendered through the shared GlassCard wrapper use
+ * this class, so the landing page remains unchanged.
+ */
+.tool-section-flat {
+  position: relative;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.tool-section-flat::before,
+.tool-section-flat::after {
+  display: none !important;
+  content: none !important;
+  animation: none !important;
+}
+
+.tool-section-flat > * {
+  z-index: auto;
+}
