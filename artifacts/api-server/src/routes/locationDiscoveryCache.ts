@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { db, entitiesTable, locationsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 
@@ -38,6 +38,11 @@ function diagnosticArray(metadata: Record<string, unknown>): Array<Record<string
     : [];
 }
 
+function requiresCerebrasV2Migration(metadata: Record<string, unknown>): boolean {
+  if (!process.env.CEREBRAS_API_KEY || Number(metadata.cerebrasVersion) === 2) return false;
+  return metadata.discoveryStatus === "completed" || typeof metadata.lastDiscoveryAt === "string";
+}
+
 function buildResearchSources(entityName: string, officialWebsite?: string) {
   const encoded = encodeURIComponent(entityName);
   const quoted = encodeURIComponent(`"${entityName}"`);
@@ -61,6 +66,60 @@ function buildResearchSources(entityName: string, officialWebsite?: string) {
       note: "Manual verification path for corporate footprint and subsidiary context.",
     },
   ];
+}
+
+function installMigrationFinalizer(
+  res: Response,
+  entityId: number,
+): void {
+  const originalJson = res.json.bind(res);
+  let responseScheduled = false;
+
+  res.json = ((payload: unknown) => {
+    if (responseScheduled) return originalJson(payload);
+    responseScheduled = true;
+
+    const responsePayload = payload as {
+      ok?: boolean;
+      warnings?: string[];
+      warning?: string;
+    };
+
+    const finish = async () => {
+      if (responsePayload?.ok === true) {
+        const [current] = await db
+          .select()
+          .from(entitiesTable)
+          .where(eq(entitiesTable.id, entityId))
+          .limit(1);
+
+        if (current) {
+          const currentMetadata = objectMetadata(current.metadata);
+          const migratedAt = new Date().toISOString();
+          await db.update(entitiesTable).set({
+            metadata: {
+              ...currentMetadata,
+              cerebrasVersion: 2,
+              cerebrasValidatedAt: currentMetadata.cerebrasValidatedAt || migratedAt,
+              cerebrasV2MigrationCompletedAt: migratedAt,
+            },
+            updatedAt: new Date(),
+          }).where(eq(entitiesTable.id, entityId));
+
+          const notice = "This legacy saved company was refreshed once through the Cerebras Version 2 location pipeline. Future searches will reuse the updated Neon snapshot unless refresh is explicitly requested.";
+          responsePayload.warnings = Array.from(new Set([...(responsePayload.warnings || []), notice]));
+          responsePayload.warning = responsePayload.warnings.join(" ");
+        }
+      }
+      return originalJson(responsePayload);
+    };
+
+    void finish().catch((error) => {
+      console.error("Cerebras Version 2 location migration finalization failed:", error);
+      originalJson(payload);
+    });
+    return res;
+  }) as Response["json"];
 }
 
 router.post(["/locations/discover", "/entity-discovery/locations"], async (req, res, next) => {
@@ -91,6 +150,23 @@ router.post(["/locations/discover", "/entity-discovery/locations"], async (req, 
 
     const metadata = objectMetadata(entity.metadata);
     const discoveryStatus = stringMetadata(metadata, "discoveryStatus");
+
+    // Older saved discoveries predate the corrected Cerebras Version 2
+    // validator. Bypass the cache once when the company is next searched,
+    // then mark the refreshed Neon snapshot so future searches remain cached.
+    if (requiresCerebrasV2Migration(metadata)) {
+      req.body = {
+        ...req.body,
+        refresh: true,
+        forceRefresh: true,
+        cerebrasV2Migration: true,
+      };
+      res.setHeader("X-Insight-Hub-Cerebras-Migration", "v2-refresh");
+      installMigrationFinalizer(res, entity.id);
+      next();
+      return;
+    }
+
     const locations = await db
       .select()
       .from(locationsTable)
