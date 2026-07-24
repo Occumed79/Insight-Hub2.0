@@ -17,10 +17,12 @@ import secFilingsRouter from "./sec-filings";
 import hiringIntelligenceRouter from "./hiring-intelligence";
 import leadershipMapRouter from "./leadership-map";
 import corporateStructureRouter from "./corporate-structure";
+import companyLibraryRouter from "./company-library";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(companyLibraryRouter);
 router.use(locationDiscoveryCacheRouter);
 router.use(entityDiscoveryRouter);
 router.use(locationsAiRouter);
