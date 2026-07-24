@@ -9,7 +9,6 @@ import {
   ExternalLink,
   Globe2,
   Loader2,
-  MapPin,
   Radar,
   Search,
   ShieldCheck,
@@ -20,10 +19,11 @@ import { GlassCard } from "@/components/insight/GlassCard";
 import {
   discoverGeographicFootprint,
   getSavedGeographicEntities,
-  verifyGeographicLocations,
+  verifyGeographicLocation,
   type GeographicFootprintResponse,
   type GeographicLocation,
   type GeographicResearchSource,
+  type GeographicSourceDiagnostic,
   type SavedGeographicEntity,
 } from "@/data/geographicFootprintApi";
 
@@ -44,7 +44,13 @@ function coordinatesFor(location: GeographicLocation): LatLngTuple | null {
   return [latitude, longitude];
 }
 
+function locationMetadata(location: GeographicLocation): Record<string, unknown> {
+  return location.metadata && typeof location.metadata === "object" ? location.metadata : {};
+}
+
 function evidenceUrl(location: GeographicLocation): string {
+  const metadata = locationMetadata(location);
+  if (typeof metadata.sourceUrl === "string" && /^https?:\/\//.test(metadata.sourceUrl)) return metadata.sourceUrl;
   const coordinates = coordinatesFor(location);
   if (location.sourceId && /^(node|way|relation)\//.test(location.sourceId)) {
     return `https://www.openstreetmap.org/${location.sourceId}`;
@@ -102,7 +108,7 @@ export default function GeographicData() {
       const response = await getSavedGeographicEntities();
       setSavedEntities(response.entities);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Saved companies could not be loaded.");
+      setError(loadError instanceof Error ? loadError.message : "Saved companies could not be loaded from Neon.");
     } finally {
       setLoadingSaved(false);
     }
@@ -112,12 +118,9 @@ export default function GeographicData() {
     void loadSavedCompanies();
   }, [loadSavedCompanies]);
 
-  const savedMapLocations = useMemo(() => savedEntities.flatMap((entity) => entity.locations.map((location) => ({
-    ...location,
-    entityId: entity.id,
-    reviewStatus: "verified" as const,
-    companyName: entity.name,
-  }))), [savedEntities]);
+  const savedMapLocations = useMemo<DisplayLocation[]>(() => savedEntities.flatMap((entity) => entity.locations
+    .filter((location) => coordinatesFor(location) && MAPPABLE_CONFIDENCE.has(location.geocodeConfidence))
+    .map((location) => ({ ...location, entityId: entity.id, companyName: entity.name }))), [savedEntities]);
 
   const displayedLocations = useMemo<DisplayLocation[]>(() => {
     if (selectedCompanyId === SEARCH_RESULTS && searchResult) {
@@ -179,9 +182,15 @@ export default function GeographicData() {
       const response = await discoverGeographicFootprint(company);
       setSearchResult(response);
       setSelectedCompanyId(SEARCH_RESULTS);
-      setNotice(`${response.locations.length} public location candidate${response.locations.length === 1 ? "" : "s"} found for ${response.entityName}.`);
+      await loadSavedCompanies();
+      setNotice(
+        `${response.company.canonicalName} was saved to Neon. `
+        + `${response.counts.candidates} location candidates were retained; `
+        + `${response.coverage.officialLocationsGeocoded} came from addresses extracted from official company pages.`,
+      );
     } catch (runError) {
       setError(runError instanceof Error ? runError.message : "The company location search could not be completed.");
+      await loadSavedCompanies();
     } finally {
       setSearching(false);
     }
@@ -194,22 +203,15 @@ export default function GeographicData() {
     setNotice(null);
 
     try {
-      const alreadyVerified = searchResult.locations
-        .filter((candidate) => candidate.reviewStatus === "verified")
-        .map((candidate) => candidate.id);
-      const locationIds = Array.from(new Set([...alreadyVerified, location.id]));
-      await verifyGeographicLocations(location.entityId, locationIds);
+      await verifyGeographicLocation(location.entityId, location.id);
       setSearchResult({
         ...searchResult,
-        locations: searchResult.locations.map((candidate) => ({
-          ...candidate,
-          reviewStatus: locationIds.includes(candidate.id) ? "verified" : candidate.reviewStatus,
-        })),
+        locations: searchResult.locations.map((candidate) => candidate.id === location.id
+          ? { ...candidate, reviewStatus: "verified" }
+          : candidate),
       });
       await loadSavedCompanies();
-      setSelectedCompanyId(String(location.entityId));
-      setSelectedLocationId(location.id);
-      setNotice(`${location.placeName} was saved under ${location.companyName}.`);
+      setNotice(`${location.placeName} was verified and saved without removing the company’s other location candidates.`);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "The location could not be saved.");
     } finally {
@@ -240,7 +242,7 @@ export default function GeographicData() {
             <h1 className="mt-1 text-3xl font-black tracking-[-0.045em] text-white md:text-4xl">Locations</h1>
           </div>
           <p className="max-w-2xl text-xs leading-5 text-cyan-100/42 sm:text-right">
-            Search public company sites, review location evidence, and reopen saved company footprints from one map.
+            Resolve a company, scan its official public location pages, geocode the addresses, and retain the company and candidates in Neon.
           </p>
         </header>
 
@@ -302,7 +304,7 @@ export default function GeographicData() {
         >
           <div className="grid gap-5 xl:grid-cols-[minmax(260px,.7fr)_minmax(420px,1.3fr)] xl:items-end">
             <label className="block">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">Saved companies</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">Companies saved in Neon</span>
               <div className="mt-2 flex min-h-12 items-center gap-3 rounded-2xl border border-cyan-100/14 bg-black/22 px-4 focus-within:border-cyan-200/32">
                 {loadingSaved ? <Loader2 size={16} className="animate-spin text-cyan-200/55" /> : <Building2 size={16} className="text-cyan-200/55" />}
                 <select
@@ -310,19 +312,19 @@ export default function GeographicData() {
                   onChange={(event) => chooseSavedCompany(event.target.value)}
                   className="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-cyan-50 outline-none"
                 >
-                  <option value={ALL_SAVED} className="bg-[#07101d]">All saved companies ({savedMapLocations.length})</option>
+                  <option value={ALL_SAVED} className="bg-[#07101d]">All saved companies ({savedMapLocations.length} locations)</option>
                   {savedEntities.map((entity) => (
                     <option key={entity.id} value={String(entity.id)} className="bg-[#07101d]">
-                      {entity.name} ({entity.locations.length})
+                      {entity.name} · {entity.status} ({entity.locations.length})
                     </option>
                   ))}
                 </select>
               </div>
-              <p className="mt-2 text-[11px] leading-4 text-cyan-100/34">Selecting a company replaces the map with its saved locations.</p>
+              <p className="mt-2 text-[11px] leading-4 text-cyan-100/34">Every submitted company is retained, including companies whose sites still need review.</p>
             </label>
 
             <div>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">Add a new company to the map</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/44">Find a company and its public sites</span>
               <div className="mt-2 flex flex-col gap-3 sm:flex-row">
                 <div className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-2xl border border-cyan-100/14 bg-black/22 px-4 focus-within:border-cyan-200/32">
                   <Search size={16} className="shrink-0 text-cyan-200/48" />
@@ -343,10 +345,10 @@ export default function GeographicData() {
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-cyan-200/24 bg-cyan-300/14 px-5 text-sm font-bold text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,.10)] transition hover:bg-cyan-300/20 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {searching ? <Loader2 size={17} className="animate-spin" /> : <Radar size={17} />}
-                  {searching ? "Searching locations…" : "Search branches & sites"}
+                  {searching ? "Resolving, crawling & geocoding…" : "Find branches & sites"}
                 </button>
               </div>
-              <p className="mt-2 text-[11px] leading-4 text-cyan-100/34">Search results are public candidates and should be reviewed before saving.</p>
+              <p className="mt-2 text-[11px] leading-4 text-cyan-100/34">The finder uses company resolution, official-site pages, configured search providers, OpenStreetMap, and Photon.</p>
             </div>
           </div>
 
@@ -354,6 +356,16 @@ export default function GeographicData() {
             <div className={`mt-5 rounded-2xl border px-4 py-3 text-sm ${error ? "border-rose-200/18 bg-rose-300/[0.07] text-rose-100" : "border-emerald-200/18 bg-emerald-300/[0.07] text-emerald-100"}`}>
               {error || notice}
             </div>
+          )}
+
+          {searchResult && (
+            <DiscoveryStatus
+              diagnostics={searchResult.sourceDiagnostics}
+              pagesScanned={searchResult.coverage.officialPagesScanned}
+              addressesExtracted={searchResult.coverage.officialAddressesExtracted}
+              officialWebsite={searchResult.company.officialWebsite}
+              warnings={searchResult.warnings}
+            />
           )}
         </GlassCard>
       </section>
@@ -371,7 +383,52 @@ export default function GeographicData() {
   );
 }
 
+function DiscoveryStatus({
+  diagnostics,
+  pagesScanned,
+  addressesExtracted,
+  officialWebsite,
+  warnings,
+}: {
+  diagnostics: GeographicSourceDiagnostic[];
+  pagesScanned: number;
+  addressesExtracted: number;
+  officialWebsite?: string;
+  warnings: string[];
+}) {
+  return (
+    <section className="mt-5 border-t border-cyan-100/10 pt-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-100/40">Finder coverage</p>
+          <p className="mt-1 text-xs text-cyan-100/46">{pagesScanned} official pages scanned · {addressesExtracted} official addresses extracted</p>
+        </div>
+        {officialWebsite && (
+          <a href={officialWebsite} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-xs font-semibold text-cyan-100/64 transition hover:text-cyan-50">
+            Official website <ExternalLink size={13} />
+          </a>
+        )}
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        {diagnostics.map((diagnostic) => (
+          <div key={diagnostic.source} className="rounded-2xl border border-cyan-100/10 bg-black/16 px-3 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-cyan-100/38">{diagnostic.source.replace("-", " ")}</span>
+              <span className={`h-2 w-2 rounded-full ${diagnostic.status === "success" ? "bg-emerald-300" : diagnostic.status === "error" ? "bg-rose-300" : "bg-amber-300"}`} />
+            </div>
+            <p className="mt-2 text-xs font-semibold text-cyan-50/78">{diagnostic.resultsFound} found</p>
+            <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-cyan-100/34">{diagnostic.message}</p>
+          </div>
+        ))}
+      </div>
+      {warnings.length > 0 && <p className="mt-3 text-[10px] leading-4 text-amber-100/52">{warnings.join(" ")}</p>}
+    </section>
+  );
+}
+
 function LocationPreview({ location, onClose, onOpen }: { location: DisplayLocation; onClose: () => void; onOpen: () => void }) {
+  const metadata = locationMetadata(location);
+  const discoveredBy = typeof metadata.discoveredBy === "string" ? metadata.discoveredBy : location.geocodeSource;
   return (
     <div
       role="button"
@@ -401,7 +458,7 @@ function LocationPreview({ location, onClose, onOpen }: { location: DisplayLocat
       <div className="mt-4 flex items-center justify-between gap-4 border-t border-cyan-100/10 pt-4">
         <div className="min-w-0">
           <p className="truncate text-xs font-semibold text-cyan-50/80">{location.facilityType || location.sourceType || "Location candidate"}</p>
-          <p className="mt-1 text-[10px] text-cyan-100/38">{confidenceLabel(location)}</p>
+          <p className="mt-1 text-[10px] text-cyan-100/38">{confidenceLabel(location)} · {discoveredBy}</p>
         </div>
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-100/18 bg-cyan-300/10 text-cyan-50">
           <ChevronRight size={19} />
@@ -426,6 +483,10 @@ function LocationDetailModal({
 }) {
   const coordinates = coordinatesFor(location);
   const isSaved = location.reviewStatus === "verified";
+  const metadata = locationMetadata(location);
+  const sourceTitle = typeof metadata.sourceTitle === "string" ? metadata.sourceTitle : undefined;
+  const evidenceSnippet = typeof metadata.evidenceSnippet === "string" ? metadata.evidenceSnippet : undefined;
+  const discoveredBy = typeof metadata.discoveredBy === "string" ? metadata.discoveredBy : location.geocodeSource;
 
   return (
     <div className="fixed inset-0 z-[900] flex items-center justify-center px-4 py-8">
@@ -454,10 +515,19 @@ function LocationDetailModal({
           <DetailField label="City / region" value={[location.city, location.state || location.region].filter(Boolean).join(", ") || "Not established"} />
           <DetailField label="Country" value={location.country || "Unknown"} />
           <DetailField label="Evidence status" value={confidenceLabel(location)} />
+          <DetailField label="Discovered by" value={discoveredBy} />
           <DetailField label="Geocode source" value={location.geocodeSource || "Unknown"} />
           <DetailField label="Source classification" value={[location.sourceClass, location.sourceType].filter(Boolean).join(" · ") || "Not classified"} />
           <DetailField label="Coordinates" value={coordinates ? `${coordinates[0].toFixed(6)}, ${coordinates[1].toFixed(6)}` : "Unavailable"} mono />
         </div>
+
+        {(sourceTitle || evidenceSnippet) && (
+          <section className="mt-7 border-b border-cyan-100/10 pb-7">
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-100/40">Public evidence</p>
+            {sourceTitle && <p className="mt-3 text-sm font-bold text-cyan-50/82">{sourceTitle}</p>}
+            {evidenceSnippet && <p className="mt-2 text-sm leading-6 text-cyan-100/54">{evidenceSnippet}</p>}
+          </section>
+        )}
 
         {location.notes && (
           <section className="mt-7">
@@ -497,7 +567,7 @@ function LocationDetailModal({
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-cyan-100/14 bg-white/[0.035] px-5 text-sm font-semibold text-cyan-50 transition hover:bg-white/[0.06]"
           >
             <ExternalLink size={16} />
-            Open public map evidence
+            Open public evidence
           </a>
           {!isSaved && (
             <button
@@ -507,13 +577,13 @@ function LocationDetailModal({
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-emerald-200/22 bg-emerald-300/12 px-5 text-sm font-bold text-emerald-100 transition hover:bg-emerald-300/18 disabled:cursor-not-allowed disabled:opacity-45"
             >
               {saving ? <Loader2 size={17} className="animate-spin" /> : <ShieldCheck size={17} />}
-              {saving ? "Saving location…" : "Save this location"}
+              {saving ? "Saving location…" : "Verify & save location"}
             </button>
           )}
           {isSaved && (
             <span className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-emerald-200/18 bg-emerald-300/[0.08] px-5 text-sm font-bold text-emerald-100">
               <CheckCircle2 size={17} />
-              Saved location
+              Verified in Neon
             </span>
           )}
         </div>
