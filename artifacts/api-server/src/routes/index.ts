@@ -15,6 +15,7 @@ import dataVisualizationRouter from "./dataVisualization";
 import portalLinksRouter from "./portalLinks";
 import secFilingsRouter from "./sec-filings";
 import hiringIntelligenceRouter from "./hiring-intelligence";
+import leadershipMapOrchestrationRouter from "./leadership-map-orchestration";
 import leadershipMapRouter from "./leadership-map";
 import corporateStructureRouter from "./corporate-structure";
 import companyLibraryRouter from "./company-library";
@@ -38,6 +39,7 @@ router.use(dataVisualizationRouter);
 router.use(portalLinksRouter);
 router.use(secFilingsRouter);
 router.use(hiringIntelligenceRouter);
+router.use(leadershipMapOrchestrationRouter);
 router.use(leadershipMapRouter);
 router.use(corporateStructureRouter);
 
