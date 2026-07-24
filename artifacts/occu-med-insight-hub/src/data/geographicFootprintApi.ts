@@ -8,6 +8,14 @@ export type GeographicResearchSource = {
   note: string;
 };
 
+export type GeographicSourceDiagnostic = {
+  source: "wikidata" | "web-search" | "official-site" | "openstreetmap" | "photon";
+  status: "success" | "partial" | "no-results" | "not-configured" | "error";
+  resultsFound: number;
+  message: string;
+  error?: string;
+};
+
 export type GeographicLocation = {
   id: number;
   entityId: number;
@@ -30,13 +38,31 @@ export type GeographicLocation = {
   sourceType?: string | null;
   sourceId?: string | null;
   reviewStatus: GeographicReviewStatus;
+  metadata?: Record<string, unknown> | null;
 };
 
 export type GeographicFootprintResponse = {
   ok: true;
   entityName: string;
+  enteredName: string;
   entityId: number;
+  company: {
+    id: number;
+    enteredName: string;
+    canonicalName: string;
+    aliases: string[];
+    wikidataId?: string;
+    officialWebsite?: string;
+    savedToDatabase: boolean;
+    status: string;
+  };
   source: string;
+  sourceDiagnostics: GeographicSourceDiagnostic[];
+  coverage: {
+    officialPagesScanned: number;
+    officialAddressesExtracted: number;
+    officialLocationsGeocoded: number;
+  };
   researchSources: GeographicResearchSource[];
   generatedAt: string;
   counts: {
@@ -45,18 +71,24 @@ export type GeographicFootprintResponse = {
     needsReview: number;
     newCandidates: number;
     duplicatesSkipped: number;
+    enrichedExisting?: number;
   };
   locations: GeographicLocation[];
+  warnings: string[];
   warning: string;
 };
-
-export type SavedGeographicLocation = Omit<GeographicLocation, "entityId" | "reviewStatus">;
 
 export type SavedGeographicEntity = {
   id: number;
   name: string;
   company: string;
-  locations: SavedGeographicLocation[];
+  enteredName?: string;
+  status: string;
+  officialWebsite?: string;
+  wikidataId?: string;
+  lastDiscoveryAt?: string;
+  discoveryStatus?: string;
+  locations: GeographicLocation[];
 };
 
 export type SavedGeographicEntitiesResponse = {
@@ -68,6 +100,12 @@ export type VerifyGeographicLocationsResponse = {
   ok: true;
   entity: { id: number; name: string; displayName: string; status: string };
   locations: GeographicLocation[];
+};
+
+export type VerifyGeographicLocationResponse = {
+  ok: true;
+  entity: { id: number; name: string; displayName: string; status: string };
+  location: GeographicLocation;
 };
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -91,8 +129,20 @@ export async function discoverGeographicFootprint(entityName: string): Promise<G
 }
 
 export async function getSavedGeographicEntities(): Promise<SavedGeographicEntitiesResponse> {
-  const response = await fetch("/api/entities/verified");
+  const response = await fetch("/api/entities/saved");
   return readJson<SavedGeographicEntitiesResponse>(response);
+}
+
+export async function verifyGeographicLocation(
+  entityId: number,
+  locationId: number,
+): Promise<VerifyGeographicLocationResponse> {
+  const response = await fetch(`/api/entities/${entityId}/verify-location`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ locationId }),
+  });
+  return readJson<VerifyGeographicLocationResponse>(response);
 }
 
 export async function verifyGeographicLocations(
