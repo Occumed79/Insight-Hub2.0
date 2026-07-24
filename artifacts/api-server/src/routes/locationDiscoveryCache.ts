@@ -63,7 +63,7 @@ function buildResearchSources(entityName: string, officialWebsite?: string) {
   ];
 }
 
-router.post("/entity-discovery/locations", async (req, res, next) => {
+router.post(["/locations/discover", "/entity-discovery/locations"], async (req, res, next) => {
   const enteredName = normalizeEntityName(req.body?.entityName);
   const forceRefresh = req.body?.refresh === true || req.body?.forceRefresh === true;
 
@@ -140,9 +140,12 @@ router.post("/entity-discovery/locations", async (req, res, next) => {
       source: "Neon saved company-location discovery",
       sourceDiagnostics: [cacheDiagnostic, ...savedDiagnostics],
       coverage: {
-        officialPagesScanned: numberMetadata(metadata, "officialPagesScanned"),
-        officialAddressesExtracted: numberMetadata(metadata, "officialAddressesExtracted"),
+        officialPagesScanned: numberMetadata(metadata, "officialPagesScanned") + numberMetadata(metadata, "aiPagesRead"),
+        officialAddressesExtracted: numberMetadata(metadata, "officialAddressesExtracted") + numberMetadata(metadata, "aiAddressesExtracted"),
         officialLocationsGeocoded: activeLocations.filter((location) => objectMetadata(location.metadata).discoveredBy === "official-site").length,
+        aiPagesConsidered: numberMetadata(metadata, "aiPagesConsidered"),
+        aiPagesRead: numberMetadata(metadata, "aiPagesRead"),
+        aiAddressesExtracted: numberMetadata(metadata, "aiAddressesExtracted"),
       },
       researchSources: buildResearchSources(canonicalName, officialWebsite),
       generatedAt: lastDiscoveryAt,
