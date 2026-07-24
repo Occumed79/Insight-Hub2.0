@@ -16,10 +16,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           show-progress: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
       - name: Install dependencies
-        run: |
-          corepack enable
-          pnpm install --frozen-lockfile --silent >/dev/null 2>&1
+        run: pnpm install --no-frozen-lockfile --silent >/dev/null 2>&1
       - name: Capture typecheck output
         id: typecheck
         continue-on-error: true
