@@ -75,6 +75,7 @@ type LeadershipResult = {
   cacheHit?: boolean;
   entityId?: number;
   savedAt?: string;
+  savedToDatabase?: boolean;
   pagesConsidered?: number;
   aiPagesRead?: number;
 };
@@ -186,7 +187,15 @@ function buildGaps(people: Person[]): LeadershipResult["gaps"] {
   return gaps;
 }
 
-function recompute(result: LeadershipResult, aiPeople: LeadershipAiPerson[], aiSources: SourceRecord[], diagnostics: LeadershipProviderDiagnostic[], warnings: string[], pagesConsidered: number, pagesRead: number): LeadershipResult {
+function recompute(
+  result: LeadershipResult,
+  aiPeople: LeadershipAiPerson[],
+  aiSources: SourceRecord[],
+  diagnostics: LeadershipProviderDiagnostic[],
+  warnings: string[],
+  pagesConsidered: number,
+  pagesRead: number,
+): LeadershipResult {
   const people = mergePeople(result.people || [], aiPeople);
   const sources = [...(result.sources || []), ...aiSources]
     .filter((item, index, all) => all.findIndex((candidate) => candidate.url === item.url && candidate.status === item.status) === index)
@@ -217,6 +226,46 @@ function recompute(result: LeadershipResult, aiPeople: LeadershipAiPerson[], aiS
   };
 }
 
+function hostname(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+function sameHost(left: string, right: string): boolean {
+  const leftHost = hostname(left);
+  const rightHost = hostname(right);
+  return Boolean(leftHost && rightHost && (leftHost === rightHost || leftHost.endsWith(`.${rightHost}`) || rightHost.endsWith(`.${leftHost}`)));
+}
+
+function looksLikeOfficialCompanyUrl(value: string, companyName: string): boolean {
+  const host = hostname(value);
+  if (!host) return false;
+  const ignored = new Set(["group", "global", "company", "companies", "corporation", "corp", "inc", "llc", "ltd", "plc", "holdings"]);
+  const tokens = normalizeKey(companyName).split(" ").filter((token) => token.length >= 3 && !ignored.has(token));
+  const compactHost = host.replace(/[^a-z0-9]/g, "");
+  return tokens.some((token) => compactHost.includes(token.replace(/[^a-z0-9]/g, "")));
+}
+
+function emptyBaseline(companyName: string, warning: string): LeadershipResult {
+  const startedAt = new Date().toISOString();
+  return {
+    companyName,
+    startedAt,
+    completedAt: startedAt,
+    people: [],
+    edges: [],
+    gaps: [],
+    sources: [],
+    warnings: [warning],
+    summary: { people: 0, confirmed: 0, probable: 0, inferred: 0, levels: 0, sourcesAnalyzed: 0, gaps: 0 },
+    methodology: "Public organizational-chart evidence was processed without an official-domain crawl because no sufficiently safe official company domain was resolved.",
+  };
+}
+
 async function findEntity(companyName: string) {
   const [entity] = await db.select().from(entitiesTable).where(sql`
     lower(${entitiesTable.name}) = lower(${companyName})
@@ -243,12 +292,47 @@ async function getOrCreateEntity(companyName: string) {
 
 async function saveSnapshot(entityId: number, snapshot: SavedSnapshot): Promise<void> {
   const [entity] = await db.select().from(entitiesTable).where(eq(entitiesTable.id, entityId)).limit(1);
-  if (!entity) return;
+  if (!entity) throw new Error("The company record no longer exists in Neon.");
   await db.update(entitiesTable).set({
     displayName: snapshot.result.companyName || entity.displayName,
     metadata: { ...objectMetadata(entity.metadata), [SNAPSHOT_KEY]: snapshot },
     updatedAt: new Date(),
   }).where(eq(entitiesTable.id, entityId));
+}
+
+async function finalizeAndSave(
+  base: LeadershipResult,
+  entityId: number,
+  ai: Awaited<ReturnType<typeof discoverLeadershipWithAi>>,
+  req: Request,
+): Promise<LeadershipResult> {
+  const merged = recompute(
+    base,
+    ai.people,
+    ai.sources as SourceRecord[],
+    ai.diagnostics,
+    ai.warnings,
+    ai.pagesConsidered,
+    ai.pagesRead,
+  );
+  const savedAt = new Date().toISOString();
+  merged.cacheHit = false;
+  merged.entityId = entityId;
+  merged.savedAt = savedAt;
+  const snapshot: SavedSnapshot = {
+    version: 1,
+    savedAt,
+    result: merged,
+    sourceInputs: {
+      primaryUrl: cleanText(req.body?.primaryUrl, 2_000) || undefined,
+      supportingUrls: Array.isArray(req.body?.supportingUrls) ? req.body.supportingUrls : [],
+      secQuery: cleanText(req.body?.secQuery, 180) || undefined,
+    },
+  };
+  await saveSnapshot(entityId, snapshot);
+  merged.savedToDatabase = true;
+  snapshot.result.savedToDatabase = true;
+  return merged;
 }
 
 function cachedResponse(entityId: number, snapshot: SavedSnapshot): LeadershipResult {
@@ -257,6 +341,7 @@ function cachedResponse(entityId: number, snapshot: SavedSnapshot): LeadershipRe
     cacheHit: true,
     entityId,
     savedAt: snapshot.savedAt,
+    savedToDatabase: true,
     warnings: Array.from(new Set([
       "Loaded the saved organizational chart from Neon without calling Groq, Cloudflare, Gemini, Cerebras, the crawler, or SEC again.",
       ...(snapshot.result.warnings || []),
@@ -324,42 +409,60 @@ router.post("/leadership-map/analyze", async (req: Request, res: Response, next:
       : [];
     const entity = existing || await getOrCreateEntity(companyName);
     const ai = await discoverLeadershipWithAi({ companyName, primaryUrl, supportingUrls });
-    const discoveredUrls = ai.sources.filter((source) => source.status === "analyzed").map((source) => source.url);
-    const combinedUrls = Array.from(new Set([...supportingUrls, ...discoveredUrls])).slice(0, 12);
-    req.body.primaryUrl = primaryUrl || combinedUrls[0] || "";
+
+    const explicitSeed = primaryUrl || supportingUrls[0];
+    const discoveredOfficialSeed = ai.sources
+      .filter((source) => source.status === "analyzed")
+      .map((source) => source.url)
+      .find((url) => looksLikeOfficialCompanyUrl(url, companyName));
+    const officialSeed = explicitSeed || discoveredOfficialSeed;
+
+    if (!officialSeed) {
+      const base = emptyBaseline(
+        companyName,
+        "No sufficiently safe official company domain was resolved, so the legacy official-domain crawler and SEC enrichment were skipped for this run rather than treating a third-party page as official.",
+      );
+      try {
+        const merged = await finalizeAndSave(base, entity.id, ai, req);
+        res.json(merged);
+      } catch (saveError) {
+        const merged = recompute(base, ai.people, ai.sources as SourceRecord[], ai.diagnostics, ai.warnings, ai.pagesConsidered, ai.pagesRead);
+        merged.entityId = entity.id;
+        merged.cacheHit = false;
+        merged.savedToDatabase = false;
+        merged.warnings = Array.from(new Set([...merged.warnings, `The chart was built but could not be saved to Neon: ${saveError instanceof Error ? saveError.message : "Unknown persistence error"}`]));
+        res.json(merged);
+      }
+      return;
+    }
+
+    const officialDiscoveredUrls = ai.sources
+      .filter((source) => source.status === "analyzed" && sameHost(source.url, officialSeed))
+      .map((source) => source.url);
+    const combinedUrls = Array.from(new Set([...supportingUrls, ...officialDiscoveredUrls])).slice(0, 12);
+    req.body.primaryUrl = primaryUrl || officialSeed;
     req.body.supportingUrls = combinedUrls.filter((url) => url !== req.body.primaryUrl);
 
     const originalJson = res.json.bind(res);
+    let responseScheduled = false;
     res.json = ((payload: unknown) => {
+      if (responseScheduled) return res;
       if (res.statusCode >= 400 || !payload || typeof payload !== "object" || Array.isArray(payload) || !Array.isArray((payload as Partial<LeadershipResult>).people)) {
         return originalJson(payload);
       }
+      responseScheduled = true;
       const base = payload as LeadershipResult;
-      const merged = recompute(
-        base,
-        ai.people,
-        ai.sources as SourceRecord[],
-        ai.diagnostics,
-        ai.warnings,
-        ai.pagesConsidered,
-        ai.pagesRead,
-      );
-      const savedAt = new Date().toISOString();
-      merged.cacheHit = false;
-      merged.entityId = entity.id;
-      merged.savedAt = savedAt;
-      const snapshot: SavedSnapshot = {
-        version: 1,
-        savedAt,
-        result: merged,
-        sourceInputs: {
-          primaryUrl: req.body.primaryUrl || undefined,
-          supportingUrls: req.body.supportingUrls,
-          secQuery: cleanText(req.body?.secQuery, 180) || undefined,
-        },
-      };
-      void saveSnapshot(entity.id, snapshot).catch((error) => console.error("Organizational chart snapshot save failed:", error));
-      return originalJson(merged);
+      void finalizeAndSave(base, entity.id, ai, req)
+        .then((merged) => originalJson(merged))
+        .catch((saveError) => {
+          const merged = recompute(base, ai.people, ai.sources as SourceRecord[], ai.diagnostics, ai.warnings, ai.pagesConsidered, ai.pagesRead);
+          merged.entityId = entity.id;
+          merged.cacheHit = false;
+          merged.savedToDatabase = false;
+          merged.warnings = Array.from(new Set([...merged.warnings, `The chart was built but could not be saved to Neon: ${saveError instanceof Error ? saveError.message : "Unknown persistence error"}`]));
+          originalJson(merged);
+        });
+      return res;
     }) as Response["json"];
 
     next();
