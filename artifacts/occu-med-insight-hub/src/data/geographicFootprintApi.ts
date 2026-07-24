@@ -50,6 +50,20 @@ export type GeographicFootprintResponse = {
   warning: string;
 };
 
+export type SavedGeographicLocation = Omit<GeographicLocation, "entityId" | "reviewStatus">;
+
+export type SavedGeographicEntity = {
+  id: number;
+  name: string;
+  company: string;
+  locations: SavedGeographicLocation[];
+};
+
+export type SavedGeographicEntitiesResponse = {
+  ok: true;
+  entities: SavedGeographicEntity[];
+};
+
 export type VerifyGeographicLocationsResponse = {
   ok: true;
   entity: { id: number; name: string; displayName: string; status: string };
@@ -74,6 +88,11 @@ export async function discoverGeographicFootprint(entityName: string): Promise<G
     body: JSON.stringify({ entityName }),
   });
   return readJson<GeographicFootprintResponse>(response);
+}
+
+export async function getSavedGeographicEntities(): Promise<SavedGeographicEntitiesResponse> {
+  const response = await fetch("/api/entities/verified");
+  return readJson<SavedGeographicEntitiesResponse>(response);
 }
 
 export async function verifyGeographicLocations(
