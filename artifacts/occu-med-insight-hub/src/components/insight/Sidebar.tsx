@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "Home", icon: Home },
+  { href: "/locations", label: "Locations", icon: Globe2 },
   { href: "/employer-workflow", label: "Employer Workflow", icon: Route },
   { href: "/employer-intelligence", label: "Employer Intelligence", icon: Activity },
-  { href: "/geographic-footprint", label: "Geographic Footprint", icon: Globe2 },
   { href: "/hiring-intelligence", label: "Hiring Intelligence", icon: BriefcaseBusiness },
   { href: "/leadership-map", label: "Leadership Map", icon: GitBranch },
   { href: "/corporate-structure", label: "Corporate Structure", icon: Building2 },
@@ -41,7 +41,7 @@ export function Sidebar() {
           {nav.map((item) => {
             const Icon = item.icon;
             const active = currentPath === item.href
-              || (item.href === "/geographic-footprint" && currentPath === "/geographic-data")
+              || (item.href === "/locations" && ["/geographic-footprint", "/geographic-data"].includes(currentPath))
               || (item.href === "/injury-workforce-exposure" && currentPath === "/occupational-exposure")
               || (item.href === "/corporate-signals" && currentPath === "/company-live-intelligence");
             return (
