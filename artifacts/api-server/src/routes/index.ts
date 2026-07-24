@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import locationDiscoveryCacheRouter from "./locationDiscoveryCache";
 import entityDiscoveryRouter from "./entityDiscovery";
 import locationsAiRouter from "./locations-ai";
 import bulkManualLocationsRouter from "./bulkManualLocations";
@@ -20,6 +21,7 @@ import corporateStructureRouter from "./corporate-structure";
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(locationDiscoveryCacheRouter);
 router.use(entityDiscoveryRouter);
 router.use(locationsAiRouter);
 router.use(bulkManualLocationsRouter);
