@@ -1,9 +1,10 @@
-import { Activity, BriefcaseBusiness, Building2, ClipboardList, FileSearch, GitBranch, Globe2, Grid3X3, Home, Network, RadioTower, Route, ServerCog, ShieldCheck } from "lucide-react";
+import { Activity, BriefcaseBusiness, Building2, ClipboardList, FileSearch, GitBranch, Globe2, Grid3X3, Home, LibraryBig, Network, RadioTower, Route, ServerCog, ShieldCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "Home", icon: Home },
+  { href: "/data-profiles", label: "Company Library", icon: LibraryBig },
   { href: "/employer-workflow", label: "Employer Workflow", icon: Route },
   { href: "/employer-intelligence", label: "Employer Intelligence", icon: Activity },
   { href: "/geographic-footprint", label: "Geographic Footprint", icon: Globe2 },
