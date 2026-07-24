@@ -410,7 +410,7 @@ router.post("/leadership-map/analyze", async (req: Request, res: Response, next:
     const entity = existing || await getOrCreateEntity(companyName);
     const ai = await discoverLeadershipWithAi({ companyName, primaryUrl, supportingUrls });
 
-    const explicitSeed = primaryUrl || supportingUrls[0];
+    const explicitSeed = primaryUrl;
     const discoveredOfficialSeed = ai.sources
       .filter((source) => source.status === "analyzed")
       .map((source) => source.url)
@@ -436,10 +436,11 @@ router.post("/leadership-map/analyze", async (req: Request, res: Response, next:
       return;
     }
 
+    const sameHostSupportingUrls = supportingUrls.filter((url) => sameHost(url, officialSeed));
     const officialDiscoveredUrls = ai.sources
       .filter((source) => source.status === "analyzed" && sameHost(source.url, officialSeed))
       .map((source) => source.url);
-    const combinedUrls = Array.from(new Set([...supportingUrls, ...officialDiscoveredUrls])).slice(0, 12);
+    const combinedUrls = Array.from(new Set([...sameHostSupportingUrls, ...officialDiscoveredUrls])).slice(0, 12);
     req.body.primaryUrl = primaryUrl || officialSeed;
     req.body.supportingUrls = combinedUrls.filter((url) => url !== req.body.primaryUrl);
 
