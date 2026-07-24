@@ -1,0 +1,23 @@
+name: Debug Org Chart Typecheck
+
+on:
+  push:
+    branches:
+      - agent/org-chart-neon-ai
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      NODE_ENV: test
+      BASE_PATH: /
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+      - name: Typecheck with compact logs
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile --silent >/dev/null 2>&1
+          pnpm typecheck
