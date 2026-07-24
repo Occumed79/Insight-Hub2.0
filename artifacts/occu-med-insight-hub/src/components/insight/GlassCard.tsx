@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, MouseEventHandler, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type GlassCardVariant = "flat" | "glass";
@@ -9,6 +9,7 @@ type GlassCardProps = {
   className?: string;
   delay?: number;
   variant?: GlassCardVariant;
+  onClick?: MouseEventHandler<HTMLDivElement>;
 };
 
 const flatSurfaceStyle: CSSProperties = {
@@ -26,6 +27,7 @@ export function GlassCard({
   className,
   delay = 0,
   variant = "flat",
+  onClick,
 }: GlassCardProps) {
   const isGlassCard = variant === "glass";
 
@@ -36,6 +38,7 @@ export function GlassCard({
       transition={{ duration: 0.55, ease: "easeOut", delay }}
       className={cn(isGlassCard ? "glass-card rounded-[28px]" : "relative", className)}
       style={isGlassCard ? undefined : flatSurfaceStyle}
+      onClick={onClick}
     >
       {children}
     </motion.div>
