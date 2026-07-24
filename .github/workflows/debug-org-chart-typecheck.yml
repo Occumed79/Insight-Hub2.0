@@ -1,9 +1,9 @@
 name: Debug Org Chart Typecheck
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/org-chart-neon-ai
+      - main
 
 jobs:
   typecheck:
