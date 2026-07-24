@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 import type { CompanyLocationCandidate, DiscoveryDiagnostic } from "./companyLocationDiscovery";
 
-export type LocationAiDiagnostic = DiscoveryDiagnostic & {
+export type LocationAiDiagnostic = Omit<DiscoveryDiagnostic, "source"> & {
   source: "groq" | "cloudflare" | "gemini" | "cerebras";
 };
 
@@ -27,7 +27,7 @@ type ExtractedAddress = {
   sourceTitle?: string;
   facilityType?: string;
   evidenceSnippet?: string;
-  confidence?: "high" | "medium" | "low";
+  confidence: "high" | "medium" | "low";
 };
 
 export type LocationAiResult = {
@@ -47,7 +47,7 @@ const MAX_PAGES_TO_READ = 10;
 const MAX_PAGE_BYTES = 1_200_000;
 const MAX_PAGE_TEXT = 18_000;
 const MAX_AI_ADDRESSES = 40;
-const LOCATION_PATH_PATTERN = /location|office|branch|facility|facilities|site|sites|campus|contact|global|where-we-operate|our-presence|store|plant|warehouse|distribution|service-center|operations/i;
+const LOCATION_PATTERN = /location|office|branch|facility|facilities|site|sites|campus|contact|global|where-we-operate|our-presence|store|plant|warehouse|distribution|service-center|operations/i;
 const BLOCKED_DOMAIN_PATTERN = /(^|\.)(facebook|instagram|linkedin|x|twitter|youtube|wikipedia|bloomberg|zoominfo|crunchbase|mapquest|yelp|glassdoor|indeed)\./i;
 let lastNominatimRequestAt = 0;
 
@@ -107,26 +107,20 @@ function sameCompanyHost(candidate: URL, official: URL): boolean {
   return left === right || left.endsWith(`.${right}`) || right.endsWith(`.${left}`);
 }
 
-function searchResultKey(result: SearchResult): string {
+function resultKey(result: SearchResult): string {
   return safePublicUrl(result.url)?.toString() || normalizeKey(`${result.title}|${result.snippet}`);
 }
 
 async function groqSearch(companyName: string): Promise<{ results: SearchResult[]; diagnostic: LocationAiDiagnostic }> {
   const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    return {
-      results: [],
-      diagnostic: { source: "groq", status: "not-configured", resultsFound: 0, message: "GROQ_API_KEY is not configured." },
-    };
-  }
+  if (!apiKey) return {
+    results: [],
+    diagnostic: { source: "groq", status: "not-configured", resultsFound: 0, message: "GROQ_API_KEY is not configured." },
+  };
 
   const baseUrl = (process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1").replace(/\/$/, "");
   const model = process.env.GROQ_SEARCH_MODEL || process.env.GROQ_MODEL || "openai/gpt-oss-120b";
-  const prompt = [
-    `Find the official website and public location pages for the company \"${companyName}\".`,
-    "Search specifically for offices, branches, sites, facilities, plants, warehouses, campuses, service centers, contact pages, and where-we-operate pages.",
-    "Prefer official company domains. Do not use social networks, directories, aggregators, or people-search sites.",
-  ].join(" ");
+  const prompt = `Find the official website and public pages listing physical offices, branches, facilities, plants, warehouses, campuses, service centers, and operating sites for \"${companyName}\". Prefer official company domains. Exclude social networks, directories, aggregators, and people-search sites.`;
 
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -144,26 +138,26 @@ async function groqSearch(companyName: string): Promise<{ results: SearchResult[
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json() as any;
-    const message = payload?.choices?.[0]?.message || {};
-    const executedTools = Array.isArray(message.executed_tools) ? message.executed_tools : [];
-    const collected: SearchResult[] = [];
-    for (const tool of executedTools) {
-      const rawResults = tool?.search_results?.results || tool?.search_results || tool?.results || [];
-      if (!Array.isArray(rawResults)) continue;
-      for (const item of rawResults) {
-        const url = safePublicUrl(String(item?.url || item?.link || ""));
+    const tools = Array.isArray(payload?.choices?.[0]?.message?.executed_tools)
+      ? payload.choices[0].message.executed_tools
+      : [];
+    const unique = new Map<string, SearchResult>();
+    for (const tool of tools) {
+      const rows = tool?.search_results?.results || tool?.search_results || tool?.results || [];
+      if (!Array.isArray(rows)) continue;
+      for (const row of rows) {
+        const url = safePublicUrl(String(row?.url || row?.link || ""));
         if (!url) continue;
-        collected.push({
-          title: cleanText(item?.title, 240) || url.hostname,
+        const result: SearchResult = {
+          title: cleanText(row?.title, 240) || url.hostname,
           url: url.toString(),
-          snippet: cleanText(item?.content || item?.snippet || item?.text, 1600) || "",
+          snippet: cleanText(row?.content || row?.snippet || row?.text, 1600) || "",
           provider: "groq-browser-search",
-          score: Number.isFinite(Number(item?.score)) ? Number(item.score) : undefined,
-        });
+          score: Number.isFinite(Number(row?.score)) ? Number(row.score) : undefined,
+        };
+        unique.set(resultKey(result), result);
       }
     }
-    const unique = new Map<string, SearchResult>();
-    for (const result of collected) unique.set(searchResultKey(result), result);
     const results = Array.from(unique.values()).slice(0, MAX_SEARCH_RESULTS);
     return {
       results,
@@ -173,7 +167,7 @@ async function groqSearch(companyName: string): Promise<{ results: SearchResult[
         resultsFound: results.length,
         message: results.length > 0
           ? `Groq browser search returned ${results.length} public company and location-page leads.`
-          : "Groq browser search completed without usable public location-page leads.",
+          : "Groq browser search completed without usable location-page leads.",
       },
     };
   } catch (error) {
@@ -187,27 +181,22 @@ async function groqSearch(companyName: string): Promise<{ results: SearchResult[
 async function cloudflareRerank(companyName: string, results: SearchResult[]): Promise<{ results: SearchResult[]; diagnostic: LocationAiDiagnostic }> {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
   const token = process.env.CLOUDFLARE_API_TOKEN || process.env.CLOUDFLARE_AUTH_TOKEN;
-  if (!accountId || !token) {
-    return {
-      results,
-      diagnostic: { source: "cloudflare", status: "not-configured", resultsFound: 0, message: "Cloudflare Workers AI credentials are not configured." },
-    };
-  }
-  if (results.length === 0) {
-    return {
-      results,
-      diagnostic: { source: "cloudflare", status: "no-results", resultsFound: 0, message: "No candidate pages were available for semantic reranking." },
-    };
-  }
+  if (!accountId || !token) return {
+    results,
+    diagnostic: { source: "cloudflare", status: "not-configured", resultsFound: 0, message: "Cloudflare Workers AI credentials are not configured." },
+  };
+  if (results.length === 0) return {
+    results,
+    diagnostic: { source: "cloudflare", status: "no-results", resultsFound: 0, message: "No candidate pages were available for semantic reranking." },
+  };
 
   const model = process.env.CLOUDFLARE_RERANK_MODEL || "@cf/baai/bge-reranker-base";
-  const query = `${companyName} official company locations offices branches facilities plants warehouses campuses service centers operating sites addresses`;
   try {
     const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        query,
+        query: `${companyName} official company locations offices branches facilities plants warehouses campuses service centers operating sites addresses`,
         top_k: Math.min(results.length, MAX_SEARCH_RESULTS),
         contexts: results.map((result) => ({ text: `${result.title}\n${result.url}\n${result.snippet}`.slice(0, 4000) })),
       }),
@@ -215,12 +204,11 @@ async function cloudflareRerank(companyName: string, results: SearchResult[]): P
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json() as any;
     const ranked = payload?.result?.response || payload?.result || [];
-    if (!Array.isArray(ranked) || ranked.length === 0) {
-      return {
-        results,
-        diagnostic: { source: "cloudflare", status: "partial", resultsFound: 0, message: "Cloudflare responded, but no reranking rows were returned." },
-      };
-    }
+    if (!Array.isArray(ranked) || ranked.length === 0) return {
+      results,
+      diagnostic: { source: "cloudflare", status: "partial", resultsFound: 0, message: "Cloudflare responded without usable reranking rows; original ordering was retained." },
+    };
+
     const ordered: SearchResult[] = [];
     const used = new Set<number>();
     for (const row of ranked) {
@@ -229,7 +217,7 @@ async function cloudflareRerank(companyName: string, results: SearchResult[]): P
       used.add(index);
       ordered.push({ ...results[index], score: Number.isFinite(Number(row?.score)) ? Number(row.score) : results[index].score });
     }
-    for (let index = 0; index < results.length; index += 1) if (!used.has(index)) ordered.push(results[index]);
+    results.forEach((result, index) => { if (!used.has(index)) ordered.push(result); });
     return {
       results: ordered,
       diagnostic: { source: "cloudflare", status: "success", resultsFound: used.size, message: `Cloudflare Workers AI semantically reranked ${used.size} candidate pages.` },
@@ -242,10 +230,21 @@ async function cloudflareRerank(companyName: string, results: SearchResult[]): P
   }
 }
 
+function officialSeeds(officialWebsite?: string): SearchResult[] {
+  const official = officialWebsite ? safePublicUrl(officialWebsite) : null;
+  if (!official) return [];
+  return ["/", "/locations", "/offices", "/contact", "/contact-us", "/global-locations", "/where-we-operate", "/our-locations", "/facilities"].map((path) => ({
+    title: `${official.hostname} ${path === "/" ? "home" : path.slice(1).replace(/-/g, " ")}`,
+    url: new URL(path, official).toString(),
+    snippet: "Official company-domain location discovery seed.",
+    provider: "official-seed",
+  }));
+}
+
 async function fetchPage(urlValue: string): Promise<PageDocument | null> {
-  const initial = safePublicUrl(urlValue);
-  if (!initial) return null;
-  let current = initial;
+  const start = safePublicUrl(urlValue);
+  if (!start) return null;
+  let current = start;
   for (let redirect = 0; redirect < 4; redirect += 1) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 9_000);
@@ -256,20 +255,21 @@ async function fetchPage(urlValue: string): Promise<PageDocument | null> {
         headers: { "User-Agent": USER_AGENT, Accept: "text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.4" },
       });
       if (response.status >= 300 && response.status < 400) {
-        const location = response.headers.get("location");
-        const next = location ? safePublicUrl(new URL(location, current).toString()) : null;
-        if (!next) return null;
-        current = next;
+        const next = response.headers.get("location");
+        const parsed = next ? safePublicUrl(new URL(next, current).toString()) : null;
+        if (!parsed) return null;
+        current = parsed;
         continue;
       }
-      if (!response.ok) return null;
-      const length = Number(response.headers.get("content-length") || 0);
-      if (length > MAX_PAGE_BYTES) return null;
+      if (!response.ok || Number(response.headers.get("content-length") || 0) > MAX_PAGE_BYTES) return null;
       const html = (await response.text()).slice(0, MAX_PAGE_BYTES);
-      const title = cleanText(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1], 240) || current.hostname;
       const text = cleanText(html, MAX_PAGE_TEXT);
       if (!text || text.length < 80) return null;
-      return { title, url: current.toString(), text };
+      return {
+        title: cleanText(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1], 240) || current.hostname,
+        url: current.toString(),
+        text,
+      };
     } catch {
       return null;
     } finally {
@@ -279,25 +279,13 @@ async function fetchPage(urlValue: string): Promise<PageDocument | null> {
   return null;
 }
 
-function seedOfficialPages(officialWebsite?: string): SearchResult[] {
-  const official = officialWebsite ? safePublicUrl(officialWebsite) : null;
-  if (!official) return [];
-  const paths = ["/", "/locations", "/offices", "/contact", "/contact-us", "/global-locations", "/where-we-operate", "/our-locations", "/facilities"];
-  return paths.map((path) => ({
-    title: `${official.hostname} ${path === "/" ? "home" : path.slice(1).replace(/-/g, " ")}`,
-    url: new URL(path, official).toString(),
-    snippet: "Official company-domain location discovery seed.",
-    provider: "official-seed",
-  }));
-}
-
-async function readCandidatePages(results: SearchResult[], officialWebsite?: string): Promise<PageDocument[]> {
+async function readPages(results: SearchResult[], officialWebsite?: string): Promise<PageDocument[]> {
   const official = officialWebsite ? safePublicUrl(officialWebsite) : null;
   const eligible = results.filter((result) => {
     const url = safePublicUrl(result.url);
     if (!url) return false;
     if (official && !sameCompanyHost(url, official)) return false;
-    return LOCATION_PATH_PATTERN.test(`${url.pathname} ${result.title} ${result.snippet}`) || Boolean(official && url.origin === official.origin);
+    return LOCATION_PATTERN.test(`${url.pathname} ${result.title} ${result.snippet}`) || Boolean(official && url.origin === official.origin);
   });
   const pages: PageDocument[] = [];
   for (const result of eligible.slice(0, MAX_PAGES_TO_READ)) {
@@ -307,7 +295,7 @@ async function readCandidatePages(results: SearchResult[], officialWebsite?: str
   return pages;
 }
 
-function addressSchema() {
+function schema(): Record<string, unknown> {
   return {
     type: "object",
     additionalProperties: false,
@@ -335,29 +323,22 @@ function addressSchema() {
   };
 }
 
-function extractionPrompt(companyName: string, pages: PageDocument[]): string {
-  const sourceText = pages.map((page, index) => [
-    `SOURCE ${index + 1}`,
-    `URL: ${page.url}`,
-    `TITLE: ${page.title}`,
-    `TEXT: ${page.text}`,
-  ].join("\n")).join("\n\n---\n\n");
-  return [
-    `Extract physical operating locations belonging to or explicitly identified as locations of \"${companyName}\" from the supplied official public webpages.`,
-    "Include offices, branches, facilities, plants, warehouses, campuses, service centers, and operating sites only when the page supports the association.",
-    "Do not invent addresses. Exclude customer addresses, employee home addresses, unrelated map results, partner locations, job locations without a company facility, and mailing addresses that are not presented as a company location.",
-    "Return the source URL exactly as supplied for every record. Preserve complete street, city, region, postal code, and country information when available.",
-    sourceText,
-  ].join("\n\n");
+function prompt(companyName: string, pages: PageDocument[]): string {
+  const sourceText = pages.map((page, index) => `SOURCE ${index + 1}\nURL: ${page.url}\nTITLE: ${page.title}\nTEXT: ${page.text}`).join("\n\n---\n\n");
+  return `Extract physical operating locations explicitly belonging to \"${companyName}\" from these official public webpages. Include offices, branches, facilities, plants, warehouses, campuses, service centers, and operating sites. Do not invent addresses. Exclude customer addresses, home addresses, partners, unrelated map results, and job cities without a company facility. Return each supplied source URL exactly.\n\n${sourceText}`;
 }
 
-function parseAddressPayload(value: unknown, allowedUrls: Set<string>): ExtractedAddress[] {
+function parseAddresses(value: unknown, pages: PageDocument[]): ExtractedAddress[] {
   const rows = Array.isArray((value as any)?.locations) ? (value as any).locations : [];
+  const allowedUrls = new Set(pages.map((page) => page.url));
   const unique = new Map<string, ExtractedAddress>();
   for (const row of rows) {
     const address = cleanText(row?.address, 500);
     const sourceUrl = safePublicUrl(String(row?.sourceUrl || ""))?.toString();
     if (!address || address.length < 8 || !sourceUrl || !allowedUrls.has(sourceUrl)) continue;
+    const confidence = ["high", "medium", "low"].includes(String(row?.confidence))
+      ? row.confidence as ExtractedAddress["confidence"]
+      : "medium";
     const record: ExtractedAddress = {
       name: cleanText(row?.name, 180),
       address,
@@ -365,45 +346,34 @@ function parseAddressPayload(value: unknown, allowedUrls: Set<string>): Extracte
       sourceTitle: cleanText(row?.sourceTitle, 240),
       facilityType: cleanText(row?.facilityType, 160),
       evidenceSnippet: cleanText(row?.evidenceSnippet, 500),
-      confidence: ["high", "medium", "low"].includes(String(row?.confidence)) ? row.confidence : "medium",
+      confidence,
     };
-    const key = `${normalizeKey(address)}|${sourceUrl}`;
-    if (!unique.has(key)) unique.set(key, record);
+    unique.set(`${normalizeKey(address)}|${sourceUrl}`, record);
   }
   return Array.from(unique.values()).slice(0, MAX_AI_ADDRESSES);
 }
 
 async function geminiExtract(companyName: string, pages: PageDocument[]): Promise<{ addresses: ExtractedAddress[]; diagnostic: LocationAiDiagnostic }> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return { addresses: [], diagnostic: { source: "gemini", status: "not-configured", resultsFound: 0, message: "GEMINI_API_KEY is not configured." } };
-  }
-  if (pages.length === 0) {
-    return { addresses: [], diagnostic: { source: "gemini", status: "no-results", resultsFound: 0, message: "No official pages were available for Gemini semantic extraction." } };
-  }
+  if (!apiKey) return { addresses: [], diagnostic: { source: "gemini", status: "not-configured", resultsFound: 0, message: "GEMINI_API_KEY is not configured." } };
+  if (pages.length === 0) return { addresses: [], diagnostic: { source: "gemini", status: "no-results", resultsFound: 0, message: "No official pages were available for Gemini semantic extraction." } };
   const model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: "POST",
       headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: extractionPrompt(companyName, pages) }] }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 10000,
-          responseMimeType: "application/json",
-          responseJsonSchema: addressSchema(),
-        },
+        contents: [{ parts: [{ text: prompt(companyName, pages) }] }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 10000, responseMimeType: "application/json", responseJsonSchema: schema() },
       }),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json() as any;
-    const text = payload?.candidates?.[0]?.content?.parts?.map((part: any) => part?.text || "").join("") || "";
-    const parsed = JSON.parse(text || "{}");
-    const addresses = parseAddressPayload(parsed, new Set(pages.map((page) => page.url)));
+    const text = payload?.candidates?.[0]?.content?.parts?.map((part: any) => String(part?.text || "")).join("") || "{}";
+    const addresses = parseAddresses(JSON.parse(text), pages);
     return {
       addresses,
-      diagnostic: { source: "gemini", status: addresses.length > 0 ? "success" : "no-results", resultsFound: addresses.length, message: `Gemini Flash-Lite extracted ${addresses.length} supported company-location addresses from ${pages.length} official pages.` },
+      diagnostic: { source: "gemini", status: addresses.length > 0 ? "success" : "no-results", resultsFound: addresses.length, message: `Gemini Flash-Lite extracted ${addresses.length} supported addresses from ${pages.length} official pages.` },
     };
   } catch (error) {
     return { addresses: [], diagnostic: { source: "gemini", status: "error", resultsFound: 0, message: "Gemini semantic extraction failed.", error: error instanceof Error ? error.message : "Unknown error" } };
@@ -412,15 +382,11 @@ async function geminiExtract(companyName: string, pages: PageDocument[]): Promis
 
 async function cerebrasReview(companyName: string, pages: PageDocument[], initial: ExtractedAddress[]): Promise<{ addresses: ExtractedAddress[]; diagnostic: LocationAiDiagnostic }> {
   const apiKey = process.env.CEREBRAS_API_KEY;
-  if (!apiKey) {
-    return { addresses: initial, diagnostic: { source: "cerebras", status: "not-configured", resultsFound: 0, message: "CEREBRAS_API_KEY is not configured." } };
-  }
-  if (pages.length === 0) {
-    return { addresses: initial, diagnostic: { source: "cerebras", status: "no-results", resultsFound: 0, message: "No official pages were available for Cerebras review." } };
-  }
-  const model = process.env.CEREBRAS_MODEL || "gpt-oss-120b";
+  if (!apiKey) return { addresses: initial, diagnostic: { source: "cerebras", status: "not-configured", resultsFound: 0, message: "CEREBRAS_API_KEY is not configured." } };
+  if (pages.length === 0) return { addresses: initial, diagnostic: { source: "cerebras", status: "no-results", resultsFound: 0, message: "No official pages were available for Cerebras validation." } };
   const baseUrl = (process.env.CEREBRAS_BASE_URL || "https://api.cerebras.ai/v1").replace(/\/$/, "");
-  const initialText = initial.length > 0 ? `\n\nA first extractor proposed these records. Verify, correct, deduplicate, or remove them:\n${JSON.stringify(initial)}` : "";
+  const model = process.env.CEREBRAS_MODEL || "gpt-oss-120b";
+  const proposed = initial.length > 0 ? `\n\nA first extractor proposed these records. Verify, correct, deduplicate, or remove them:\n${JSON.stringify(initial)}` : "";
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
@@ -428,22 +394,18 @@ async function cerebrasReview(companyName: string, pages: PageDocument[], initia
       body: JSON.stringify({
         model,
         messages: [
-          { role: "system", content: "You validate and normalize physical company-location evidence. Return only schema-compliant JSON. Never invent an address or source URL." },
-          { role: "user", content: `${extractionPrompt(companyName, pages)}${initialText}` },
+          { role: "system", content: "Validate and normalize physical company-location evidence. Return only schema-compliant JSON. Never invent an address or source URL." },
+          { role: "user", content: `${prompt(companyName, pages)}${proposed}` },
         ],
         reasoning_effort: "low",
         temperature: 0.1,
         max_completion_tokens: 10000,
-        response_format: {
-          type: "json_schema",
-          json_schema: { name: "company_locations", strict: true, schema: addressSchema() },
-        },
+        response_format: { type: "json_schema", json_schema: { name: "company_locations", strict: true, schema: schema() } },
       }),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json() as any;
-    const text = payload?.choices?.[0]?.message?.content || "{}";
-    const addresses = parseAddressPayload(JSON.parse(text), new Set(pages.map((page) => page.url)));
+    const addresses = parseAddresses(JSON.parse(payload?.choices?.[0]?.message?.content || "{}"), pages);
     return {
       addresses: addresses.length > 0 ? addresses : initial,
       diagnostic: {
@@ -451,41 +413,39 @@ async function cerebrasReview(companyName: string, pages: PageDocument[], initia
         status: addresses.length > 0 ? "success" : initial.length > 0 ? "partial" : "no-results",
         resultsFound: addresses.length,
         message: addresses.length > 0
-          ? `Cerebras validated and normalized ${addresses.length} company-location records.`
-          : initial.length > 0
-            ? "Cerebras returned no replacement records; the validated Gemini set was retained."
-            : "Cerebras found no supported company-location addresses.",
+          ? `Cerebras validated and normalized ${addresses.length} location records.`
+          : initial.length > 0 ? "Cerebras returned no replacement records; Gemini results were retained." : "Cerebras found no supported locations.",
       },
     };
   } catch (error) {
-    return { addresses: initial, diagnostic: { source: "cerebras", status: "error", resultsFound: 0, message: "Cerebras validation failed; prior extraction results were retained.", error: error instanceof Error ? error.message : "Unknown error" } };
+    return { addresses: initial, diagnostic: { source: "cerebras", status: "error", resultsFound: 0, message: "Cerebras validation failed; prior extraction was retained.", error: error instanceof Error ? error.message : "Unknown error" } };
   }
 }
 
-async function waitForNominatimSlot(): Promise<void> {
+async function waitForNominatim(): Promise<void> {
   const delay = Math.max(0, 1_050 - (Date.now() - lastNominatimRequestAt));
   if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
   lastNominatimRequestAt = Date.now();
 }
 
-async function geocodeAddress(companyName: string, evidence: ExtractedAddress): Promise<CompanyLocationCandidate | null> {
+async function geocode(companyName: string, evidence: ExtractedAddress): Promise<CompanyLocationCandidate | null> {
   let coordinates: [number, number] | null = null;
   let geocodeSource: "photon" | "osm" = "photon";
   let city: string | undefined;
   let state: string | undefined;
   let postalCode: string | undefined;
   let country = "Unknown";
+
   try {
     const url = new URL("https://photon.komoot.io/api/");
     url.searchParams.set("q", evidence.address);
     url.searchParams.set("limit", "3");
     const response = await fetch(url, { headers: { "User-Agent": USER_AGENT, Accept: "application/json" } });
     if (response.ok) {
-      const payload = await response.json() as any;
-      const feature = payload?.features?.[0];
-      const rawCoordinates = feature?.geometry?.coordinates;
-      if (Array.isArray(rawCoordinates) && Number.isFinite(Number(rawCoordinates[0])) && Number.isFinite(Number(rawCoordinates[1]))) {
-        coordinates = [Number(rawCoordinates[0]), Number(rawCoordinates[1])];
+      const feature = ((await response.json()) as any)?.features?.[0];
+      const raw = feature?.geometry?.coordinates;
+      if (Array.isArray(raw) && Number.isFinite(Number(raw[0])) && Number.isFinite(Number(raw[1]))) {
+        coordinates = [Number(raw[0]), Number(raw[1])];
         const props = feature?.properties || {};
         city = cleanText(props.city || props.town || props.village || props.county, 140);
         state = cleanText(props.state, 120);
@@ -494,11 +454,12 @@ async function geocodeAddress(companyName: string, evidence: ExtractedAddress): 
       }
     }
   } catch {
-    // Nominatim fallback below
+    coordinates = null;
   }
+
   if (!coordinates) {
     try {
-      await waitForNominatimSlot();
+      await waitForNominatim();
       const url = new URL("https://nominatim.openstreetmap.org/search");
       url.searchParams.set("q", evidence.address);
       url.searchParams.set("format", "jsonv2");
@@ -506,8 +467,7 @@ async function geocodeAddress(companyName: string, evidence: ExtractedAddress): 
       url.searchParams.set("limit", "2");
       const response = await fetch(url, { headers: { "User-Agent": USER_AGENT, Accept: "application/json" } });
       if (response.ok) {
-        const rows = await response.json() as any[];
-        const row = rows?.[0];
+        const row = ((await response.json()) as any[])?.[0];
         if (row && Number.isFinite(Number(row.lon)) && Number.isFinite(Number(row.lat))) {
           coordinates = [Number(row.lon), Number(row.lat)];
           geocodeSource = "osm";
@@ -521,6 +481,7 @@ async function geocodeAddress(companyName: string, evidence: ExtractedAddress): 
       coordinates = null;
     }
   }
+
   if (!coordinates) return null;
   const exact = /\d/.test(evidence.address) && /\b\d{4,6}(?:-\d{3,4})?\b/.test(evidence.address);
   return {
@@ -556,14 +517,13 @@ export async function enrichCompanyLocationsWithAi(companyName: string, official
   const groq = await groqSearch(companyName);
   diagnostics.push(groq.diagnostic);
 
-  const seedResults = [...seedOfficialPages(officialWebsite), ...groq.results];
   const unique = new Map<string, SearchResult>();
-  for (const result of seedResults) unique.set(searchResultKey(result), result);
+  for (const result of [...officialSeeds(officialWebsite), ...groq.results]) unique.set(resultKey(result), result);
   const candidates = Array.from(unique.values()).slice(0, MAX_SEARCH_RESULTS);
 
   const reranked = await cloudflareRerank(companyName, candidates);
   diagnostics.push(reranked.diagnostic);
-  const pages = await readCandidatePages(reranked.results, officialWebsite);
+  const pages = await readPages(reranked.results, officialWebsite);
 
   const gemini = await geminiExtract(companyName, pages);
   diagnostics.push(gemini.diagnostic);
@@ -572,13 +532,12 @@ export async function enrichCompanyLocationsWithAi(companyName: string, official
 
   const locations: CompanyLocationCandidate[] = [];
   for (const evidence of cerebras.addresses.slice(0, MAX_AI_ADDRESSES)) {
-    const location = await geocodeAddress(companyName, evidence);
+    const location = await geocode(companyName, evidence);
     if (location) locations.push(location);
   }
 
   if (pages.length === 0) warnings.push("No official pages could be read by the AI enrichment layer.");
   if (cerebras.addresses.length > locations.length) warnings.push(`${cerebras.addresses.length - locations.length} AI-extracted addresses could not be geocoded and were not mapped.`);
-  if (!process.env.CLOUDFLARE_ACCOUNT_ID || !(process.env.CLOUDFLARE_API_TOKEN || process.env.CLOUDFLARE_AUTH_TOKEN)) warnings.push("Cloudflare semantic reranking was unavailable for this scan.");
 
   return {
     locations,
