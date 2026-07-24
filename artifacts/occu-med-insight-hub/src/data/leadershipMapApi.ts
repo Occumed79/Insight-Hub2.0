@@ -77,6 +77,7 @@ export type LeadershipMapResponse = {
   cacheHit?: boolean;
   entityId?: number;
   savedAt?: string;
+  savedToDatabase?: boolean;
   pagesConsidered?: number;
   aiPagesRead?: number;
 };
@@ -118,7 +119,12 @@ export async function analyzeLeadershipMap(input: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  return readJson<LeadershipMapResponse>(response);
+  const result = await readJson<LeadershipMapResponse>(response);
+  if (result.savedToDatabase === false) {
+    const persistenceWarning = result.warnings.find((warning) => /could not be saved to Neon/i.test(warning));
+    throw new Error(persistenceWarning || "The organizational chart was built but could not be saved to Neon.");
+  }
+  return result;
 }
 
 export async function getSavedOrganizationalCharts(): Promise<SavedOrganizationalChartsResponse> {
