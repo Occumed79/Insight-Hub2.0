@@ -9,7 +9,7 @@ export type GeographicResearchSource = {
 };
 
 export type GeographicSourceDiagnostic = {
-  source: "wikidata" | "web-search" | "official-site" | "openstreetmap" | "photon";
+  source: "wikidata" | "web-search" | "official-site" | "openstreetmap" | "photon" | "groq" | "cloudflare" | "gemini" | "cerebras";
   status: "success" | "partial" | "no-results" | "not-configured" | "error";
   resultsFound: number;
   message: string;
@@ -62,6 +62,9 @@ export type GeographicFootprintResponse = {
     officialPagesScanned: number;
     officialAddressesExtracted: number;
     officialLocationsGeocoded: number;
+    aiPagesConsidered?: number;
+    aiPagesRead?: number;
+    aiAddressesExtracted?: number;
   };
   researchSources: GeographicResearchSource[];
   generatedAt: string;
@@ -120,7 +123,7 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 export async function discoverGeographicFootprint(entityName: string): Promise<GeographicFootprintResponse> {
-  const response = await fetch("/api/entity-discovery/locations", {
+  const response = await fetch("/api/locations/discover", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ entityName }),
