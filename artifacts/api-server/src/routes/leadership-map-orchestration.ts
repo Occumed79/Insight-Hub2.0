@@ -319,6 +319,7 @@ async function finalizeAndSave(
   merged.cacheHit = false;
   merged.entityId = entityId;
   merged.savedAt = savedAt;
+  merged.savedToDatabase = true;
   const snapshot: SavedSnapshot = {
     version: 1,
     savedAt,
@@ -330,8 +331,6 @@ async function finalizeAndSave(
     },
   };
   await saveSnapshot(entityId, snapshot);
-  merged.savedToDatabase = true;
-  snapshot.result.savedToDatabase = true;
   return merged;
 }
 
@@ -404,8 +403,8 @@ router.post("/leadership-map/analyze", async (req: Request, res: Response, next:
     }
 
     const primaryUrl = cleanText(req.body?.primaryUrl, 2_000) || undefined;
-    const supportingUrls = Array.isArray(req.body?.supportingUrls)
-      ? req.body.supportingUrls.map((value: unknown) => cleanText(value, 2_000)).filter(Boolean).slice(0, 12)
+    const supportingUrls: string[] = Array.isArray(req.body?.supportingUrls)
+      ? req.body.supportingUrls.map((value: unknown) => cleanText(value, 2_000)).filter((value: string) => Boolean(value)).slice(0, 12)
       : [];
     const entity = existing || await getOrCreateEntity(companyName);
     const ai = await discoverLeadershipWithAi({ companyName, primaryUrl, supportingUrls });
@@ -436,7 +435,7 @@ router.post("/leadership-map/analyze", async (req: Request, res: Response, next:
       return;
     }
 
-    const sameHostSupportingUrls = supportingUrls.filter((url) => sameHost(url, officialSeed));
+    const sameHostSupportingUrls = supportingUrls.filter((url: string) => sameHost(url, officialSeed));
     const officialDiscoveredUrls = ai.sources
       .filter((source) => source.status === "analyzed" && sameHost(source.url, officialSeed))
       .map((source) => source.url);
