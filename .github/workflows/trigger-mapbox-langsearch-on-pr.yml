@@ -52,6 +52,40 @@ jobs:
                   raise SystemExit('Expected Esri TileLayer block was not found')
               map_path.write_text(map_text.replace(map_old, map_new, 1))
 
+              intel_path = Path('artifacts/api-server/src/routes/intelligence.ts')
+              intel_text = intel_path.read_text()
+              tavily_loop = (
+                  '    if (hasTavily) {\n'
+                  '      aliasesByProvider["tavily"] ??= [];\n'
+                  '      if (!aliasesByProvider["tavily"].includes(alias)) aliasesByProvider["tavily"].push(alias);\n'
+                  '      for (const { q, category } of queries) {\n'
+                  '        try {\n'
+                  '          const results = await searchTavily(q, process.env.TAVILY_API_KEY!);\n'
+                  '          for (const result of results) {\n'
+                  '            allResults.push({ result, alias, query: q, category, provider: "tavily" });\n'
+                  '          }\n'
+                  '        } catch { /* continue */ }\n'
+                  '      }\n'
+                  '    }\n'
+              )
+              langsearch_loop = tavily_loop + (
+                  '\n'
+                  '    if (hasLangSearch) {\n'
+                  '      aliasesByProvider["langsearch"] ??= [];\n'
+                  '      if (!aliasesByProvider["langsearch"].includes(alias)) aliasesByProvider["langsearch"].push(alias);\n'
+                  '      const q = `"${alias}" OSHA injury safety Defense Base Act workers compensation occupational health locations careers`;\n'
+                  '      try {\n'
+                  '        const results = await searchLangSearch(q);\n'
+                  '        for (const result of results) {\n'
+                  '          allResults.push({ result, alias, query: q, category: "sourceFacts", provider: "langsearch" });\n'
+                  '        }\n'
+                  '      } catch { /* the other web providers remain available */ }\n'
+                  '    }\n'
+              )
+              if tavily_loop not in intel_text:
+                  raise SystemExit('Expected Tavily loop was not found in intelligence.ts')
+              intel_path.write_text(intel_text.replace(tavily_loop, langsearch_loop, 1))
+
               workflow = Path('.github/workflows/apply-mapbox-langsearch.yml').read_text()
               start_marker = "          python - <<'PY'\n"
               end_marker = "\n          PY\n      - name: Remove temporary workflow and commit"
@@ -61,6 +95,9 @@ jobs:
               map_section_start = script.index("map_path = Path('artifacts/occu-med-insight-hub/src/pages/geographic-data.tsx')")
               map_section_end = script.index("location_path = Path('artifacts/api-server/src/lib/companyLocationDiscovery.ts')")
               script = script[:map_section_start] + script[map_section_end:]
+              loop_section_start = script.index("insertion_point = '''")
+              loop_section_end = script.index("text = text.replace(\n", loop_section_start)
+              script = script[:loop_section_start] + script[loop_section_end:]
               exec(compile(script, 'embedded-mapbox-langsearch-patch', 'exec'))
           except BaseException:
               Path('.github/integration-error.txt').write_text(traceback.format_exc())
