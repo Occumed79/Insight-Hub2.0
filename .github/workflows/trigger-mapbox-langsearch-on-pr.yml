@@ -26,12 +26,41 @@ jobs:
           import traceback
 
           try:
+              map_path = Path('artifacts/occu-med-insight-hub/src/pages/geographic-data.tsx')
+              map_text = map_path.read_text()
+              map_old = (
+                  "                <TileLayer\n"
+                  "                  attribution='Tiles &copy; <a href=\"https://www.esri.com/\">Esri</a> — Esri, TomTom, Garmin, FAO, NOAA, USGS, OpenStreetMap contributors, and the GIS User Community'\n"
+                  "                  url=\"https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}\"\n"
+                  "                />"
+              )
+              map_new = (
+                  "                {import.meta.env.VITE_MAPBOX_ACCESS_TOKEN ? (\n"
+                  "                  <TileLayer\n"
+                  "                    attribution='&copy; <a href=\"https://www.mapbox.com/about/maps/\">Mapbox</a> &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>'\n"
+                  "                    url={`https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${encodeURIComponent(import.meta.env.VITE_MAPBOX_ACCESS_TOKEN)}`}\n"
+                  "                    tileSize={256}\n"
+                  "                  />\n"
+                  "                ) : (\n"
+                  "                  <TileLayer\n"
+                  "                    attribution='Tiles &copy; <a href=\"https://www.esri.com/\">Esri</a> — Esri, TomTom, Garmin, FAO, NOAA, USGS, OpenStreetMap contributors, and the GIS User Community'\n"
+                  "                    url=\"https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}\"\n"
+                  "                  />\n"
+                  "                )}"
+              )
+              if map_old not in map_text:
+                  raise SystemExit('Expected Esri TileLayer block was not found')
+              map_path.write_text(map_text.replace(map_old, map_new, 1))
+
               workflow = Path('.github/workflows/apply-mapbox-langsearch.yml').read_text()
               start_marker = "          python - <<'PY'\n"
               end_marker = "\n          PY\n      - name: Remove temporary workflow and commit"
               start = workflow.index(start_marker) + len(start_marker)
               end = workflow.index(end_marker, start)
               script = '\n'.join(line[10:] if line.startswith('          ') else line for line in workflow[start:end].splitlines())
+              map_section_start = script.index("map_path = Path('artifacts/occu-med-insight-hub/src/pages/geographic-data.tsx')")
+              map_section_end = script.index("location_path = Path('artifacts/api-server/src/lib/companyLocationDiscovery.ts')")
+              script = script[:map_section_start] + script[map_section_end:]
               exec(compile(script, 'embedded-mapbox-langsearch-patch', 'exec'))
           except BaseException:
               Path('.github/integration-error.txt').write_text(traceback.format_exc())
