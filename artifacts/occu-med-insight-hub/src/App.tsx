@@ -11,6 +11,7 @@ import DataProfiles from "@/pages/data-profiles";
 import DataVisualization from "@/pages/data-visualization";
 import QuantifiableData from "@/pages/quantifiable-data";
 import GeographicData from "@/pages/geographic-data";
+import LocationOverlap from "@/pages/location-overlap";
 import JobIntelligence from "@/pages/job-intelligence";
 import HiringIntelligence from "@/pages/hiring-intelligence";
 import LeadershipMap from "@/pages/leadership-map";
@@ -36,6 +37,8 @@ function Router() {
       <Route path="/quantifiable-data" component={QuantifiableData} />
       <Route path="/geographic-footprint" component={GeographicData} />
       <Route path="/geographic-data" component={GeographicData} />
+      <Route path="/location-overlap" component={LocationOverlap} />
+      <Route path="/geographic-overlap" component={LocationOverlap} />
       <Route path="/hiring-intelligence" component={HiringIntelligence} />
       <Route path="/leadership-map" component={LeadershipMap} />
       <Route path="/corporate-structure" component={CorporateStructure} />
