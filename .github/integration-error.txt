@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "<stdin>", line 11, in <module>
+  File "embedded-mapbox-langsearch-patch", line 22, in <module>
+SystemExit: Expected Esri TileLayer block was not found
