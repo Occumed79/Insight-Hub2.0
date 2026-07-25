@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { latLngBounds, type LatLngTuple } from "leaflet";
+import type { LatLngBoundsExpression, LatLngTuple } from "leaflet";
 import {
   CircleMarker,
   MapContainer,
@@ -12,6 +12,7 @@ import {
   Building2,
   Check,
   ChevronRight,
+  Globe2,
   Layers3,
   Loader2,
   MapPin,
@@ -34,6 +35,7 @@ const STORAGE_SELECTIONS = "insight-hub.location-overlap.companies";
 const STORAGE_RADIUS = "insight-hub.location-overlap.radius";
 const MAPPABLE_CONFIDENCE = new Set(["exact", "place", "city"]);
 const RADIUS_OPTIONS = [25, 50, 100, 200];
+const GLOBAL_BOUNDS: LatLngBoundsExpression = [[-76, -179], [82, 179]];
 const SLOT_STYLES = [
   { label: "Company A", color: "#ff8a3d", glow: "rgba(255,138,61,.30)" },
   { label: "Company B", color: "#44f0a7", glow: "rgba(68,240,167,.28)" },
@@ -121,12 +123,10 @@ function buildZones(points: CompanyPoint[], radiusMiles: number): OverlapZone[] 
   if (points.length < 2) return [];
   const radiusKm = radiusMiles * 1.609344;
   const parent = points.map((_, index) => index);
-
   const find = (index: number): number => {
     if (parent[index] !== index) parent[index] = find(parent[index]);
     return parent[index];
   };
-
   const union = (left: number, right: number) => {
     const leftRoot = find(left);
     const rightRoot = find(right);
@@ -157,25 +157,23 @@ function buildZones(points: CompanyPoint[], radiusMiles: number): OverlapZone[] 
     }
     if (companyGroups.size < 2) continue;
 
-    const companies: ZoneCompany[] = [];
-    for (const companyGroup of companyGroups.values()) {
-      const first = companyGroup[0];
-      companies.push({
-        id: first.companyId,
-        name: first.companyName,
-        slot: first.slot,
-        color: first.color,
+    const companies = [...companyGroups.values()]
+      .map((companyGroup) => ({
+        id: companyGroup[0].companyId,
+        name: companyGroup[0].companyName,
+        slot: companyGroup[0].slot,
+        color: companyGroup[0].color,
         locations: companyGroup.length,
-      });
-    }
-    companies.sort((a, b) => a.slot - b.slot);
+      }))
+      .sort((a, b) => a.slot - b.slot);
 
-    const latitude = group.reduce((sum, point) => sum + point.coordinates[0], 0) / group.length;
-    const longitude = group.reduce((sum, point) => sum + point.coordinates[1], 0) / group.length;
     zones.push({
       id: `zone-${root}`,
       label: strongestLabel(group),
-      coordinates: [latitude, longitude],
+      coordinates: [
+        group.reduce((sum, point) => sum + point.coordinates[0], 0) / group.length,
+        group.reduce((sum, point) => sum + point.coordinates[1], 0) / group.length,
+      ],
       companies,
       points: group,
       verified: group.filter((point) => point.location.reviewStatus === "verified").length,
@@ -196,27 +194,17 @@ function storedSelections(): string[] {
   }
 }
 
-function FitMap({ points, zone }: { points: CompanyPoint[]; zone: OverlapZone | null }) {
+function GlobalMapController({ zone, resetKey }: { zone: OverlapZone | null; resetKey: string }) {
   const map = useMap();
+
   useEffect(() => {
     if (zone) {
       map.flyTo(zone.coordinates, 7, { animate: true, duration: 1.05 });
       return;
     }
-    if (points.length === 0) {
-      map.setView([20, 0], 2, { animate: true });
-      return;
-    }
-    if (points.length === 1) {
-      map.flyTo(points[0].coordinates, 8, { animate: true, duration: 1 });
-      return;
-    }
-    map.fitBounds(latLngBounds(points.map((point) => point.coordinates)), {
-      padding: [70, 70],
-      maxZoom: 7,
-      animate: true,
-    });
-  }, [map, points, zone]);
+    map.fitBounds(GLOBAL_BOUNDS, { padding: [22, 22], maxZoom: 2, animate: true, duration: 0.8 });
+  }, [map, resetKey, zone]);
+
   return null;
 }
 
@@ -229,6 +217,7 @@ export default function LocationOverlap() {
   });
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
+  const [globalViewRevision, setGlobalViewRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -270,43 +259,39 @@ export default function LocationOverlap() {
     setActiveZoneId(null);
   }, [radiusMiles, verifiedOnly]);
 
-  const selectedCompanies = useMemo<SelectedCompany[]>(() => {
-    const result: SelectedCompany[] = [];
-    selectedIds.forEach((id, slot) => {
-      if (!id) return;
-      const entity = entities.find((candidate) => String(candidate.id) === id);
-      if (entity) result.push({ entity, slot, color: SLOT_STYLES[slot].color });
-    });
-    return result;
-  }, [entities, selectedIds]);
+  const selectedCompanies = useMemo<SelectedCompany[]>(() => selectedIds.flatMap((id, slot) => {
+    if (!id) return [];
+    const entity = entities.find((candidate) => String(candidate.id) === id);
+    return entity ? [{ entity, slot, color: SLOT_STYLES[slot].color }] : [];
+  }), [entities, selectedIds]);
 
-  const points = useMemo<CompanyPoint[]>(() => {
-    const result: CompanyPoint[] = [];
-    for (const selected of selectedCompanies) {
-      for (const location of locationsFor(selected.entity, verifiedOnly)) {
-        const coordinates = coordinatesFor(location);
-        if (!coordinates) continue;
-        result.push({
-          id: `${selected.entity.id}-${location.id}`,
-          companyId: selected.entity.id,
-          companyName: selected.entity.name,
-          slot: selected.slot,
-          color: selected.color,
-          coordinates,
-          location,
-        });
-      }
-    }
-    return result;
-  }, [selectedCompanies, verifiedOnly]);
+  const points = useMemo<CompanyPoint[]>(() => selectedCompanies.flatMap((selected) => locationsFor(selected.entity, verifiedOnly).flatMap((location) => {
+    const coordinates = coordinatesFor(location);
+    if (!coordinates) return [];
+    return [{
+      id: `${selected.entity.id}-${location.id}`,
+      companyId: selected.entity.id,
+      companyName: selected.entity.name,
+      slot: selected.slot,
+      color: selected.color,
+      coordinates,
+      location,
+    }];
+  })), [selectedCompanies, verifiedOnly]);
 
   const zones = useMemo(() => buildZones(points, radiusMiles), [points, radiusMiles]);
   const activeZone = zones.find((zone) => zone.id === activeZoneId) || null;
   const overlappingCompanies = new Set(zones.flatMap((zone) => zone.companies.map((company) => company.id))).size;
   const selectedSet = new Set(selectedIds.filter(Boolean));
+  const mapResetKey = `${selectedIds.join("|")}:${radiusMiles}:${verifiedOnly}:${globalViewRevision}`;
 
   function chooseCompany(slot: number, companyId: string) {
     setSelectedIds((current) => current.map((value, index) => index === slot ? companyId : value));
+  }
+
+  function showGlobalView() {
+    setActiveZoneId(null);
+    setGlobalViewRevision((value) => value + 1);
   }
 
   return (
@@ -317,7 +302,7 @@ export default function LocationOverlap() {
         .location-overlap-map .leaflet-control-zoom a{background:rgba(4,12,24,.86)!important;color:rgba(236,254,255,.84)!important;border-color:rgba(207,250,254,.10)!important;backdrop-filter:blur(18px)}
         .location-overlap-map .leaflet-control-attribution{background:rgba(2,8,18,.66)!important;color:rgba(207,250,254,.48)!important;backdrop-filter:blur(12px)}
         .location-overlap-map .leaflet-control-attribution a{color:rgba(165,243,252,.70)!important}
-        .company-overlap-glow{mix-blend-mode:screen;filter:saturate(1.2)}
+        .company-overlap-glow{mix-blend-mode:screen;filter:saturate(1.25)}
         .overlap-zone-ring{filter:drop-shadow(0 0 9px rgba(255,255,255,.72));animation:overlapPulse 2.8s ease-in-out infinite}
         .overlap-map-tooltip{border:1px solid rgba(207,250,254,.22)!important;border-radius:16px!important;background:rgba(4,12,24,.90)!important;color:white!important;box-shadow:0 18px 46px rgba(0,0,0,.52)!important;backdrop-filter:blur(20px);padding:10px 12px!important}
         .overlap-map-tooltip:before{display:none!important}
@@ -327,11 +312,11 @@ export default function LocationOverlap() {
       <section className="relative z-10 px-4 pb-12 pt-6 lg:ml-[210px] lg:px-7">
         <header className="mb-5 flex flex-col gap-3 px-1 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-100/38">Tab 2 · Network & Operations</p>
-            <h1 className="mt-1 text-3xl font-black tracking-[-0.045em] text-white md:text-4xl">Location Overlap</h1>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-100/38">Tab 2 · Global Network & Operations</p>
+            <h1 className="mt-1 text-3xl font-black tracking-[-0.045em] text-white md:text-4xl">Global Location Overlap</h1>
           </div>
           <p className="max-w-3xl text-xs leading-5 text-cyan-100/46 xl:text-right">
-            Compare up to four saved employers, reveal shared operating areas, and rank the markets where one provider network can support multiple companies.
+            Compare up to four employers across the entire world and identify the global markets where one provider network can support multiple companies.
           </p>
         </header>
 
@@ -377,35 +362,35 @@ export default function LocationOverlap() {
                 <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${verifiedOnly ? "border-emerald-200/60" : "border-cyan-100/20"}`}>{verifiedOnly && <Check size={10} />}</span>
                 Verified only
               </button>
-              <button type="button" onClick={() => setActiveZoneId(null)} className="inline-flex items-center gap-2 rounded-full border border-cyan-100/10 bg-black/18 px-3.5 py-2 text-xs font-bold text-cyan-100/46 hover:text-cyan-50"><RotateCcw size={13} />Fit all selected</button>
+              <button type="button" onClick={showGlobalView} className="inline-flex items-center gap-2 rounded-full border border-cyan-200/18 bg-cyan-300/[0.08] px-3.5 py-2 text-xs font-bold text-cyan-50 hover:bg-cyan-300/[0.14]"><Globe2 size={14} />Global view</button>
             </div>
           </div>
         </GlassCard>
 
         {error && <div className="mt-5 rounded-2xl border border-rose-200/18 bg-rose-300/[0.07] px-4 py-3 text-sm text-rose-100">{error}</div>}
 
-        <div className="mt-5 grid gap-5 2xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,.62fr)]">
+        <div className="mt-5 space-y-5">
           <GlassCard variant="glass" className="relative overflow-hidden rounded-[38px] border border-cyan-100/22 bg-[#020817]/76 p-[6px] shadow-[0_32px_110px_rgba(0,0,0,.56),inset_0_1px_0_rgba(255,255,255,.16)]">
             <div className="relative overflow-hidden rounded-[31px] border border-white/[0.08] bg-[#050913]">
               <div className="pointer-events-none absolute inset-0 z-[500] bg-[radial-gradient(circle_at_18%_10%,rgba(255,255,255,.11),transparent_22%),linear-gradient(125deg,rgba(255,255,255,.055),transparent_24%,transparent_72%,rgba(34,211,238,.045))]" />
               <div className="absolute left-5 top-5 z-[650] flex max-w-[calc(100%-40px)] flex-wrap items-center gap-3 rounded-full border border-white/14 bg-[#06101d]/72 px-4 py-2 shadow-[0_16px_42px_rgba(0,0,0,.36)] backdrop-blur-2xl">
-                <Layers3 size={15} className="text-cyan-100/72" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/80">Live convergence map</span>
+                <Globe2 size={15} className="text-cyan-100/72" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/80">Global convergence map</span>
                 <span className="h-1 w-1 rounded-full bg-cyan-100/45" />
-                <span className="text-[10px] text-cyan-100/48">{points.length} sites · {zones.length} shared zones</span>
+                <span className="text-[10px] text-cyan-100/48">{points.length} worldwide sites · {zones.length} shared zones</span>
               </div>
 
-              <div className="h-[68vh] min-h-[620px] max-h-[900px] bg-[#050913]">
-                <MapContainer center={[20, 0]} zoom={2} minZoom={2} className="location-overlap-map h-full w-full" worldCopyJump>
+              <div className="h-[72vh] min-h-[650px] max-h-[960px] bg-[#050913]">
+                <MapContainer center={[20, 0]} zoom={2} minZoom={1} maxZoom={13} className="location-overlap-map h-full w-full" worldCopyJump zoomSnap={0.25}>
                   {import.meta.env.VITE_MAPBOX_ACCESS_TOKEN ? (
                     <TileLayer attribution='&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url={`https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${encodeURIComponent(import.meta.env.VITE_MAPBOX_ACCESS_TOKEN)}`} tileSize={256} />
                   ) : (
                     <TileLayer attribution='Tiles &copy; <a href="https://www.esri.com/">Esri</a>' url="https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}" />
                   )}
-                  <FitMap points={points} zone={activeZone} />
+                  <GlobalMapController zone={activeZone} resetKey={mapResetKey} />
 
-                  {points.map((point) => <CircleMarker key={`halo-${point.id}`} center={point.coordinates} radius={25} pathOptions={{ color: point.color, fillColor: point.color, fillOpacity: 0.12, opacity: 0.08, weight: 1, className: "company-overlap-glow" }} />)}
-                  {points.map((point) => <CircleMarker key={`glow-${point.id}`} center={point.coordinates} radius={11} pathOptions={{ color: point.color, fillColor: point.color, fillOpacity: 0.42, opacity: 0.52, weight: 1.5, className: "company-overlap-glow" }} />)}
+                  {points.map((point) => <CircleMarker key={`halo-${point.id}`} center={point.coordinates} radius={28} pathOptions={{ color: point.color, fillColor: point.color, fillOpacity: 0.13, opacity: 0.09, weight: 1, className: "company-overlap-glow" }} />)}
+                  {points.map((point) => <CircleMarker key={`glow-${point.id}`} center={point.coordinates} radius={12} pathOptions={{ color: point.color, fillColor: point.color, fillOpacity: 0.44, opacity: 0.54, weight: 1.5, className: "company-overlap-glow" }} />)}
                   {points.map((point) => (
                     <CircleMarker key={`point-${point.id}`} center={point.coordinates} radius={5} pathOptions={{ color: "#ffffff", fillColor: point.color, fillOpacity: 0.98, opacity: 0.78, weight: 1.5 }}>
                       <LeafletTooltip direction="top" offset={[0, -8]} className="overlap-map-tooltip">
@@ -435,27 +420,27 @@ export default function LocationOverlap() {
               </div>
 
               {loading && <div className="absolute inset-0 z-[700] flex items-center justify-center bg-[#020817]/72 backdrop-blur-lg"><div className="flex items-center gap-3 rounded-full border border-cyan-100/16 bg-[#06101d]/82 px-5 py-3 text-sm font-semibold text-cyan-50"><Loader2 size={18} className="animate-spin text-cyan-200" />Loading saved locations from Neon…</div></div>}
-              {!loading && selectedCompanies.length < 2 && <div className="absolute inset-0 z-[620] flex items-center justify-center bg-[#020817]/42 px-6"><div className="max-w-md rounded-[28px] border border-cyan-100/18 bg-[#06101d]/86 p-7 text-center backdrop-blur-2xl"><UsersRound size={28} className="mx-auto text-cyan-200/72" /><h2 className="mt-4 text-xl font-black">Choose at least two companies</h2><p className="mt-2 text-xs leading-5 text-cyan-100/48">Their saved locations illuminate separately; overlapping light reveals shared operating markets.</p></div></div>}
+              {!loading && selectedCompanies.length < 2 && <div className="absolute inset-0 z-[620] flex items-center justify-center bg-[#020817]/42 px-6"><div className="max-w-md rounded-[28px] border border-cyan-100/18 bg-[#06101d]/86 p-7 text-center backdrop-blur-2xl"><UsersRound size={28} className="mx-auto text-cyan-200/72" /><h2 className="mt-4 text-xl font-black">Choose at least two companies</h2><p className="mt-2 text-xs leading-5 text-cyan-100/48">Their worldwide locations illuminate separately; overlapping light reveals shared global operating markets.</p></div></div>}
             </div>
           </GlassCard>
 
-          <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-5 xl:grid-cols-[minmax(300px,.58fr)_minmax(0,1.42fr)]">
+            <div className="grid grid-cols-2 gap-3 content-start">
               <Metric icon={Target} label="Shared zones" value={String(zones.length)} note={`${radiusMiles}-mile radius`} />
               <Metric icon={UsersRound} label="Companies converging" value={String(overlappingCompanies)} note={`of ${selectedCompanies.length} selected`} />
-              <Metric icon={MapPin} label="Mapped sites" value={String(points.length)} note={verifiedOnly ? "verified only" : "all mappable"} />
+              <Metric icon={MapPin} label="Worldwide sites" value={String(points.length)} note={verifiedOnly ? "verified only" : "all mappable"} />
               <Metric icon={Sparkles} label="Strongest overlap" value={zones[0] ? `${zones[0].companies.length}-way` : "—"} note={zones[0]?.label || "No shared area yet"} />
             </div>
 
             <GlassCard variant="glass" className="overflow-hidden rounded-[30px] border border-cyan-100/18 bg-[#06101d]/72 p-5 shadow-[0_24px_70px_rgba(0,0,0,.38),inset_0_1px_0_rgba(255,255,255,.12)]">
-              <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-100/40">Provider investment priorities</p><h2 className="mt-1 text-xl font-black">Shared markets</h2></div><span className="rounded-full border border-cyan-100/12 bg-cyan-300/[0.07] px-3 py-1.5 text-[10px] font-bold text-cyan-100/58">Ranked</span></div>
-              <div className="mt-4 max-h-[580px] space-y-2 overflow-y-auto pr-1">
+              <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-100/40">Global provider investment priorities</p><h2 className="mt-1 text-xl font-black">Shared markets</h2></div><span className="rounded-full border border-cyan-100/12 bg-cyan-300/[0.07] px-3 py-1.5 text-[10px] font-bold text-cyan-100/58">Worldwide ranking</span></div>
+              <div className="mt-4 grid gap-2 lg:grid-cols-2">
                 {zones.map((zone, index) => (
                   <button key={zone.id} type="button" onClick={() => setActiveZoneId(zone.id)} className={`w-full rounded-[22px] border p-4 text-left transition ${zone.id === activeZoneId ? "border-cyan-100/28 bg-cyan-300/[0.10]" : "border-cyan-100/10 bg-black/16 hover:bg-white/[0.045]"}`}>
                     <div className="flex items-start gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl border border-cyan-100/12 bg-white/[0.04] text-xs font-black">{index + 1}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-black">{zone.label}</span><span className="mt-1 block text-[10px] text-cyan-100/42">{zone.points.length} sites · {zone.verified} verified · {zone.companies.length} companies</span><span className="mt-3 flex flex-wrap gap-1.5">{zone.companies.map((company) => <span key={company.id} className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-bold" style={{ color: company.color }}>{company.name} · {company.locations}</span>)}</span></span><ChevronRight size={16} className="mt-1 shrink-0 text-cyan-100/32" /></div>
                   </button>
                 ))}
-                {!loading && selectedCompanies.length >= 2 && zones.length === 0 && <div className="rounded-[24px] border border-cyan-100/10 bg-black/16 p-6 text-center"><Radar size={24} className="mx-auto text-cyan-100/36" /><p className="mt-3 text-sm font-bold text-cyan-50/76">No shared markets at {radiusMiles} miles</p><p className="mt-2 text-[11px] leading-5 text-cyan-100/38">Increase the radius or include all mappable candidates.</p></div>}
+                {!loading && selectedCompanies.length >= 2 && zones.length === 0 && <div className="rounded-[24px] border border-cyan-100/10 bg-black/16 p-6 text-center lg:col-span-2"><Radar size={24} className="mx-auto text-cyan-100/36" /><p className="mt-3 text-sm font-bold text-cyan-50/76">No shared markets at {radiusMiles} miles</p><p className="mt-2 text-[11px] leading-5 text-cyan-100/38">Increase the radius or include all mappable candidates.</p></div>}
               </div>
             </GlassCard>
           </div>
