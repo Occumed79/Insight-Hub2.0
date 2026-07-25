@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "<stdin>", line 40, in <module>
-  File "embedded-mapbox-langsearch-patch", line 191, in <module>
-SystemExit: Expected Tavily loop was not found in intelligence.ts

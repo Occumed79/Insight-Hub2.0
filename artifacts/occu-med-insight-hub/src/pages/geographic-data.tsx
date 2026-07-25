@@ -285,10 +285,18 @@ export default function GeographicData() {
 
             <div className="h-[calc(100vh-210px)] min-h-[620px] max-h-[940px] bg-[#050913]">
               <MapContainer center={[20, 0]} zoom={2} minZoom={2} className="locations-map h-full w-full" worldCopyJump>
-                <TileLayer
-                  attribution='Tiles &copy; <a href="https://www.esri.com/">Esri</a> — Esri, TomTom, Garmin, FAO, NOAA, USGS, OpenStreetMap contributors, and the GIS User Community'
-                  url="https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
-                />
+                {import.meta.env.VITE_MAPBOX_ACCESS_TOKEN ? (
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    url={`https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${encodeURIComponent(import.meta.env.VITE_MAPBOX_ACCESS_TOKEN)}`}
+                    tileSize={256}
+                  />
+                ) : (
+                  <TileLayer
+                    attribution='Tiles &copy; <a href="https://www.esri.com/">Esri</a> — Esri, TomTom, Garmin, FAO, NOAA, USGS, OpenStreetMap contributors, and the GIS User Community'
+                    url="https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
+                  />
+                )}
                 <FitMapToLocations locations={displayedLocations} />
                 {displayedLocations.map((location) => {
                   const center = coordinatesFor(location);

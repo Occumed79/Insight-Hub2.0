@@ -710,6 +710,41 @@ async function searchTavily(
   }));
 }
 
+async function searchLangSearch(query: string): Promise<SearchResult[]> {
+  const keys = [process.env.LANGSEARCH_API_KEY, process.env.LANGSEARCH_API_KEY_2]
+    .map((key) => key?.trim())
+    .filter((key): key is string => Boolean(key));
+  if (keys.length === 0) throw new Error("LangSearch is not configured");
+
+  const queryHash = Array.from(query).reduce((total, character) => ((total * 31) + character.charCodeAt(0)) >>> 0, 0);
+  const orderedKeys = keys.map((_, index) => keys[(queryHash + index) % keys.length]);
+  const errors: string[] = [];
+
+  for (const apiKey of orderedKeys) {
+    try {
+      const response = await fetch("https://api.langsearch.com/v1/web-search", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ query, freshness: "noLimit", summary: true, count: 10 }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json() as any;
+      if (payload?.code && payload.code !== 200) throw new Error(payload.msg || `API code ${payload.code}`);
+      const results: any[] = payload?.data?.webPages?.value ?? [];
+      return results.map((result) => ({
+        title: String(result.name ?? ""),
+        url: String(result.url ?? ""),
+        snippet: String(result.summary ?? result.snippet ?? ""),
+        source: "langsearch",
+      }));
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "request failed");
+    }
+  }
+
+  throw new Error(errors.join("; ") || "LangSearch request failed");
+}
+
 async function extractWithJina(url: string, apiKey: string): Promise<string | null> {
   try {
     const response = await fetch(`https://r.jina.ai/${url}`, {
@@ -753,6 +788,7 @@ async function runLiveWebProviders(
   const hasSerper = Boolean(process.env.SERPER_API_KEY);
   const hasExa = Boolean(process.env.EXA_API_KEY);
   const hasTavily = Boolean(process.env.TAVILY_API_KEY);
+  const hasLangSearch = Boolean(process.env.LANGSEARCH_API_KEY || process.env.LANGSEARCH_API_KEY_2);
   const hasFirecrawl = Boolean(process.env.FIRECRAWL_API_KEY);
   const hasJina = Boolean(process.env.JINA_API_KEY);
 
@@ -809,6 +845,18 @@ async function runLiveWebProviders(
         } catch { /* continue */ }
       }
     }
+
+    if (hasLangSearch) {
+      aliasesByProvider["langsearch"] ??= [];
+      if (!aliasesByProvider["langsearch"].includes(alias)) aliasesByProvider["langsearch"].push(alias);
+      const q = `"${alias}" OSHA injury safety Defense Base Act workers compensation occupational health locations careers`;
+      try {
+        const results = await searchLangSearch(q);
+        for (const result of results) {
+          allResults.push({ result, alias, query: q, category: "sourceFacts", provider: "langsearch" });
+        }
+      } catch { /* the other web providers remain available */ }
+    }
   }
 
   // Deduplicate search results by URL
@@ -854,7 +902,7 @@ async function runLiveWebProviders(
       category,
       date: today,
       sourceUrl: result.url,
-      sourceName: provider === "serper" ? "Google (Serper)" : provider === "exa" ? "Exa" : "Tavily",
+      sourceName: provider === "serper" ? "Google (Serper)" : provider === "exa" ? "Exa" : provider === "langsearch" ? "LangSearch" : "Tavily",
       sourceType: "web",
       confidence,
       rawSnippet: result.snippet?.slice(0, 500) || undefined,
@@ -874,6 +922,7 @@ async function runLiveWebProviders(
     { name: "serper", has: hasSerper, label: "Serper (Google Search)" },
     { name: "exa", has: hasExa, label: "Exa (Neural Search)" },
     { name: "tavily", has: hasTavily, label: "Tavily (Research Search)" },
+    { name: "langsearch", has: hasLangSearch, label: "LangSearch (Hybrid Web Search)" },
     { name: "firecrawl", has: hasFirecrawl, label: "Firecrawl (Page Extraction)" },
     { name: "jina", has: hasJina, label: "Jina (Page Extraction)" },
   ];
