@@ -1,0 +1,109 @@
+name: Apply company-specific pin colors
+
+on:
+  push:
+    branches:
+      - agent/company-specific-pin-colors
+
+permissions:
+  contents: write
+
+jobs:
+  apply-patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/company-specific-pin-colors
+          fetch-depth: 0
+
+      - name: Patch Locations marker colors
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("artifacts/occu-med-insight-hub/src/pages/geographic-data.tsx")
+          text = path.read_text()
+
+          anchor = 'const MAPPABLE_CONFIDENCE = new Set(["exact", "place", "city"]);\n'
+          helper = '''
+
+type CompanyPinPalette = {
+  fillColor: string;
+  borderColor: string;
+};
+
+function companyPinPalette(companyName: string): CompanyPinPalette {
+  const normalizedName = companyName.trim().toLowerCase() || "unknown-company";
+  let hash = 2166136261;
+
+  for (let index = 0; index < normalizedName.length; index += 1) {
+    hash ^= normalizedName.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  const unsignedHash = hash >>> 0;
+  const hue = (unsignedHash / 0xffffffff) * 360;
+  const saturation = 72 + ((unsignedHash >>> 8) % 17);
+  const lightness = 44 + ((unsignedHash >>> 16) % 10);
+
+  return {
+    fillColor: `hsl(${hue.toFixed(2)} ${saturation}% ${lightness}%)`,
+    borderColor: `hsl(${hue.toFixed(2)} ${Math.min(saturation + 5, 94)}% ${Math.min(lightness + 27, 82)}%)`,
+  };
+}
+'''
+
+          if helper.strip() not in text:
+            if text.count(anchor) != 1:
+              raise SystemExit("Could not locate the map confidence anchor exactly once.")
+            text = text.replace(anchor, anchor + helper, 1)
+
+          old_marker = '''                  const active = location.id === selectedLocationId;
+                  const saved = location.reviewStatus === "verified";
+                  return (
+                    <CircleMarker
+                      key={`${location.entityId}-${location.id}`}
+                      center={center}
+                      radius={active ? 12 : 8}
+                      pathOptions={{
+                        color: active ? "#ffffff" : saved ? "#a7f3d0" : "#a5f3fc",
+                        fillColor: saved ? "#10b981" : "#06b6d4",
+                        fillOpacity: active ? 1 : 0.84,
+                        weight: active ? 4 : 2,
+                      }}
+'''
+
+          new_marker = '''                  const active = location.id === selectedLocationId;
+                  const saved = location.reviewStatus === "verified";
+                  const pinPalette = companyPinPalette(location.companyName);
+                  return (
+                    <CircleMarker
+                      key={`${location.entityId}-${location.id}`}
+                      center={center}
+                      radius={active ? 12 : 8}
+                      pathOptions={{
+                        color: active ? "#ffffff" : pinPalette.borderColor,
+                        fillColor: pinPalette.fillColor,
+                        fillOpacity: active ? 1 : saved ? 0.94 : 0.8,
+                        weight: active ? 4 : saved ? 3 : 2,
+                      }}
+'''
+
+          if new_marker not in text:
+            if text.count(old_marker) != 1:
+              raise SystemExit("Could not locate the existing CircleMarker block exactly once.")
+            text = text.replace(old_marker, new_marker, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Remove one-time workflow and commit
+        run: |
+          rm .github/workflows/apply-company-pin-colors.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/occu-med-insight-hub/src/pages/geographic-data.tsx .github/workflows/apply-company-pin-colors.yml
+          git commit -m "Give each company a consistent map pin color"
+          git push origin HEAD:agent/company-specific-pin-colors
