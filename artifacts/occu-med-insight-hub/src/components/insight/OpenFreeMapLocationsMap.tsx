@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GeographicLocation } from "@/data/geographicFootprintApi";
 
-const MAPLIBRE_VERSION = "5.12.0";
+const MAPLIBRE_VERSION = "5.24.0";
 const MAPLIBRE_SCRIPT_URL = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.js`;
 const MAPLIBRE_CSS_URL = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.css`;
 const OPENFREEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const MAP_SOURCE_ID = "insight-hub-locations";
 const MAP_GLOW_LAYER_ID = "insight-hub-location-glow";
 const MAP_POINT_LAYER_ID = "insight-hub-location-points";
+const MAP_LOAD_TIMEOUT_MS = 20_000;
 
 type DisplayLocation = GeographicLocation & {
   companyName: string;
@@ -36,6 +37,13 @@ type MapLibreGeoJsonSource = {
   setData(data: GeoJsonFeatureCollection): void;
 };
 
+type MapLibreEvent = {
+  features?: Array<{
+    properties?: Record<string, unknown>;
+  }>;
+  error?: Error;
+};
+
 type MapLibreMap = {
   addControl(control: unknown, position?: string): void;
   addSource(id: string, source: Record<string, unknown>): void;
@@ -48,12 +56,6 @@ type MapLibreMap = {
   remove(): void;
   resize(): void;
   getCanvas(): HTMLCanvasElement;
-};
-
-type MapLibreEvent = {
-  features?: Array<{
-    properties?: Record<string, unknown>;
-  }>;
 };
 
 type MapLibreGlobal = {
@@ -70,17 +72,29 @@ declare global {
 
 function coordinatesFor(location: GeographicLocation): [number, number] | null {
   if (!Array.isArray(location.coordinates) || location.coordinates.length !== 2) return null;
-  const longitude = Number(location.coordinates[0]);
-  const latitude = Number(location.coordinates[1]);
+
+  const rawLongitude = location.coordinates[0];
+  const rawLatitude = location.coordinates[1];
+  if (rawLongitude === null || rawLongitude === undefined || rawLatitude === null || rawLatitude === undefined) return null;
+
+  const longitude = Number(rawLongitude);
+  const latitude = Number(rawLatitude);
   if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
+  if (longitude < -180 || longitude > 180 || latitude < -85 || latitude > 85) return null;
+
   return [longitude, latitude];
+}
+
+function locationIdFor(location: GeographicLocation): number | null {
+  const value = Number(location.id);
+  return Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
 function loadMapLibre(): Promise<MapLibreGlobal> {
   if (window.maplibregl) return Promise.resolve(window.maplibregl);
   if (window.__insightHubMapLibrePromise) return window.__insightHubMapLibrePromise;
 
-  window.__insightHubMapLibrePromise = new Promise<MapLibreGlobal>((resolve, reject) => {
+  const promise = new Promise<MapLibreGlobal>((resolve, reject) => {
     let stylesheet = document.querySelector<HTMLLinkElement>(`link[data-maplibre-version="${MAPLIBRE_VERSION}"]`);
     if (!stylesheet) {
       stylesheet = document.createElement("link");
@@ -90,8 +104,16 @@ function loadMapLibre(): Promise<MapLibreGlobal> {
       document.head.appendChild(stylesheet);
     }
 
+    const staleScripts = Array.from(document.querySelectorAll<HTMLScriptElement>("script[data-maplibre-version]"))
+      .filter((script) => script.dataset.maplibreVersion !== MAPLIBRE_VERSION);
+    staleScripts.forEach((script) => script.remove());
+
     const existing = document.querySelector<HTMLScriptElement>(`script[data-maplibre-version="${MAPLIBRE_VERSION}"]`);
     if (existing) {
+      if (window.maplibregl) {
+        resolve(window.maplibregl);
+        return;
+      }
       existing.addEventListener("load", () => {
         if (window.maplibregl) resolve(window.maplibregl);
         else reject(new Error("MapLibre loaded without exposing its browser API."));
@@ -112,6 +134,11 @@ function loadMapLibre(): Promise<MapLibreGlobal> {
     document.head.appendChild(script);
   });
 
+  window.__insightHubMapLibrePromise = promise.catch((error) => {
+    window.__insightHubMapLibrePromise = undefined;
+    throw error;
+  });
+
   return window.__insightHubMapLibrePromise;
 }
 
@@ -120,20 +147,22 @@ function toGeoJson(locations: DisplayLocation[], selectedLocationId: number | nu
     type: "FeatureCollection",
     features: locations.flatMap((location) => {
       const coordinates = coordinatesFor(location);
-      if (!coordinates) return [];
+      const locationId = locationIdFor(location);
+      if (!coordinates || locationId === null) return [];
+
       return [{
         type: "Feature" as const,
-        id: location.id,
+        id: locationId,
         geometry: {
           type: "Point" as const,
           coordinates,
         },
         properties: {
-          locationId: location.id,
-          selected: location.id === selectedLocationId,
+          locationId,
+          selected: locationId === selectedLocationId,
           verified: location.reviewStatus === "verified",
-          companyName: location.companyName,
-          placeName: location.placeName,
+          companyName: String(location.companyName || "Unknown company"),
+          placeName: String(location.placeName || "Unnamed location"),
         },
       }];
     }),
@@ -141,13 +170,17 @@ function toGeoJson(locations: DisplayLocation[], selectedLocationId: number | nu
 }
 
 function boundsFor(locations: DisplayLocation[]): [[number, number], [number, number]] | null {
-  const coordinates = locations.map(coordinatesFor).filter((point): point is [number, number] => Boolean(point));
-  if (coordinates.length === 0) return null;
+  const coordinates = locations
+    .map(coordinatesFor)
+    .filter((point): point is [number, number] => point !== null);
 
-  let west = coordinates[0][0];
-  let east = coordinates[0][0];
-  let south = coordinates[0][1];
-  let north = coordinates[0][1];
+  const first = coordinates[0];
+  if (!first) return null;
+
+  let west = first[0];
+  let east = first[0];
+  let south = first[1];
+  let north = first[1];
 
   for (const [longitude, latitude] of coordinates.slice(1)) {
     west = Math.min(west, longitude);
@@ -166,8 +199,9 @@ function fitMap(map: MapLibreMap, locations: DisplayLocation[]): void {
     return;
   }
 
-  if (bounds[0][0] === bounds[1][0] && bounds[0][1] === bounds[1][1]) {
-    map.easeTo({ center: bounds[0], zoom: 9, duration: 650 });
+  const [southwest, northeast] = bounds;
+  if (southwest[0] === northeast[0] && southwest[1] === northeast[1]) {
+    map.easeTo({ center: southwest, zoom: 9, duration: 650 });
     return;
   }
 
@@ -175,6 +209,38 @@ function fitMap(map: MapLibreMap, locations: DisplayLocation[]): void {
     padding: { top: 82, right: 82, bottom: 82, left: 82 },
     maxZoom: 8.5,
     duration: 750,
+  });
+}
+
+function addLocationLayers(map: MapLibreMap, data: GeoJsonFeatureCollection): void {
+  map.addSource(MAP_SOURCE_ID, {
+    type: "geojson",
+    data,
+  });
+
+  map.addLayer({
+    id: MAP_GLOW_LAYER_ID,
+    type: "circle",
+    source: MAP_SOURCE_ID,
+    paint: {
+      "circle-radius": ["case", ["get", "selected"], 18, 13],
+      "circle-color": ["case", ["get", "verified"], "#10b981", "#06b6d4"],
+      "circle-opacity": 0.2,
+      "circle-blur": 0.72,
+    },
+  });
+
+  map.addLayer({
+    id: MAP_POINT_LAYER_ID,
+    type: "circle",
+    source: MAP_SOURCE_ID,
+    paint: {
+      "circle-radius": ["case", ["get", "selected"], 10, 7],
+      "circle-color": ["case", ["get", "verified"], "#10b981", "#06b6d4"],
+      "circle-opacity": 0.92,
+      "circle-stroke-color": ["case", ["get", "selected"], "#ffffff", ["get", "verified"], "#a7f3d0", "#cffafe"],
+      "circle-stroke-width": ["case", ["get", "selected"], 3, 2],
+    },
   });
 }
 
@@ -207,77 +273,72 @@ export function OpenFreeMapLocationsMap({
 
   useEffect(() => {
     let cancelled = false;
+    let loadTimer: ReturnType<typeof setTimeout> | undefined;
+
+    setMapError(null);
 
     void loadMapLibre()
       .then((maplibregl) => {
         if (cancelled || !containerRef.current || mapRef.current) return;
 
-        const map = new maplibregl.Map({
-          container: containerRef.current,
-          style: OPENFREEMAP_STYLE_URL,
-          center: [0, 20],
-          zoom: 1.45,
-          minZoom: 1.2,
-          maxZoom: 17,
-          pitch: 0,
-          bearing: 0,
-          attributionControl: true,
-          renderWorldCopies: false,
-          maxBounds: [[-180, -85], [180, 85]],
-          cooperativeGestures: false,
-        });
+        let map: MapLibreMap;
+        try {
+          map = new maplibregl.Map({
+            container: containerRef.current,
+            style: OPENFREEMAP_STYLE_URL,
+            center: [0, 20],
+            zoom: 1.45,
+            pitch: 0,
+            bearing: 0,
+            attributionControl: true,
+            renderWorldCopies: false,
+          });
+        } catch (error) {
+          throw new Error(`MapLibre initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+        }
 
         mapRef.current = map;
-        map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), "top-right");
+
+        try {
+          map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+        } catch (controlError) {
+          console.warn("MapLibre navigation control could not be added:", controlError);
+        }
+
+        loadTimer = setTimeout(() => {
+          if (!cancelled && !loadedRef.current) {
+            setMapError("The OpenFreeMap vector style did not finish loading.");
+          }
+        }, MAP_LOAD_TIMEOUT_MS);
 
         map.on("load", () => {
           if (cancelled) return;
-          loadedRef.current = true;
-          const initialData = toGeoJson(locationsRef.current, selectedLocationIdRef.current);
-          map.addSource(MAP_SOURCE_ID, {
-            type: "geojson",
-            data: initialData,
-          });
-          map.addLayer({
-            id: MAP_GLOW_LAYER_ID,
-            type: "circle",
-            source: MAP_SOURCE_ID,
-            paint: {
-              "circle-radius": ["case", ["get", "selected"], 18, 13],
-              "circle-color": ["case", ["get", "verified"], "#10b981", "#06b6d4"],
-              "circle-opacity": 0.2,
-              "circle-blur": 0.72,
-            },
-          });
-          map.addLayer({
-            id: MAP_POINT_LAYER_ID,
-            type: "circle",
-            source: MAP_SOURCE_ID,
-            paint: {
-              "circle-radius": ["case", ["get", "selected"], 10, 7],
-              "circle-color": ["case", ["get", "verified"], "#10b981", "#06b6d4"],
-              "circle-opacity": 0.92,
-              "circle-stroke-color": ["case", ["get", "selected"], "#ffffff", ["get", "verified"], "#a7f3d0", "#cffafe"],
-              "circle-stroke-width": ["case", ["get", "selected"], 3, 2],
-            },
-          });
 
-          map.on("click", MAP_POINT_LAYER_ID, (event) => {
-            const locationId = Number(event.features?.[0]?.properties?.locationId);
-            if (Number.isInteger(locationId)) onSelectRef.current(locationId);
-          });
-          map.on("mouseenter", MAP_POINT_LAYER_ID, () => {
-            map.getCanvas().style.cursor = "pointer";
-          });
-          map.on("mouseleave", MAP_POINT_LAYER_ID, () => {
-            map.getCanvas().style.cursor = "";
-          });
+          try {
+            loadedRef.current = true;
+            if (loadTimer) clearTimeout(loadTimer);
+            const initialData = toGeoJson(locationsRef.current, selectedLocationIdRef.current);
+            addLocationLayers(map, initialData);
 
-          fitMap(map, locationsRef.current);
+            map.on("click", MAP_POINT_LAYER_ID, (event) => {
+              const locationId = Number(event.features?.[0]?.properties?.locationId);
+              if (Number.isSafeInteger(locationId) && locationId >= 0) onSelectRef.current(locationId);
+            });
+            map.on("mouseenter", MAP_POINT_LAYER_ID, () => {
+              map.getCanvas().style.cursor = "pointer";
+            });
+            map.on("mouseleave", MAP_POINT_LAYER_ID, () => {
+              map.getCanvas().style.cursor = "";
+            });
+
+            fitMap(map, locationsRef.current);
+          } catch (error) {
+            setMapError(`The location layer could not be initialized: ${error instanceof Error ? error.message : "Unknown error"}`);
+          }
         });
 
-        map.on("error", () => {
-          if (!cancelled) setMapError("The token-free vector basemap could not be loaded from OpenFreeMap.");
+        map.on("error", (event) => {
+          if (event?.error) console.error("MapLibre runtime error:", event.error);
         });
       })
       .catch((error) => {
@@ -286,6 +347,7 @@ export function OpenFreeMapLocationsMap({
 
     return () => {
       cancelled = true;
+      if (loadTimer) clearTimeout(loadTimer);
       loadedRef.current = false;
       mapRef.current?.remove();
       mapRef.current = null;
@@ -295,15 +357,21 @@ export function OpenFreeMapLocationsMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
-    map.getSource(MAP_SOURCE_ID)?.setData(geoJson);
-    fitMap(map, locations);
+
+    try {
+      map.getSource(MAP_SOURCE_ID)?.setData(geoJson);
+      fitMap(map, locations);
+    } catch (error) {
+      console.error("MapLibre location update failed:", error);
+    }
   }, [geoJson, locations]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !containerRef.current) return;
+
     const observer = new ResizeObserver(() => map.resize());
-    if (containerRef.current) observer.observe(containerRef.current);
+    observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, []);
 
