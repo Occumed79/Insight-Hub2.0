@@ -24,7 +24,13 @@ services:
         sync: false
       - key: OCR_SPACE_API_KEY
         sync: false
+      # LangSearch requests rotate across both configured trial accounts with failover.
       - key: LANGSEARCH_API_KEY
+        sync: false
+      - key: LANGSEARCH_API_KEY_2
+        sync: false
+      # Public browser token embedded by Vite at build time for the Mapbox basemap.
+      - key: VITE_MAPBOX_ACCESS_TOKEN
         sync: false
       - key: SERPER_API_KEY
         sync: false

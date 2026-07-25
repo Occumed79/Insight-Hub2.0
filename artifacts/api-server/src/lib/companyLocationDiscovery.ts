@@ -232,18 +232,57 @@ async function searchTavily(query: string, apiKey: string): Promise<SearchResult
   return (data.results || []).map((item) => ({ title: String(item.title || ""), url: String(item.url || ""), snippet: String(item.content || ""), provider: "tavily" }));
 }
 
+async function searchLangSearch(query: string): Promise<SearchResult[]> {
+  const keys = [process.env.LANGSEARCH_API_KEY, process.env.LANGSEARCH_API_KEY_2]
+    .map((key) => key?.trim())
+    .filter((key): key is string => Boolean(key));
+  if (keys.length === 0) throw new Error("LangSearch is not configured");
+
+  const queryHash = Array.from(query).reduce((total, character) => ((total * 31) + character.charCodeAt(0)) >>> 0, 0);
+  const orderedKeys = keys.map((_, index) => keys[(queryHash + index) % keys.length]);
+  const errors: string[] = [];
+
+  for (const apiKey of orderedKeys) {
+    try {
+      const response = await fetch("https://api.langsearch.com/v1/web-search", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ query, freshness: "noLimit", summary: true, count: 10 }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json() as {
+        code?: number;
+        msg?: string;
+        data?: { webPages?: { value?: Array<{ name?: string; url?: string; snippet?: string; summary?: string }> } };
+      };
+      if (payload.code && payload.code !== 200) throw new Error(payload.msg || `API code ${payload.code}`);
+      return (payload.data?.webPages?.value || []).map((item) => ({
+        title: String(item.name || ""),
+        url: String(item.url || ""),
+        snippet: String(item.summary || item.snippet || ""),
+        provider: "langsearch",
+      }));
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "request failed");
+    }
+  }
+
+  throw new Error(errors.join("; ") || "LangSearch request failed");
+}
+
 async function runSearchQuery(query: string): Promise<{ results: SearchResult[]; provider?: string; error?: string }> {
-  const providers: Array<{ name: string; key?: string; run: (query: string, key: string) => Promise<SearchResult[]> }> = [
-    { name: "serper", key: process.env.SERPER_API_KEY, run: searchSerper },
-    { name: "exa", key: process.env.EXA_API_KEY, run: searchExa },
-    { name: "tavily", key: process.env.TAVILY_API_KEY, run: searchTavily },
+  const providers: Array<{ name: string; configured: boolean; run: (query: string) => Promise<SearchResult[]> }> = [
+    { name: "langsearch", configured: Boolean(process.env.LANGSEARCH_API_KEY || process.env.LANGSEARCH_API_KEY_2), run: searchLangSearch },
+    { name: "serper", configured: Boolean(process.env.SERPER_API_KEY), run: (value) => searchSerper(value, process.env.SERPER_API_KEY!) },
+    { name: "exa", configured: Boolean(process.env.EXA_API_KEY), run: (value) => searchExa(value, process.env.EXA_API_KEY!) },
+    { name: "tavily", configured: Boolean(process.env.TAVILY_API_KEY), run: (value) => searchTavily(value, process.env.TAVILY_API_KEY!) },
   ];
-  const configured = providers.filter((provider) => provider.key);
+  const configured = providers.filter((provider) => provider.configured);
   if (configured.length === 0) return { results: [] };
   const errors: string[] = [];
   for (const provider of configured) {
     try {
-      const results = await provider.run(query, provider.key!);
+      const results = await provider.run(query);
       if (results.length > 0) return { results, provider: provider.name };
     } catch (error) {
       errors.push(`${provider.name}: ${error instanceof Error ? error.message : "request failed"}`);
