@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { latLngBounds, type LatLngTuple } from "leaflet";
+import { CircleMarker, MapContainer, TileLayer, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import {
   Building2,
   CheckCircle2,
@@ -13,7 +16,6 @@ import {
 } from "lucide-react";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
-import { OpenFreeMapLocationsMap } from "@/components/insight/OpenFreeMapLocationsMap";
 import {
   discoverGeographicFootprint,
   getSavedGeographicEntities,
@@ -34,7 +36,7 @@ type DisplayLocation = GeographicLocation & {
   companyName: string;
 };
 
-function coordinatesFor(location: GeographicLocation): [number, number] | null {
+function coordinatesFor(location: GeographicLocation): LatLngTuple | null {
   if (!Array.isArray(location.coordinates) || location.coordinates.length !== 2) return null;
   const longitude = Number(location.coordinates[0]);
   const latitude = Number(location.coordinates[1]);
@@ -66,6 +68,25 @@ function confidenceLabel(location: GeographicLocation): string {
   if (location.geocodeConfidence === "place") return "Named place";
   if (location.geocodeConfidence === "city") return "City-level match";
   return "Needs review";
+}
+
+function FitMapToLocations({ locations }: { locations: DisplayLocation[] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const points = locations.map(coordinatesFor).filter((point): point is LatLngTuple => Boolean(point));
+    if (points.length === 0) {
+      map.setView([20, 0], 2, { animate: true });
+      return;
+    }
+    if (points.length === 1) {
+      map.setView(points[0], 9, { animate: true });
+      return;
+    }
+    map.fitBounds(latLngBounds(points), { padding: [70, 70], maxZoom: 9, animate: true });
+  }, [locations, map]);
+
+  return null;
 }
 
 export default function GeographicData() {
@@ -238,11 +259,33 @@ export default function GeographicData() {
             </div>
 
             <div className="h-[calc(100vh-210px)] min-h-[620px] max-h-[940px] bg-[#050913]">
-              <OpenFreeMapLocationsMap
-                locations={displayedLocations}
-                selectedLocationId={selectedLocationId}
-                onSelectLocation={openPreview}
-              />
+              <MapContainer center={[20, 0]} zoom={2} minZoom={2} className="locations-map h-full w-full" worldCopyJump>
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <FitMapToLocations locations={displayedLocations} />
+                {displayedLocations.map((location) => {
+                  const center = coordinatesFor(location);
+                  if (!center) return null;
+                  const active = location.id === selectedLocationId;
+                  const saved = location.reviewStatus === "verified";
+                  return (
+                    <CircleMarker
+                      key={`${location.entityId}-${location.id}`}
+                      center={center}
+                      radius={active ? 12 : 8}
+                      pathOptions={{
+                        color: active ? "#ffffff" : saved ? "#a7f3d0" : "#a5f3fc",
+                        fillColor: saved ? "#10b981" : "#06b6d4",
+                        fillOpacity: active ? 1 : 0.84,
+                        weight: active ? 4 : 2,
+                      }}
+                      eventHandlers={{ click: () => openPreview(location.id) }}
+                    />
+                  );
+                })}
+              </MapContainer>
             </div>
 
             {selectedLocation && (
