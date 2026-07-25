@@ -1,4 +1,4 @@
-import { Activity, BriefcaseBusiness, Building2, ClipboardList, FileSearch, GitBranch, Globe2, Grid3X3, Home, LibraryBig, Network, RadioTower, Route, ServerCog, ShieldCheck } from "lucide-react";
+import { Activity, BriefcaseBusiness, Building2, ClipboardList, FileSearch, GitBranch, Globe2, Grid3X3, Home, Layers3, LibraryBig, Network, RadioTower, Route, ServerCog, ShieldCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +8,7 @@ const nav = [
   { href: "/employer-workflow", label: "Employer Workflow", icon: Route },
   { href: "/employer-intelligence", label: "Employer Intelligence", icon: Activity },
   { href: "/geographic-footprint", label: "Geographic Footprint", icon: Globe2 },
+  { href: "/location-overlap", label: "Location Overlap", icon: Layers3 },
   { href: "/hiring-intelligence", label: "Hiring Intelligence", icon: BriefcaseBusiness },
   { href: "/leadership-map", label: "Organizational Chart", icon: GitBranch },
   { href: "/corporate-structure", label: "Corporate Structure", icon: Building2 },
@@ -43,6 +44,7 @@ export function Sidebar() {
             const Icon = item.icon;
             const active = currentPath === item.href
               || (item.href === "/geographic-footprint" && currentPath === "/geographic-data")
+              || (item.href === "/location-overlap" && currentPath === "/geographic-overlap")
               || (item.href === "/injury-workforce-exposure" && currentPath === "/occupational-exposure")
               || (item.href === "/corporate-signals" && currentPath === "/company-live-intelligence");
             return (
