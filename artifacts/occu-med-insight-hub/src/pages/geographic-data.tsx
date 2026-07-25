@@ -32,6 +32,31 @@ const ALL_SAVED = "all-saved";
 const SEARCH_RESULTS = "search-results";
 const MAPPABLE_CONFIDENCE = new Set(["exact", "place", "city"]);
 
+type CompanyPinPalette = {
+  fillColor: string;
+  borderColor: string;
+};
+
+function companyPinPalette(companyName: string): CompanyPinPalette {
+  const normalizedName = companyName.trim().toLowerCase() || "unknown-company";
+  let hash = 2166136261;
+
+  for (let index = 0; index < normalizedName.length; index += 1) {
+    hash ^= normalizedName.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  const unsignedHash = hash >>> 0;
+  const hue = (unsignedHash / 0xffffffff) * 360;
+  const saturation = 72 + ((unsignedHash >>> 8) % 17);
+  const lightness = 44 + ((unsignedHash >>> 16) % 10);
+
+  return {
+    fillColor: `hsl(${hue.toFixed(2)} ${saturation}% ${lightness}%)`,
+    borderColor: `hsl(${hue.toFixed(2)} ${Math.min(saturation + 5, 94)}% ${Math.min(lightness + 27, 82)}%)`,
+  };
+}
+
 type DisplayLocation = GeographicLocation & {
   companyName: string;
 };
@@ -270,16 +295,17 @@ export default function GeographicData() {
                   if (!center) return null;
                   const active = location.id === selectedLocationId;
                   const saved = location.reviewStatus === "verified";
+                  const pinPalette = companyPinPalette(location.companyName);
                   return (
                     <CircleMarker
                       key={`${location.entityId}-${location.id}`}
                       center={center}
                       radius={active ? 12 : 8}
                       pathOptions={{
-                        color: active ? "#ffffff" : saved ? "#a7f3d0" : "#a5f3fc",
-                        fillColor: saved ? "#10b981" : "#06b6d4",
-                        fillOpacity: active ? 1 : 0.84,
-                        weight: active ? 4 : 2,
+                        color: active ? "#ffffff" : pinPalette.borderColor,
+                        fillColor: pinPalette.fillColor,
+                        fillOpacity: active ? 1 : saved ? 0.94 : 0.8,
+                        weight: active ? 4 : saved ? 3 : 2,
                       }}
                       eventHandlers={{ click: () => openPreview(location.id) }}
                     />
