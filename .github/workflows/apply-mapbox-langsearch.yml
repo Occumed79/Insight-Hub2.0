@@ -262,3 +262,5 @@ async function searchLangSearch(query: string): Promise<SearchResult[]> {
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Wire Mapbox basemap and dual-key LangSearch"
           git push origin HEAD:agent/mapbox-langsearch-integration
+
+# trigger
