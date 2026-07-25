@@ -18,22 +18,40 @@ jobs:
           ref: agent/mapbox-langsearch-integration
           fetch-depth: 0
       - name: Execute embedded integration patch
+        id: apply
+        continue-on-error: true
         run: |
           python - <<'PY'
           from pathlib import Path
+          import traceback
 
-          workflow = Path('.github/workflows/apply-mapbox-langsearch.yml').read_text()
-          start_marker = "          python - <<'PY'\n"
-          end_marker = "\n          PY\n      - name: Remove temporary workflow and commit"
-          start = workflow.index(start_marker) + len(start_marker)
-          end = workflow.index(end_marker, start)
-          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in workflow[start:end].splitlines())
-          exec(compile(script, 'embedded-mapbox-langsearch-patch', 'exec'))
+          try:
+              workflow = Path('.github/workflows/apply-mapbox-langsearch.yml').read_text()
+              start_marker = "          python - <<'PY'\n"
+              end_marker = "\n          PY\n      - name: Remove temporary workflow and commit"
+              start = workflow.index(start_marker) + len(start_marker)
+              end = workflow.index(end_marker, start)
+              script = '\n'.join(line[10:] if line.startswith('          ') else line for line in workflow[start:end].splitlines())
+              exec(compile(script, 'embedded-mapbox-langsearch-patch', 'exec'))
+          except BaseException:
+              Path('.github/integration-error.txt').write_text(traceback.format_exc())
+              raise
           PY
+      - name: Publish patch failure details
+        if: steps.apply.outcome == 'failure'
+        run: |
+          git add .github/integration-error.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Record integration patch failure"
+          git push origin HEAD:agent/mapbox-langsearch-integration
+          exit 1
       - name: Commit integration and remove temporary files
+        if: steps.apply.outcome == 'success'
         run: |
           git rm .github/workflows/apply-mapbox-langsearch.yml
           git rm -f .github/mapbox-langsearch.trigger
+          git rm -f .github/integration-error.txt
           git add artifacts/occu-med-insight-hub/src/pages/geographic-data.tsx artifacts/api-server/src/lib/companyLocationDiscovery.ts artifacts/api-server/src/routes/intelligence.ts render.yaml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
