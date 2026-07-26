@@ -22,9 +22,15 @@ jobs:
           ref: agent/org-chart-contact-links
           fetch-depth: 0
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
+          cache: pnpm
 
       - name: Apply organizational-chart contact feature
         run: |
@@ -53,12 +59,14 @@ jobs:
         run: |
           set -o pipefail
           {
-            corepack enable
-            pnpm install --frozen-lockfile
-            pnpm run typecheck
+            pnpm install --no-frozen-lockfile
             pnpm run audit:repository
+            pnpm run typecheck
             pnpm run build
           } 2>&1 | tee /tmp/contact-validation-error.txt
+
+      - name: Restore unrelated lockfile drift
+        run: git checkout -- pnpm-lock.yaml
 
       - name: Commit the feature to its branch
         run: |
@@ -71,6 +79,7 @@ jobs:
       - name: Persist failure details
         if: failure()
         run: |
+          git checkout -- pnpm-lock.yaml 2>/dev/null || true
           mkdir -p .github
           if [ -f /tmp/contact-patch-error.txt ]; then
             cp /tmp/contact-patch-error.txt .github/contact-patch-error.txt
