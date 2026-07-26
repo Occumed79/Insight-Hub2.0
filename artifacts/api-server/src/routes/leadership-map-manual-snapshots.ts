@@ -43,6 +43,39 @@ function isManualSnapshot(snapshot: SavedSnapshot): boolean {
     || sourceInputs.manualSimpleImport === true;
 }
 
+
+function domainFromValue(value: unknown): string | null {
+  const raw = String(value || "").trim().toLowerCase().replace(/^@/, "");
+  if (!raw) return null;
+  try {
+    const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
+    const hostname = url.hostname.replace(/^www\./, "").replace(/\.$/, "");
+    return /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(hostname) ? hostname : null;
+  } catch {
+    return null;
+  }
+}
+
+function contactDomainFromMetadata(metadata: Record<string, unknown>): { domain: string | null; source: "saved" | "derived" | "none" } {
+  const saved = domainFromValue(metadata.organizationalContactDomain);
+  if (saved) return { domain: saved, source: "saved" };
+  const chart = objectMetadata(metadata[SNAPSHOT_KEY] || metadata.organizational_chart);
+  const sourceInputs = objectMetadata(chart.sourceInputs);
+  for (const candidate of [sourceInputs.primaryUrl, metadata.officialWebsite, metadata.website, metadata.domain]) {
+    const domain = domainFromValue(candidate);
+    if (domain) return { domain, source: "derived" };
+  }
+  const result = objectMetadata(chart.result);
+  const sources = Array.isArray(result.sources) ? result.sources : [];
+  for (const source of sources) {
+    const row = objectMetadata(source);
+    if (String(row.sourceType || "") !== "official") continue;
+    const domain = domainFromValue(row.url);
+    if (domain) return { domain, source: "derived" };
+  }
+  return { domain: null, source: "none" };
+}
+
 router.get("/leadership-map/saved", async (_req: Request, res: Response) => {
   try {
     const entities = await db.select().from(entitiesTable).orderBy(entitiesTable.displayName).limit(MAX_SAVED_RESULTS);
@@ -95,6 +128,48 @@ router.get("/leadership-map/saved/:entityId", async (req: Request, res: Response
     });
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : "The manually imported organizational chart could not be loaded." });
+  }
+});
+
+
+router.get("/leadership-map/contact-domain/:entityId", async (req: Request, res: Response) => {
+  const entityId = Number(req.params.entityId);
+  if (!Number.isInteger(entityId)) {
+    res.status(400).json({ error: "A valid company ID is required." });
+    return;
+  }
+  try {
+    const [entity] = await db.select().from(entitiesTable).where(eq(entitiesTable.id, entityId)).limit(1);
+    if (!entity) {
+      res.status(404).json({ error: "The saved company was not found." });
+      return;
+    }
+    res.json({ ok: true, ...contactDomainFromMetadata(objectMetadata(entity.metadata)) });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "The company email domain could not be loaded." });
+  }
+});
+
+router.put("/leadership-map/contact-domain/:entityId", async (req: Request, res: Response) => {
+  const entityId = Number(req.params.entityId);
+  const domain = domainFromValue(req.body?.domain);
+  if (!Number.isInteger(entityId) || !domain) {
+    res.status(400).json({ error: "A valid company ID and email domain are required." });
+    return;
+  }
+  try {
+    const [entity] = await db.select().from(entitiesTable).where(eq(entitiesTable.id, entityId)).limit(1);
+    if (!entity) {
+      res.status(404).json({ error: "The saved company was not found." });
+      return;
+    }
+    await db.update(entitiesTable).set({
+      metadata: { ...objectMetadata(entity.metadata), organizationalContactDomain: domain },
+      updatedAt: new Date(),
+    }).where(eq(entitiesTable.id, entityId));
+    res.json({ ok: true, domain, source: "saved" });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "The company email domain could not be saved." });
   }
 });
 
