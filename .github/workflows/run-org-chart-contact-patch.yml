@@ -7,6 +7,7 @@ on:
     paths:
       - .github/contact-links-trigger.txt
       - .github/workflows/apply-org-chart-contact-links.yml
+      - .github/scripts/apply_org_contact_patch.py
 
 permissions:
   contents: write
@@ -25,20 +26,15 @@ jobs:
         with:
           node-version: 24
 
-      - name: Execute the reviewed patch embedded in the feature workflow
+      - name: Apply organizational-chart contact feature
         run: |
           python - <<'PY'
           from pathlib import Path
-          import textwrap
+          import subprocess
           import traceback
 
           try:
-              workflow = Path('.github/workflows/apply-org-chart-contact-links.yml').read_text()
-              marker = "          python - <<'PY'\n"
-              start = workflow.index(marker) + len(marker)
-              end = workflow.index("\n          PY\n", start)
-              code = textwrap.dedent(workflow[start:end])
-              exec(compile(code, 'apply-org-chart-contact-links', 'exec'))
+              subprocess.run(["python", ".github/scripts/apply_org_contact_patch.py"], check=True)
           except BaseException:
               Path('.github/contact-patch-error.txt').write_text(traceback.format_exc())
               raise
@@ -54,7 +50,7 @@ jobs:
 
       - name: Commit the feature to its branch
         run: |
-          rm -f .github/workflows/apply-org-chart-contact-links.yml .github/contact-links-trigger.txt .github/contact-patch-error.txt
+          rm -f .github/workflows/apply-org-chart-contact-links.yml .github/contact-links-trigger.txt .github/contact-patch-error.txt .github/scripts/apply_org_contact_patch.py
           git add -A
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -68,6 +64,6 @@ jobs:
             git add .github/contact-patch-error.txt
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "Record organizational contact patch failure"
+            git commit -m "Record organizational contact patch failure" || true
             git push origin HEAD:agent/org-chart-contact-links
           fi
