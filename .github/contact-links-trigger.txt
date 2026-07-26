@@ -1,1 +1,1 @@
-Run the standalone organizational-chart contact patch.
+Retry the organizational-chart contact patch after temporary-file cleanup.
