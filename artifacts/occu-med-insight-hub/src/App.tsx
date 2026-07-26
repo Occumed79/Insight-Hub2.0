@@ -1,5 +1,6 @@
 import React from "react";
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { ArrowLeft } from "lucide-react";
+import { Link, Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,6 +29,42 @@ import SourceGovernance from "@/pages/source-governance";
 
 const queryClient = new QueryClient();
 
+function StandaloneMapPage({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="standalone-map-page">
+      <style>{`
+        .standalone-map-page main > aside { display: none !important; }
+        .standalone-map-page main > section { margin-left: 0 !important; padding-top: 5.75rem !important; }
+      `}</style>
+      <Link
+        href="/"
+        aria-label="Back to the Insight Hub landing page"
+        className="fixed left-4 top-4 z-[850] inline-flex min-h-10 items-center gap-2 rounded-full border border-cyan-100/18 bg-[#06101d]/78 px-4 text-xs font-bold text-cyan-50/76 shadow-[0_16px_48px_rgba(0,0,0,.42),0_0_28px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.12)] backdrop-blur-2xl transition hover:border-cyan-200/34 hover:bg-cyan-300/[0.12] hover:text-white"
+      >
+        <ArrowLeft size={15} />
+        Back
+      </Link>
+      {children}
+    </div>
+  );
+}
+
+function GlobalLocationsRoute() {
+  return (
+    <StandaloneMapPage>
+      <GeographicData />
+    </StandaloneMapPage>
+  );
+}
+
+function GlobalLocationOverlapRoute() {
+  return (
+    <StandaloneMapPage>
+      <LocationOverlap />
+    </StandaloneMapPage>
+  );
+}
+
 function Router() {
   return (
     <Switch>
@@ -35,10 +72,10 @@ function Router() {
       <Route path="/data-profiles" component={DataProfiles} />
       <Route path="/data-visualization" component={DataVisualization} />
       <Route path="/quantifiable-data" component={QuantifiableData} />
-      <Route path="/geographic-footprint" component={GeographicData} />
-      <Route path="/geographic-data" component={GeographicData} />
-      <Route path="/location-overlap" component={LocationOverlap} />
-      <Route path="/geographic-overlap" component={LocationOverlap} />
+      <Route path="/geographic-footprint" component={GlobalLocationsRoute} />
+      <Route path="/geographic-data" component={GlobalLocationsRoute} />
+      <Route path="/location-overlap" component={GlobalLocationOverlapRoute} />
+      <Route path="/geographic-overlap" component={GlobalLocationOverlapRoute} />
       <Route path="/hiring-intelligence" component={HiringIntelligence} />
       <Route path="/leadership-map" component={LeadershipMap} />
       <Route path="/corporate-structure" component={CorporateStructure} />
