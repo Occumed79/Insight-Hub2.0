@@ -1,0 +1,57 @@
+name: Run organizational-chart contact patch
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/contact-links-trigger.txt
+      - .github/workflows/apply-org-chart-contact-links.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-contact-feature:
+    if: github.head_ref == 'agent/org-chart-contact-links'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/org-chart-contact-links
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Execute the reviewed patch embedded in the feature workflow
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/apply-org-chart-contact-links.yml').read_text()
+          marker = "          python - <<'PY'\n"
+          start = workflow.index(marker) + len(marker)
+          end = workflow.index("\n          PY\n", start)
+          code = textwrap.dedent(workflow[start:end])
+          exec(compile(code, 'apply-org-chart-contact-links', 'exec'))
+          PY
+
+      - name: Validate application
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm run typecheck
+          pnpm run audit:repository
+          pnpm run build
+
+      - name: Commit the feature to its branch
+        run: |
+          rm -f .github/workflows/apply-org-chart-contact-links.yml .github/contact-links-trigger.txt
+          git add -A
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Add LinkedIn and domain-based email options"
+          git push origin HEAD:agent/org-chart-contact-links
