@@ -1,0 +1,244 @@
+name: Apply organizational-chart contact links
+
+on:
+  push:
+    branches:
+      - agent/org-chart-contact-links
+
+permissions:
+  contents: write
+
+jobs:
+  apply-change:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/org-chart-contact-links
+          fetch-depth: 0
+
+      - name: Add LinkedIn and work-email contact actions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          page_path = Path('artifacts/occu-med-insight-hub/src/pages/leadership-map.tsx')
+          text = page_path.read_text()
+
+          text = text.replace(
+              '  ExternalLink,\n  Filter,',
+              '  ExternalLink,\n  Filter,\n  Linkedin,',
+              1,
+          )
+          text = text.replace(
+              '  Loader2,\n  Network,',
+              '  Loader2,\n  Mail,\n  Network,',
+              1,
+          )
+
+          helper_marker = '''function isHttpUrl(value: string | undefined): boolean {
+            return Boolean(value && /^https?:\\/\\//i.test(value));
+          }
+          '''
+          helper_replacement = '''function isHttpUrl(value: string | undefined): boolean {
+            return Boolean(value && /^https?:\\/\\//i.test(value));
+          }
+
+          function isWorkEmail(value: string | undefined): boolean {
+            return Boolean(value && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value));
+          }
+
+          function linkedInPeopleSearchUrl(person: LeadershipPerson, companyName: string): string {
+            if (isHttpUrl(person.linkedinUrl)) return person.linkedinUrl!;
+            const keywords = [person.name, companyName, person.title].filter(Boolean).join(" ");
+            return `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(keywords)}`;
+          }
+
+          function publicWorkEmailSearchUrl(person: LeadershipPerson, companyName: string): string {
+            const query = `"${person.name}" "${companyName}" "${person.title}" (email OR contact)`;
+            return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+          }
+
+          function ContactLinks({
+            person,
+            companyName,
+            compact = false,
+          }: {
+            person: LeadershipPerson;
+            companyName: string;
+            compact?: boolean;
+          }) {
+            const directLinkedIn = isHttpUrl(person.linkedinUrl);
+            const hasWorkEmail = isWorkEmail(person.workEmail);
+            const linkedInUrl = linkedInPeopleSearchUrl(person, companyName);
+            const emailUrl = hasWorkEmail ? `mailto:${person.workEmail}` : publicWorkEmailSearchUrl(person, companyName);
+            const baseClass = compact
+              ? "inline-flex min-h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[9px] font-bold transition"
+              : "inline-flex min-h-10 items-center gap-2 rounded-2xl border px-4 text-xs font-bold transition";
+
+            return (
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={linkedInUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(event) => event.stopPropagation()}
+                  className={`${baseClass} border-sky-200/18 bg-sky-300/[0.07] text-sky-100 hover:border-sky-200/34 hover:bg-sky-300/[0.13]`}
+                  title={directLinkedIn ? "Open the saved LinkedIn profile" : "Search LinkedIn by name, company, and title"}
+                >
+                  <Linkedin className={compact ? "h-3 w-3" : "h-4 w-4"} />
+                  {compact ? "LinkedIn" : directLinkedIn ? "LinkedIn profile" : "LinkedIn search"}
+                </a>
+                <a
+                  href={emailUrl}
+                  target={hasWorkEmail ? undefined : "_blank"}
+                  rel={hasWorkEmail ? undefined : "noreferrer"}
+                  onClick={(event) => event.stopPropagation()}
+                  className={`${baseClass} border-emerald-200/18 bg-emerald-300/[0.07] text-emerald-100 hover:border-emerald-200/34 hover:bg-emerald-300/[0.13]`}
+                  title={hasWorkEmail ? `Email ${person.workEmail}` : "Search public sources for a professional work email"}
+                >
+                  <Mail className={compact ? "h-3 w-3" : "h-4 w-4"} />
+                  {compact ? hasWorkEmail ? "Email" : "Find email" : hasWorkEmail ? person.workEmail : "Find work email"}
+                </a>
+              </div>
+            );
+          }
+          '''
+          if helper_marker not in text:
+              raise SystemExit('isHttpUrl helper marker not found')
+          text = text.replace(helper_marker, helper_replacement, 1)
+
+          person_pattern = re.compile(r'function PersonNode\(\{ person, onOpen \}: \{ person: LeadershipPerson; onOpen: \(\) => void \}\) \{.*?\n\}\n\nfunction HierarchyLayer', re.S)
+          person_replacement = '''function PersonNode({
+            person,
+            companyName,
+            onOpen,
+          }: {
+            person: LeadershipPerson;
+            companyName: string;
+            onOpen: () => void;
+          }) {
+            const theme = LEVEL_THEME[person.level];
+            return (
+              <div className={`group relative flex min-h-[178px] w-full max-w-[282px] flex-col overflow-hidden rounded-[24px] border p-4 text-left backdrop-blur-2xl transition duration-300 hover:-translate-y-1 ${theme.card}`}>
+                <div className={`pointer-events-none absolute inset-x-7 top-0 h-px bg-gradient-to-r ${theme.line}`} />
+                <button type="button" onClick={onOpen} className="w-full flex-1 text-left">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border backdrop-blur-xl ${theme.icon}`}>
+                      <UserRound className="h-4 w-4" />
+                    </div>
+                    <span className={`rounded-full border px-2 py-1 text-[8px] font-bold uppercase tracking-[0.14em] ${confidenceClass(person.confidence)}`}>
+                      {CONFIDENCE_LABELS[person.confidence]}
+                    </span>
+                  </div>
+                  <p className="mt-4 text-[9px] font-bold uppercase leading-4 tracking-[0.17em] text-cyan-50/48">{person.title}</p>
+                  <h3 className="mt-1.5 text-[16px] font-black leading-5 tracking-[-0.015em] text-white">{person.name}</h3>
+                  <div className="mt-3 flex items-center justify-between gap-3 text-[10px] text-cyan-100/38">
+                    <span className="truncate">{person.department || person.location || "Organizational role"}</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 transition group-hover:translate-x-0.5" />
+                  </div>
+                </button>
+                <div className="mt-3 border-t border-cyan-100/9 pt-3">
+                  <ContactLinks person={person} companyName={companyName} compact />
+                </div>
+              </div>
+            );
+          }
+
+          function HierarchyLayer'''
+          text, person_count = person_pattern.subn(person_replacement, text, count=1)
+          if person_count != 1:
+              raise SystemExit(f'PersonNode replacement count was {person_count}')
+
+          text = text.replace(
+              '''  index,
+            onOpen,
+          }: {
+            level: LeadershipLevel;
+            people: LeadershipPerson[];
+            index: number;
+            onOpen: (personId: string) => void;
+          }) {''',
+              '''  index,
+            companyName,
+            onOpen,
+          }: {
+            level: LeadershipLevel;
+            people: LeadershipPerson[];
+            index: number;
+            companyName: string;
+            onOpen: (personId: string) => void;
+          }) {''',
+              1,
+          )
+          text = text.replace(
+              '<PersonNode person={person} onOpen={() => onOpen(person.id)} />',
+              '<PersonNode person={person} companyName={companyName} onOpen={() => onOpen(person.id)} />',
+              1,
+          )
+          text = text.replace(
+              '''                          people={group.people}
+                          index={groupIndex}
+                          onOpen={setSelectedPersonId}''',
+              '''                          people={group.people}
+                          index={groupIndex}
+                          companyName={result.companyName}
+                          onOpen={setSelectedPersonId}''',
+              1,
+          )
+          text = text.replace(
+              '[person.name, person.title, person.department, person.location]',
+              '[person.name, person.title, person.department, person.location, person.workEmail]',
+              1,
+          )
+
+          drawer_marker = '''            </div>
+
+            {selectedPerson.bio && (
+          '''
+          drawer_replacement = '''            </div>
+
+            <section className="mt-5 rounded-[22px] border border-cyan-100/11 bg-black/16 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-cyan-100/34">Professional contact options</p>
+                  <p className="mt-1 text-[11px] leading-5 text-cyan-100/44">Uses the saved name, company, and title. No email address is guessed.</p>
+                </div>
+                <ContactLinks person={selectedPerson} companyName={result?.companyName || companyName} />
+              </div>
+            </section>
+
+            {selectedPerson.bio && (
+          '''
+          if drawer_marker not in text:
+              raise SystemExit('Person drawer insertion marker not found')
+          text = text.replace(drawer_marker, drawer_replacement, 1)
+
+          page_path.write_text(text)
+
+          api_path = Path('artifacts/occu-med-insight-hub/src/data/leadershipMapApi.ts')
+          api_text = api_path.read_text()
+          api_marker = '''  location?: string;
+            bio?: string;
+            confidence: LeadershipConfidence;'''
+          api_replacement = '''  location?: string;
+            bio?: string;
+            linkedinUrl?: string;
+            workEmail?: string;
+            emailSourceUrl?: string;
+            confidence: LeadershipConfidence;'''
+          if api_marker not in api_text:
+              raise SystemExit('LeadershipPerson type marker not found')
+          api_path.write_text(api_text.replace(api_marker, api_replacement, 1))
+          PY
+
+      - name: Commit contact-link feature
+        run: |
+          git rm .github/workflows/apply-org-chart-contact-links.yml
+          git add artifacts/occu-med-insight-hub/src/pages/leadership-map.tsx artifacts/occu-med-insight-hub/src/data/leadershipMapApi.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Add LinkedIn and work email links to org charts"
+          git push origin HEAD:agent/org-chart-contact-links
