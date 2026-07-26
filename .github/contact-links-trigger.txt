@@ -1,1 +1,1 @@
-Trigger the organizational-chart contact workflow after temporary enablement.
+Retry the organizational-chart contact workflow with failure capture.
