@@ -46,7 +46,7 @@ export type LeadershipSourceRecord = {
 };
 
 export type LeadershipProviderDiagnostic = {
-  source: "groq" | "cloudflare" | "gemini" | "cerebras";
+  source: "langsearch" | "groq" | "cloudflare" | "gemini" | "cerebras";
   status: "success" | "partial" | "no-results" | "not-configured" | "error";
   resultsFound: number;
   message: string;
