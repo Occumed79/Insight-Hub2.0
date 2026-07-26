@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "<stdin>", line 11, in <module>
-  File "apply-org-chart-contact-links", line 350, in <module>
-SystemExit: saved list effect marker not found
