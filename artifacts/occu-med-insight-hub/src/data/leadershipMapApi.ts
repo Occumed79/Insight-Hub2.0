@@ -18,6 +18,9 @@ export type LeadershipPerson = {
   department?: string;
   location?: string;
   bio?: string;
+  linkedinUrl?: string;
+  workEmail?: string;
+  emailSourceUrl?: string;
   confidence: LeadershipConfidence;
   sourceUrls: string[];
   evidence: LeadershipEvidence[];
@@ -135,4 +138,19 @@ export async function getSavedOrganizationalCharts(): Promise<SavedOrganizationa
 export async function getSavedOrganizationalChart(entityId: number): Promise<LeadershipMapResponse> {
   const response = await fetch(`/api/leadership-map/saved/${entityId}`);
   return readJson<LeadershipMapResponse>(response);
+}
+
+
+export async function getLeadershipContactDomain(entityId: number): Promise<{ ok: true; domain: string | null; source: "saved" | "derived" | "none" }> {
+  const response = await fetch(`/api/leadership-map/contact-domain/${entityId}`);
+  return readJson<{ ok: true; domain: string | null; source: "saved" | "derived" | "none" }>(response);
+}
+
+export async function saveLeadershipContactDomain(entityId: number, domain: string): Promise<{ ok: true; domain: string; source: "saved" }> {
+  const response = await fetch(`/api/leadership-map/contact-domain/${entityId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ domain }),
+  });
+  return readJson<{ ok: true; domain: string; source: "saved" }>(response);
 }
