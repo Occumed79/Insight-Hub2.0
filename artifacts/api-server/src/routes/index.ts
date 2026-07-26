@@ -18,8 +18,8 @@ import secFilingsRouter from "./sec-filings";
 import hiringIntelligenceRouter from "./hiring-intelligence";
 import leadershipMapQualityRouter from "./leadership-map-quality";
 import leadershipMapCerebrasV2Router from "./leadership-map-cerebras-v2";
+import leadershipMapLangSearchRouter from "./leadership-map-langsearch";
 import leadershipMapOrchestrationRouter from "./leadership-map-orchestration";
-import leadershipMapRouter from "./leadership-map";
 import corporateStructureRouter from "./corporate-structure";
 import companyLibraryRouter from "./company-library";
 
@@ -45,8 +45,8 @@ router.use(secFilingsRouter);
 router.use(hiringIntelligenceRouter);
 router.use(leadershipMapQualityRouter);
 router.use(leadershipMapCerebrasV2Router);
+router.use(leadershipMapLangSearchRouter);
 router.use(leadershipMapOrchestrationRouter);
-router.use(leadershipMapRouter);
 router.use(corporateStructureRouter);
 
 export default router;
