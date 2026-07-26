@@ -1,1 +1,1 @@
-Retry the organizational-chart contact workflow with failure capture.
+Run the standalone organizational-chart contact patch.
