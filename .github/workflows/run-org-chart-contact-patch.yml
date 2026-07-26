@@ -36,34 +36,52 @@ jobs:
           try:
               subprocess.run(["python", ".github/scripts/apply_org_contact_patch.py"], check=True)
           except BaseException:
-              Path('.github/contact-patch-error.txt').write_text(traceback.format_exc())
+              Path('/tmp/contact-patch-error.txt').write_text(traceback.format_exc())
               raise
           PY
 
+      - name: Remove temporary implementation files
+        run: |
+          rm -f \
+            .github/workflows/apply-org-chart-contact-links.yml \
+            .github/contact-links-trigger.txt \
+            .github/contact-patch-error.txt \
+            .github/contact-validation-error.txt \
+            .github/scripts/apply_org_contact_patch.py
+
       - name: Validate application
         run: |
-          corepack enable
-          pnpm install --frozen-lockfile
-          pnpm run typecheck
-          pnpm run audit:repository
-          pnpm run build
+          set -o pipefail
+          {
+            corepack enable
+            pnpm install --frozen-lockfile
+            pnpm run typecheck
+            pnpm run audit:repository
+            pnpm run build
+          } 2>&1 | tee /tmp/contact-validation-error.txt
 
       - name: Commit the feature to its branch
         run: |
-          rm -f .github/workflows/apply-org-chart-contact-links.yml .github/contact-links-trigger.txt .github/contact-patch-error.txt .github/scripts/apply_org_contact_patch.py
           git add -A
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Add LinkedIn and domain-based email options"
           git push origin HEAD:agent/org-chart-contact-links
 
-      - name: Persist patch failure details
+      - name: Persist failure details
         if: failure()
         run: |
-          if [ -f .github/contact-patch-error.txt ]; then
-            git add .github/contact-patch-error.txt
+          mkdir -p .github
+          if [ -f /tmp/contact-patch-error.txt ]; then
+            cp /tmp/contact-patch-error.txt .github/contact-patch-error.txt
+          fi
+          if [ -f /tmp/contact-validation-error.txt ]; then
+            cp /tmp/contact-validation-error.txt .github/contact-validation-error.txt
+          fi
+          if [ -f .github/contact-patch-error.txt ] || [ -f .github/contact-validation-error.txt ]; then
+            git add .github/contact-patch-error.txt .github/contact-validation-error.txt 2>/dev/null || true
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "Record organizational contact patch failure" || true
+            git commit -m "Record organizational contact validation failure" || true
             git push origin HEAD:agent/org-chart-contact-links
           fi
