@@ -36,6 +36,50 @@ import {
 
 const queryClient = new QueryClient();
 
+function TranslucentToolPage({ page, children }: { page: string; children: React.ReactNode }) {
+  return (
+    <div className="translucent-tool-page" data-tool-page={page}>
+      {children}
+    </div>
+  );
+}
+
+function CompanyLibraryRoute() {
+  return <TranslucentToolPage page="company-library"><DataProfiles /></TranslucentToolPage>;
+}
+
+function SecFilingsRoute() {
+  return <TranslucentToolPage page="sec"><SecFilings /></TranslucentToolPage>;
+}
+
+function LeadershipMapRoute() {
+  return <TranslucentToolPage page="organizational-chart"><LeadershipMap /></TranslucentToolPage>;
+}
+
+function FecFilingsRoute() {
+  return <TranslucentToolPage page="fec"><FecFilingsPage /></TranslucentToolPage>;
+}
+
+function IndustryBenchmarksRoute() {
+  return <TranslucentToolPage page="bls"><IndustryBenchmarksPage /></TranslucentToolPage>;
+}
+
+function OccupationalDemandsRoute() {
+  return <TranslucentToolPage page="onet"><OccupationalDemandsPage /></TranslucentToolPage>;
+}
+
+function FederalAwardsRoute() {
+  return <TranslucentToolPage page="federal-awards"><FederalAwardsPage /></TranslucentToolPage>;
+}
+
+function LegalReferencesRoute() {
+  return <TranslucentToolPage page="legal"><LegalReferencesPage /></TranslucentToolPage>;
+}
+
+function AorRiskRoute() {
+  return <TranslucentToolPage page="aor"><AorRiskIntelligencePage /></TranslucentToolPage>;
+}
+
 function StandaloneMapPage({ children }: { children: React.ReactNode }) {
   return (
     <div className="standalone-map-page">
@@ -68,16 +112,16 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
-      <Route path="/data-profiles" component={DataProfiles} />
-      <Route path="/sec-filings" component={SecFilings} />
-      <Route path="/leadership-map" component={LeadershipMap} />
+      <Route path="/data-profiles" component={CompanyLibraryRoute} />
+      <Route path="/sec-filings" component={SecFilingsRoute} />
+      <Route path="/leadership-map" component={LeadershipMapRoute} />
       <Route path="/dba-intelligence" component={DbaIntelligence} />
-      <Route path="/fec-filings" component={FecFilingsPage} />
-      <Route path="/industry-injury-benchmarks" component={IndustryBenchmarksPage} />
-      <Route path="/occupational-demands" component={OccupationalDemandsPage} />
-      <Route path="/federal-awards" component={FederalAwardsPage} />
-      <Route path="/public-legal-references" component={LegalReferencesPage} />
-      <Route path="/aor-risk-intelligence" component={AorRiskIntelligencePage} />
+      <Route path="/fec-filings" component={FecFilingsRoute} />
+      <Route path="/industry-injury-benchmarks" component={IndustryBenchmarksRoute} />
+      <Route path="/occupational-demands" component={OccupationalDemandsRoute} />
+      <Route path="/federal-awards" component={FederalAwardsRoute} />
+      <Route path="/public-legal-references" component={LegalReferencesRoute} />
+      <Route path="/aor-risk-intelligence" component={AorRiskRoute} />
 
       <Route path="/geographic-footprint" component={GlobalLocationsRoute} />
       <Route path="/geographic-data" component={GlobalLocationsRoute} />
