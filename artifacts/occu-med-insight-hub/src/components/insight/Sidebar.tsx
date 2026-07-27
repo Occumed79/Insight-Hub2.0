@@ -13,11 +13,11 @@ const nav = [
   { href: "/leadership-map", label: "Organizational Chart", icon: GitBranch },
   { href: "/corporate-structure", label: "Corporate Structure", icon: Building2 },
   { href: "/entity-resolution", label: "Entity Resolution", icon: Network },
+  { href: "/dba-intelligence", label: "DBA Data Hub", icon: ShieldCheck },
   { href: "/injury-workforce-exposure", label: "Injury & Exposure", icon: Grid3X3 },
   { href: "/corporate-signals", label: "Corporate Signals", icon: RadioTower },
   { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
   { href: "/workers-comp-coverage", label: "Workers’ Comp Coverage", icon: ClipboardList },
-  { href: "/dba-intelligence", label: "DBA Data Hub", icon: ShieldCheck },
   { href: "/source-governance", label: "Source Governance", icon: ServerCog },
 ];
 
@@ -25,7 +25,7 @@ export function Sidebar() {
   const [location] = useLocation();
   const currentPath = location.split("?")[0];
   return (
-    <aside className="fixed left-0 top-0 z-30 hidden h-screen w-[210px] border-r border-cyan-100/14 bg-[#030813]/91 px-4 py-5 shadow-[18px_0_70px_rgba(0,0,0,.35)] backdrop-blur-2xl lg:block">
+    <aside className="fixed left-0 top-0 z-30 hidden h-screen w-[210px] overflow-y-auto overscroll-contain border-r border-cyan-100/14 bg-[#030813]/91 px-4 py-5 shadow-[18px_0_70px_rgba(0,0,0,.35)] backdrop-blur-2xl lg:block">
       <Link href="/" className="block py-1">
         <div className="flex h-16 items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-cyan-100/14 bg-white/[0.04]">
@@ -37,7 +37,7 @@ export function Sidebar() {
           </div>
         </div>
       </Link>
-      <div className="mt-8">
+      <div className="mt-8 pb-8">
         <p className="mb-2 px-1 text-[10px] uppercase tracking-[0.25em] text-cyan-100/35">Intelligence Tools</p>
         <nav className="space-y-1">
           {nav.map((item) => {
