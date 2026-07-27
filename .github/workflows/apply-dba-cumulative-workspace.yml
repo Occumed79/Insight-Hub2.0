@@ -1,0 +1,97 @@
+name: Apply DBA cumulative workspace
+
+on:
+  push:
+    branches:
+      - agent/dba-cumulative-2001-2024
+
+permissions:
+  contents: write
+
+jobs:
+  apply-change:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/dba-cumulative-2001-2024
+          fetch-depth: 0
+
+      - name: Wire cumulative workspace into DBA hub
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          page_path = Path('artifacts/occu-med-insight-hub/src/pages/dba-intelligence.tsx')
+          page = page_path.read_text()
+
+          replacements = [
+              (
+                  'import { GlassCard } from "@/components/insight/GlassCard";\n',
+                  'import { GlassCard } from "@/components/insight/GlassCard";\nimport { DbaCumulativeWorkspace } from "@/components/insight/DbaCumulativeWorkspace";\n',
+              ),
+              (
+                  '  carrier: "Carrier Trends",\n  notes: "Data Notes",',
+                  '  carrier: "Carrier Trends",\n  cumulative: "2001–2024 Cumulative",\n  notes: "Data Notes",',
+              ),
+              (
+                  'subtitle="Explore FY2021–FY2024 employer, country, and carrier case-summary workbooks persisted in Neon, with transparent suppression handling and luminous trend visuals."',
+                  'subtitle="Explore FY2021–FY2024 annual trends alongside a separate 2001–2024 cumulative employer, country, and carrier layer persisted in Neon."',
+              ),
+              (
+                  'Four fiscal years. Three reporting dimensions. One honest operating picture.',
+                  'Annual movement and 24-year cumulative context in one honest operating picture.',
+              ),
+              (
+                  'Select an employer to see consolidated source-name trends, then move into country and carrier views without pretending those dimensions are relationally tied to a specific company.',
+                  'Use FY2021–FY2024 for annual movement, then open the cumulative workspace for the full 2001–2024 reporting period without pretending employer, country, and carrier extracts are relationally linked.',
+              ),
+              (
+                  '<MetricCard label="Persisted analytic rows" value={(data?.records.length ?? 0).toLocaleString()} note="Employer, country, and carrier rows" />',
+                  '<MetricCard label="Persisted analytic rows" value={((data?.records.length ?? 0) + (data?.cumulativeRecords.length ?? 0)).toLocaleString()} note="Annual and cumulative Neon records" />',
+              ),
+              (
+                  '<MetricCard label="Source workbooks" value={(data?.sources.length ?? 0).toLocaleString()} note="FY2021 through FY2024" tone="violet" />',
+                  '<MetricCard label="Source workbooks" value={((data?.sources.length ?? 0) + (data?.cumulativeSources.length ?? 0)).toLocaleString()} note="Annual plus 2001–2024 cumulative" tone="violet" />',
+              ),
+              (
+                  'const icons = { employer: Building2, country: Globe2, carrier: Layers3, notes: FileSpreadsheet };',
+                  'const icons = { employer: Building2, country: Globe2, carrier: Layers3, cumulative: BarChart3, notes: FileSpreadsheet };',
+              ),
+              (
+                  '{data && tab === "carrier" && <EntityWorkspace data={data} dimension="carrier" />}\n        {data && tab === "notes" && <DataNotes data={data} />}',
+                  '{data && tab === "carrier" && <EntityWorkspace data={data} dimension="carrier" />}\n        {data && tab === "cumulative" && <DbaCumulativeWorkspace data={data} />}\n        {data && tab === "notes" && <DataNotes data={data} />}',
+              ),
+          ]
+
+          for old, new in replacements:
+              if old not in page:
+                  raise SystemExit(f'Page marker not found: {old[:100]}')
+              page = page.replace(old, new, 1)
+
+          page_path.write_text(page)
+
+          baseline_path = Path('docs/repository-cleanup-baseline.json')
+          baseline = baseline_path.read_text()
+          if '"totalFiles": 309' not in baseline:
+              raise SystemExit('Repository total-file ceiling marker not found')
+          baseline = baseline.replace('"totalFiles": 309', '"totalFiles": 310', 1)
+          baseline = baseline.replace(
+              'and the two focused Neon-backed DBA Data Hub production files from PR #91.',
+              'the two focused Neon-backed DBA Data Hub production files from PR #91, and the cumulative 2001–2024 DBA workspace added from user-provided redacted workbooks.',
+              1,
+          )
+          baseline_path.write_text(baseline)
+
+          workflow = Path('.github/workflows/apply-dba-cumulative-workspace.yml')
+          workflow.unlink()
+          PY
+
+      - name: Commit cumulative workspace integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Wire cumulative DBA workspace into data hub"
+          git push origin HEAD:agent/dba-cumulative-2001-2024
