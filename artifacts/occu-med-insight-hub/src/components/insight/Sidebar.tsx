@@ -1,24 +1,14 @@
-import { Activity, BriefcaseBusiness, Building2, ClipboardList, FileSearch, GitBranch, Globe2, Grid3X3, Home, Layers3, LibraryBig, Network, RadioTower, Route, ServerCog, ShieldCheck } from "lucide-react";
+import { BriefcaseBusiness, Building2, GitBranch, Home, Route, ShieldCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/data-profiles", label: "Company Library", icon: LibraryBig },
-  { href: "/employer-workflow", label: "Employer Workflow", icon: Route },
-  { href: "/employer-intelligence", label: "Employer Intelligence", icon: Activity },
-  { href: "/geographic-footprint", label: "Geographic Footprint", icon: Globe2 },
-  { href: "/location-overlap", label: "Location Overlap", icon: Layers3 },
+  { href: "/public-data-intelligence", label: "Public Data Intelligence", icon: Route },
   { href: "/hiring-intelligence", label: "Hiring Intelligence", icon: BriefcaseBusiness },
   { href: "/leadership-map", label: "Organizational Chart", icon: GitBranch },
   { href: "/corporate-structure", label: "Corporate Structure", icon: Building2 },
-  { href: "/entity-resolution", label: "Entity Resolution", icon: Network },
   { href: "/dba-intelligence", label: "DBA Data Hub", icon: ShieldCheck },
-  { href: "/injury-workforce-exposure", label: "Injury & Exposure", icon: Grid3X3 },
-  { href: "/corporate-signals", label: "Corporate Signals", icon: RadioTower },
-  { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
-  { href: "/workers-comp-coverage", label: "Workers’ Comp Coverage", icon: ClipboardList },
-  { href: "/source-governance", label: "Source Governance", icon: ServerCog },
 ];
 
 export function Sidebar() {
@@ -43,10 +33,7 @@ export function Sidebar() {
           {nav.map((item) => {
             const Icon = item.icon;
             const active = currentPath === item.href
-              || (item.href === "/geographic-footprint" && currentPath === "/geographic-data")
-              || (item.href === "/location-overlap" && currentPath === "/geographic-overlap")
-              || (item.href === "/injury-workforce-exposure" && currentPath === "/occupational-exposure")
-              || (item.href === "/corporate-signals" && currentPath === "/company-live-intelligence");
+              || (item.href === "/public-data-intelligence" && currentPath === "/employer-workflow");
             return (
               <Link key={item.href} href={item.href} className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition duration-300", active ? "border border-cyan-200/20 bg-cyan-300/16 text-cyan-50 shadow-[0_0_26px_rgba(34,211,238,.14),inset_0_0_26px_rgba(34,211,238,.1)]" : "border border-transparent text-cyan-100/55 hover:border-cyan-100/10 hover:bg-white/[0.05] hover:text-cyan-50")}>
                 <Icon size={16} />
