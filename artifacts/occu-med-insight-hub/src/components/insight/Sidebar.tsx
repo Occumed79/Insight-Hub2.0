@@ -1,15 +1,19 @@
 import {
-  BarChart3,
-  BookOpenCheck,
-  CircleDollarSign,
+  Activity,
+  BriefcaseBusiness,
+  Building2,
+  ClipboardList,
   FileSearch,
   GitBranch,
   Globe2,
+  Grid3X3,
   Home,
-  Landmark,
+  Layers3,
   LibraryBig,
-  Scale,
-  ShieldAlert,
+  Network,
+  RadioTower,
+  Route,
+  ServerCog,
   ShieldCheck,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
@@ -18,20 +22,26 @@ import { cn } from "@/lib/utils";
 const nav = [
   { href: "/", label: "Home", icon: Home },
   { href: "/data-profiles", label: "Company Library", icon: LibraryBig },
-  { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
+  { href: "/employer-workflow", label: "Employer Workflow", icon: Route },
+  { href: "/employer-intelligence", label: "Employer Intelligence", icon: Activity },
+  { href: "/geographic-footprint", label: "Geographic Footprint", icon: Globe2 },
+  { href: "/location-overlap", label: "Location Overlap", icon: Layers3 },
+  { href: "/hiring-intelligence", label: "Hiring Intelligence", icon: BriefcaseBusiness },
   { href: "/leadership-map", label: "Organizational Chart", icon: GitBranch },
+  { href: "/corporate-structure", label: "Corporate Structure", icon: Building2 },
+  { href: "/entity-resolution", label: "Entity Resolution", icon: Network },
   { href: "/dba-intelligence", label: "DBA Data Hub", icon: ShieldCheck },
-  { href: "/fec-filings", label: "FEC Filings", icon: Landmark },
-  { href: "/industry-injury-benchmarks", label: "Industry Injury Benchmarks", icon: BarChart3 },
-  { href: "/occupational-demands", label: "Occupational Demands", icon: BookOpenCheck },
-  { href: "/federal-awards", label: "Federal Awards", icon: CircleDollarSign },
-  { href: "/public-legal-references", label: "Public Legal References", icon: Scale },
-  { href: "/aor-risk-intelligence", label: "AOR Risk Intelligence", icon: ShieldAlert },
+  { href: "/injury-workforce-exposure", label: "Injury & Exposure", icon: Grid3X3 },
+  { href: "/corporate-signals", label: "Corporate Signals", icon: RadioTower },
+  { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
+  { href: "/workers-comp-coverage", label: "Workers’ Comp Coverage", icon: ClipboardList },
+  { href: "/source-governance", label: "Source Governance", icon: ServerCog },
 ];
 
 export function Sidebar() {
   const [location] = useLocation();
   const currentPath = location.split("?")[0];
+
   return (
     <aside className="fixed left-0 top-0 z-30 hidden h-screen w-[210px] overflow-y-auto overscroll-contain border-r border-cyan-100/14 bg-[#030813]/91 px-4 py-5 shadow-[18px_0_70px_rgba(0,0,0,.35)] backdrop-blur-2xl lg:block">
       <Link href="/" className="block py-1">
@@ -45,32 +55,35 @@ export function Sidebar() {
           </div>
         </div>
       </Link>
+
       <div className="mt-8 pb-8">
         <p className="mb-2 px-1 text-[10px] uppercase tracking-[0.25em] text-cyan-100/35">Intelligence Tools</p>
         <nav className="space-y-1">
           {nav.map((item) => {
             const Icon = item.icon;
-            const active = currentPath === item.href;
+            const active = currentPath === item.href
+              || (item.href === "/geographic-footprint" && currentPath === "/geographic-data")
+              || (item.href === "/location-overlap" && currentPath === "/geographic-overlap")
+              || (item.href === "/injury-workforce-exposure" && currentPath === "/occupational-exposure")
+              || (item.href === "/corporate-signals" && currentPath === "/company-live-intelligence");
+
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] leading-5 transition duration-300",
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition duration-300",
                   active
                     ? "border border-cyan-200/20 bg-cyan-300/16 text-cyan-50 shadow-[0_0_26px_rgba(34,211,238,.14),inset_0_0_26px_rgba(34,211,238,.1)]"
                     : "border border-transparent text-cyan-100/55 hover:border-cyan-100/10 hover:bg-white/[0.05] hover:text-cyan-50",
                 )}
               >
-                <Icon size={16} className="shrink-0" />
-                <span>{item.label}</span>
+                <Icon size={16} />
+                {item.label}
               </Link>
             );
           })}
         </nav>
-        <div className="mt-6 border-t border-cyan-100/8 pt-4 text-[9px] leading-4 text-cyan-100/24">
-          Global Locations and Location Overlap remain available from their portal cards.
-        </div>
       </div>
     </aside>
   );
