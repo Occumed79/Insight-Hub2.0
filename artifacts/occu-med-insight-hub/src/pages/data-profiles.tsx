@@ -44,12 +44,12 @@ const MODULES: Array<{
 }> = [
   { key: "locations", label: "Locations", description: "Mapped branches, offices, facilities, and operating sites.", route: "/geographic-footprint", icon: MapPin },
   { key: "jobs", label: "Jobs & Workforce", description: "Current public postings, job families, locations, and hiring patterns.", route: "/hiring-intelligence", icon: BriefcaseBusiness },
-  { key: "bls", label: "BLS & O*NET", description: "Industry and occupation benchmarks connected to the company workforce.", route: "/injury-workforce-exposure", icon: BarChart3 },
+  { key: "bls", label: "BLS & O*NET", description: "Industry and occupation benchmarks connected to the company workforce.", route: "/industry-injury-benchmarks", icon: BarChart3 },
   { key: "organizationalChart", label: "Organizational Chart", description: "Publicly supported leadership layers and evidence-backed people.", route: "/leadership-map", icon: UsersRound },
   { key: "corporateStructure", label: "Corporate Structure", description: "Parent, subsidiary, division, brand, DBA, and affiliate context.", route: "/corporate-structure", icon: GitBranch },
   { key: "sec", label: "SEC Filings", description: "Saved issuer identity and recent public filing activity.", route: "/sec-filings", icon: FileSearch },
   { key: "corporateSignals", label: "Corporate Signals", description: "Public regulatory, legal, federal-award, and entity signals.", route: "/corporate-signals", icon: RadioTower },
-  { key: "fec", label: "FEC Signals", description: "Supported public committee and connected-organization evidence.", icon: Landmark },
+  { key: "fec", label: "FEC Filings", description: "Committee identity and federal filing activity from OpenFEC.", route: "/fec-filings", icon: Landmark },
   { key: "injuryExposure", label: "Injury & Exposure", description: "OSHA records, BLS benchmarks, and occupational exposure context.", route: "/injury-workforce-exposure", icon: Activity },
   { key: "evidence", label: "Evidence & Sources", description: "Source coverage, freshness, diagnostics, and limitations.", route: "/source-governance", icon: ShieldCheck },
 ];
@@ -341,7 +341,7 @@ export default function DataProfiles() {
               <button type="button" key={company.slug} onClick={() => selectCompany(company)} className="group text-left">
                 <GlassCard
                   variant="glass"
-                  className="h-full min-h-[220px] overflow-hidden rounded-[26px] border border-cyan-100/12 bg-[#06101d]/64 p-5 shadow-[0_18px_55px_rgba(0,0,0,.3),inset_0_1px_0_rgba(255,255,255,.08)] transition duration-300 group-hover:-translate-y-1 group-hover:border-cyan-100/28 group-hover:bg-[#071522]/78 group-hover:shadow-[0_26px_80px_rgba(0,0,0,.42),0_0_34px_rgba(34,211,238,.08)]"
+                  className="relative h-full min-h-[220px] overflow-hidden rounded-[28px] border border-white/20 bg-white/[0.055] p-5 shadow-[0_22px_70px_rgba(0,0,0,.34),0_0_32px_rgba(34,211,238,.055),inset_0_1px_0_rgba(255,255,255,.18)] backdrop-blur-3xl before:pointer-events-none before:absolute before:inset-[2px] before:rounded-[25px] before:border before:border-white/[0.09] before:content-[''] after:pointer-events-none after:absolute after:inset-0 after:bg-[linear-gradient(135deg,rgba(255,255,255,.075),transparent_38%,rgba(103,232,249,.035))] after:content-[''] [&>*]:relative [&>*]:z-10 transition duration-300 group-hover:-translate-y-1.5 group-hover:border-white/32 group-hover:bg-white/[0.075] group-hover:shadow-[0_30px_90px_rgba(0,0,0,.44),0_0_42px_rgba(34,211,238,.11),inset_0_1px_0_rgba(255,255,255,.22)]"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <span className="flex h-12 min-w-12 items-center justify-center rounded-2xl border border-cyan-100/12 bg-white/[0.035] px-3 text-xs font-black tracking-[-0.02em] text-cyan-50">
