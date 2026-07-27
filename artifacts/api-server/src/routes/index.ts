@@ -28,11 +28,13 @@ import leadershipMapLangSearchRouter from "./leadership-map-langsearch";
 import leadershipMapOrchestrationRouter from "./leadership-map-orchestration";
 import corporateStructureRouter from "./corporate-structure";
 import companyLibraryRouter from "./company-library";
+import companyFileRouter from "./company-file";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(companyLibraryRouter);
+router.use(companyFileRouter);
 router.use(locationDiscoveryCacheRouter);
 router.use(entityDiscoveryRouter);
 router.use(locationsCerebrasV2Router);
