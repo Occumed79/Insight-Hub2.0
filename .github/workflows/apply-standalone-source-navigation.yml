@@ -1,0 +1,66 @@
+name: Apply standalone source navigation
+
+on:
+  push:
+    branches:
+      - agent/standalone-source-tools
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/standalone-source-tools
+          fetch-depth: 0
+      - name: Apply focused UI and audit changes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          page_path = Path('artifacts/occu-med-insight-hub/src/pages/data-profiles.tsx')
+          page = page_path.read_text()
+          old = 'className="h-full min-h-[220px] overflow-hidden rounded-[26px] border border-cyan-100/12 bg-[#06101d]/64 p-5 shadow-[0_18px_55px_rgba(0,0,0,.3),inset_0_1px_0_rgba(255,255,255,.08)] transition duration-300 group-hover:-translate-y-1 group-hover:border-cyan-100/28 group-hover:bg-[#071522]/78 group-hover:shadow-[0_26px_80px_rgba(0,0,0,.42),0_0_34px_rgba(34,211,238,.08)]"'
+          new = 'className="relative h-full min-h-[220px] overflow-hidden rounded-[28px] border border-white/20 bg-white/[0.055] p-5 shadow-[0_22px_70px_rgba(0,0,0,.34),0_0_32px_rgba(34,211,238,.055),inset_0_1px_0_rgba(255,255,255,.18)] backdrop-blur-3xl before:pointer-events-none before:absolute before:inset-[2px] before:rounded-[25px] before:border before:border-white/[0.09] before:content-[\'\'] after:pointer-events-none after:absolute after:inset-0 after:bg-[linear-gradient(135deg,rgba(255,255,255,.075),transparent_38%,rgba(103,232,249,.035))] after:content-[\'\'] [&>*]:relative [&>*]:z-10 transition duration-300 group-hover:-translate-y-1.5 group-hover:border-white/32 group-hover:bg-white/[0.075] group-hover:shadow-[0_30px_90px_rgba(0,0,0,.44),0_0_42px_rgba(34,211,238,.11),inset_0_1px_0_rgba(255,255,255,.22)]"'
+          if old not in page:
+              raise SystemExit('Company card class marker not found')
+          page = page.replace(old, new, 1)
+          page = page.replace('route: "/injury-workforce-exposure", icon: BarChart3', 'route: "/industry-injury-benchmarks", icon: BarChart3', 1)
+          page = page.replace('{ key: "fec", label: "FEC Signals", description: "Supported public committee and connected-organization evidence.", icon: Landmark }', '{ key: "fec", label: "FEC Filings", description: "Committee identity and federal filing activity from OpenFEC.", route: "/fec-filings", icon: Landmark }', 1)
+          page_path.write_text(page)
+
+          tools_path = Path('artifacts/occu-med-insight-hub/src/pages/standalone-public-tools.tsx')
+          tools = tools_path.read_text()
+          tools = tools.replace('  Building2,\n', '', 1)
+          tools = tools.replace('  CheckCircle2,\n', '', 1)
+          tools = tools.replace('value={benchmark.trcRate ?? "Not reported"}', 'value={String(benchmark.trcRate ?? "Not reported")}', 1)
+          tools = tools.replace('value={benchmark.dartRate ?? "Not reported"}', 'value={String(benchmark.dartRate ?? "Not reported")}', 1)
+          tools = tools.replace('value={benchmark.daysAwayRate ?? "Not reported"}', 'value={String(benchmark.daysAwayRate ?? "Not reported")}', 1)
+          tools_path.write_text(tools)
+
+          baseline_path = Path('docs/repository-cleanup-baseline.json')
+          baseline = baseline_path.read_text()
+          baseline = baseline.replace('"totalFiles": 310', '"totalFiles": 312', 1)
+          baseline = baseline.replace(
+              'and the cumulative 2001–2024 DBA workspace added from user-provided redacted workbooks.',
+              'the cumulative 2001–2024 DBA workspace added from user-provided redacted workbooks, and the two focused standalone public-source production files for FEC, BLS, O*NET, USAspending, CourtListener, and AOR risk intelligence.',
+              1,
+          )
+          baseline_path.write_text(baseline)
+
+          Path('.github/workflows/apply-standalone-source-navigation.yml').unlink()
+          PY
+      - name: Commit applied changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Polish company cards and finalize source navigation"
+          git push origin HEAD:agent/standalone-source-tools
