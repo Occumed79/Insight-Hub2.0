@@ -37,6 +37,75 @@ export type CompanyLibraryResponse = {
   companies: CompanyLibraryCard[];
 };
 
+export type CompanyFileAnnualMetric = {
+  key: string;
+  label: string;
+  cy2023: number;
+  cy2024: number;
+  changePercent: number;
+  direction: "up" | "down" | "flat";
+  interpretation: string;
+};
+
+export type CompanyFileMonthlyMetric = {
+  month: string;
+  dart2023: number;
+  trir2023: number;
+  nearMiss2023: number;
+  dart2024: number;
+  trir2024: number;
+  nearMiss2024: number;
+};
+
+export type CompanyFileTrendPoint = {
+  year: number;
+  value: number;
+};
+
+export type CompanyFileNarrativeItem = {
+  title: string;
+  body: string;
+  status?: "observed" | "interpretive" | "unverified-source-claim" | "normalized";
+};
+
+export type CompanySafetyFile = {
+  version: number;
+  title: string;
+  subtitle: string;
+  period: {
+    start: string;
+    end: string;
+  };
+  source: {
+    fileName: string;
+    title: string;
+    pageCount: number;
+    sourceType: string;
+    ingestedAt: string;
+    attribution: string;
+  };
+  headline: string;
+  annualMetrics: CompanyFileAnnualMetric[];
+  monthlyMetrics: CompanyFileMonthlyMetric[];
+  nearMissTrend: CompanyFileTrendPoint[];
+  findings: CompanyFileNarrativeItem[];
+  operationalImplications: CompanyFileNarrativeItem[];
+  sourceClaims: CompanyFileNarrativeItem[];
+  methodologyNotes: CompanyFileNarrativeItem[];
+};
+
+export type CompanyFileResponse = {
+  ok: true;
+  generatedAt: string;
+  company: {
+    entityId: number;
+    name: string;
+    displayName: string;
+    updatedAt: string;
+  };
+  file: CompanySafetyFile | null;
+};
+
 async function readJson<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => null) as T | { error?: string } | null;
   if (!response.ok) {
@@ -51,4 +120,9 @@ async function readJson<T>(response: Response): Promise<T> {
 export async function loadCompanyLibrary(): Promise<CompanyLibraryResponse> {
   const response = await fetch("/api/company-library/catalog");
   return readJson<CompanyLibraryResponse>(response);
+}
+
+export async function loadCompanyFile(entityId: number): Promise<CompanyFileResponse> {
+  const response = await fetch(`/api/company-library/file/${encodeURIComponent(String(entityId))}`);
+  return readJson<CompanyFileResponse>(response);
 }
