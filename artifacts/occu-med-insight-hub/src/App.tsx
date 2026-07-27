@@ -25,8 +25,8 @@ import SecFilings from "@/pages/sec-filings";
 import WorkersCompCoverage from "@/pages/workers-comp-coverage";
 import DbaIntelligence from "@/pages/dba-intelligence";
 import SourceGovernance from "@/pages/source-governance";
+import AorRiskIntelligencePage from "@/pages/aor-risk-intelligence";
 import {
-  AorRiskIntelligencePage,
   FecFilingsPage,
   FederalAwardsPage,
   IndustryBenchmarksPage,
