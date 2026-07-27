@@ -1,7 +1,7 @@
 {
-  "description": "Post-Phase-6 structural ceiling with one intentional shared cinematic component for the internal intelligence portals. The total-file ceiling includes the reviewed Entity & DBA Resolution route from Issue #38, the Occupational Exposure & Service Fit Matrix route from Issue #40, the three focused Company Live Intelligence production files from Issue #42, the two focused Workers’ Compensation Source Coverage production files from Issue #44, the three focused Defense Base Act Intelligence production files from Issue #46, the four shared Source Governance production files from Issue #48, the four focused Unified Employer Workflow production files from Issue #50, the one substantive public-source employer brief orchestrator from Issue #52, and the reviewed four-company Location Overlap intelligence route from PR #79. PR #79 intentionally owns one route-scoped Leaflet glass-map style block so its luminous blend and tooltip rules stay isolated from unrelated maps; all other structural ceilings remain unchanged. Values may be lowered by later cleanup PRs but must not be increased without an explicit review explanation.",
+  "description": "Post-Phase-6 structural ceiling with reviewed production additions for the internal intelligence portals. The total-file ceiling includes the Entity & DBA Resolution route from Issue #38, the Occupational Exposure & Service Fit Matrix route from Issue #40, the Company Live Intelligence files from Issue #42, Workers’ Compensation Source Coverage from Issue #44, Defense Base Act Intelligence from Issue #46, Source Governance from Issue #48, Unified Employer Workflow from Issue #50, the public-source employer brief from Issue #52, Location Overlap from PR #79, and the two focused Neon-backed DBA Data Hub production files from PR #91. The two reviewed component-level style blocks are the existing app-shell effects and the route-scoped Location Overlap map effects. Duplicate files, generated artifacts, invalid coordinates, extra app shells, and additional injected-style files remain prohibited.",
   "maximums": {
-    "totalFiles": 307,
+    "totalFiles": 309,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
@@ -10,7 +10,7 @@
     "globalCssLayerCount": 3,
     "invalidCoordinateCount": 0,
     "knownArchitectureCandidateCount": 3,
-    "componentInjectedStyleCount": 1
+    "componentInjectedStyleCount": 2
   },
   "requiredFiles": [
     "package.json",

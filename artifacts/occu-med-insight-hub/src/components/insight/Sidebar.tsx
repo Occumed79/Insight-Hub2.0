@@ -17,7 +17,7 @@ const nav = [
   { href: "/corporate-signals", label: "Corporate Signals", icon: RadioTower },
   { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
   { href: "/workers-comp-coverage", label: "Workers’ Comp Coverage", icon: ClipboardList },
-  { href: "/dba-intelligence", label: "DBA Intelligence", icon: ShieldCheck },
+  { href: "/dba-intelligence", label: "DBA Data Hub", icon: ShieldCheck },
   { href: "/source-governance", label: "Source Governance", icon: ServerCog },
 ];
 
