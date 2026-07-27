@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { EmployerWorkflowProvider } from "@/components/insight/EmployerWorkflowContext";
-import { EmployerWorkflowRail } from "@/components/insight/EmployerWorkflowRail";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import DataProfiles from "@/pages/data-profiles";
@@ -26,6 +25,14 @@ import SecFilings from "@/pages/sec-filings";
 import WorkersCompCoverage from "@/pages/workers-comp-coverage";
 import DbaIntelligence from "@/pages/dba-intelligence";
 import SourceGovernance from "@/pages/source-governance";
+import {
+  AorRiskIntelligencePage,
+  FecFilingsPage,
+  FederalAwardsPage,
+  IndustryBenchmarksPage,
+  LegalReferencesPage,
+  OccupationalDemandsPage,
+} from "@/pages/standalone-public-tools";
 
 const queryClient = new QueryClient();
 
@@ -50,19 +57,11 @@ function StandaloneMapPage({ children }: { children: React.ReactNode }) {
 }
 
 function GlobalLocationsRoute() {
-  return (
-    <StandaloneMapPage>
-      <GeographicData />
-    </StandaloneMapPage>
-  );
+  return <StandaloneMapPage><GeographicData /></StandaloneMapPage>;
 }
 
 function GlobalLocationOverlapRoute() {
-  return (
-    <StandaloneMapPage>
-      <LocationOverlap />
-    </StandaloneMapPage>
-  );
+  return <StandaloneMapPage><LocationOverlap /></StandaloneMapPage>;
 }
 
 function Router() {
@@ -70,14 +69,24 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/data-profiles" component={DataProfiles} />
-      <Route path="/data-visualization" component={DataVisualization} />
-      <Route path="/quantifiable-data" component={QuantifiableData} />
+      <Route path="/sec-filings" component={SecFilings} />
+      <Route path="/leadership-map" component={LeadershipMap} />
+      <Route path="/dba-intelligence" component={DbaIntelligence} />
+      <Route path="/fec-filings" component={FecFilingsPage} />
+      <Route path="/industry-injury-benchmarks" component={IndustryBenchmarksPage} />
+      <Route path="/occupational-demands" component={OccupationalDemandsPage} />
+      <Route path="/federal-awards" component={FederalAwardsPage} />
+      <Route path="/public-legal-references" component={LegalReferencesPage} />
+      <Route path="/aor-risk-intelligence" component={AorRiskIntelligencePage} />
+
       <Route path="/geographic-footprint" component={GlobalLocationsRoute} />
       <Route path="/geographic-data" component={GlobalLocationsRoute} />
       <Route path="/location-overlap" component={GlobalLocationOverlapRoute} />
       <Route path="/geographic-overlap" component={GlobalLocationOverlapRoute} />
+
+      <Route path="/data-visualization" component={DataVisualization} />
+      <Route path="/quantifiable-data" component={QuantifiableData} />
       <Route path="/hiring-intelligence" component={HiringIntelligence} />
-      <Route path="/leadership-map" component={LeadershipMap} />
       <Route path="/corporate-structure" component={CorporateStructure} />
       <Route path="/job-intelligence" component={JobIntelligence} />
       <Route path="/employer-workflow" component={EmployerWorkflow} />
@@ -87,9 +96,7 @@ function Router() {
       <Route path="/occupational-exposure" component={OccupationalExposure} />
       <Route path="/corporate-signals" component={CorporateSignals} />
       <Route path="/company-live-intelligence" component={CorporateSignals} />
-      <Route path="/sec-filings" component={SecFilings} />
       <Route path="/workers-comp-coverage" component={WorkersCompCoverage} />
-      <Route path="/dba-intelligence" component={DbaIntelligence} />
       <Route path="/source-governance" component={SourceGovernance} />
       <Route component={NotFound} />
     </Switch>
@@ -107,7 +114,6 @@ function App() {
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <EmployerWorkflowProvider>
             <Router />
-            <EmployerWorkflowRail />
           </EmployerWorkflowProvider>
         </WouterRouter>
         <Toaster />
