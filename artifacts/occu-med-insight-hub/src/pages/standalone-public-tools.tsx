@@ -6,9 +6,7 @@ import {
   BarChart3,
   BookOpenCheck,
   BriefcaseBusiness,
-  Building2,
   CalendarDays,
-  CheckCircle2,
   CircleDollarSign,
   FileSearch,
   Gauge,
@@ -205,7 +203,7 @@ export function IndustryBenchmarksPage() {
       {loading && <LoadingState label="Retrieving BLS benchmark series…" />}
       {error && <ErrorState message={error} />}
       {data && !benchmark && <ResultSurface><p className="font-black text-white">No usable benchmark returned</p><p className="mt-2 text-sm leading-6 text-cyan-100/48">{data.message || data.limitation || "The requested NAICS/year did not resolve to a published series."}</p><div className="mt-4 text-xs text-cyan-100/34">Attempted series: {(data.attemptedSeriesIds || []).join(", ") || "None reported"}</div></ResultSurface>}
-      {benchmark && <><section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="TRC rate" value={benchmark.trcRate ?? "Not reported"} note="Total recordable cases" icon={TrendingUp} /><Metric label="DART rate" value={benchmark.dartRate ?? "Not reported"} note="Days away, restricted, or transferred" icon={Gauge} /><Metric label="Days-away rate" value={benchmark.daysAwayRate ?? "Not reported"} note="Cases involving days away from work" icon={CalendarDays} /><Metric label="Benchmark year" value={String(benchmark.year || "Unknown")} note={benchmark.authMode || "BLS API"} icon={BookOpenCheck} /></section><ResultSurface><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-100/42">Resolved industry</p><h2 className="mt-2 text-2xl font-black text-white">{benchmark.industryTitle || `NAICS ${benchmark.naics}`}</h2><p className="mt-3 text-sm leading-7 text-cyan-100/52">{benchmark.sourceMetadata}</p><div className="mt-5 rounded-2xl border border-amber-100/12 bg-amber-300/[0.05] p-4 text-xs leading-6 text-amber-100/62">{benchmark.limitation}</div><div className="mt-5 flex flex-wrap gap-4"><SourceLink href={benchmark.sourceUrl}>Open BLS source</SourceLink><SourceLink href={benchmark.developerDocsUrl}>BLS developer documentation</SourceLink></div></ResultSurface></>}
+      {benchmark && <><section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="TRC rate" value={String(benchmark.trcRate ?? "Not reported")} note="Total recordable cases" icon={TrendingUp} /><Metric label="DART rate" value={String(benchmark.dartRate ?? "Not reported")} note="Days away, restricted, or transferred" icon={Gauge} /><Metric label="Days-away rate" value={String(benchmark.daysAwayRate ?? "Not reported")} note="Cases involving days away from work" icon={CalendarDays} /><Metric label="Benchmark year" value={String(benchmark.year || "Unknown")} note={benchmark.authMode || "BLS API"} icon={BookOpenCheck} /></section><ResultSurface><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-100/42">Resolved industry</p><h2 className="mt-2 text-2xl font-black text-white">{benchmark.industryTitle || `NAICS ${benchmark.naics}`}</h2><p className="mt-3 text-sm leading-7 text-cyan-100/52">{benchmark.sourceMetadata}</p><div className="mt-5 rounded-2xl border border-amber-100/12 bg-amber-300/[0.05] p-4 text-xs leading-6 text-amber-100/62">{benchmark.limitation}</div><div className="mt-5 flex flex-wrap gap-4"><SourceLink href={benchmark.sourceUrl}>Open BLS source</SourceLink><SourceLink href={benchmark.developerDocsUrl}>BLS developer documentation</SourceLink></div></ResultSurface></>}
     </ToolPage>
   );
 }
