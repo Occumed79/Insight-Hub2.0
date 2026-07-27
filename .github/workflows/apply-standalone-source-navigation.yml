@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/standalone-source-tools
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -32,6 +35,13 @@ jobs:
           page = page.replace('route: "/injury-workforce-exposure", icon: BarChart3', 'route: "/industry-injury-benchmarks", icon: BarChart3', 1)
           page = page.replace('{ key: "fec", label: "FEC Signals", description: "Supported public committee and connected-organization evidence.", icon: Landmark }', '{ key: "fec", label: "FEC Filings", description: "Committee identity and federal filing activity from OpenFEC.", route: "/fec-filings", icon: Landmark }', 1)
           page_path.write_text(page)
+
+          tools_path = Path('artifacts/occu-med-insight-hub/src/pages/standalone-public-tools.tsx')
+          tools = tools_path.read_text()
+          tools = tools.replace('value={benchmark.trcRate ?? "Not reported"}', 'value={String(benchmark.trcRate ?? "Not reported")}', 1)
+          tools = tools.replace('value={benchmark.dartRate ?? "Not reported"}', 'value={String(benchmark.dartRate ?? "Not reported")}', 1)
+          tools = tools.replace('value={benchmark.daysAwayRate ?? "Not reported"}', 'value={String(benchmark.daysAwayRate ?? "Not reported")}', 1)
+          tools_path.write_text(tools)
 
           baseline_path = Path('docs/repository-cleanup-baseline.json')
           baseline = baseline_path.read_text()
