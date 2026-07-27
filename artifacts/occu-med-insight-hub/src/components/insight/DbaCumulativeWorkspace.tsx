@@ -141,7 +141,7 @@ export function DbaCumulativeWorkspace({ data }: { data: DbaHubResponse }) {
 
   return (
     <>
-      <GlassCard className="mb-6 overflow-hidden p-0">
+      <GlassCard variant="glass" className="mb-6 overflow-hidden p-0">
         <div className="relative p-5 md:p-7">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_20%,rgba(34,211,238,.14),transparent_34%),radial-gradient(circle_at_88%_80%,rgba(168,85,247,.16),transparent_34%)]" />
           <div className="relative flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
@@ -173,7 +173,7 @@ export function DbaCumulativeWorkspace({ data }: { data: DbaHubResponse }) {
         </div>
       </GlassCard>
 
-      <GlassCard className="mb-6 p-5 md:p-6">
+      <GlassCard variant="glass" className="mb-6 p-5 md:p-6">
         <div className="grid gap-4 xl:grid-cols-[1.2fr_.8fr] xl:items-end">
           <label>
             <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/45">Select {config.label.toLowerCase()}</span>
@@ -209,28 +209,28 @@ export function DbaCumulativeWorkspace({ data }: { data: DbaHubResponse }) {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.12fr_.88fr]">
-        <GlassCard className="min-h-[560px] p-5 md:p-6">
+        <GlassCard variant="glass" className="min-h-[560px] p-5 md:p-6">
           <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/42">Cumulative ranking</p>
           <h2 className="mt-2 text-xl font-black text-white">Top reported {config.plural}</h2>
           <p className="mt-1 text-xs leading-5 text-cyan-100/48">Ranked by the cumulative total stored in Neon.</p>
-          <div className="mt-5 h-[455px]">
+          <div className="mt-5 h-[455px] rounded-[22px] border border-cyan-100/10 bg-slate-950/20 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.05),inset_0_0_34px_rgba(34,211,238,.04)]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={ranking} layout="vertical" margin={{ top: 5, right: 32, left: 8, bottom: 5 }}>
                 <CartesianGrid stroke="rgba(165,243,252,.07)" horizontal={false} />
                 <XAxis type="number" tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis dataKey="name" type="category" width={190} tick={{ fill: "rgba(207,250,254,.62)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(value) => [Number(value).toLocaleString(), "Cumulative total"]} contentStyle={{ background: "#050b16", border: "1px solid rgba(165,243,252,.18)", borderRadius: 16, color: "white" }} />
+                <Tooltip formatter={(value) => [Number(value).toLocaleString(), "Cumulative total"]} contentStyle={{ background: "rgba(5, 18, 38, .88)", border: "1px solid rgba(165,243,252,.30)", borderRadius: 16, color: "#ecfeff", boxShadow: "0 18px 52px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.10), inset 0 0 24px rgba(34,211,238,.08)", backdropFilter: "blur(18px) saturate(1.35)", WebkitBackdropFilter: "blur(18px) saturate(1.35)" }} itemStyle={{ color: "#ecfeff", fontWeight: 700 }} labelStyle={{ color: "rgba(207,250,254,.72)", fontWeight: 700, marginBottom: 4 }} wrapperStyle={{ outline: "none", zIndex: 40 }} />
                 <Bar dataKey="total" fill="#67e8f9" radius={[0, 9, 9, 0]} style={{ filter: "drop-shadow(0 0 8px rgba(103,232,249,.62))" }} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </GlassCard>
 
-        <GlassCard className="p-5 md:p-6">
+        <GlassCard variant="glass" className="p-5 md:p-6">
           <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-fuchsia-100/45">Visible category mix</p>
           <h2 className="mt-2 text-xl font-black text-white">{selected?.canonicalName ?? `Selected ${config.label.toLowerCase()}`}</h2>
           <p className="mt-1 text-xs leading-5 text-cyan-100/48">The ring contains only categories that were disclosed in the cumulative workbook.</p>
-          <div className="relative mt-4 h-[270px]">
+          <div className="relative mt-4 h-[270px] rounded-[22px] border border-cyan-100/10 bg-slate-950/20 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.05),inset_0_0_34px_rgba(167,139,250,.05)]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={visibleCategories} dataKey="value" nameKey="label" innerRadius={78} outerRadius={112} paddingAngle={3} stroke="rgba(255,255,255,.10)" strokeWidth={1}>
@@ -238,7 +238,6 @@ export function DbaCumulativeWorkspace({ data }: { data: DbaHubResponse }) {
                     <Cell key={category.key} fill={category.color} style={{ filter: `drop-shadow(0 0 8px ${category.color}88)` }} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => Number(value).toLocaleString()} contentStyle={{ background: "#050b16", border: "1px solid rgba(165,243,252,.18)", borderRadius: 16, color: "white" }} />
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
@@ -261,7 +260,7 @@ export function DbaCumulativeWorkspace({ data }: { data: DbaHubResponse }) {
       </section>
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[1fr_.85fr]">
-        <GlassCard className="overflow-hidden p-0">
+        <GlassCard variant="glass" className="overflow-hidden p-0">
           <div className="border-b border-cyan-100/10 p-5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/42">Selected cumulative row</p>
             <h2 className="mt-2 text-xl font-black text-white">Category detail</h2>
@@ -288,7 +287,7 @@ export function DbaCumulativeWorkspace({ data }: { data: DbaHubResponse }) {
           </div>
         </GlassCard>
 
-        <GlassCard className="border-amber-200/14 p-5 md:p-6">
+        <GlassCard variant="glass" className="border-amber-200/14 p-5 md:p-6">
           <div className="flex items-start gap-3">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
             <div>

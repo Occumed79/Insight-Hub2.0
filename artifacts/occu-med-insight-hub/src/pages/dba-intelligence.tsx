@@ -156,11 +156,11 @@ function MetricCard({ label, value, note, tone = "cyan" }: {
 
 function GlowTrendChart({ points, label }: { points: YearPoint[]; label: string }) {
   return (
-    <GlassCard className="min-h-[390px] p-5 md:p-6">
+    <GlassCard variant="glass" className="min-h-[390px] p-5 md:p-6">
       <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/42">Reported trend</p>
       <h2 className="mt-2 text-xl font-black text-white">{label} by fiscal year</h2>
       <p className="mt-1 text-xs leading-5 text-cyan-100/48">The illuminated line follows the total reported in the imported employer rows.</p>
-      <div className="mt-5 h-[285px]">
+      <div className="mt-5 h-[285px] rounded-[22px] border border-cyan-100/10 bg-slate-950/20 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.05),inset_0_0_34px_rgba(34,211,238,.04)]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={points} margin={{ top: 16, right: 18, left: 0, bottom: 6 }}>
             <defs>
@@ -176,7 +176,7 @@ function GlowTrendChart({ points, label }: { points: YearPoint[]; label: string 
             <Tooltip
               formatter={(value) => [Number(value).toLocaleString(), "Reported total"]}
               labelFormatter={(value) => `Fiscal year ${value}`}
-              contentStyle={{ background: "#050b16", border: "1px solid rgba(165,243,252,.18)", borderRadius: 16, color: "white" }}
+              contentStyle={{ background: "rgba(5, 18, 38, .88)", border: "1px solid rgba(165,243,252,.30)", borderRadius: 16, color: "#ecfeff", boxShadow: "0 18px 52px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.10), inset 0 0 24px rgba(34,211,238,.08)", backdropFilter: "blur(18px) saturate(1.35)", WebkitBackdropFilter: "blur(18px) saturate(1.35)" }} itemStyle={{ color: "#ecfeff", fontWeight: 700 }} labelStyle={{ color: "rgba(207,250,254,.72)", fontWeight: 700, marginBottom: 4 }} wrapperStyle={{ outline: "none", zIndex: 40 }}
             />
             <Line type="monotone" dataKey="total" stroke="url(#dbaTrendFill)" strokeWidth={12} strokeOpacity={0.12} dot={false} activeDot={false} connectNulls />
             <Line
@@ -198,11 +198,11 @@ function GlowTrendChart({ points, label }: { points: YearPoint[]; label: string 
 
 function GlowCategoryChart({ points }: { points: YearPoint[] }) {
   return (
-    <GlassCard className="min-h-[390px] p-5 md:p-6">
+    <GlassCard variant="glass" className="min-h-[390px] p-5 md:p-6">
       <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-violet-100/45">Claim-category composition</p>
       <h2 className="mt-2 text-xl font-black text-white">Visible category values</h2>
       <p className="mt-1 text-xs leading-5 text-cyan-100/48">Blank or suppressed cells remain absent rather than being converted to zero.</p>
-      <div className="mt-5 h-[285px]">
+      <div className="mt-5 h-[285px] rounded-[22px] border border-cyan-100/10 bg-slate-950/20 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.05),inset_0_0_34px_rgba(34,211,238,.04)]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={points} margin={{ top: 12, right: 10, left: 0, bottom: 6 }}>
             <CartesianGrid stroke="rgba(165,243,252,.08)" vertical={false} />
@@ -210,7 +210,7 @@ function GlowCategoryChart({ points }: { points: YearPoint[] }) {
             <YAxis tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} width={54} />
             <Tooltip
               formatter={(value, name) => [Number(value).toLocaleString(), String(name)]}
-              contentStyle={{ background: "#050b16", border: "1px solid rgba(165,243,252,.18)", borderRadius: 16, color: "white" }}
+              contentStyle={{ background: "rgba(5, 18, 38, .88)", border: "1px solid rgba(165,243,252,.30)", borderRadius: 16, color: "#ecfeff", boxShadow: "0 18px 52px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.10), inset 0 0 24px rgba(34,211,238,.08)", backdropFilter: "blur(18px) saturate(1.35)", WebkitBackdropFilter: "blur(18px) saturate(1.35)" }} itemStyle={{ color: "#ecfeff", fontWeight: 700 }} labelStyle={{ color: "rgba(207,250,254,.72)", fontWeight: 700, marginBottom: 4 }} wrapperStyle={{ outline: "none", zIndex: 40 }}
             />
             <Legend wrapperStyle={{ fontSize: 10, color: "rgba(207,250,254,.65)" }} />
             {CATEGORY_CONFIG.map((category) => (
@@ -235,11 +235,11 @@ function GlowComposition({ points }: { points: YearPoint[] }) {
   const data = aggregateCategories(points);
   const total = data.reduce((sum, item) => sum + item.value, 0);
   return (
-    <GlassCard className="p-5 md:p-6">
+    <GlassCard variant="glass" className="p-5 md:p-6">
       <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-fuchsia-100/45">Four-year visible mix</p>
       <h2 className="mt-2 text-xl font-black text-white">Reported category composition</h2>
       <div className="mt-5 grid gap-5 md:grid-cols-[230px_1fr] md:items-center">
-        <div className="relative h-[230px]">
+        <div className="relative h-[230px] rounded-[22px] border border-cyan-100/10 bg-slate-950/20 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.05),inset_0_0_34px_rgba(167,139,250,.05)]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie data={data} dataKey="value" nameKey="name" innerRadius={68} outerRadius={96} paddingAngle={3} stroke="rgba(255,255,255,.10)" strokeWidth={1}>
@@ -247,7 +247,6 @@ function GlowComposition({ points }: { points: YearPoint[] }) {
                   <Cell key={entry.name} fill={entry.color} style={{ filter: `drop-shadow(0 0 8px ${entry.color}88)` }} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => Number(value).toLocaleString()} contentStyle={{ background: "#050b16", border: "1px solid rgba(165,243,252,.18)", borderRadius: 16, color: "white" }} />
             </PieChart>
           </ResponsiveContainer>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
@@ -282,16 +281,16 @@ function RankedLatestChart({ records, dimension, latestYear }: {
     .slice(0, 12)
     .map((record) => ({ name: record.sourceName, total: record.total }));
   return (
-    <GlassCard className="min-h-[520px] p-5 md:p-6">
+    <GlassCard variant="glass" className="min-h-[520px] p-5 md:p-6">
       <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/42">FY{String(latestYear).slice(-2)} ranking</p>
       <h2 className="mt-2 text-xl font-black text-white">Top reported {dimension === "country" ? "countries" : "carriers"}</h2>
-      <div className="mt-5 h-[420px]">
+      <div className="mt-5 h-[420px] rounded-[22px] border border-cyan-100/10 bg-slate-950/20 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.05),inset_0_0_34px_rgba(34,211,238,.04)]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 8, bottom: 5 }}>
             <CartesianGrid stroke="rgba(165,243,252,.07)" horizontal={false} />
             <XAxis type="number" tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} />
             <YAxis dataKey="name" type="category" width={170} tick={{ fill: "rgba(207,250,254,.62)", fontSize: 10 }} axisLine={false} tickLine={false} />
-            <Tooltip formatter={(value) => [Number(value).toLocaleString(), "Reported total"]} contentStyle={{ background: "#050b16", border: "1px solid rgba(165,243,252,.18)", borderRadius: 16, color: "white" }} />
+            <Tooltip formatter={(value) => [Number(value).toLocaleString(), "Reported total"]} contentStyle={{ background: "rgba(5, 18, 38, .88)", border: "1px solid rgba(165,243,252,.30)", borderRadius: 16, color: "#ecfeff", boxShadow: "0 18px 52px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.10), inset 0 0 24px rgba(34,211,238,.08)", backdropFilter: "blur(18px) saturate(1.35)", WebkitBackdropFilter: "blur(18px) saturate(1.35)" }} itemStyle={{ color: "#ecfeff", fontWeight: 700 }} labelStyle={{ color: "rgba(207,250,254,.72)", fontWeight: 700, marginBottom: 4 }} wrapperStyle={{ outline: "none", zIndex: 40 }} />
             <Bar dataKey="total" fill="#67e8f9" radius={[0, 9, 9, 0]} style={{ filter: "drop-shadow(0 0 8px rgba(103,232,249,.62))" }} />
           </BarChart>
         </ResponsiveContainer>
@@ -302,7 +301,7 @@ function RankedLatestChart({ records, dimension, latestYear }: {
 
 function YearTable({ points }: { points: YearPoint[] }) {
   return (
-    <GlassCard className="overflow-hidden p-0">
+    <GlassCard variant="glass" className="overflow-hidden p-0">
       <div className="border-b border-cyan-100/10 p-5">
         <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/42">Source detail</p>
         <h2 className="mt-2 text-xl font-black text-white">Fiscal-year values</h2>
@@ -347,7 +346,7 @@ function EntityWorkspace({ data, dimension }: { data: DbaHubResponse; dimension:
   const summary = trendSummary(points);
   return (
     <>
-      <GlassCard className="mb-6 p-5 md:p-6">
+      <GlassCard variant="glass" className="mb-6 p-5 md:p-6">
         <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
           <label>
             <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-100/45">Select {dimension}</span>
@@ -401,7 +400,7 @@ function EmployerWorkspace({ data }: { data: DbaHubResponse }) {
 
   return (
     <>
-      <GlassCard className="mb-6 overflow-hidden p-0">
+      <GlassCard variant="glass" className="mb-6 overflow-hidden p-0">
         <div className="relative grid gap-6 p-5 md:p-7 xl:grid-cols-[1.15fr_.85fr] xl:items-end">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_20%,rgba(34,211,238,.13),transparent_34%),radial-gradient(circle_at_86%_78%,rgba(168,85,247,.14),transparent_32%)]" />
           <label className="relative">
@@ -435,7 +434,7 @@ function EmployerWorkspace({ data }: { data: DbaHubResponse }) {
       </section>
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[.86fr_1.14fr]">
-        <GlassCard className="p-5 md:p-6">
+        <GlassCard variant="glass" className="p-5 md:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/42">Trend interpretation</p>
@@ -481,7 +480,7 @@ function DataNotes({ data }: { data: DbaHubResponse }) {
           <MetricCard key={item.dimension} label={`${item.dimension} records`} value={item.records.toLocaleString()} note={`${item.sourceRows.toLocaleString()} named source rows inventoried`} tone={item.dimension === "employer" ? "cyan" : item.dimension === "country" ? "violet" : "emerald"} />
         ))}
       </section>
-      <GlassCard className="mb-6 border-amber-200/14 p-5 md:p-6">
+      <GlassCard variant="glass" className="mb-6 border-amber-200/14 p-5 md:p-6">
         <div className="flex items-start gap-3">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
           <div>
@@ -492,7 +491,7 @@ function DataNotes({ data }: { data: DbaHubResponse }) {
           </div>
         </div>
       </GlassCard>
-      <GlassCard className="overflow-hidden p-0">
+      <GlassCard variant="glass" className="overflow-hidden p-0">
         <div className="border-b border-cyan-100/10 p-5 md:p-6">
           <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-100/42">Neon source registry</p>
           <h2 className="mt-2 text-xl font-black text-white">Imported workbook coverage</h2>
@@ -567,7 +566,7 @@ export default function DbaDataHub() {
           subtitle="Explore FY2021–FY2024 annual trends alongside a separate 2001–2024 cumulative employer, country, and carrier layer persisted in Neon."
         />
 
-        <GlassCard className="mb-6 border-amber-200/14 p-4">
+        <GlassCard variant="glass" className="mb-6 border-amber-200/14 p-4">
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
             <p className="text-xs leading-6 text-amber-100/68">
@@ -617,12 +616,12 @@ export default function DbaDataHub() {
         </div>
 
         {loading && !data && (
-          <GlassCard className="flex min-h-[360px] items-center justify-center p-8">
+          <GlassCard variant="glass" className="flex min-h-[360px] items-center justify-center p-8">
             <div className="text-center"><Loader2 className="mx-auto h-9 w-9 animate-spin text-cyan-200" /><p className="mt-4 text-sm text-cyan-100/55">Loading the DBA Data Hub from Neon…</p></div>
           </GlassCard>
         )}
         {error && !data && (
-          <GlassCard className="border-rose-200/18 p-6"><div className="flex items-start gap-3"><AlertTriangle className="text-rose-300" /><div><h2 className="font-bold text-rose-100">DBA Data Hub unavailable</h2><p className="mt-2 text-sm text-rose-100/65">{error}</p></div></div></GlassCard>
+          <GlassCard variant="glass" className="border-rose-200/18 p-6"><div className="flex items-start gap-3"><AlertTriangle className="text-rose-300" /><div><h2 className="font-bold text-rose-100">DBA Data Hub unavailable</h2><p className="mt-2 text-sm text-rose-100/65">{error}</p></div></div></GlassCard>
         )}
         {data && tab === "employer" && <EmployerWorkspace data={data} />}
         {data && tab === "country" && <EntityWorkspace data={data} dimension="country" />}
