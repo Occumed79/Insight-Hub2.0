@@ -90,22 +90,17 @@ async function fetchJson(url: string, options?: RequestInit, timeoutMs = 30_000)
     }
     if (!response.ok) {
       const record = asRecord(payload);
-      throw new Error(text(record?.message) || text(record?.detail) || text(record?.error) || `Source returned HTTP ${response.status}`);
+      throw new Error(
+        text(record?.message)
+        || text(record?.detail)
+        || text(record?.error)
+        || `Source returned HTTP ${response.status}`,
+      );
     }
     return payload;
   } finally {
     clearTimeout(timer);
   }
-}
-
-function nested(record: JsonRecord | null, ...path: string[]): unknown {
-  let current: unknown = record;
-  for (const key of path) {
-    const currentRecord = asRecord(current);
-    if (!currentRecord) return undefined;
-    current = currentRecord[key];
-  }
-  return current;
 }
 
 router.get("/aor/health-outbreaks", async (req: Request, res: Response) => {
@@ -119,7 +114,9 @@ router.get("/aor/health-outbreaks", async (req: Request, res: Response) => {
       "$select": "Id,PublicationDate,PublicationDateAndTime,UrlName,ItemDefaultUrl,Title,OverrideTitle,Summary,Overview,Assessment,Advice,Response,DonId",
     });
     const payload = asRecord(await fetchJson(`https://www.who.int/api/news/diseaseoutbreaknews?${params.toString()}`));
-    const allItems = asArray(payload?.value).map((item) => asRecord(item)).filter((item): item is JsonRecord => !!item);
+    const allItems = asArray(payload?.value)
+      .map((item) => asRecord(item))
+      .filter((item): item is JsonRecord => !!item);
     const matched = allItems.filter((item) => countryMatches(
       country,
       item.Title,
@@ -132,7 +129,8 @@ router.get("/aor/health-outbreaks", async (req: Request, res: Response) => {
     ));
     const selected = (matched.length > 0 ? matched : allItems.slice(0, 12)).slice(0, 20);
     const outbreaks = selected.map((item) => {
-      const path = text(item.ItemDefaultUrl) || (text(item.UrlName) ? `/emergencies/disease-outbreak/news/item/${text(item.UrlName)}` : "");
+      const path = text(item.ItemDefaultUrl)
+        || (text(item.UrlName) ? `/emergencies/disease-outbreak/news/item/${text(item.UrlName)}` : "");
       return {
         id: text(item.Id) || text(item.DonId) || text(item.UrlName),
         title: text(item.OverrideTitle) || text(item.Title) || "WHO Disease Outbreak News",
@@ -141,7 +139,9 @@ router.get("/aor/health-outbreaks", async (req: Request, res: Response) => {
         assessment: truncate(text(item.Assessment), 650),
         advice: truncate(text(item.Advice), 500),
         matchedCountry: matched.includes(item),
-        sourceUrl: path ? (path.startsWith("http") ? path : `https://www.who.int${path.startsWith("/") ? "" : "/"}${path}`) : "https://www.who.int/emergencies/disease-outbreak-news",
+        sourceUrl: path
+          ? (path.startsWith("http") ? path : `https://www.who.int${path.startsWith("/") ? "" : "/"}${path}`)
+          : "https://www.who.int/emergencies/disease-outbreak-news",
       };
     });
 
@@ -186,14 +186,16 @@ router.get("/aor/disaster-alerts", async (req: Request, res: Response) => {
     const events = rawFeatures.map((item) => {
       const feature = asRecord(item);
       const properties = asRecord(feature?.properties) ?? feature;
-      const affectedCountries = asArray(properties?.affectedcountries).map((countryItem) => {
-        const countryRecord = asRecord(countryItem);
-        return {
-          name: text(countryRecord?.countryname) || text(countryRecord?.name),
-          iso2: text(countryRecord?.iso2),
-          iso3: text(countryRecord?.iso3),
-        };
-      }).filter((entry) => entry.name || entry.iso2 || entry.iso3);
+      const affectedCountries = asArray(properties?.affectedcountries)
+        .map((countryItem) => {
+          const countryRecord = asRecord(countryItem);
+          return {
+            name: text(countryRecord?.countryname) || text(countryRecord?.name),
+            iso2: text(countryRecord?.iso2),
+            iso3: text(countryRecord?.iso3),
+          };
+        })
+        .filter((entry) => entry.name || entry.iso2 || entry.iso3);
       const urlRecord = asRecord(properties?.url);
       const eventType = text(properties?.eventtype) || text(properties?.eventType);
       const eventId = text(properties?.eventid) || text(properties?.eventId);
@@ -201,7 +203,10 @@ router.get("/aor/disaster-alerts", async (req: Request, res: Response) => {
         eventType,
         eventId,
         episodeId: text(properties?.episodeid) || text(properties?.episodeId),
-        name: text(properties?.name) || text(properties?.eventname) || text(properties?.title) || `${eventType || "Disaster"} alert`,
+        name: text(properties?.name)
+          || text(properties?.eventname)
+          || text(properties?.title)
+          || `${eventType || "Disaster"} alert`,
         description: truncate(text(properties?.description) || text(properties?.subtitle), 500),
         alertLevel: text(properties?.alertlevel) || text(properties?.alertLevel),
         alertScore: numberValue(properties?.alertscore ?? properties?.alertScore),
@@ -210,7 +215,12 @@ router.get("/aor/disaster-alerts", async (req: Request, res: Response) => {
         toDate: text(properties?.todate) || text(properties?.toDate),
         country: text(properties?.country),
         affectedCountries,
-        sourceUrl: text(urlRecord?.report) || text(urlRecord?.details) || text(properties?.url) || (eventType && eventId ? `https://www.gdacs.org/report.aspx?eventtype=${encodeURIComponent(eventType)}&eventid=${encodeURIComponent(eventId)}` : "https://www.gdacs.org/"),
+        sourceUrl: text(urlRecord?.report)
+          || text(urlRecord?.details)
+          || text(properties?.url)
+          || (eventType && eventId
+            ? `https://www.gdacs.org/report.aspx?eventtype=${encodeURIComponent(eventType)}&eventid=${encodeURIComponent(eventId)}`
+            : "https://www.gdacs.org/"),
       };
     }).filter((event) => event.eventId || event.name);
 
@@ -228,101 +238,44 @@ router.get("/aor/disaster-alerts", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/aor/reliefweb-health", async (req: Request, res: Response) => {
-  const country = text(req.query.country);
-  if (!country) return res.status(400).json({ ok: false, error: "country is required" });
-  const appname = getEnv("RELIEFWEB_APPNAME");
-  if (!appname) {
-    return res.status(503).json({
-      ok: false,
-      configured: false,
-      error: "RELIEFWEB_APPNAME is not configured. ReliefWeb requires a pre-approved appname.",
-      required: ["RELIEFWEB_APPNAME"],
-    });
-  }
-
-  try {
-    const response = asRecord(await fetchJson(`https://api.reliefweb.int/v2/reports?appname=${encodeURIComponent(appname)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({
-        limit: 40,
-        preset: "latest",
-        query: {
-          value: "health outbreak epidemic cholera hospital medical nutrition malnutrition WASH sanitation displacement healthcare",
-          operator: "OR",
-        },
-        filter: { field: "country", value: country },
-        fields: {
-          include: [
-            "title",
-            "date.created",
-            "source.name",
-            "primary_country.name",
-            "country.name",
-            "disaster.name",
-            "theme.name",
-            "format.name",
-            "body",
-            "url",
-            "url_alias",
-          ],
-        },
-      }),
-    }));
-    const reports = asArray(response?.data).map((item) => {
-      const row = asRecord(item);
-      const fields = asRecord(row?.fields);
-      const sourceNames = asArray(fields?.source).map((source) => text(asRecord(source)?.name)).filter(Boolean);
-      const countries = asArray(fields?.country).map((entry) => text(asRecord(entry)?.name)).filter(Boolean);
-      const disasters = asArray(fields?.disaster).map((entry) => text(asRecord(entry)?.name)).filter(Boolean);
-      const themes = asArray(fields?.theme).map((entry) => text(asRecord(entry)?.name)).filter(Boolean);
-      return {
-        id: text(row?.id),
-        title: text(fields?.title) || "ReliefWeb report",
-        createdAt: text(nested(fields, "date", "created")),
-        sourceNames,
-        countries,
-        disasters,
-        themes,
-        summary: truncate(text(fields?.body), 850),
-        sourceUrl: text(fields?.url_alias) || text(fields?.url) || (text(row?.href) ? `https://api.reliefweb.int${text(row?.href)}` : "https://reliefweb.int/"),
-      };
-    });
-
-    return res.json({
-      ok: true,
-      configured: true,
-      country,
-      reports,
-      source: "ReliefWeb API",
-      sourceUrl: "https://reliefweb.int/",
-      limitation: "ReliefWeb aggregates partner-submitted humanitarian material. Reports can contain preliminary, overlapping, or source-specific assessments and should be read with their original attribution.",
-    });
-  } catch (error) {
-    return res.status(502).json({ ok: false, configured: true, error: safeError(error) });
-  }
-});
-
 async function requestAcledToken(): Promise<AcledToken> {
   const username = getEnv("ACLED_USERNAME");
   const password = getEnv("ACLED_PASSWORD");
-  if (!username || !password) throw new Error("ACLED_USERNAME and ACLED_PASSWORD are not configured.");
-  const form = new URLSearchParams({ username, password, grant_type: "password", client_id: "acled", scope: "authenticated" });
+  if (!username || !password) {
+    throw new Error("ACLED_USERNAME and ACLED_PASSWORD are not configured.");
+  }
+
+  const form = new URLSearchParams({
+    username,
+    password,
+    grant_type: "password",
+    client_id: "acled",
+    scope: "authenticated",
+  });
   const payload = asRecord(await fetchJson("https://acleddata.com/oauth/token", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
     body: form.toString(),
   }));
   const accessToken = text(payload?.access_token);
   const expiresIn = numberValue(payload?.expires_in) ?? 86_400;
   if (!accessToken) throw new Error("ACLED authentication did not return an access token.");
-  return { accessToken, expiresAt: Date.now() + Math.max(expiresIn - 300, 60) * 1000 };
+
+  return {
+    accessToken,
+    expiresAt: Date.now() + Math.max(expiresIn - 300, 60) * 1000,
+  };
 }
 
 async function getAcledToken(force = false): Promise<AcledToken> {
-  if (!force && acledTokenCache && acledTokenCache.expiresAt > Date.now()) return acledTokenCache;
+  if (!force && acledTokenCache && acledTokenCache.expiresAt > Date.now()) {
+    return acledTokenCache;
+  }
   if (!force && acledTokenRequest) return acledTokenRequest;
+
   acledTokenRequest = requestAcledToken();
   try {
     acledTokenCache = await acledTokenRequest;
@@ -332,10 +285,15 @@ async function getAcledToken(force = false): Promise<AcledToken> {
   }
 }
 
-async function fetchAcled(country: string, startDate: string, endDate: string, forceToken = false): Promise<unknown> {
+async function fetchAcled(
+  country: string,
+  startDate: string,
+  endDate: string,
+  forceToken = false,
+): Promise<unknown> {
   const token = await getAcledToken(forceToken);
   const params = new URLSearchParams({
-    "_format": "json",
+    _format: "json",
     country,
     event_date: `${startDate}|${endDate}`,
     event_date_where: "BETWEEN",
@@ -343,32 +301,45 @@ async function fetchAcled(country: string, startDate: string, endDate: string, f
     limit: "1000",
   });
   const response = await fetch(`https://acleddata.com/api/acled/read?${params.toString()}`, {
-    headers: { Authorization: `Bearer ${token.accessToken}`, Accept: "application/json" },
+    headers: {
+      Authorization: `Bearer ${token.accessToken}`,
+      Accept: "application/json",
+    },
   });
+
   if (response.status === 401 && !forceToken) {
     acledTokenCache = null;
     return fetchAcled(country, startDate, endDate, true);
   }
+
   const body = await response.text();
   let payload: unknown = null;
-  try { payload = body ? JSON.parse(body) : null; } catch { payload = null; }
-  if (!response.ok) throw new Error(text(asRecord(payload)?.message) || `ACLED returned HTTP ${response.status}`);
+  try {
+    payload = body ? JSON.parse(body) : null;
+  } catch {
+    payload = null;
+  }
+  if (!response.ok) {
+    throw new Error(text(asRecord(payload)?.message) || `ACLED returned HTTP ${response.status}`);
+  }
   return payload;
 }
 
 router.get("/aor/conflict-events", async (req: Request, res: Response) => {
   const country = text(req.query.country);
   if (!country) return res.status(400).json({ ok: false, error: "country is required" });
+
   const configured = !!getEnv("ACLED_USERNAME") && !!getEnv("ACLED_PASSWORD");
   if (!configured) {
     return res.status(503).json({
       ok: false,
       configured: false,
-      error: "ACLED is ready but requires ACLED_USERNAME and ACLED_PASSWORD.",
+      error: "ACLED is ready but requires ACLED_USERNAME and ACLED_PASSWORD in the server environment.",
       required: ["ACLED_USERNAME", "ACLED_PASSWORD"],
       authentication: "Server-side OAuth password grant with automatic 24-hour access-token renewal; no manual 14-day refresh-token maintenance.",
     });
   }
+
   const days = Math.min(Math.max(Number(req.query.days) || 90, 1), 365);
   const end = new Date();
   const start = new Date(end.getTime() - days * 86_400_000);
@@ -401,6 +372,7 @@ router.get("/aor/conflict-events", async (req: Request, res: Response) => {
         tags: text(row?.tags),
       };
     });
+
     return res.json({
       ok: true,
       configured: true,
@@ -418,17 +390,45 @@ router.get("/aor/conflict-events", async (req: Request, res: Response) => {
 });
 
 router.get("/aor/source-readiness", (_req: Request, res: Response) => {
+  const acledConfigured = !!getEnv("ACLED_USERNAME") && !!getEnv("ACLED_PASSWORD");
   return res.json({
     ok: true,
     sources: [
-      { id: "state", name: "U.S. Department of State", configured: true, live: true, requirement: null },
-      { id: "who", name: "WHO Disease Outbreak News", configured: true, live: true, requirement: null },
-      { id: "gdacs", name: "GDACS", configured: true, live: true, requirement: null },
-      { id: "reliefweb", name: "ReliefWeb", configured: !!getEnv("RELIEFWEB_APPNAME"), live: !!getEnv("RELIEFWEB_APPNAME"), requirement: getEnv("RELIEFWEB_APPNAME") ? null : "Pre-approved RELIEFWEB_APPNAME" },
-      { id: "acled", name: "ACLED", configured: !!getEnv("ACLED_USERNAME") && !!getEnv("ACLED_PASSWORD"), live: !!getEnv("ACLED_USERNAME") && !!getEnv("ACLED_PASSWORD"), requirement: getEnv("ACLED_USERNAME") && getEnv("ACLED_PASSWORD") ? null : "ACLED_USERNAME and ACLED_PASSWORD" },
-      { id: "cfr", name: "CFR Global Conflict Tracker", configured: false, live: false, requirement: "No official API; requires a validated, terms-compliant parser or link-only treatment" },
-      { id: "ucdp", name: "UCDP", configured: !!getEnv("UCDP_API_TOKEN"), live: false, requirement: getEnv("UCDP_API_TOKEN") ? "Adapter not enabled in this pass" : "UCDP_API_TOKEN" },
-      { id: "firms", name: "NASA FIRMS", configured: !!getEnv("NASA_FIRMS_MAP_KEY"), live: false, requirement: getEnv("NASA_FIRMS_MAP_KEY") ? "Adapter not enabled in this pass" : "NASA_FIRMS_MAP_KEY" },
+      {
+        id: "state",
+        name: "U.S. Department of State",
+        configured: true,
+        live: true,
+        requirement: null,
+      },
+      {
+        id: "who",
+        name: "WHO Disease Outbreak News",
+        configured: true,
+        live: true,
+        requirement: null,
+      },
+      {
+        id: "gdacs",
+        name: "GDACS",
+        configured: true,
+        live: true,
+        requirement: null,
+      },
+      {
+        id: "acled",
+        name: "ACLED",
+        configured: acledConfigured,
+        live: acledConfigured,
+        requirement: acledConfigured ? null : "ACLED_USERNAME and ACLED_PASSWORD",
+      },
+      {
+        id: "cfr",
+        name: "CFR Global Conflict Tracker",
+        configured: false,
+        live: false,
+        requirement: "Link-only until a validated, terms-compliant structured connector is available",
+      },
     ],
   });
 });
