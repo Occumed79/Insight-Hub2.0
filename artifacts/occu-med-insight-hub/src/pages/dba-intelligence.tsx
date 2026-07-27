@@ -33,6 +33,7 @@ import {
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
+import { DbaCumulativeWorkspace } from "@/components/insight/DbaCumulativeWorkspace";
 import {
   loadDbaHub,
   type DbaHubCounts,
@@ -59,6 +60,7 @@ const TAB_LABELS = {
   employer: "Employer Data",
   country: "Country Trends",
   carrier: "Carrier Trends",
+  cumulative: "2001–2024 Cumulative",
   notes: "Data Notes",
 } as const;
 
@@ -562,7 +564,7 @@ export default function DbaDataHub() {
         <HeaderBar
           eyebrow="Employer-Level Defense Base Act Analytics"
           title="DBA Data Hub"
-          subtitle="Explore FY2021–FY2024 employer, country, and carrier case-summary workbooks persisted in Neon, with transparent suppression handling and luminous trend visuals."
+          subtitle="Explore FY2021–FY2024 annual trends alongside a separate 2001–2024 cumulative employer, country, and carrier layer persisted in Neon."
         />
 
         <GlassCard className="mb-6 border-amber-200/14 p-4">
@@ -587,12 +589,12 @@ export default function DbaDataHub() {
                 <span className="inline-flex items-center gap-2 rounded-full border border-cyan-200/16 bg-cyan-300/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100/65"><Database size={13} /> Neon-backed</span>
                 <span className="inline-flex items-center gap-2 rounded-full border border-violet-200/16 bg-violet-300/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-100/65"><Sparkles size={13} /> Luminous analytics</span>
               </div>
-              <h1 className="mt-4 max-w-3xl text-3xl font-black tracking-[-0.045em] text-white md:text-5xl">Four fiscal years. Three reporting dimensions. One honest operating picture.</h1>
-              <p className="mt-4 max-w-3xl text-sm leading-7 text-cyan-100/56">Select an employer to see consolidated source-name trends, then move into country and carrier views without pretending those dimensions are relationally tied to a specific company.</p>
+              <h1 className="mt-4 max-w-3xl text-3xl font-black tracking-[-0.045em] text-white md:text-5xl">Annual movement and 24-year cumulative context in one honest operating picture.</h1>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-cyan-100/56">Use FY2021–FY2024 for annual movement, then open the cumulative workspace for the full 2001–2024 reporting period without pretending employer, country, and carrier extracts are relationally linked.</p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <MetricCard label="Persisted analytic rows" value={(data?.records.length ?? 0).toLocaleString()} note="Employer, country, and carrier rows" />
-              <MetricCard label="Source workbooks" value={(data?.sources.length ?? 0).toLocaleString()} note="FY2021 through FY2024" tone="violet" />
+              <MetricCard label="Persisted analytic rows" value={((data?.records.length ?? 0) + (data?.cumulativeRecords.length ?? 0)).toLocaleString()} note="Annual and cumulative Neon records" />
+              <MetricCard label="Source workbooks" value={((data?.sources.length ?? 0) + (data?.cumulativeSources.length ?? 0)).toLocaleString()} note="Annual plus 2001–2024 cumulative" tone="violet" />
               <MetricCard label="Saved employers" value={(data?.employers.length ?? 0).toLocaleString()} note="Canonical dropdown options" tone="emerald" />
               <MetricCard label="Frontend data" value="Zero hardcoded rows" note="All values load through the API" tone="rose" />
             </div>
@@ -601,7 +603,7 @@ export default function DbaDataHub() {
 
         <div className="mb-6 flex flex-wrap gap-2 rounded-[24px] border border-cyan-100/10 bg-black/20 p-2 backdrop-blur-xl">
           {(Object.keys(TAB_LABELS) as WorkspaceTab[]).map((item) => {
-            const icons = { employer: Building2, country: Globe2, carrier: Layers3, notes: FileSpreadsheet };
+            const icons = { employer: Building2, country: Globe2, carrier: Layers3, cumulative: BarChart3, notes: FileSpreadsheet };
             const Icon = icons[item];
             return (
               <button key={item} type="button" onClick={() => setTab(item)} className={`inline-flex min-h-11 items-center gap-2 rounded-2xl border px-4 text-sm font-bold transition ${tab === item ? "border-cyan-200/28 bg-cyan-300/14 text-white shadow-[0_0_26px_rgba(34,211,238,.14)]" : "border-transparent text-cyan-100/48 hover:border-cyan-100/12 hover:bg-white/[0.04] hover:text-cyan-50"}`}>
@@ -625,6 +627,7 @@ export default function DbaDataHub() {
         {data && tab === "employer" && <EmployerWorkspace data={data} />}
         {data && tab === "country" && <EntityWorkspace data={data} dimension="country" />}
         {data && tab === "carrier" && <EntityWorkspace data={data} dimension="carrier" />}
+        {data && tab === "cumulative" && <DbaCumulativeWorkspace data={data} />}
         {data && tab === "notes" && <DataNotes data={data} />}
       </section>
     </main>

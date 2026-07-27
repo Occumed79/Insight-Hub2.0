@@ -43,6 +43,33 @@ export type DbaHubEmployer = {
   reportedTotal: number;
 };
 
+export type DbaHubCumulativeRecord = DbaHubCounts & {
+  id: string;
+  dimension: DbaHubDimension;
+  periodStartYear: number;
+  periodEndYear: number;
+  sourceName: string;
+  canonicalName: string;
+  entityId: number | null;
+  sourceRow: number;
+  suppressed: boolean;
+  redacted: boolean;
+  sourceFile: string;
+};
+
+export type DbaHubCumulativeSource = {
+  sourceFile: string;
+  dimension: DbaHubDimension;
+  periodStartYear: number;
+  periodEndYear: number;
+  sourceRows: number;
+  analyticRows: number;
+  suppressedOrBlankRows: number;
+  reportedTotal: number | null;
+  redacted: boolean;
+  importedAt: string;
+};
+
 export type DbaHubResponse = {
   ok: boolean;
   generatedAt: string;
@@ -50,6 +77,9 @@ export type DbaHubResponse = {
   records: DbaHubRecord[];
   sources: DbaHubSource[];
   employers: DbaHubEmployer[];
+  cumulativeRecords: DbaHubCumulativeRecord[];
+  cumulativeSources: DbaHubCumulativeSource[];
+  cumulativePeriod: { startYear: number; endYear: number } | null;
   warning: string;
   sourceModel: string;
   error?: string;
