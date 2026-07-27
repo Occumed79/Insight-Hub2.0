@@ -57,6 +57,13 @@ services:
         sync: false
       - key: ONET_API_KEY
         sync: false
+      - key: FEC_API_KEY
+        sync: false
+      # --- AOR Risk Intelligence ---
+      - key: ACLED_USERNAME
+        sync: false
+      - key: ACLED_PASSWORD
+        sync: false
       # --- Employer Intelligence Module env vars ---
       - key: BLS_API_KEY
         sync: false
