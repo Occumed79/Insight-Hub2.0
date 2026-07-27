@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { EmployerWorkflowProvider } from "@/components/insight/EmployerWorkflowContext";
-import { EmployerWorkflowRail } from "@/components/insight/EmployerWorkflowRail";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import DataProfiles from "@/pages/data-profiles";
@@ -80,6 +79,7 @@ function Router() {
       <Route path="/leadership-map" component={LeadershipMap} />
       <Route path="/corporate-structure" component={CorporateStructure} />
       <Route path="/job-intelligence" component={JobIntelligence} />
+      <Route path="/public-data-intelligence" component={EmployerWorkflow} />
       <Route path="/employer-workflow" component={EmployerWorkflow} />
       <Route path="/employer-intelligence" component={EmployerIntelligence} />
       <Route path="/entity-resolution" component={EntityResolution} />
@@ -107,7 +107,6 @@ function App() {
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <EmployerWorkflowProvider>
             <Router />
-            <EmployerWorkflowRail />
           </EmployerWorkflowProvider>
         </WouterRouter>
         <Toaster />
