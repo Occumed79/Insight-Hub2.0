@@ -6,7 +6,6 @@ import {
   GitBranch,
   Home,
   Landmark,
-  LibraryBig,
   Scale,
   ShieldAlert,
   ShieldCheck,
@@ -16,7 +15,6 @@ import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/data-profiles", label: "Company Library", icon: LibraryBig },
   { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
   { href: "/leadership-map", label: "Organizational Chart", icon: GitBranch },
   { href: "/dba-intelligence", label: "DBA Data Hub", icon: ShieldCheck },
