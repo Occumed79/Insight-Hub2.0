@@ -54,6 +54,7 @@ type SourceState = {
   who: SourceResult;
   gdacs: SourceResult;
   acled: SourceResult;
+  crisiswatch: SourceResult;
 };
 
 const emptyResult = (): SourceResult => ({ data: null, error: "", loading: false });
@@ -63,6 +64,7 @@ const initialSources = (): SourceState => ({
   who: emptyResult(),
   gdacs: emptyResult(),
   acled: emptyResult(),
+  crisiswatch: emptyResult(),
 });
 
 function formatDate(value?: string | null): string {
@@ -134,7 +136,7 @@ function SourceLink({ href, children }: { href: string; children: ReactNode }) {
 function SourceMessage({ result, empty }: { result: SourceResult; empty: string }) {
   if (result.loading) {
     return (
-      <div className="flex min-h-[220px] items-center justify-center gap-3 text-sm text-cyan-100/52">
+      <div className="flex min-h-[180px] items-center justify-center gap-3 text-sm text-cyan-100/52">
         <Loader2 className="animate-spin" size={19} />
         Retrieving source data…
       </div>
@@ -172,6 +174,20 @@ async function loadJson(url: string): Promise<any> {
   return payload;
 }
 
+function normalizeReadiness(items: SourceReadiness[]): SourceReadiness[] {
+  const withoutCfr = items.filter((source) => source.id !== "cfr" && source.id !== "crisiswatch");
+  return [
+    ...withoutCfr,
+    {
+      id: "crisiswatch",
+      name: "International Crisis Group CrisisWatch",
+      configured: true,
+      live: true,
+      requirement: null,
+    },
+  ];
+}
+
 export function AorRiskIntelligencePage() {
   const [country, setCountry] = useState("");
   const [activeTab, setActiveTab] = useState<TabId>("overview");
@@ -181,8 +197,8 @@ export function AorRiskIntelligencePage() {
 
   useEffect(() => {
     void loadJson("/api/aor/source-readiness")
-      .then((payload) => setReadiness(payload.sources || []))
-      .catch(() => setReadiness([]));
+      .then((payload) => setReadiness(normalizeReadiness(payload.sources || [])))
+      .catch(() => setReadiness(normalizeReadiness([])));
   }, []);
 
   async function runSource(key: keyof SourceState, url: string) {
@@ -219,6 +235,7 @@ export function AorRiskIntelligencePage() {
       runSource("who", `/api/aor/health-outbreaks?country=${encoded}`),
       runSource("gdacs", `/api/aor/disaster-alerts?country=${encoded}&days=90`),
       runSource("acled", `/api/aor/conflict-events?country=${encoded}&days=90`),
+      runSource("crisiswatch", `/api/aor/crisiswatch?country=${encoded}`),
     ]);
     setRunning(false);
   }
@@ -227,6 +244,7 @@ export function AorRiskIntelligencePage() {
   const outbreaks = sources.who.data?.outbreaks || [];
   const disasterEvents = sources.gdacs.data?.events || [];
   const conflictEvents = sources.acled.data?.events || [];
+  const crisisUpdates = sources.crisiswatch.data?.updates || [];
   const activeAlerts = disasterEvents.filter((event: any) =>
     ["orange", "red"].includes(String(event.alertLevel || "").toLowerCase()),
   );
@@ -325,10 +343,10 @@ export function AorRiskIntelligencePage() {
                 icon={HeartPulse}
               />
               <Metric
-                label="High disaster alerts"
-                value={formatNumber(activeAlerts.length)}
-                note="GDACS orange or red alerts in the selected window"
-                icon={Siren}
+                label="Conflict context"
+                value={sources.crisiswatch.data ? formatNumber(sources.crisiswatch.data.directMatches) : "Not scanned"}
+                note="CrisisWatch country-matched updates"
+                icon={Landmark}
               />
             </section>
 
@@ -370,8 +388,8 @@ export function AorRiskIntelligencePage() {
                 <h2 className="mt-2 text-xl font-black text-white">No unsupported composite danger score</h2>
                 <p className="mt-4 text-sm leading-7 text-cyan-100/54">
                   Each source remains separate because travel guidance, outbreak reports, conflict events,
-                  and disaster alerts use different definitions and update cycles. The workspace surfaces
-                  evidence and freshness rather than converting unlike sources into one misleading score.
+                  conflict analysis, and disaster alerts use different definitions and update cycles. The workspace
+                  surfaces evidence and freshness rather than converting unlike sources into one misleading score.
                 </p>
               </Surface>
             </section>
@@ -412,9 +430,7 @@ export function AorRiskIntelligencePage() {
                   <h2 className="mt-2 text-xl font-black text-white">{advisory.title}</h2>
                   <p className="mt-4 text-sm leading-7 text-cyan-100/56">{advisory.summary}</p>
                   <div className="mt-5 flex items-center justify-between gap-4">
-                    <span className="text-xs text-cyan-100/38">
-                      {advisory.updatedAt || "Date not parsed"}
-                    </span>
+                    <span className="text-xs text-cyan-100/38">{advisory.updatedAt || "Date not parsed"}</span>
                     <SourceLink href={advisory.sourceUrl}>Read full advisory</SourceLink>
                   </div>
                 </Surface>
@@ -425,37 +441,14 @@ export function AorRiskIntelligencePage() {
 
         {activeTab === "health" && (
           <>
-            <SourceMessage
-              result={sources.who}
-              empty="Run an AOR scan to retrieve WHO Disease Outbreak News."
-            />
+            <SourceMessage result={sources.who} empty="Run an AOR scan to retrieve WHO Disease Outbreak News." />
             {sources.who.data && (
               <>
                 <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <Metric
-                    label="WHO records"
-                    value={formatNumber(outbreaks.length)}
-                    note="Returned outbreak reports"
-                    icon={HeartPulse}
-                  />
-                  <Metric
-                    label="Direct matches"
-                    value={formatNumber(sources.who.data.directMatches)}
-                    note="Country text matches"
-                    icon={MapPinned}
-                  />
-                  <Metric
-                    label="Latest report"
-                    value={outbreaks[0] ? formatDate(outbreaks[0].publicationDate) : "None"}
-                    note="Newest returned publication"
-                    icon={CalendarDays}
-                  />
-                  <Metric
-                    label="Source"
-                    value="WHO DON"
-                    note="Disease Outbreak News API"
-                    icon={Stethoscope}
-                  />
+                  <Metric label="WHO records" value={formatNumber(outbreaks.length)} note="Returned outbreak reports" icon={HeartPulse} />
+                  <Metric label="Direct matches" value={formatNumber(sources.who.data.directMatches)} note="Country text matches" icon={MapPinned} />
+                  <Metric label="Latest report" value={outbreaks[0] ? formatDate(outbreaks[0].publicationDate) : "None"} note="Newest returned publication" icon={CalendarDays} />
+                  <Metric label="Source" value="WHO DON" note="Disease Outbreak News API" icon={Stethoscope} />
                 </section>
                 <div className="grid gap-4 xl:grid-cols-2">
                   {outbreaks.map((outbreak: any) => (
@@ -469,18 +462,9 @@ export function AorRiskIntelligencePage() {
                         </div>
                         <HeartPulse size={19} className="shrink-0 text-rose-200/50" />
                       </div>
-                      <p className="mt-4 text-sm leading-7 text-cyan-100/55">
-                        {outbreak.summary || "No summary returned."}
-                      </p>
-                      {outbreak.assessment && (
-                        <div className="mt-4 rounded-2xl border border-rose-100/10 bg-rose-300/[0.035] p-4 text-xs leading-6 text-rose-100/58">
-                          {outbreak.assessment}
-                        </div>
-                      )}
+                      <p className="mt-4 text-sm leading-7 text-cyan-100/55">{outbreak.summary || "No summary returned."}</p>
                       <div className="mt-5 flex items-center justify-between gap-4">
-                        <span className="text-xs text-cyan-100/36">
-                          {formatDate(outbreak.publicationDate)}
-                        </span>
+                        <span className="text-xs text-cyan-100/36">{formatDate(outbreak.publicationDate)}</span>
                         <SourceLink href={outbreak.sourceUrl}>Open WHO report</SourceLink>
                       </div>
                     </Surface>
@@ -493,66 +477,30 @@ export function AorRiskIntelligencePage() {
 
         {activeTab === "disasters" && (
           <>
-            <SourceMessage
-              result={sources.gdacs}
-              empty="Run an AOR scan to retrieve GDACS multi-hazard disaster alerts."
-            />
+            <SourceMessage result={sources.gdacs} empty="Run an AOR scan to retrieve GDACS multi-hazard disaster alerts." />
             {sources.gdacs.data && (
               <>
                 <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <Metric
-                    label="Events returned"
-                    value={formatNumber(disasterEvents.length)}
-                    note={`${sources.gdacs.data.days}-day GDACS window`}
-                    icon={CloudLightning}
-                  />
-                  <Metric
-                    label="Orange / red"
-                    value={formatNumber(activeAlerts.length)}
-                    note="Higher-alert events"
-                    icon={Siren}
-                  />
-                  <Metric
-                    label="Flood events"
-                    value={formatNumber(disasterEvents.filter((event: any) => event.eventType === "FL").length)}
-                    note="GDACS flood category"
-                    icon={Waves}
-                  />
-                  <Metric
-                    label="Fire events"
-                    value={formatNumber(disasterEvents.filter((event: any) => event.eventType === "WF").length)}
-                    note="GDACS wildfire category"
-                    icon={Flame}
-                  />
+                  <Metric label="Events returned" value={formatNumber(disasterEvents.length)} note={`${sources.gdacs.data.days}-day GDACS window`} icon={CloudLightning} />
+                  <Metric label="Orange / red" value={formatNumber(activeAlerts.length)} note="Higher-alert events" icon={Siren} />
+                  <Metric label="Flood events" value={formatNumber(disasterEvents.filter((event: any) => event.eventType === "FL").length)} note="GDACS flood category" icon={Waves} />
+                  <Metric label="Fire events" value={formatNumber(disasterEvents.filter((event: any) => event.eventType === "WF").length)} note="GDACS wildfire category" icon={Flame} />
                 </section>
                 <div className="grid gap-4 xl:grid-cols-2">
                   {disasterEvents.map((event: any, index: number) => (
                     <Surface key={`${event.eventType}-${event.eventId}-${index}`}>
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-cyan-100/40">
-                            {event.eventType || "Disaster"} · {event.alertLevel || "Alert level not reported"}
-                          </p>
-                          <h2 className="mt-2 text-lg font-black text-white">{event.name}</h2>
-                        </div>
-                        <CloudLightning size={19} className="shrink-0 text-cyan-200/48" />
-                      </div>
-                      {event.description && (
-                        <p className="mt-4 text-sm leading-7 text-cyan-100/55">{event.description}</p>
-                      )}
+                      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-cyan-100/40">
+                        {event.eventType || "Disaster"} · {event.alertLevel || "Alert level not reported"}
+                      </p>
+                      <h2 className="mt-2 text-lg font-black text-white">{event.name}</h2>
+                      {event.description && <p className="mt-4 text-sm leading-7 text-cyan-100/55">{event.description}</p>}
                       <div className="mt-4 grid gap-2 text-xs text-cyan-100/42 sm:grid-cols-2">
                         <span>{formatDate(event.fromDate)}</span>
-                        <span>
-                          {event.country
-                            || event.affectedCountries?.map((item: any) => item.name).filter(Boolean).join(", ")
-                            || "Country not reported"}
-                        </span>
+                        <span>{event.country || event.affectedCountries?.map((item: any) => item.name).filter(Boolean).join(", ") || "Country not reported"}</span>
                         <span>Alert score: {event.alertScore ?? "Not reported"}</span>
                         <span>{event.severity || "Severity not reported"}</span>
                       </div>
-                      <div className="mt-5">
-                        <SourceLink href={event.sourceUrl}>Open GDACS event</SourceLink>
-                      </div>
+                      <div className="mt-5"><SourceLink href={event.sourceUrl}>Open GDACS event</SourceLink></div>
                     </Surface>
                   ))}
                 </div>
@@ -562,90 +510,98 @@ export function AorRiskIntelligencePage() {
         )}
 
         {activeTab === "conflict" && (
-          <>
-            <SourceMessage
-              result={sources.acled}
-              empty="Run an AOR scan. ACLED results will appear when the two server credentials are configured."
-            />
-            {sources.acled.data?.configured && (
-              <>
-                <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <Metric
-                    label="Conflict events"
-                    value={formatNumber(conflictEvents.length)}
-                    note={`${sources.acled.data.startDate} through ${sources.acled.data.endDate}`}
-                    icon={Activity}
-                  />
-                  <Metric
-                    label="Reported fatalities"
-                    value={formatNumber(conflictFatalities)}
-                    note="Sum across returned ACLED events"
-                    icon={Siren}
-                  />
-                  <Metric
-                    label="Civilian targeting"
-                    value={formatNumber(conflictEvents.filter((event: any) => event.civilianTargeting).length)}
-                    note="Events explicitly tagged by ACLED"
-                    icon={ShieldAlert}
-                  />
-                  <Metric label="Source" value="ACLED" note="Live event-level data" icon={RadioTower} />
-                </section>
-                <div className="grid gap-4 xl:grid-cols-2">
-                  {conflictEvents.slice(0, 80).map((event: any, index: number) => (
-                    <Surface key={`${event.id}-${index}`}>
-                      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-rose-100/40">
-                        {event.eventType} · {event.subEventType}
-                      </p>
-                      <h2 className="mt-2 text-lg font-black text-white">
-                        {event.location || event.admin1 || event.country}
-                      </h2>
-                      <p className="mt-3 text-xs text-cyan-100/42">
-                        {[event.actor1, event.actor2].filter(Boolean).join(" ↔ ") || "Actors not reported"}
-                      </p>
-                      <p className="mt-4 text-sm leading-7 text-cyan-100/55">
-                        {event.notes || "No event note returned."}
-                      </p>
-                      <div className="mt-4 flex flex-wrap gap-4 text-xs text-cyan-100/42">
-                        <span>{formatDate(event.eventDate)}</span>
-                        <span>Fatalities: {event.fatalities}</span>
-                        <span>{event.sourceScale || "Source scale not reported"}</span>
-                      </div>
-                    </Surface>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <Surface className="mt-6">
-              <div className="flex items-start justify-between gap-4">
+          <div className="space-y-8">
+            <section>
+              <div className="mb-4 flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-100/42">
-                    Curated major-conflict context
-                  </p>
-                  <h2 className="mt-2 text-xl font-black text-white">CFR Global Conflict Tracker</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-100/42">Curated conflict context</p>
+                  <h2 className="mt-2 text-2xl font-black text-white">International Crisis Group CrisisWatch</h2>
                 </div>
                 <Landmark className="text-violet-200/45" />
               </div>
-              <p className="mt-4 text-sm leading-7 text-cyan-100/54">
-                CFR does not publish a documented public API. It remains link-only until a terms-compliant
-                structured connector is validated so the application does not depend on a fragile iframe or
-                silently republish copyrighted narrative content.
-              </p>
-              <div className="mt-5">
-                <SourceLink href="https://www.cfr.org/global-conflict-tracker">
-                  Open CFR tracker
-                </SourceLink>
+              <SourceMessage
+                result={sources.crisiswatch}
+                empty="Run an AOR scan to retrieve CrisisWatch conflict analysis for the selected country or operating area."
+              />
+              {sources.crisiswatch.data && (
+                <>
+                  <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <Metric label="Updates returned" value={formatNumber(crisisUpdates.length)} note="CrisisWatch RSS entries" icon={Landmark} />
+                    <Metric label="Direct matches" value={formatNumber(sources.crisiswatch.data.directMatches)} note="Country text matches" icon={MapPinned} />
+                    <Metric label="Latest update" value={crisisUpdates[0] ? formatDate(crisisUpdates[0].publishedAt) : "None"} note="Newest returned entry" icon={CalendarDays} />
+                    <Metric label="Source" value="CrisisWatch" note="Qualitative early-warning analysis" icon={RadioTower} />
+                  </section>
+                  {sources.crisiswatch.data.fallbackUsed && (
+                    <div className="mb-4 rounded-2xl border border-amber-200/16 bg-amber-300/[0.045] px-4 py-3 text-xs leading-6 text-amber-100/66">
+                      No direct country text match was found, so the most recent global CrisisWatch updates are shown for review.
+                    </div>
+                  )}
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    {crisisUpdates.map((update: any) => (
+                      <Surface key={update.id || update.sourceUrl}>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-violet-100/42">
+                          {update.matchedCountry ? "Country match" : "Recent CrisisWatch update"}
+                        </p>
+                        <h3 className="mt-2 text-lg font-black text-white">{update.title}</h3>
+                        <p className="mt-4 text-sm leading-7 text-cyan-100/55">{update.summary || "No summary returned."}</p>
+                        <div className="mt-5 flex items-center justify-between gap-4">
+                          <span className="text-xs text-cyan-100/36">{formatDate(update.publishedAt)}</span>
+                          <SourceLink href={update.sourceUrl}>Open CrisisWatch source</SourceLink>
+                        </div>
+                      </Surface>
+                    ))}
+                  </div>
+                  <p className="mt-4 text-xs leading-6 text-cyan-100/38">{sources.crisiswatch.data.limitation}</p>
+                </>
+              )}
+            </section>
+
+            <section>
+              <div className="mb-4 flex items-end justify-between gap-4 border-t border-cyan-100/10 pt-7">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-rose-100/42">Event-level conflict data</p>
+                  <h2 className="mt-2 text-2xl font-black text-white">ACLED conflict events</h2>
+                </div>
+                <Activity className="text-rose-200/45" />
               </div>
-            </Surface>
-          </>
+              <SourceMessage
+                result={sources.acled}
+                empty="Run an AOR scan. ACLED results will appear when the server credentials are configured."
+              />
+              {sources.acled.data?.configured && (
+                <>
+                  <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <Metric label="Conflict events" value={formatNumber(conflictEvents.length)} note={`${sources.acled.data.startDate} through ${sources.acled.data.endDate}`} icon={Activity} />
+                    <Metric label="Reported fatalities" value={formatNumber(conflictFatalities)} note="Sum across returned ACLED events" icon={Siren} />
+                    <Metric label="Civilian targeting" value={formatNumber(conflictEvents.filter((event: any) => event.civilianTargeting).length)} note="Events explicitly tagged by ACLED" icon={ShieldAlert} />
+                    <Metric label="Source" value="ACLED" note="Live event-level data" icon={RadioTower} />
+                  </section>
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    {conflictEvents.slice(0, 80).map((event: any, index: number) => (
+                      <Surface key={`${event.id}-${index}`}>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-rose-100/40">{event.eventType} · {event.subEventType}</p>
+                        <h3 className="mt-2 text-lg font-black text-white">{event.location || event.admin1 || event.country}</h3>
+                        <p className="mt-3 text-xs text-cyan-100/42">{[event.actor1, event.actor2].filter(Boolean).join(" ↔ ") || "Actors not reported"}</p>
+                        <p className="mt-4 text-sm leading-7 text-cyan-100/55">{event.notes || "No event note returned."}</p>
+                        <div className="mt-4 flex flex-wrap gap-4 text-xs text-cyan-100/42">
+                          <span>{formatDate(event.eventDate)}</span>
+                          <span>Fatalities: {event.fatalities}</span>
+                          <span>{event.sourceScale || "Source scale not reported"}</span>
+                        </div>
+                      </Surface>
+                    ))}
+                  </div>
+                </>
+              )}
+            </section>
+          </div>
         )}
 
-        <div className="mt-8 flex items-start gap-3 border-t border-cyan-100/10 pt-5 text-xs leading-6 text-cyan-100/38">
-          <ShieldCheck size={16} className="mt-1 shrink-0" />
+        <div className="mt-8 flex items-start gap-3 border-t border-cyan-100/10 pt-5 text-xs leading-6 text-cyan-100/40">
+          <AlertTriangle size={15} className="mt-1 shrink-0" />
           <p>
-            All layers remain separately attributed. Results can be delayed, incomplete, preliminary,
-            revised, or unrelated to the specific operating site and require human review before
-            operational use.
+            These public-source layers support operational awareness and research. They do not replace official security,
+            medical, emergency-management, or travel decisions. Review the linked source and its publication date before acting.
           </p>
         </div>
       </section>
