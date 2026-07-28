@@ -9,12 +9,12 @@ import occuMedLogoDataUrl from "@/assets/occu-med-logo-data";
 const iconMap = { profile: Building2, quant: Sigma, geo: Globe2, entity: Network, discovery: Layers, federal: Landmark };
 
 const portalImageMap: Record<PortalConfig["imageKind"], string> = {
-  profile: "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80",
-  quant: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80",
-  geo: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80",
-  entity: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80",
-  discovery: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80",
-  federal: "https://images.unsplash.com/photo-1446776877081-d282a0f896e2?auto=format&fit=crop&w=1200&q=80",
+  profile: "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=900&q=72",
+  quant: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=900&q=72",
+  geo: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=900&q=72",
+  entity: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=900&q=72",
+  discovery: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=900&q=72",
+  federal: "https://images.unsplash.com/photo-1446776877081-d282a0f896e2?auto=format&fit=crop&w=900&q=72",
 };
 
 type PortalLinks = Record<PortalLinkKey, string>;
@@ -54,7 +54,15 @@ function PortalArt({ kind }: { kind: PortalConfig["imageKind"] }) {
   const Icon = iconMap[kind];
   return (
     <div className="portal-banner portal-photo relative h-[156px] overflow-hidden rounded-[20px] border border-violet-200/24 bg-[#060616]">
-      <img src={portalImageMap[kind]} alt="" className="h-full w-full object-cover object-center" loading="lazy" decoding="async" />
+      <img
+        src={portalImageMap[kind]}
+        alt=""
+        aria-hidden="true"
+        className="h-full w-full select-none object-cover object-center"
+        loading="eager"
+        decoding="async"
+        draggable={false}
+      />
       <div className="absolute inset-0 bg-[linear-gradient(170deg,rgba(2,4,17,.25),rgba(9,2,26,.76)),radial-gradient(circle_at_16%_22%,rgba(52,211,153,.30),transparent_40%),radial-gradient(circle_at_84%_20%,rgba(34,211,238,.28),transparent_40%),radial-gradient(circle_at_50%_76%,rgba(139,92,246,.62),transparent_58%)]" />
       <div className="portal-shimmer absolute inset-0" />
       <div className="absolute inset-x-6 top-8 h-px bg-cyan-100/36" />
@@ -71,18 +79,14 @@ function PortalArt({ kind }: { kind: PortalConfig["imageKind"] }) {
   );
 }
 
-function PortalCard({ portal, index }: { portal: PortalConfig; index: number }) {
+function PortalCard({ portal }: { portal: PortalConfig }) {
   const missingExternalUrl = portal.mode === "external" && !portal.href;
 
   const body = (
-    <motion.div
-      initial={{ opacity: 0, y: 22 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 + index * 0.06, duration: 0.55 }}
+    <div
       className={`portal-card glass-card group relative h-full min-h-[300px] overflow-hidden rounded-[32px] p-[6px] ${missingExternalUrl ? "opacity-70" : ""}`}
-      style={{ position: "relative" }}
     >
-      <div className="portal-card-inner relative rounded-[26px] px-3 pb-3 pt-3">
+      <div className="portal-card-inner relative h-full rounded-[26px] px-3 pb-3 pt-3">
         <div className="absolute left-6 top-6 z-10 h-7 w-7 rounded-full border border-cyan-200/40 bg-cyan-200/14 shadow-[0_0_28px_rgba(34,211,238,.34)]" />
         <PortalArt kind={portal.imageKind} />
         <div className="px-3 pb-3 pt-5">
@@ -98,7 +102,7 @@ function PortalCard({ portal, index }: { portal: PortalConfig; index: number }) 
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 
   if (missingExternalUrl) {
@@ -243,9 +247,9 @@ export default function Landing() {
             Manage portal links
           </button>
         </motion.div>
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {resolvedPortalCards.map((portal, index) => (
-            <PortalCard key={portal.title} portal={portal} index={index} />
+        <div className="mt-10 grid items-stretch gap-5 md:grid-cols-3">
+          {resolvedPortalCards.map((portal) => (
+            <PortalCard key={portal.title} portal={portal} />
           ))}
         </div>
       </section>
