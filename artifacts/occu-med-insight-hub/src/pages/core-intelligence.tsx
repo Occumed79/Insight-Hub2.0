@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
-  Truck,
   X,
 } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
@@ -47,33 +46,6 @@ type LiveSearchResponse = {
   cacheState: "fresh" | "refreshed" | "stale";
   source: string;
   searchedAt: string;
-  limitation: string;
-};
-type CarrierRecord = {
-  dotNumber: string | null;
-  mcNumber: string | null;
-  legalName: string | null;
-  dbaName: string | null;
-  allowedToOperate: string | null;
-  outOfService: string | null;
-  outOfServiceDate: string | null;
-  complaintCount: number | null;
-  physicalAddress: {
-    street: string | null;
-    city: string | null;
-    state: string | null;
-    zip: string | null;
-    country: string | null;
-  };
-  telephone: string | null;
-};
-type FmcsaResponse = {
-  ok: boolean;
-  configured: boolean;
-  records: CarrierRecord[];
-  returned: number;
-  source: string;
-  sourceUrl: string;
   limitation: string;
 };
 
@@ -115,10 +87,34 @@ const STATE_CATEGORIES = [
   ["OSHA state plan", "OSHA Plan"],
   ["insurance department", "Insurance"],
   ["corrections", "Corrections"],
-  ["fmcsa", "FMCSA / CDL"],
+  ["dot-medical-exams", "FMCSA / DOT Exams"],
   ["POST guidelines", "POST"],
   ["department of transportation", "State DOT"],
 ] as const;
+
+const DOT_MEDICAL_SEARCH_CONTEXT = [
+  "FMCSA DOT medical examination",
+  "physical qualification standards",
+  "certified medical examiner guidance",
+  "National Registry of Certified Medical Examiners",
+  "medical certification",
+  "NRII",
+  "state driver licensing agency",
+  "MCSA-5875",
+  "MCSA-5876",
+  "49 CFR 391.41",
+  "49 CFR 391.43",
+  "medical variance exemption waiver",
+].join(" ");
+
+const DOT_MEDICAL_TOPICS = [
+  "Medical certification rules",
+  "National Registry updates",
+  "MCSA-5875 / MCSA-5876 forms",
+  "NRII and SDLA transmission",
+  "Waivers and exemptions",
+  "Medical examiner guidance",
+];
 
 const CROSS_STATE_CATEGORIES = [
   "Public health",
@@ -431,35 +427,6 @@ function StateMap({ selected, onSelect }: { selected: string | null; onSelect: (
   );
 }
 
-function CarrierResults({ records, loading, error, limitation }: { records: CarrierRecord[] | null; loading: boolean; error: string; limitation: string }) {
-  if (loading) return <LuminousPanel className="mt-5 flex min-h-44 items-center justify-center gap-3 p-8 text-sm font-semibold text-cyan-50/86"><Loader2 size={19} className="animate-spin" />Searching FMCSA…</LuminousPanel>;
-  if (error) return <LuminousPanel className="mt-5 border-rose-200/38 p-6 text-sm font-semibold text-rose-50">{error}</LuminousPanel>;
-  if (!records) return <LuminousPanel className="mt-5 grid min-h-52 place-items-center p-8 text-center"><div><Truck className="mx-auto text-cyan-100/82" /><p className="mt-4 font-black text-white">Search FMCSA carriers</p><p className="mt-2 text-sm text-cyan-50/76">Enter a legal name, DBA name, or USDOT number.</p></div></LuminousPanel>;
-  return (
-    <section className="mt-5">
-      <div className="grid gap-4 xl:grid-cols-2">
-        {records.map((record, index) => (
-          <LuminousPanel key={`${record.dotNumber}-${record.legalName}-${index}`} className="p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div><p className="text-[10px] font-black uppercase tracking-[.18em] text-cyan-100/82">USDOT {record.dotNumber || "not reported"}</p><h3 className="mt-2 text-lg font-black text-white">{record.legalName || record.dbaName || "Carrier"}</h3>{record.dbaName && record.dbaName !== record.legalName ? <p className="mt-1 text-sm font-semibold text-cyan-50/76">DBA {record.dbaName}</p> : null}</div>
-              <Truck size={20} className="text-cyan-100/88" />
-            </div>
-            <div className="mt-4 grid gap-2 text-xs font-semibold text-cyan-50/78 sm:grid-cols-2">
-              <span>MC: {record.mcNumber || "Not reported"}</span>
-              <span>Allowed to operate: {record.allowedToOperate || "Not reported"}</span>
-              <span>Out of service: {record.outOfService || "Not reported"}</span>
-              <span>Complaints: {record.complaintCount ?? "Not reported"}</span>
-            </div>
-            <p className="mt-4 flex items-start gap-2 border-t border-white/16 pt-4 text-xs font-semibold leading-5 text-cyan-50/72"><MapPin size={14} className="mt-0.5 shrink-0" />{[record.physicalAddress.street, record.physicalAddress.city, record.physicalAddress.state, record.physicalAddress.zip].filter(Boolean).join(", ") || "Address not reported"}</p>
-          </LuminousPanel>
-        ))}
-      </div>
-      {records.length === 0 ? <LuminousPanel className="p-6 text-sm font-semibold text-cyan-50/76">No carriers matched this search in the selected state.</LuminousPanel> : null}
-      {limitation ? <p className="mt-4 text-xs leading-6 text-cyan-50/66">{limitation}</p> : null}
-    </section>
-  );
-}
-
 export function StateAgenciesPage() {
   const [view, setView] = useState<"state" | "cross-state">("state");
   const [selectedState, setSelectedState] = useState<{ code: string; name: string } | null>(null);
@@ -468,43 +435,19 @@ export function StateAgenciesPage() {
   const [query, setQuery] = useState("");
   const [freshness, setFreshness] = useState<Freshness>("oneYear");
   const liveSearch = useLiveSearch("state");
-  const [carrierRecords, setCarrierRecords] = useState<CarrierRecord[] | null>(null);
-  const [carrierLoading, setCarrierLoading] = useState(false);
-  const [carrierError, setCarrierError] = useState("");
-  const [carrierLimitation, setCarrierLimitation] = useState("");
 
   const stateCategoryLabels = STATE_CATEGORIES.map(([, label]) => label);
   const activeStateCategoryLabel = STATE_CATEGORIES.find(([id]) => id === category)?.[1] || category;
+  const isDotMedical = category === "dot-medical-exams";
 
   function clearResults() {
     liveSearch.reset();
-    setCarrierRecords(null);
-    setCarrierError("");
-    setCarrierLimitation("");
   }
 
   async function runStateSearch() {
     if (!selectedState || query.trim().length < 2) return;
-    if (category !== "fmcsa") {
-      await liveSearch.run(query, activeStateCategoryLabel, freshness, selectedState.name);
-      return;
-    }
-    setCarrierLoading(true);
-    setCarrierError("");
-    try {
-      const params = new URLSearchParams({ stateCode: selectedState.code });
-      const digits = query.replace(/\D/g, "");
-      if (/^\d{1,10}$/.test(query.trim()) || (digits === query.trim() && digits.length > 0)) params.set("dotNumber", digits);
-      else params.set("name", query.trim());
-      const payload = await getJson<FmcsaResponse>(`core-intelligence/fmcsa/carriers?${params.toString()}`);
-      setCarrierRecords(payload.records);
-      setCarrierLimitation(payload.limitation);
-    } catch (searchError) {
-      setCarrierRecords(null);
-      setCarrierError(searchError instanceof Error ? searchError.message : "FMCSA search failed.");
-    } finally {
-      setCarrierLoading(false);
-    }
+    const searchCategory = isDotMedical ? DOT_MEDICAL_SEARCH_CONTEXT : activeStateCategoryLabel;
+    await liveSearch.run(query, searchCategory, freshness, selectedState.name);
   }
 
   async function runCrossStateSearch() {
@@ -512,7 +455,7 @@ export function StateAgenciesPage() {
   }
 
   return (
-    <WorkspaceShell eyebrow="Live Government Intelligence" title="State Agencies" subtitle="Choose a state on the map, then search current agency, regulatory, health, labor, licensing, emergency, procurement, and FMCSA sources.">
+    <WorkspaceShell eyebrow="Live Government Intelligence" title="State Agencies" subtitle="Choose a state on the map, then search current agency, regulatory, health, labor, licensing, emergency, procurement, and DOT medical-exam intelligence.">
       <div className="mb-6 flex gap-2 rounded-2xl border border-white/24 bg-white/[0.065] p-1.5 backdrop-blur-2xl sm:w-fit">
         <button type="button" onClick={() => { setView("state"); clearResults(); }} className={cn("rounded-xl px-4 py-2 text-sm font-bold", view === "state" ? "bg-cyan-300/18 text-white shadow-[0_0_24px_rgba(34,211,238,.14),inset_0_1px_0_rgba(255,255,255,.24)]" : "text-cyan-50/70")}>State Agencies Map</button>
         <button type="button" onClick={() => { setView("cross-state"); clearResults(); }} className={cn("rounded-xl px-4 py-2 text-sm font-bold", view === "cross-state" ? "bg-violet-300/18 text-white shadow-[0_0_24px_rgba(139,92,246,.14),inset_0_1px_0_rgba(255,255,255,.24)]" : "text-cyan-50/70")}>Cross-State Search</button>
@@ -532,10 +475,22 @@ export function StateAgenciesPage() {
                 </div>
               </LuminousPanel>
               <CategoryTabs values={stateCategoryLabels} active={activeStateCategoryLabel} onChange={(label) => { const next = STATE_CATEGORIES.find(([, itemLabel]) => itemLabel === label)?.[0] || "procurement"; setCategory(next); clearResults(); }} />
-              <SearchControls query={query} setQuery={setQuery} freshness={freshness} setFreshness={setFreshness} loading={category === "fmcsa" ? carrierLoading : liveSearch.loading} onSubmit={() => void runStateSearch()} placeholder={category === "fmcsa" ? "Carrier legal name, DBA name, or USDOT number…" : `Search ${selectedState.name} ${activeStateCategoryLabel.toLowerCase()} intelligence…`} />
-              {category === "fmcsa"
-                ? <CarrierResults records={carrierRecords} loading={carrierLoading} error={carrierError} limitation={carrierLimitation} />
-                : <SearchResults response={liveSearch.response} loading={liveSearch.loading} error={liveSearch.error} emptyLabel={`Search ${selectedState.name} ${activeStateCategoryLabel}`} />}
+              {isDotMedical ? (
+                <LuminousPanel className="mb-4 p-5">
+                  <div className="flex items-start gap-3">
+                    <ShieldCheck className="mt-0.5 shrink-0 text-cyan-100/90" size={18} />
+                    <div>
+                      <p className="text-sm font-black text-white">DOT medical-exam intelligence</p>
+                      <p className="mt-2 text-xs font-semibold leading-6 text-cyan-50/76">Search FMCSA medical certification rules, National Registry changes, examination forms, examiner guidance, state licensing-agency transmission requirements, and medical waivers or exemptions. This is not a motor-carrier lookup.</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {DOT_MEDICAL_TOPICS.map((topic) => <span key={topic} className="rounded-full border border-cyan-100/24 bg-cyan-300/[0.08] px-3 py-1.5 text-[10px] font-bold text-cyan-50/82">{topic}</span>)}
+                      </div>
+                    </div>
+                  </div>
+                </LuminousPanel>
+              ) : null}
+              <SearchControls query={query} setQuery={setQuery} freshness={freshness} setFreshness={setFreshness} loading={liveSearch.loading} onSubmit={() => void runStateSearch()} placeholder={isDotMedical ? "Search DOT exam rules, forms, certification updates, examiner guidance, waivers, or National Registry changes…" : `Search ${selectedState.name} ${activeStateCategoryLabel.toLowerCase()} intelligence…`} />
+              <SearchResults response={liveSearch.response} loading={liveSearch.loading} error={liveSearch.error} emptyLabel={isDotMedical ? `Search ${selectedState.name} DOT medical-exam updates` : `Search ${selectedState.name} ${activeStateCategoryLabel}`} />
             </section>
           )}
         </div>
