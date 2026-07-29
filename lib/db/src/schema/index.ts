@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, integer, boolean } from "drizzle-orm/pg-core";
 
 export const entitiesTable = pgTable("entities", {
   id: serial("id").primaryKey(),
@@ -114,3 +114,224 @@ export const portalLinksTable = pgTable("portal_links", {
 });
 
 export type PortalLink = typeof portalLinksTable.$inferSelect;
+
+// Core intelligence workspaces transferred from the procurement application.
+// These intentionally remain separate from the existing `entities` company-library table.
+export const prospectsTable = pgTable("prospects", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  website: text("website"),
+  description: text("description"),
+  industry: text("industry"),
+  headquarters: text("headquarters"),
+  employeeCount: text("employee_count"),
+  founded: text("founded"),
+  naicsCodes: text("naics_codes"),
+  status: text("status").notNull().default("prospect"),
+  tier: text("tier").notNull().default("enterprise"),
+  notes: text("notes"),
+  researchSummary: text("research_summary"),
+  opportunitySignals: text("opportunity_signals"),
+  intelligenceSources: text("intelligence_sources"),
+  lastResearched: timestamp("last_researched"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const prospectLocationsTable = pgTable("prospect_locations", {
+  id: text("id").primaryKey(),
+  prospectId: text("prospect_id").notNull().references(() => prospectsTable.id, { onDelete: "cascade" }),
+  name: text("name"),
+  type: text("type").notNull().default("office"),
+  city: text("city"),
+  state: text("state"),
+  country: text("country").notNull().default("United States"),
+  address: text("address"),
+  employeeEstimate: text("employee_estimate"),
+  description: text("description"),
+  openPositions: integer("open_positions").default(0),
+  healthPositions: integer("health_positions").default(0),
+  hiringTrend: text("hiring_trend"),
+  hiringCategories: text("hiring_categories"),
+  jobsLastUpdated: timestamp("jobs_last_updated"),
+  sourceUrl: text("source_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const prospectJobsTable = pgTable("prospect_jobs", {
+  id: text("id").primaryKey(),
+  prospectId: text("prospect_id").notNull().references(() => prospectsTable.id, { onDelete: "cascade" }),
+  locationId: text("location_id"),
+  title: text("title").notNull(),
+  department: text("department"),
+  rawLocation: text("raw_location"),
+  jobType: text("job_type"),
+  postedDate: text("posted_date"),
+  url: text("url"),
+  snippet: text("snippet"),
+  isHealthRelated: boolean("is_health_related").default(false),
+  healthRelevanceReason: text("health_relevance_reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const prospectContactsTable = pgTable("prospect_contacts", {
+  id: text("id").primaryKey(),
+  prospectId: text("prospect_id").notNull().references(() => prospectsTable.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  category: text("category").notNull().default("other"),
+  title: text("title"),
+  department: text("department"),
+  isEhsContact: boolean("is_ehs_contact").default(false),
+  isKeyContact: boolean("is_key_contact").default(false),
+  linkedinUrl: text("linkedin_url"),
+  email: text("email"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const clientsTable = pgTable("clients", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  website: text("website"),
+  industry: text("industry"),
+  headquarters: text("headquarters"),
+  logoUrl: text("logo_url"),
+  overallHiringTrend: text("overall_hiring_trend").default("unknown"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const clientBranchesTable = pgTable("client_branches", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id").notNull().references(() => clientsTable.id, { onDelete: "cascade" }),
+  name: text("name"),
+  city: text("city"),
+  country: text("country").notNull().default("United States"),
+  state: text("state"),
+  address: text("address"),
+  branchType: text("branch_type").notNull().default("office"),
+  lastResearched: timestamp("last_researched"),
+  hiringTrendSummary: text("hiring_trend_summary"),
+  hiringTrendDirection: text("hiring_trend_direction").default("unknown"),
+  postingCount: text("posting_count").default("0"),
+  sourceUrl: text("source_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const clientContactsTable = pgTable("client_contacts", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id").notNull().references(() => clientsTable.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  category: text("category").notNull().default("other"),
+  title: text("title"),
+  department: text("department"),
+  isEhsContact: boolean("is_ehs_contact").default(false),
+  isKeyContact: boolean("is_key_contact").default(false),
+  linkedinUrl: text("linkedin_url"),
+  email: text("email"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const competitorsTable = pgTable("competitors", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  website: text("website"),
+  description: text("description"),
+  services: text("services"),
+  coverageStates: text("coverage_states"),
+  tier: text("tier").notNull().default("regional"),
+  headquarters: text("headquarters"),
+  employeeCount: text("employee_count"),
+  founded: text("founded"),
+  notes: text("notes"),
+  recentActivity: text("recent_activity"),
+  contractWins: text("contract_wins"),
+  intelligenceSources: text("intelligence_sources"),
+  newsArticles: text("news_articles"),
+  fecFilings: text("fec_filings"),
+  lastResearched: timestamp("last_researched"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const federalIntelItemsTable = pgTable("federal_intel_items", {
+  id: text("id").primaryKey(),
+  bucket: text("bucket").notNull(),
+  sourceType: text("source_type").notNull().default("other"),
+  agency: text("agency"),
+  component: text("component"),
+  office: text("office"),
+  regionCountry: text("region_country"),
+  title: text("title").notNull(),
+  summary: text("summary"),
+  datePosted: timestamp("date_posted"),
+  status: text("status"),
+  contractorIncumbent: text("contractor_incumbent"),
+  relatedRef: text("related_ref"),
+  budgetSignal: text("budget_signal"),
+  oversightSignal: text("oversight_signal"),
+  medicalTravelRelevance: text("medical_travel_relevance"),
+  occuMedScore: integer("occu_med_score").default(0),
+  actionTag: text("action_tag").default("monitor"),
+  sourceUrl: text("source_url"),
+  rawJson: text("raw_json"),
+  fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const stateProfilesTable = pgTable("state_profiles", {
+  stateCode: text("state_code").primaryKey(),
+  stateName: text("state_name").notNull(),
+  region: text("region").notNull().default(""),
+  oshaStatePlan: text("osha_state_plan").notNull().default("federal"),
+  procurementUrl: text("procurement_url"),
+  legislatureUrl: text("legislature_url"),
+  govUrl: text("gov_url"),
+  healthDeptUrl: text("health_dept_url"),
+  laborUrl: text("labor_url"),
+  emergencyMgmtUrl: text("emergency_mgmt_url"),
+  medicalBoardUrl: text("medical_board_url"),
+  insuranceDeptUrl: text("insurance_dept_url"),
+  correctionsUrl: text("corrections_url"),
+  dotUrl: text("dot_url"),
+  postCommissionUrl: text("post_commission_url"),
+  lastRefreshed: text("last_refreshed"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const stateAgencyItemsTable = pgTable("state_agency_items", {
+  id: text("id").primaryKey(),
+  stateCode: text("state_code").notNull(),
+  bucket: text("bucket").notNull(),
+  title: text("title").notNull(),
+  summary: text("summary"),
+  url: text("url"),
+  publishedDate: text("published_date"),
+  agency: text("agency"),
+  itemType: text("item_type"),
+  relevanceScore: integer("relevance_score").default(0),
+  rawJson: text("raw_json"),
+  fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const stateIntelItemsTable = pgTable("state_intel_items", {
+  id: text("id").primaryKey(),
+  channel: text("channel").notNull(),
+  title: text("title").notNull(),
+  summary: text("summary"),
+  url: text("url"),
+  publishedDate: text("published_date"),
+  source: text("source"),
+  severity: text("severity"),
+  affectedStates: text("affected_states"),
+  rawJson: text("raw_json"),
+  fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
