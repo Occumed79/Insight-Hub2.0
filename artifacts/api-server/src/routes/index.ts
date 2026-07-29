@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import coreIntelligenceRouter from "./core-intelligence";
 import locationDiscoveryCacheRouter from "./locationDiscoveryCache";
 import entityDiscoveryRouter from "./entityDiscovery";
 import locationsCerebrasV2Router from "./locations-cerebras-v2";
@@ -32,6 +33,7 @@ import companyFileRouter from "./company-file";
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(coreIntelligenceRouter);
 router.use(companyLibraryRouter);
 router.use(companyFileRouter);
 router.use(locationDiscoveryCacheRouter);
