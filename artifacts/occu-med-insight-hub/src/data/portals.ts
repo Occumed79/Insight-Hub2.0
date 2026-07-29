@@ -5,7 +5,7 @@ export type PortalConfig = {
   description: string;
   href: string;
   mode: "internal" | "external";
-  imageKind: "quant" | "geo" | "entity" | "discovery" | "federal";
+  imageKind: "profile" | "quant" | "geo" | "entity" | "discovery" | "federal";
   portalKey?: PortalLinkKey;
 };
 
