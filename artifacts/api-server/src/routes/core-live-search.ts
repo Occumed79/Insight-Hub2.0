@@ -57,7 +57,7 @@ function clean(value: unknown, max = 3_000): string {
 function safeUrl(value: unknown): string | null {
   try {
     const url = new URL(String(value || ""));
-    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return null;
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return null;
     const hostname = url.hostname.toLowerCase();
     if (!hostname || hostname === "localhost" || hostname.endsWith(".local") || hostname.endsWith(".internal")) return null;
     url.hash = "";
@@ -85,6 +85,9 @@ function buildQuery(workspace: Workspace, query: string, state: string, category
     return `${query}${categoryText} federal agency procurement contract program policy official government`;
   }
   const stateText = state ? ` ${state}` : " United States";
+  if (/FMCSA DOT medical examination/i.test(category)) {
+    return `${query}${stateText}${categoryText} official FMCSA National Registry Federal Register state driver licensing agency medical certification source`;
+  }
   return `${query}${stateText}${categoryText} state government agency official public source`;
 }
 
@@ -216,7 +219,7 @@ router.get("/core-intelligence/live-search", async (req: Request, res: Response)
   const workspace = clean(req.query.workspace, 40) as Workspace;
   const query = clean(req.query.query, 240);
   const state = clean(req.query.state, 80);
-  const category = clean(req.query.category, 120);
+  const category = clean(req.query.category, 600);
   const freshnessCandidate = clean(req.query.freshness, 20) as Freshness;
   const freshness: Freshness = ["oneDay", "oneWeek", "oneMonth", "oneYear", "noLimit"].includes(freshnessCandidate)
     ? freshnessCandidate
