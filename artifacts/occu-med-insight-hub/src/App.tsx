@@ -7,7 +7,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { EmployerWorkflowProvider } from "@/components/insight/EmployerWorkflowContext";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
-import DataProfiles from "@/pages/data-profiles";
 import DataVisualization from "@/pages/data-visualization";
 import QuantifiableData from "@/pages/quantifiable-data";
 import GeographicData from "@/pages/geographic-data";
@@ -40,7 +39,6 @@ import {
 } from "@/pages/standalone-public-tools";
 
 const queryClient = new QueryClient();
-const SELECTED_COMPANY_KEY = "insight-hub.company-library.selected";
 
 const translucentToolCss = String.raw`
   .translucent-tool-page {
@@ -210,11 +208,6 @@ function StateAgenciesRoute() {
   return <TranslucentToolPage page="state-agencies"><StateAgenciesPage /></TranslucentToolPage>;
 }
 
-function CompanyLibraryRoute() {
-  sessionStorage.removeItem(SELECTED_COMPANY_KEY);
-  return <TranslucentToolPage page="company-library"><DataProfiles /></TranslucentToolPage>;
-}
-
 function DbaRoute() {
   return (
     <div className="dba-hub-route">
@@ -291,7 +284,6 @@ function Router() {
       <Route path="/competitors" component={CompetitorsRoute} />
       <Route path="/federal-agencies" component={FederalAgenciesRoute} />
       <Route path="/state-agencies" component={StateAgenciesRoute} />
-      <Route path="/data-profiles" component={CompanyLibraryRoute} />
       <Route path="/sec-filings" component={SecFilingsRoute} />
       <Route path="/leadership-map" component={LeadershipMapRoute} />
       <Route path="/dba-intelligence" component={DbaRoute} />
