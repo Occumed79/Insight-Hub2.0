@@ -27,6 +27,12 @@ import DbaIntelligence from "@/pages/dba-intelligence";
 import SourceGovernance from "@/pages/source-governance";
 import AorRiskIntelligencePage from "@/pages/aor-risk-intelligence";
 import {
+  CompetitorsPage,
+  EntitiesPage,
+  FederalAgenciesPage,
+  StateAgenciesPage,
+} from "@/pages/core-intelligence";
+import {
   FecFilingsPage,
   FederalAwardsPage,
   IndustryBenchmarksPage,
@@ -225,6 +231,10 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/entities" component={EntitiesPage} />
+      <Route path="/competitors" component={CompetitorsPage} />
+      <Route path="/federal-agencies" component={FederalAgenciesPage} />
+      <Route path="/state-agencies" component={StateAgenciesPage} />
       <Route path="/data-profiles" component={CompanyLibraryRoute} />
       <Route path="/sec-filings" component={SecFilingsRoute} />
       <Route path="/leadership-map" component={LeadershipMapRoute} />
