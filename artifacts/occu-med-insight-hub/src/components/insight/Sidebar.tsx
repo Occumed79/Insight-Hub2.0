@@ -1,7 +1,6 @@
 import {
   BarChart3,
   BookOpenCheck,
-  Building2,
   CircleDollarSign,
   FileSearch,
   GitBranch,
@@ -18,7 +17,6 @@ import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/entities", label: "Entities", icon: Building2 },
   { href: "/competitors", label: "Competitors", icon: Target },
   { href: "/federal-agencies", label: "Federal Agencies", icon: Landmark },
   { href: "/state-agencies", label: "State Agencies", icon: Map },
