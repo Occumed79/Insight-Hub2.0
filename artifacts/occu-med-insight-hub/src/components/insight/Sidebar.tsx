@@ -1,20 +1,27 @@
 import {
   BarChart3,
   BookOpenCheck,
+  Building2,
   CircleDollarSign,
   FileSearch,
   GitBranch,
   Home,
   Landmark,
+  Map,
   Scale,
   ShieldAlert,
   ShieldCheck,
+  Target,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "Home", icon: Home },
+  { href: "/entities", label: "Entities", icon: Building2 },
+  { href: "/competitors", label: "Competitors", icon: Target },
+  { href: "/federal-agencies", label: "Federal Agencies", icon: Landmark },
+  { href: "/state-agencies", label: "State Agencies", icon: Map },
   { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
   { href: "/leadership-map", label: "Organizational Chart", icon: GitBranch },
   { href: "/dba-intelligence", label: "DBA Data Hub", icon: ShieldCheck },
