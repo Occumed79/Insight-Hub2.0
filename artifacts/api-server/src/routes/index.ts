@@ -56,6 +56,16 @@ router.use(crisiswatchRouter);
 router.use(aorRiskIntelligenceRouter);
 router.use(workersCompCoverageRouter);
 router.use(dbaIntelligenceRouter);
+router.use("/dba/hub", (_req, res, next) => {
+  const originalJson = res.json.bind(res);
+  res.json = ((body: unknown) => {
+    if (body && typeof body === "object" && !Array.isArray(body)) {
+      delete (body as Record<string, unknown>).warning;
+    }
+    return originalJson(body);
+  }) as typeof res.json;
+  next();
+});
 router.use(dbaHubRouter);
 router.use(sourceGovernanceRouter);
 router.use(dataVisualizationRouter);
