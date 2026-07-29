@@ -1,5 +1,5 @@
 import { ArrowUpRight, Building2, Globe2, Landmark, Layers, Network, Save, Settings2, Sigma, X } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { portalCards } from "@/data/portals";
@@ -92,11 +92,18 @@ function PortalArt({ kind }: { kind: PortalConfig["imageKind"] }) {
   );
 }
 
-function PortalCard({ portal }: { portal: PortalConfig }) {
+function PortalCard({ portal, index }: { portal: PortalConfig; index: number }) {
   const missingExternalUrl = portal.mode === "external" && !portal.href;
+  const reduceMotion = useReducedMotion();
 
   const body = (
-    <div className="h-full">
+    <motion.div
+      initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 22 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={reduceMotion ? { duration: 0 } : { delay: 0.2 + index * 0.06, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      className="h-full"
+      style={{ willChange: reduceMotion ? "auto" : "transform, opacity" }}
+    >
       <div
         className={`group relative isolate h-full min-h-[300px] overflow-hidden rounded-[32px] border border-cyan-200/20 bg-[linear-gradient(145deg,rgba(4,13,26,.94),rgba(3,10,24,.82)_48%,rgba(8,19,42,.90))] p-[6px] shadow-[0_26px_72px_rgba(0,0,0,.46),0_0_0_1px_rgba(255,255,255,.035),inset_0_1px_0_rgba(255,255,255,.12),inset_0_-42px_80px_rgba(15,23,42,.42),inset_0_0_55px_rgba(45,212,191,.07)] backdrop-blur-2xl ${missingExternalUrl ? "opacity-70" : ""}`}
         style={{ contain: "paint", transform: "translateZ(0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
@@ -128,7 +135,7 @@ function PortalCard({ portal }: { portal: PortalConfig }) {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 
   if (missingExternalUrl) {
@@ -274,8 +281,8 @@ export default function Landing() {
           </button>
         </motion.div>
         <div className="mt-10 grid items-stretch gap-5 md:grid-cols-3">
-          {resolvedPortalCards.map((portal) => (
-            <PortalCard key={portal.title} portal={portal} />
+          {resolvedPortalCards.map((portal, index) => (
+            <PortalCard key={portal.title} portal={portal} index={index} />
           ))}
         </div>
       </section>
