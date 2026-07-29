@@ -40,6 +40,7 @@ import {
 } from "@/pages/standalone-public-tools";
 
 const queryClient = new QueryClient();
+const SELECTED_COMPANY_KEY = "insight-hub.company-library.selected";
 
 const translucentToolCss = String.raw`
   .translucent-tool-page {
@@ -210,7 +211,17 @@ function StateAgenciesRoute() {
 }
 
 function CompanyLibraryRoute() {
+  sessionStorage.removeItem(SELECTED_COMPANY_KEY);
   return <TranslucentToolPage page="company-library"><DataProfiles /></TranslucentToolPage>;
+}
+
+function DbaRoute() {
+  return (
+    <div className="dba-hub-route">
+      <style>{`.dba-hub-route main > section > .glass-card.border-amber-200\\/14 { display: none !important; }`}</style>
+      <DbaIntelligence />
+    </div>
+  );
 }
 
 function SecFilingsRoute() {
@@ -283,7 +294,7 @@ function Router() {
       <Route path="/data-profiles" component={CompanyLibraryRoute} />
       <Route path="/sec-filings" component={SecFilingsRoute} />
       <Route path="/leadership-map" component={LeadershipMapRoute} />
-      <Route path="/dba-intelligence" component={DbaIntelligence} />
+      <Route path="/dba-intelligence" component={DbaRoute} />
       <Route path="/fec-filings" component={FecFilingsRoute} />
       <Route path="/industry-injury-benchmarks" component={IndustryBenchmarksRoute} />
       <Route path="/occupational-demands" component={OccupationalDemandsRoute} />
