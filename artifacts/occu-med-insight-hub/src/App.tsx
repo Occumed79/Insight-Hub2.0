@@ -44,27 +44,52 @@ const queryClient = new QueryClient();
 
 const translucentToolCss = String.raw`
   .translucent-tool-page {
-    --tool-glass-border: rgba(224, 247, 255, 0.28);
-    --tool-glass-inner-border: rgba(255, 255, 255, 0.12);
-    --tool-glass-surface: linear-gradient(135deg, rgba(4,12,23,.94), rgba(7,18,32,.90) 44%, rgba(8,25,40,.88) 72%, rgba(22,18,48,.86));
-    --tool-glass-surface-soft: linear-gradient(135deg, rgba(3,10,20,.92), rgba(7,18,31,.88) 48%, rgba(10,27,42,.84));
-    --tool-glass-shadow: 0 28px 82px rgba(0,0,0,.42), 0 0 34px rgba(34,211,238,.07), inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 0 1px var(--tool-glass-inner-border);
+    position: relative;
+    isolation: isolate;
+    color-scheme: dark;
+    --tool-glass-border: rgba(255, 255, 255, 0.38);
+    --tool-glass-inner-border: rgba(255, 255, 255, 0.16);
+    --tool-glass-surface: linear-gradient(145deg, rgba(255,255,255,.145), rgba(225,241,250,.085) 34%, rgba(130,165,190,.105) 66%, rgba(255,255,255,.075));
+    --tool-glass-surface-soft: linear-gradient(145deg, rgba(255,255,255,.105), rgba(210,232,245,.065) 48%, rgba(118,155,183,.085));
+    --tool-glass-shadow: 0 26px 76px rgba(0,0,0,.34), 0 0 42px rgba(186,230,253,.12), inset 0 1px 0 rgba(255,255,255,.36), inset 0 0 0 1px rgba(255,255,255,.09), inset 0 -26px 70px rgba(76,108,132,.08);
   }
 
+  .translucent-tool-page::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(circle at 16% 10%, rgba(224,242,254,.13), transparent 30%),
+      radial-gradient(circle at 84% 18%, rgba(191,219,254,.10), transparent 32%),
+      radial-gradient(circle at 62% 82%, rgba(216,180,254,.075), transparent 34%);
+  }
+
+  .translucent-tool-page > * { position: relative; z-index: 1; }
+
   .translucent-tool-page .glass-card {
+    overflow: hidden;
     border: 1px solid var(--tool-glass-border) !important;
-    background: var(--tool-glass-surface) !important;
+    background-color: rgba(180, 207, 224, .07) !important;
+    background-image: var(--tool-glass-surface) !important;
     box-shadow: var(--tool-glass-shadow) !important;
-    backdrop-filter: blur(28px) saturate(1.16) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(1.16) !important;
+    backdrop-filter: blur(34px) saturate(1.32) brightness(1.04) !important;
+    -webkit-backdrop-filter: blur(34px) saturate(1.32) brightness(1.04) !important;
   }
 
   .translucent-tool-page .glass-card::before {
-    background: linear-gradient(122deg, rgba(255,255,255,.16), rgba(255,255,255,.055) 15%, transparent 34%), radial-gradient(circle at 12% 0%, rgba(165,243,252,.11), transparent 34%), radial-gradient(circle at 100% 12%, rgba(196,181,253,.09), transparent 30%) !important;
-    opacity: .52 !important;
+    background:
+      linear-gradient(122deg, rgba(255,255,255,.31), rgba(255,255,255,.075) 18%, transparent 37%),
+      radial-gradient(circle at 11% 0%, rgba(224,242,254,.22), transparent 34%),
+      radial-gradient(circle at 100% 14%, rgba(221,214,254,.15), transparent 30%) !important;
+    opacity: .74 !important;
   }
 
-  .translucent-tool-page .glass-card::after { opacity: .14 !important; }
+  .translucent-tool-page .glass-card::after {
+    opacity: .22 !important;
+    filter: blur(18px);
+  }
 
   .translucent-tool-page[data-tool-page="sec"] main div.relative[class*="p-"],
   .translucent-tool-page[data-tool-page="sec"] main div.relative[class*="overflow-hidden"] {
@@ -73,8 +98,8 @@ const translucentToolCss = String.raw`
     border-radius: 28px !important;
     background: var(--tool-glass-surface) !important;
     box-shadow: var(--tool-glass-shadow) !important;
-    backdrop-filter: blur(28px) saturate(1.16) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(1.16) !important;
+    backdrop-filter: blur(34px) saturate(1.32) !important;
+    -webkit-backdrop-filter: blur(34px) saturate(1.32) !important;
   }
 
   .translucent-tool-page main div[class*="bg-[#"],
@@ -86,50 +111,55 @@ const translucentToolCss = String.raw`
   .translucent-tool-page main section[class*="bg-black/"],
   .translucent-tool-page main label[class*="bg-black/"],
   .translucent-tool-page main article[class*="bg-black/"] {
-    background-color: rgba(3,10,20,.90) !important;
+    background-color: rgba(178,205,222,.065) !important;
     background-image: var(--tool-glass-surface-soft) !important;
-    border-color: rgba(224,247,255,.20) !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.13), inset 0 0 0 1px rgba(255,255,255,.06) !important;
-    backdrop-filter: blur(22px) saturate(1.12) !important;
-    -webkit-backdrop-filter: blur(22px) saturate(1.12) !important;
+    border-color: rgba(255,255,255,.26) !important;
+    box-shadow: 0 18px 48px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(255,255,255,.075) !important;
+    backdrop-filter: blur(28px) saturate(1.24) brightness(1.035) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(1.24) brightness(1.035) !important;
   }
 
   .translucent-tool-page main input,
   .translucent-tool-page main textarea,
   .translucent-tool-page main select {
-    color: rgba(255,255,255,.96) !important;
-    border-color: rgba(207,250,254,.24) !important;
-    background: linear-gradient(135deg, rgba(2,8,16,.94), rgba(6,17,29,.90)) !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), inset 0 0 0 1px rgba(255,255,255,.05), 0 10px 30px rgba(0,0,0,.24) !important;
-    backdrop-filter: blur(18px) saturate(1.08) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(1.08) !important;
+    color: rgba(255,255,255,.97) !important;
+    border-color: rgba(255,255,255,.30) !important;
+    background: linear-gradient(145deg, rgba(255,255,255,.105), rgba(176,205,225,.065)) !important;
+    box-shadow: 0 12px 34px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.27), inset 0 0 0 1px rgba(255,255,255,.075) !important;
+    backdrop-filter: blur(24px) saturate(1.22) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(1.22) !important;
+  }
+
+  .translucent-tool-page main select option {
+    color: white;
+    background: #17212d;
   }
 
   .translucent-tool-page main input::placeholder,
   .translucent-tool-page main textarea::placeholder {
-    color: rgba(207,250,254,.48) !important;
+    color: rgba(224,242,254,.58) !important;
   }
 
   .translucent-tool-page main input:focus,
   .translucent-tool-page main textarea:focus,
   .translucent-tool-page main select:focus {
-    border-color: rgba(165,243,252,.48) !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.07), 0 0 0 3px rgba(34,211,238,.08), 0 16px 36px rgba(0,0,0,.28) !important;
+    border-color: rgba(224,242,254,.62) !important;
+    box-shadow: 0 0 0 3px rgba(186,230,253,.10), 0 18px 44px rgba(0,0,0,.23), inset 0 1px 0 rgba(255,255,255,.34) !important;
   }
 
   .translucent-tool-page main div[class*="rounded-[27px]"][class*="border"],
   .translucent-tool-page main div[class*="rounded-[26px]"][class*="border"],
   .translucent-tool-page main div[class*="rounded-[25px]"][class*="border"],
   .translucent-tool-page main div[class*="rounded-[23px]"][class*="border"] {
-    background-color: rgba(3,10,20,.88) !important;
+    background-color: rgba(176,204,222,.06) !important;
     background-image: var(--tool-glass-surface-soft) !important;
-    border-color: rgba(255,255,255,.12) !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), inset 0 0 0 1px rgba(255,255,255,.05) !important;
+    border-color: rgba(255,255,255,.22) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.26), inset 0 0 0 1px rgba(255,255,255,.07) !important;
   }
 
   .translucent-tool-page main [class*="text-cyan-100/"],
   .translucent-tool-page main [class*="text-cyan-50/"] {
-    color: rgba(224,247,255,.78) !important;
+    color: rgba(232,247,255,.82) !important;
   }
 
   .translucent-tool-page main [class*="bg-rose-"],
@@ -137,20 +167,16 @@ const translucentToolCss = String.raw`
   .translucent-tool-page main [class*="bg-emerald-"],
   .translucent-tool-page main [class*="bg-violet-"],
   .translucent-tool-page main [class*="bg-cyan-"] {
-    backdrop-filter: blur(18px) saturate(1.12);
-    -webkit-backdrop-filter: blur(18px) saturate(1.12);
-  }
-
-  .translucent-tool-page[data-tool-page="company-library"] .glass-card {
-    background: linear-gradient(135deg, rgba(4,12,23,.96), rgba(7,20,34,.92) 42%, rgba(6,31,38,.90) 68%, rgba(24,20,50,.88)) !important;
+    backdrop-filter: blur(22px) saturate(1.22);
+    -webkit-backdrop-filter: blur(22px) saturate(1.22);
   }
 
   .translucent-tool-page[data-tool-page="sec"] aside[role="dialog"] {
-    border-color: rgba(224,247,255,.26) !important;
-    background: linear-gradient(145deg, rgba(7,18,32,.96), rgba(8,20,34,.94) 48%, rgba(24,20,54,.92)) !important;
-    box-shadow: -30px 0 90px rgba(0,0,0,.52), inset 1px 0 0 rgba(255,255,255,.13) !important;
-    backdrop-filter: blur(30px) saturate(1.18) !important;
-    -webkit-backdrop-filter: blur(30px) saturate(1.18) !important;
+    border-color: rgba(255,255,255,.34) !important;
+    background: linear-gradient(145deg, rgba(255,255,255,.14), rgba(122,154,178,.14)) !important;
+    box-shadow: -30px 0 90px rgba(0,0,0,.42), inset 1px 0 0 rgba(255,255,255,.30) !important;
+    backdrop-filter: blur(38px) saturate(1.34) !important;
+    -webkit-backdrop-filter: blur(38px) saturate(1.34) !important;
   }
 `;
 
@@ -161,6 +187,22 @@ function TranslucentToolPage({ page, children }: { page: string; children: React
       {children}
     </div>
   );
+}
+
+function EntitiesRoute() {
+  return <TranslucentToolPage page="entities"><EntitiesPage /></TranslucentToolPage>;
+}
+
+function CompetitorsRoute() {
+  return <TranslucentToolPage page="competitors"><CompetitorsPage /></TranslucentToolPage>;
+}
+
+function FederalAgenciesRoute() {
+  return <TranslucentToolPage page="federal-agencies"><FederalAgenciesPage /></TranslucentToolPage>;
+}
+
+function StateAgenciesRoute() {
+  return <TranslucentToolPage page="state-agencies"><StateAgenciesPage /></TranslucentToolPage>;
 }
 
 function CompanyLibraryRoute() {
@@ -231,10 +273,10 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
-      <Route path="/entities" component={EntitiesPage} />
-      <Route path="/competitors" component={CompetitorsPage} />
-      <Route path="/federal-agencies" component={FederalAgenciesPage} />
-      <Route path="/state-agencies" component={StateAgenciesPage} />
+      <Route path="/entities" component={EntitiesRoute} />
+      <Route path="/competitors" component={CompetitorsRoute} />
+      <Route path="/federal-agencies" component={FederalAgenciesRoute} />
+      <Route path="/state-agencies" component={StateAgenciesRoute} />
       <Route path="/data-profiles" component={CompanyLibraryRoute} />
       <Route path="/sec-filings" component={SecFilingsRoute} />
       <Route path="/leadership-map" component={LeadershipMapRoute} />

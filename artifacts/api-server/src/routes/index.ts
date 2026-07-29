@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import aorSourcePolicyRouter from "./aor-source-policy";
+import stateMapGeometryRouter from "./state-map-geometry";
 import coreIntelligenceRouter from "./core-intelligence";
 import locationDiscoveryCacheRouter from "./locationDiscoveryCache";
 import entityDiscoveryRouter from "./entityDiscovery";
@@ -33,6 +35,8 @@ import companyFileRouter from "./company-file";
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(aorSourcePolicyRouter);
+router.use(stateMapGeometryRouter);
 router.use(coreIntelligenceRouter);
 router.use(companyLibraryRouter);
 router.use(companyFileRouter);
