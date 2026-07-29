@@ -18,6 +18,7 @@ const LEGACY_EXTERNAL_PORTAL_LINKS: Record<PortalLinkKey, string> = {
 };
 
 export const portalCards: PortalConfig[] = [
+  { title: "Intelligence Tools", description: "Open the searchable intelligence workspace and use its sidebar to access Competitors, Federal Agencies, State Agencies, SEC, FEC, BLS, O*NET, Federal Awards, Legal References, DBA, and AOR tools.", href: "/competitors", mode: "internal", imageKind: "profile" },
   { title: "Global Locations", description: "Convert public headcount, WC benchmarks, and methodology assumptions into executive cost signals.", href: "/geographic-data", mode: "internal", imageKind: "quant" },
   { title: "Global Location Overlap", description: "Compare up to four companies on one worldwide map, reveal shared operating markets, and prioritize where a provider network can support multiple employers.", href: "/location-overlap", mode: "internal", imageKind: "geo" },
   { title: "Clients Service Map", description: "Open the configured relationship workspace for entity records, needs, and decision patterns.", href: LEGACY_EXTERNAL_PORTAL_LINKS.entity, mode: "external", imageKind: "entity", portalKey: "entity" },
