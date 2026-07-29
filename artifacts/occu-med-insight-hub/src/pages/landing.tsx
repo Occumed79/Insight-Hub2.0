@@ -1,5 +1,5 @@
 import { ArrowUpRight, Building2, Globe2, Landmark, Layers, Network, Save, Settings2, Sigma, X } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { portalCards } from "@/data/portals";
@@ -50,8 +50,9 @@ function OccuMedWordmark() {
   );
 }
 
-function PortalArt({ kind, index }: { kind: PortalConfig["imageKind"]; index: number }) {
+function PortalArt({ kind }: { kind: PortalConfig["imageKind"] }) {
   const Icon = iconMap[kind];
+  const reduceMotion = useReducedMotion();
 
   return (
     <div
@@ -69,29 +70,28 @@ function PortalArt({ kind, index }: { kind: PortalConfig["imageKind"]; index: nu
         style={{ transform: "translateZ(0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
       />
       <div className="absolute inset-0 bg-[linear-gradient(170deg,rgba(2,4,17,.25),rgba(9,2,26,.76)),radial-gradient(circle_at_16%_22%,rgba(52,211,153,.30),transparent_40%),radial-gradient(circle_at_84%_20%,rgba(34,211,238,.28),transparent_40%),radial-gradient(circle_at_50%_76%,rgba(139,92,246,.62),transparent_58%)]" />
-
       <motion.div
-        className="pointer-events-none absolute inset-y-[-22%] left-[-56%] z-[2] w-[42%] -skew-x-[18deg] bg-gradient-to-r from-transparent via-white/60 to-cyan-100/10 blur-[2px] mix-blend-screen"
+        className="pointer-events-none absolute inset-0"
         aria-hidden="true"
-        initial={{ x: "0%", opacity: 0 }}
-        animate={{ x: ["0%", "380%"], opacity: [0, 0.95, 0.78, 0] }}
-        transition={{
-          duration: 3.8,
-          repeat: Infinity,
-          repeatDelay: 1.6,
-          ease: "easeInOut",
-          delay: index * 0.24,
-          times: [0, 0.18, 0.72, 1],
+        initial={false}
+        animate={reduceMotion
+          ? { opacity: 0.35, backgroundPosition: "50% 0%" }
+          : { opacity: [0, 0.85, 0], backgroundPosition: ["-140% 0%", "140% 0%"] }}
+        transition={reduceMotion
+          ? { duration: 0 }
+          : { duration: 7.5, repeat: Infinity, repeatDelay: 1.25, ease: "easeInOut" }}
+        style={{
+          backgroundImage: "linear-gradient(110deg, transparent 0%, rgba(255,255,255,.08) 42%, rgba(125,211,252,.18) 50%, rgba(255,255,255,.08) 58%, transparent 100%)",
+          backgroundSize: "240% 100%",
+          willChange: reduceMotion ? "auto" : "background-position, opacity",
         }}
-        style={{ willChange: "transform, opacity" }}
       />
-
       <div className="absolute inset-x-6 top-8 h-px bg-cyan-100/36" />
       <div className="absolute inset-x-10 top-14 h-px bg-emerald-100/26" />
       <div className="absolute inset-x-8 top-[88px] h-px bg-violet-100/22" />
       <div className="absolute bottom-5 left-6 right-6 h-px bg-gradient-to-r from-transparent via-cyan-100/46 to-transparent" />
       <div className="absolute right-5 top-5 grid grid-cols-4 gap-1 opacity-60">
-        {Array.from({ length: 16 }).map((_, itemIndex) => <span key={itemIndex} className="h-1 w-4 rounded-full bg-cyan-100/60" />)}
+        {Array.from({ length: 16 }).map((_, index) => <span key={index} className="h-1 w-4 rounded-full bg-cyan-100/60" />)}
       </div>
       <div className="absolute bottom-4 left-4 flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-100/44 bg-slate-900/48 backdrop-blur-md">
         <Icon className="h-5 w-5 text-cyan-50/86 drop-shadow-[0_0_14px_rgba(103,232,249,.86)]" />
@@ -102,40 +102,40 @@ function PortalArt({ kind, index }: { kind: PortalConfig["imageKind"]; index: nu
 
 function PortalCard({ portal, index }: { portal: PortalConfig; index: number }) {
   const missingExternalUrl = portal.mode === "external" && !portal.href;
+  const reduceMotion = useReducedMotion();
 
   const body = (
     <motion.div
-      initial={{ opacity: 0, y: 22 }}
+      initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 22 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 + index * 0.06, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      transition={reduceMotion ? { duration: 0 } : { delay: 0.2 + index * 0.06, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
       className="h-full"
-      style={{ willChange: "transform, opacity" }}
+      style={{ willChange: reduceMotion ? "auto" : "transform, opacity" }}
     >
       <div
         className={`group relative isolate h-full min-h-[300px] overflow-hidden rounded-[32px] border border-cyan-200/20 bg-[linear-gradient(145deg,rgba(4,13,26,.94),rgba(3,10,24,.82)_48%,rgba(8,19,42,.90))] p-[6px] shadow-[0_26px_72px_rgba(0,0,0,.46),0_0_0_1px_rgba(255,255,255,.035),inset_0_1px_0_rgba(255,255,255,.12),inset_0_-42px_80px_rgba(15,23,42,.42),inset_0_0_55px_rgba(45,212,191,.07)] backdrop-blur-2xl ${missingExternalUrl ? "opacity-70" : ""}`}
         style={{ contain: "paint", transform: "translateZ(0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
       >
         <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(122deg,rgba(255,255,255,.14)_0%,rgba(255,255,255,.06)_12%,transparent_30%),radial-gradient(circle_at_18%_0%,rgba(125,211,252,.14),transparent_36%),radial-gradient(circle_at_100%_8%,rgba(167,139,250,.11),transparent_32%)] opacity-80" />
-
         <motion.div
-          className="pointer-events-none absolute inset-y-[-38%] left-[-72%] z-[4] w-[36%] rotate-[14deg] bg-gradient-to-r from-transparent via-cyan-50/45 to-violet-100/8 blur-[10px] mix-blend-screen"
+          className="pointer-events-none absolute inset-0 rounded-[inherit]"
           aria-hidden="true"
-          initial={{ x: "0%", opacity: 0 }}
-          animate={{ x: ["0%", "520%"], opacity: [0, 0.68, 0.52, 0] }}
-          transition={{
-            duration: 4.9,
-            repeat: Infinity,
-            repeatDelay: 2.1,
-            ease: "easeInOut",
-            delay: 0.65 + index * 0.2,
-            times: [0, 0.2, 0.76, 1],
+          initial={false}
+          animate={reduceMotion
+            ? { opacity: 0.3, backgroundPosition: "50% 0%" }
+            : { opacity: [0, 0, 0.52, 0, 0], backgroundPosition: ["-130% 0%", "-130% 0%", "130% 0%", "130% 0%", "130% 0%"] }}
+          transition={reduceMotion
+            ? { duration: 0 }
+            : { duration: 9, repeat: Infinity, ease: "easeInOut", times: [0, 0.56, 0.68, 0.82, 1] }}
+          style={{
+            backgroundImage: "linear-gradient(108deg, transparent 0%, rgba(255,255,255,.06) 43%, rgba(125,211,252,.12) 50%, rgba(255,255,255,.06) 57%, transparent 100%)",
+            backgroundSize: "240% 100%",
+            willChange: reduceMotion ? "auto" : "background-position, opacity",
           }}
-          style={{ willChange: "transform, opacity" }}
         />
-
         <div className="relative z-[1] h-full rounded-[26px] border border-white/[0.07] bg-[linear-gradient(145deg,rgba(2,8,23,.86),rgba(5,18,37,.64)_52%,rgba(2,6,23,.90))] px-3 pb-3 pt-3 shadow-[inset_0_1px_0_rgba(255,255,255,.10),inset_0_0_34px_rgba(45,212,191,.07)]">
           <div className="absolute left-6 top-6 z-10 h-7 w-7 rounded-full border border-cyan-200/40 bg-cyan-200/14 shadow-[0_0_28px_rgba(34,211,238,.34)]" />
-          <PortalArt kind={portal.imageKind} index={index} />
+          <PortalArt kind={portal.imageKind} />
           <div className="px-3 pb-3 pt-5">
             <div className="flex items-center justify-between gap-4">
               <h3 className="font-bold tracking-tight text-white transition group-hover:text-cyan-50">{portal.title}</h3>
