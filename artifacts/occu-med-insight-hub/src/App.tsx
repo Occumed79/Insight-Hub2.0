@@ -28,7 +28,6 @@ import SourceGovernance from "@/pages/source-governance";
 import AorRiskIntelligencePage from "@/pages/aor-risk-intelligence";
 import {
   CompetitorsPage,
-  EntitiesPage,
   FederalAgenciesPage,
   StateAgenciesPage,
 } from "@/pages/core-intelligence";
@@ -47,11 +46,11 @@ const translucentToolCss = String.raw`
     position: relative;
     isolation: isolate;
     color-scheme: dark;
-    --tool-glass-border: rgba(255, 255, 255, 0.38);
-    --tool-glass-inner-border: rgba(255, 255, 255, 0.16);
-    --tool-glass-surface: linear-gradient(145deg, rgba(255,255,255,.145), rgba(225,241,250,.085) 34%, rgba(130,165,190,.105) 66%, rgba(255,255,255,.075));
-    --tool-glass-surface-soft: linear-gradient(145deg, rgba(255,255,255,.105), rgba(210,232,245,.065) 48%, rgba(118,155,183,.085));
-    --tool-glass-shadow: 0 26px 76px rgba(0,0,0,.34), 0 0 42px rgba(186,230,253,.12), inset 0 1px 0 rgba(255,255,255,.36), inset 0 0 0 1px rgba(255,255,255,.09), inset 0 -26px 70px rgba(76,108,132,.08);
+    --tool-glass-border: rgba(207, 250, 254, 0.48);
+    --tool-glass-inner-border: rgba(255, 255, 255, 0.22);
+    --tool-glass-surface: linear-gradient(145deg, rgba(45,212,191,.17), rgba(14,165,233,.14) 34%, rgba(59,130,246,.15) 66%, rgba(139,92,246,.16));
+    --tool-glass-surface-soft: linear-gradient(145deg, rgba(94,234,212,.12), rgba(56,189,248,.10) 46%, rgba(129,140,248,.12));
+    --tool-glass-shadow: 0 26px 76px rgba(0,0,0,.34), 0 0 48px rgba(34,211,238,.18), inset 0 1px 0 rgba(255,255,255,.42), inset 0 0 0 1px rgba(255,255,255,.12), inset 0 -26px 70px rgba(76,108,132,.08);
   }
 
   .translucent-tool-page::before {
@@ -61,9 +60,10 @@ const translucentToolCss = String.raw`
     pointer-events: none;
     z-index: 0;
     background:
-      radial-gradient(circle at 16% 10%, rgba(224,242,254,.13), transparent 30%),
-      radial-gradient(circle at 84% 18%, rgba(191,219,254,.10), transparent 32%),
-      radial-gradient(circle at 62% 82%, rgba(216,180,254,.075), transparent 34%);
+      radial-gradient(circle at 14% 12%, rgba(20,184,166,.28), transparent 31%),
+      radial-gradient(circle at 48% 44%, rgba(14,165,233,.22), transparent 38%),
+      radial-gradient(circle at 86% 18%, rgba(99,102,241,.22), transparent 32%),
+      radial-gradient(circle at 68% 84%, rgba(139,92,246,.18), transparent 34%);
   }
 
   .translucent-tool-page > * { position: relative; z-index: 1; }
@@ -71,23 +71,23 @@ const translucentToolCss = String.raw`
   .translucent-tool-page .glass-card {
     overflow: hidden;
     border: 1px solid var(--tool-glass-border) !important;
-    background-color: rgba(180, 207, 224, .07) !important;
+    background-color: rgba(18, 78, 102, .10) !important;
     background-image: var(--tool-glass-surface) !important;
     box-shadow: var(--tool-glass-shadow) !important;
-    backdrop-filter: blur(34px) saturate(1.32) brightness(1.04) !important;
-    -webkit-backdrop-filter: blur(34px) saturate(1.32) brightness(1.04) !important;
+    backdrop-filter: blur(34px) saturate(1.42) brightness(1.08) !important;
+    -webkit-backdrop-filter: blur(34px) saturate(1.42) brightness(1.08) !important;
   }
 
   .translucent-tool-page .glass-card::before {
     background:
-      linear-gradient(122deg, rgba(255,255,255,.31), rgba(255,255,255,.075) 18%, transparent 37%),
-      radial-gradient(circle at 11% 0%, rgba(224,242,254,.22), transparent 34%),
-      radial-gradient(circle at 100% 14%, rgba(221,214,254,.15), transparent 30%) !important;
-    opacity: .74 !important;
+      linear-gradient(122deg, rgba(255,255,255,.36), rgba(255,255,255,.09) 18%, transparent 37%),
+      radial-gradient(circle at 11% 0%, rgba(153,246,228,.26), transparent 34%),
+      radial-gradient(circle at 100% 14%, rgba(196,181,253,.22), transparent 30%) !important;
+    opacity: .82 !important;
   }
 
   .translucent-tool-page .glass-card::after {
-    opacity: .22 !important;
+    opacity: .28 !important;
     filter: blur(18px);
   }
 
@@ -98,8 +98,8 @@ const translucentToolCss = String.raw`
     border-radius: 28px !important;
     background: var(--tool-glass-surface) !important;
     box-shadow: var(--tool-glass-shadow) !important;
-    backdrop-filter: blur(34px) saturate(1.32) !important;
-    -webkit-backdrop-filter: blur(34px) saturate(1.32) !important;
+    backdrop-filter: blur(34px) saturate(1.42) !important;
+    -webkit-backdrop-filter: blur(34px) saturate(1.42) !important;
   }
 
   .translucent-tool-page main div[class*="bg-[#"],
@@ -111,55 +111,63 @@ const translucentToolCss = String.raw`
   .translucent-tool-page main section[class*="bg-black/"],
   .translucent-tool-page main label[class*="bg-black/"],
   .translucent-tool-page main article[class*="bg-black/"] {
-    background-color: rgba(178,205,222,.065) !important;
+    background-color: rgba(17,94,117,.10) !important;
     background-image: var(--tool-glass-surface-soft) !important;
-    border-color: rgba(255,255,255,.26) !important;
-    box-shadow: 0 18px 48px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(255,255,255,.075) !important;
-    backdrop-filter: blur(28px) saturate(1.24) brightness(1.035) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(1.24) brightness(1.035) !important;
+    border-color: rgba(207,250,254,.34) !important;
+    box-shadow: 0 18px 48px rgba(0,0,0,.20), 0 0 30px rgba(34,211,238,.10), inset 0 1px 0 rgba(255,255,255,.34), inset 0 0 0 1px rgba(255,255,255,.09) !important;
+    backdrop-filter: blur(28px) saturate(1.34) brightness(1.07) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(1.34) brightness(1.07) !important;
   }
 
   .translucent-tool-page main input,
   .translucent-tool-page main textarea,
   .translucent-tool-page main select {
-    color: rgba(255,255,255,.97) !important;
-    border-color: rgba(255,255,255,.30) !important;
-    background: linear-gradient(145deg, rgba(255,255,255,.105), rgba(176,205,225,.065)) !important;
-    box-shadow: 0 12px 34px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.27), inset 0 0 0 1px rgba(255,255,255,.075) !important;
-    backdrop-filter: blur(24px) saturate(1.22) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(1.22) !important;
+    color: rgba(255,255,255,.99) !important;
+    border-color: rgba(207,250,254,.40) !important;
+    background: linear-gradient(145deg, rgba(45,212,191,.12), rgba(59,130,246,.11), rgba(139,92,246,.10)) !important;
+    box-shadow: 0 12px 34px rgba(0,0,0,.18), 0 0 24px rgba(34,211,238,.08), inset 0 1px 0 rgba(255,255,255,.31), inset 0 0 0 1px rgba(255,255,255,.09) !important;
+    backdrop-filter: blur(24px) saturate(1.30) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(1.30) !important;
   }
 
   .translucent-tool-page main select option {
     color: white;
-    background: #17212d;
+    background: #0b1c2d;
   }
 
   .translucent-tool-page main input::placeholder,
   .translucent-tool-page main textarea::placeholder {
-    color: rgba(224,242,254,.58) !important;
+    color: rgba(236,254,255,.72) !important;
   }
 
   .translucent-tool-page main input:focus,
   .translucent-tool-page main textarea:focus,
   .translucent-tool-page main select:focus {
-    border-color: rgba(224,242,254,.62) !important;
-    box-shadow: 0 0 0 3px rgba(186,230,253,.10), 0 18px 44px rgba(0,0,0,.23), inset 0 1px 0 rgba(255,255,255,.34) !important;
+    border-color: rgba(207,250,254,.76) !important;
+    box-shadow: 0 0 0 3px rgba(34,211,238,.12), 0 18px 44px rgba(0,0,0,.23), 0 0 32px rgba(34,211,238,.14), inset 0 1px 0 rgba(255,255,255,.38) !important;
   }
 
   .translucent-tool-page main div[class*="rounded-[27px]"][class*="border"],
   .translucent-tool-page main div[class*="rounded-[26px]"][class*="border"],
   .translucent-tool-page main div[class*="rounded-[25px]"][class*="border"],
   .translucent-tool-page main div[class*="rounded-[23px]"][class*="border"] {
-    background-color: rgba(176,204,222,.06) !important;
+    background-color: rgba(17,94,117,.08) !important;
     background-image: var(--tool-glass-surface-soft) !important;
-    border-color: rgba(255,255,255,.22) !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.26), inset 0 0 0 1px rgba(255,255,255,.07) !important;
+    border-color: rgba(207,250,254,.30) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.30), inset 0 0 0 1px rgba(255,255,255,.08) !important;
   }
 
   .translucent-tool-page main [class*="text-cyan-100/"],
-  .translucent-tool-page main [class*="text-cyan-50/"] {
-    color: rgba(232,247,255,.82) !important;
+  .translucent-tool-page main [class*="text-cyan-50/"],
+  .translucent-tool-page main [class*="text-sky-100/"],
+  .translucent-tool-page main [class*="text-sky-50/"] {
+    color: rgba(236,254,255,.93) !important;
+  }
+
+  .translucent-tool-page main h1,
+  .translucent-tool-page main h2,
+  .translucent-tool-page main h3 {
+    text-shadow: 0 0 18px rgba(207,250,254,.16), 0 0 34px rgba(34,211,238,.08);
   }
 
   .translucent-tool-page main [class*="bg-rose-"],
@@ -167,16 +175,16 @@ const translucentToolCss = String.raw`
   .translucent-tool-page main [class*="bg-emerald-"],
   .translucent-tool-page main [class*="bg-violet-"],
   .translucent-tool-page main [class*="bg-cyan-"] {
-    backdrop-filter: blur(22px) saturate(1.22);
-    -webkit-backdrop-filter: blur(22px) saturate(1.22);
+    backdrop-filter: blur(22px) saturate(1.30);
+    -webkit-backdrop-filter: blur(22px) saturate(1.30);
   }
 
   .translucent-tool-page[data-tool-page="sec"] aside[role="dialog"] {
-    border-color: rgba(255,255,255,.34) !important;
-    background: linear-gradient(145deg, rgba(255,255,255,.14), rgba(122,154,178,.14)) !important;
-    box-shadow: -30px 0 90px rgba(0,0,0,.42), inset 1px 0 0 rgba(255,255,255,.30) !important;
-    backdrop-filter: blur(38px) saturate(1.34) !important;
-    -webkit-backdrop-filter: blur(38px) saturate(1.34) !important;
+    border-color: rgba(207,250,254,.44) !important;
+    background: linear-gradient(145deg, rgba(45,212,191,.16), rgba(59,130,246,.15), rgba(139,92,246,.14)) !important;
+    box-shadow: -30px 0 90px rgba(0,0,0,.42), inset 1px 0 0 rgba(255,255,255,.34) !important;
+    backdrop-filter: blur(38px) saturate(1.40) !important;
+    -webkit-backdrop-filter: blur(38px) saturate(1.40) !important;
   }
 `;
 
@@ -187,10 +195,6 @@ function TranslucentToolPage({ page, children }: { page: string; children: React
       {children}
     </div>
   );
-}
-
-function EntitiesRoute() {
-  return <TranslucentToolPage page="entities"><EntitiesPage /></TranslucentToolPage>;
 }
 
 function CompetitorsRoute() {
@@ -273,7 +277,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
-      <Route path="/entities" component={EntitiesRoute} />
       <Route path="/competitors" component={CompetitorsRoute} />
       <Route path="/federal-agencies" component={FederalAgenciesRoute} />
       <Route path="/state-agencies" component={StateAgenciesRoute} />
