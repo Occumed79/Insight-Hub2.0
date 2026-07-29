@@ -59,6 +59,9 @@ services:
         sync: false
       - key: FEC_API_KEY
         sync: false
+      # FMCSA QCMobile WebKey. Paste only the key value; the server adds the webKey query parameter.
+      - key: FMCSA_WEB_KEY
+        sync: false
       # --- Employer Intelligence Module env vars ---
       - key: BLS_API_KEY
         sync: false

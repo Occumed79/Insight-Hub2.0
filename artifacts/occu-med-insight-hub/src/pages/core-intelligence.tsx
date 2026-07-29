@@ -8,10 +8,12 @@ import {
   ExternalLink,
   FileText,
   Landmark,
+  Loader2,
   MapPin,
   Search,
   Target,
   TrendingUp,
+  Truck,
   UserRoundSearch,
   Users,
   X,
@@ -424,6 +426,21 @@ export function FederalAgenciesPage() {
 type StateProfile = { stateCode: string; stateName: string; region: string; oshaStatePlan: string; itemCount: number };
 type StateItem = { id: string; title: string; summary?: string | null; url?: string | null; publishedDate?: string | null; agency?: string | null; itemType?: string | null };
 type StateIntelItem = { id: string; title: string; summary?: string | null; url?: string | null; publishedDate?: string | null; source?: string | null; severity?: string | null };
+type FmcsaCarrier = {
+  dotNumber: string | null;
+  mcNumber: string | null;
+  legalName: string | null;
+  dbaName: string | null;
+  allowedToOperate: string | null;
+  outOfService: string | null;
+  outOfServiceDate: string | null;
+  complaintCount: number | null;
+  physicalAddress: { street: string | null; city: string | null; state: string | null; zip: string | null; country: string | null };
+  telephone: string | null;
+  vehicles: { passenger: number | null; bus: number | null; limo: number | null; minibus: number | null; motorcoach: number | null; van: number | null };
+};
+type FmcsaStatus = { configured: boolean; environmentVariable: string; limitation: string };
+type FmcsaSearchResponse = { records: FmcsaCarrier[]; returned: number; cacheState: string; limitation: string };
 
 const STATE_BUCKETS = [
   ["procurement", "Procurement"],
@@ -461,19 +478,47 @@ function stateCodeFromGeography(id: string | number | undefined): string | null 
   return FIPS_TO_STATE[String(id).padStart(2, "0")] ?? null;
 }
 
+function formatCarrierAddress(carrier: FmcsaCarrier): string {
+  return [carrier.physicalAddress.street, carrier.physicalAddress.city, carrier.physicalAddress.state, carrier.physicalAddress.zip, carrier.physicalAddress.country].filter(Boolean).join(", ") || "Address not reported";
+}
+
 export function StateAgenciesPage() {
   const [view, setView] = useState<"state" | "intel">("state");
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [hoveredState, setHoveredState] = useState<string | null>(null);
   const [bucket, setBucket] = useState("procurement");
   const [channel, setChannel] = useState("public_health");
+  const [fmcsaQuery, setFmcsaQuery] = useState("");
+  const [fmcsaResults, setFmcsaResults] = useState<FmcsaCarrier[]>([]);
+  const [fmcsaError, setFmcsaError] = useState("");
+  const [fmcsaLoading, setFmcsaLoading] = useState(false);
   const statesQ = useQuery({ queryKey: ["core-states"], queryFn: () => fetchJson<{ states: StateProfile[] }>("state-agencies/states") });
   const stateItemsQ = useQuery({ queryKey: ["core-state-items", selectedState, bucket], queryFn: () => fetchJson<{ items: StateItem[]; bucketCounts: Record<string, number> }>(`state-agencies/items?stateCode=${selectedState}&bucket=${bucket}`), enabled: Boolean(selectedState) });
   const intelQ = useQuery({ queryKey: ["core-state-intel", channel], queryFn: () => fetchJson<{ items: StateIntelItem[]; channelCounts: Record<string, number> }>(`state-agencies/intel?channel=${channel}`) });
+  const fmcsaStatusQ = useQuery({ queryKey: ["fmcsa-status"], queryFn: () => fetchJson<FmcsaStatus>("core-intelligence/fmcsa/status") });
   const states = statesQ.data?.states ?? [];
   const stateByCode = useMemo(() => new Map(states.map((state) => [state.stateCode, state])), [states]);
   const selectedProfile = selectedState ? stateByCode.get(selectedState) : undefined;
   const hoveredProfile = hoveredState ? stateByCode.get(hoveredState) : undefined;
+
+  async function searchFmcsa() {
+    const query = fmcsaQuery.trim();
+    if (!query || !selectedState) return;
+    setFmcsaLoading(true);
+    setFmcsaError("");
+    setFmcsaResults([]);
+    try {
+      const params = new URLSearchParams({ stateCode: selectedState });
+      if (/^\d+$/.test(query)) params.set("dotNumber", query);
+      else params.set("name", query);
+      const result = await fetchJson<FmcsaSearchResponse>(`core-intelligence/fmcsa/carriers?${params.toString()}`);
+      setFmcsaResults(result.records);
+    } catch (error) {
+      setFmcsaError(error instanceof Error ? error.message : "FMCSA search failed.");
+    } finally {
+      setFmcsaLoading(false);
+    }
+  }
 
   return (
     <WorkspaceShell eyebrow="Government Intelligence" title="State Agencies" subtitle="Click a state on the map to open its regulatory, health, labor, licensing, emergency, and procurement intelligence.">
@@ -563,6 +608,60 @@ export function StateAgenciesPage() {
               <div className="mb-5 flex gap-2 overflow-x-auto pb-2">
                 {STATE_BUCKETS.map(([id, label]) => <button key={id} onClick={() => setBucket(id)} className={cn("shrink-0 rounded-xl border px-3 py-2 text-xs backdrop-blur-xl", bucket === id ? "border-white/42 bg-white/[0.14] text-white" : "border-white/20 bg-white/[0.045] text-sky-100/54")}>{label}</button>)}
               </div>
+
+              {bucket === "fmcsa" ? (
+                <div className="mb-6 rounded-[24px] border border-white/24 bg-white/[0.065] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,.18)] backdrop-blur-2xl">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="grid h-11 w-11 place-items-center rounded-2xl border border-white/24 bg-white/[0.08] text-sky-100"><Truck size={20} /></div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[.2em] text-sky-100/50">Live federal carrier data</p>
+                        <h3 className="mt-1 text-lg font-black">FMCSA QCMobile carrier search</h3>
+                        <p className="mt-1 text-xs leading-5 text-sky-100/54">Search by legal/DBA name or USDOT number. Name results are filtered to {selectedProfile.stateName}.</p>
+                      </div>
+                    </div>
+                    <span className={cn("rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.12em]", fmcsaStatusQ.data?.configured ? "border-emerald-200/28 bg-emerald-300/[0.08] text-emerald-100" : "border-amber-200/28 bg-amber-300/[0.08] text-amber-100")}>{fmcsaStatusQ.isLoading ? "Checking" : fmcsaStatusQ.data?.configured ? "API ready" : "Key required"}</span>
+                  </div>
+                  <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                    <label className="flex min-h-12 flex-1 items-center gap-3 rounded-2xl border border-white/26 bg-white/[0.065] px-4">
+                      <Search size={16} className="text-sky-100/55" />
+                      <input
+                        value={fmcsaQuery}
+                        onChange={(event) => setFmcsaQuery(event.target.value)}
+                        onKeyDown={(event) => { if (event.key === "Enter") void searchFmcsa(); }}
+                        className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-sky-100/38"
+                        placeholder="Carrier name or USDOT number"
+                      />
+                    </label>
+                    <button type="button" onClick={() => void searchFmcsa()} disabled={fmcsaLoading || !fmcsaQuery.trim() || fmcsaStatusQ.data?.configured === false} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/30 bg-white/[0.11] px-5 text-sm font-bold text-white transition hover:bg-white/[0.16] disabled:cursor-not-allowed disabled:opacity-45">
+                      {fmcsaLoading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                      Search FMCSA
+                    </button>
+                  </div>
+                  {fmcsaStatusQ.data?.configured === false ? <p className="mt-3 text-xs text-amber-100/76">Add <code className="rounded bg-white/[0.08] px-1.5 py-0.5">FMCSA_WEB_KEY</code> to the Render service environment, then redeploy.</p> : null}
+                  {fmcsaError ? <p className="mt-3 rounded-2xl border border-rose-200/20 bg-rose-300/[0.06] p-3 text-xs text-rose-100">{fmcsaError}</p> : null}
+                  {fmcsaResults.length ? (
+                    <div className="mt-5 grid gap-3 lg:grid-cols-2">
+                      {fmcsaResults.map((carrier, index) => (
+                        <article key={`${carrier.dotNumber || carrier.legalName || "carrier"}-${index}`} className="rounded-2xl border border-white/22 bg-white/[0.06] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.17)]">
+                          <div className="flex items-start justify-between gap-3">
+                            <div><p className="text-[10px] uppercase tracking-[.16em] text-sky-100/50">USDOT {carrier.dotNumber || "not reported"}{carrier.mcNumber ? ` · MC ${carrier.mcNumber}` : ""}</p><h4 className="mt-1 font-bold text-white">{carrier.legalName || carrier.dbaName || "Unnamed carrier"}</h4>{carrier.dbaName && carrier.dbaName !== carrier.legalName ? <p className="mt-1 text-xs text-sky-100/58">DBA: {carrier.dbaName}</p> : null}</div>
+                            <Truck size={17} className="shrink-0 text-sky-100/62" />
+                          </div>
+                          <p className="mt-3 text-xs leading-5 text-sky-100/58">{formatCarrierAddress(carrier)}</p>
+                          <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-[.1em]">
+                            <span className="rounded-full border border-white/20 bg-white/[0.05] px-2.5 py-1 text-sky-100/70">Operate: {carrier.allowedToOperate || "unknown"}</span>
+                            <span className="rounded-full border border-white/20 bg-white/[0.05] px-2.5 py-1 text-sky-100/70">Out of service: {carrier.outOfService || "unknown"}</span>
+                            {carrier.complaintCount !== null ? <span className="rounded-full border border-white/20 bg-white/[0.05] px-2.5 py-1 text-sky-100/70">Complaints: {carrier.complaintCount}</span> : null}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
+                  {!fmcsaLoading && !fmcsaError && fmcsaQuery.trim() && fmcsaResults.length === 0 ? <p className="mt-4 text-xs text-sky-100/50">No matching carrier records have been returned yet.</p> : null}
+                </div>
+              ) : null}
+
               {stateItemsQ.isLoading ? <LoadingCard label="state items" /> : stateItemsQ.error ? <ErrorCard error={stateItemsQ.error} /> : (
                 <div className="grid gap-3 lg:grid-cols-2">
                   {(stateItemsQ.data?.items ?? []).map((item) => (
@@ -572,7 +671,7 @@ export function StateAgenciesPage() {
                       <p className="mt-3 text-[10px] text-sky-100/44">{item.agency || item.itemType || "State source"} · {formatDate(item.publishedDate)}</p>
                     </article>
                   ))}
-                  {(stateItemsQ.data?.items ?? []).length === 0 ? <p className="col-span-full rounded-2xl border border-white/20 bg-white/[0.045] p-6 text-sm text-sky-100/54">No records are saved in this bucket for {selectedProfile.stateName}.</p> : null}
+                  {(stateItemsQ.data?.items ?? []).length === 0 && bucket !== "fmcsa" ? <p className="col-span-full rounded-2xl border border-white/20 bg-white/[0.045] p-6 text-sm text-sky-100/54">No records are saved in this bucket for {selectedProfile.stateName}.</p> : null}
                 </div>
               )}
             </TahoePanel>
