@@ -56,7 +56,10 @@ function PortalArt({ kind }: { kind: PortalConfig["imageKind"] }) {
     <div className="portal-banner portal-photo relative h-[156px] overflow-hidden rounded-[20px] border border-violet-200/24 bg-[#060616]">
       <img src={portalImageMap[kind]} alt="" className="h-full w-full object-cover object-center" loading="lazy" decoding="async" />
       <div className="absolute inset-0 bg-[linear-gradient(170deg,rgba(2,4,17,.25),rgba(9,2,26,.76)),radial-gradient(circle_at_16%_22%,rgba(52,211,153,.30),transparent_40%),radial-gradient(circle_at_84%_20%,rgba(34,211,238,.28),transparent_40%),radial-gradient(circle_at_50%_76%,rgba(139,92,246,.62),transparent_58%)]" />
-      <div className="portal-shimmer absolute inset-0" />
+      <div
+        className="portal-shimmer absolute inset-0"
+        style={{ filter: "brightness(1.55) contrast(1.18) saturate(1.15)", mixBlendMode: "screen" }}
+      />
       <div className="absolute inset-x-6 top-8 h-px bg-cyan-100/36" />
       <div className="absolute inset-x-10 top-14 h-px bg-emerald-100/26" />
       <div className="absolute inset-x-8 top-[88px] h-px bg-violet-100/22" />
