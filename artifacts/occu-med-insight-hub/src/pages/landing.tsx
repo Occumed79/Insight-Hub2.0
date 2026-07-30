@@ -1,5 +1,5 @@
 import { ArrowUpRight, Building2, Globe2, Landmark, Layers, Network, Save, Settings2, Sigma, X } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { portalCards } from "@/data/portals";
@@ -9,12 +9,12 @@ import occuMedLogoDataUrl from "@/assets/occu-med-logo-data";
 const iconMap = { profile: Building2, quant: Sigma, geo: Globe2, entity: Network, discovery: Layers, federal: Landmark };
 
 const portalImageMap: Record<PortalConfig["imageKind"], string> = {
-  profile: "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=900&q=72",
-  quant: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=900&q=72",
-  geo: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=900&q=72",
-  entity: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=900&q=72",
-  discovery: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=900&q=72",
-  federal: "https://images.unsplash.com/photo-1446776877081-d282a0f896e2?auto=format&fit=crop&w=900&q=72",
+  profile: "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80",
+  quant: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80",
+  geo: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80",
+  entity: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80",
+  discovery: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80",
+  federal: "https://images.unsplash.com/photo-1446776877081-d282a0f896e2?auto=format&fit=crop&w=1200&q=80",
 };
 
 type PortalLinks = Record<PortalLinkKey, string>;
@@ -52,40 +52,11 @@ function OccuMedWordmark() {
 
 function PortalArt({ kind }: { kind: PortalConfig["imageKind"] }) {
   const Icon = iconMap[kind];
-  const reduceMotion = useReducedMotion();
-
   return (
-    <div
-      className="relative isolate h-[156px] overflow-hidden rounded-[20px] border border-violet-200/24 bg-[#060616]"
-      style={{ contain: "paint", transform: "translateZ(0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
-    >
-      <img
-        src={portalImageMap[kind]}
-        alt=""
-        aria-hidden="true"
-        className="block h-full w-full select-none object-cover object-center"
-        loading="eager"
-        decoding="async"
-        draggable={false}
-        style={{ transform: "translateZ(0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
-      />
+    <div className="portal-banner portal-photo relative h-[156px] overflow-hidden rounded-[20px] border border-violet-200/24 bg-[#060616]">
+      <img src={portalImageMap[kind]} alt="" className="h-full w-full object-cover object-center" loading="lazy" decoding="async" />
       <div className="absolute inset-0 bg-[linear-gradient(170deg,rgba(2,4,17,.25),rgba(9,2,26,.76)),radial-gradient(circle_at_16%_22%,rgba(52,211,153,.30),transparent_40%),radial-gradient(circle_at_84%_20%,rgba(34,211,238,.28),transparent_40%),radial-gradient(circle_at_50%_76%,rgba(139,92,246,.62),transparent_58%)]" />
-      <motion.div
-        className="pointer-events-none absolute inset-0"
-        aria-hidden="true"
-        initial={false}
-        animate={reduceMotion
-          ? { opacity: 0.35, backgroundPosition: "50% 0%" }
-          : { opacity: [0, 0.85, 0], backgroundPosition: ["-140% 0%", "140% 0%"] }}
-        transition={reduceMotion
-          ? { duration: 0 }
-          : { duration: 7.5, repeat: Infinity, repeatDelay: 1.25, ease: "easeInOut" }}
-        style={{
-          backgroundImage: "linear-gradient(110deg, transparent 0%, rgba(255,255,255,.08) 42%, rgba(125,211,252,.18) 50%, rgba(255,255,255,.08) 58%, transparent 100%)",
-          backgroundSize: "240% 100%",
-          willChange: reduceMotion ? "auto" : "background-position, opacity",
-        }}
-      />
+      <div className="portal-shimmer absolute inset-0" />
       <div className="absolute inset-x-6 top-8 h-px bg-cyan-100/36" />
       <div className="absolute inset-x-10 top-14 h-px bg-emerald-100/26" />
       <div className="absolute inset-x-8 top-[88px] h-px bg-violet-100/22" />
@@ -102,52 +73,29 @@ function PortalArt({ kind }: { kind: PortalConfig["imageKind"] }) {
 
 function PortalCard({ portal, index }: { portal: PortalConfig; index: number }) {
   const missingExternalUrl = portal.mode === "external" && !portal.href;
-  const reduceMotion = useReducedMotion();
 
   const body = (
     <motion.div
-      initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 22 }}
+      initial={{ opacity: 0, y: 22 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={reduceMotion ? { duration: 0 } : { delay: 0.2 + index * 0.06, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-      className="h-full"
-      style={{ willChange: reduceMotion ? "auto" : "transform, opacity" }}
+      transition={{ delay: 0.2 + index * 0.06, duration: 0.55 }}
+      className={`portal-card glass-card group relative h-full min-h-[300px] overflow-hidden rounded-[32px] p-[6px] ${missingExternalUrl ? "opacity-70" : ""}`}
+      style={{ position: "relative" }}
     >
-      <div
-        className={`group relative isolate h-full min-h-[300px] overflow-hidden rounded-[32px] border border-cyan-200/20 bg-[linear-gradient(145deg,rgba(4,13,26,.94),rgba(3,10,24,.82)_48%,rgba(8,19,42,.90))] p-[6px] shadow-[0_26px_72px_rgba(0,0,0,.46),0_0_0_1px_rgba(255,255,255,.035),inset_0_1px_0_rgba(255,255,255,.12),inset_0_-42px_80px_rgba(15,23,42,.42),inset_0_0_55px_rgba(45,212,191,.07)] backdrop-blur-2xl ${missingExternalUrl ? "opacity-70" : ""}`}
-        style={{ contain: "paint", transform: "translateZ(0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
-      >
-        <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(122deg,rgba(255,255,255,.14)_0%,rgba(255,255,255,.06)_12%,transparent_30%),radial-gradient(circle_at_18%_0%,rgba(125,211,252,.14),transparent_36%),radial-gradient(circle_at_100%_8%,rgba(167,139,250,.11),transparent_32%)] opacity-80" />
-        <motion.div
-          className="pointer-events-none absolute inset-0 rounded-[inherit]"
-          aria-hidden="true"
-          initial={false}
-          animate={reduceMotion
-            ? { opacity: 0.3, backgroundPosition: "50% 0%" }
-            : { opacity: [0, 0, 0.52, 0, 0], backgroundPosition: ["-130% 0%", "-130% 0%", "130% 0%", "130% 0%", "130% 0%"] }}
-          transition={reduceMotion
-            ? { duration: 0 }
-            : { duration: 9, repeat: Infinity, ease: "easeInOut", times: [0, 0.56, 0.68, 0.82, 1] }}
-          style={{
-            backgroundImage: "linear-gradient(108deg, transparent 0%, rgba(255,255,255,.06) 43%, rgba(125,211,252,.12) 50%, rgba(255,255,255,.06) 57%, transparent 100%)",
-            backgroundSize: "240% 100%",
-            willChange: reduceMotion ? "auto" : "background-position, opacity",
-          }}
-        />
-        <div className="relative z-[1] h-full rounded-[26px] border border-white/[0.07] bg-[linear-gradient(145deg,rgba(2,8,23,.86),rgba(5,18,37,.64)_52%,rgba(2,6,23,.90))] px-3 pb-3 pt-3 shadow-[inset_0_1px_0_rgba(255,255,255,.10),inset_0_0_34px_rgba(45,212,191,.07)]">
-          <div className="absolute left-6 top-6 z-10 h-7 w-7 rounded-full border border-cyan-200/40 bg-cyan-200/14 shadow-[0_0_28px_rgba(34,211,238,.34)]" />
-          <PortalArt kind={portal.imageKind} />
-          <div className="px-3 pb-3 pt-5">
-            <div className="flex items-center justify-between gap-4">
-              <h3 className="font-bold tracking-tight text-white transition group-hover:text-cyan-50">{portal.title}</h3>
-              <ArrowUpRight className="h-4 w-4 text-cyan-100/35 transition group-hover:text-cyan-100" />
-            </div>
-            <p className="mt-3 text-sm leading-6 text-cyan-100/66 transition group-hover:text-cyan-50/78">{portal.description}</p>
-            {missingExternalUrl && (
-              <p className="mt-2 text-[10px] text-yellow-300/70">
-                Add this URL through Manage portal links.
-              </p>
-            )}
+      <div className="portal-card-inner relative rounded-[26px] px-3 pb-3 pt-3">
+        <div className="absolute left-6 top-6 z-10 h-7 w-7 rounded-full border border-cyan-200/40 bg-cyan-200/14 shadow-[0_0_28px_rgba(34,211,238,.34)]" />
+        <PortalArt kind={portal.imageKind} />
+        <div className="px-3 pb-3 pt-5">
+          <div className="flex items-center justify-between gap-4">
+            <h3 className="font-bold tracking-tight text-white transition group-hover:text-cyan-50">{portal.title}</h3>
+            <ArrowUpRight className="h-4 w-4 text-cyan-100/35 transition group-hover:text-cyan-100" />
           </div>
+          <p className="mt-3 text-sm leading-6 text-cyan-100/66 transition group-hover:text-cyan-50/78">{portal.description}</p>
+          {missingExternalUrl && (
+            <p className="mt-2 text-[10px] text-yellow-300/70">
+              Add this URL through Manage portal links.
+            </p>
+          )}
         </div>
       </div>
     </motion.div>
@@ -295,7 +243,7 @@ export default function Landing() {
             Manage portal links
           </button>
         </motion.div>
-        <div className="mt-10 grid items-stretch gap-5 md:grid-cols-3">
+        <div className="mt-10 grid gap-5 md:grid-cols-3">
           {resolvedPortalCards.map((portal, index) => (
             <PortalCard key={portal.title} portal={portal} index={index} />
           ))}
