@@ -50,16 +50,15 @@ function OccuMedWordmark() {
   );
 }
 
-function PortalArt({ kind, index }: { kind: PortalConfig["imageKind"]; index: number }) {
+function PortalArt({ kind }: { kind: PortalConfig["imageKind"] }) {
   const Icon = iconMap[kind];
-  const reduceMotion = useReducedMotion();
 
   return (
     <div
       className="relative isolate h-[156px] overflow-hidden rounded-[20px] border border-violet-200/24 bg-[#060616]"
       style={{ contain: "paint", transform: "translateZ(0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
     >
-      <motion.img
+      <img
         src={portalImageMap[kind]}
         alt=""
         aria-hidden="true"
@@ -67,43 +66,16 @@ function PortalArt({ kind, index }: { kind: PortalConfig["imageKind"]; index: nu
         loading="eager"
         decoding="async"
         draggable={false}
-        initial={false}
-        animate={reduceMotion
-          ? { scale: 1, filter: "brightness(1) saturate(1)" }
-          : {
-              scale: [1, 1.018, 1.006, 1],
-              filter: [
-                "brightness(1) saturate(1)",
-                "brightness(1.12) saturate(1.13)",
-                "brightness(1.04) saturate(1.06)",
-                "brightness(1) saturate(1)",
-              ],
-            }}
-        transition={reduceMotion
-          ? { duration: 0 }
-          : { duration: 8.8, repeat: Infinity, repeatDelay: 1.4, ease: "easeInOut", delay: index * 0.16 }}
-        style={{
-          transform: "translateZ(0)",
-          backfaceVisibility: "hidden",
-          WebkitBackfaceVisibility: "hidden",
-          willChange: reduceMotion ? "auto" : "transform, filter",
-        }}
+        style={{ transform: "translateZ(0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
       />
       <div className="absolute inset-0 bg-[linear-gradient(170deg,rgba(2,4,17,.25),rgba(9,2,26,.76)),radial-gradient(circle_at_16%_22%,rgba(52,211,153,.30),transparent_40%),radial-gradient(circle_at_84%_20%,rgba(34,211,238,.28),transparent_40%),radial-gradient(circle_at_50%_76%,rgba(139,92,246,.62),transparent_58%)]" />
-      <motion.div
-        className="pointer-events-none absolute inset-0"
+      <div
+        className="pointer-events-none absolute inset-0 opacity-35"
         aria-hidden="true"
-        initial={false}
-        animate={reduceMotion
-          ? { opacity: 0.22, scale: 1 }
-          : { opacity: [0.14, 0.5, 0.22, 0.14], scale: [0.99, 1.035, 1.012, 0.99] }}
-        transition={reduceMotion
-          ? { duration: 0 }
-          : { duration: 8.8, repeat: Infinity, repeatDelay: 1.4, ease: "easeInOut", delay: index * 0.16 }}
         style={{
-          backgroundImage: "radial-gradient(circle at 18% 18%, rgba(255,255,255,.24), transparent 31%), radial-gradient(circle at 80% 26%, rgba(125,211,252,.20), transparent 35%), radial-gradient(circle at 52% 88%, rgba(196,181,253,.17), transparent 40%)",
-          transformOrigin: "50% 50%",
-          willChange: reduceMotion ? "auto" : "opacity, transform",
+          backgroundImage: "linear-gradient(110deg, transparent 0%, rgba(255,255,255,.08) 42%, rgba(125,211,252,.16) 50%, rgba(255,255,255,.08) 58%, transparent 100%)",
+          backgroundPosition: "50% 0%",
+          backgroundSize: "240% 100%",
         }}
       />
       <div className="absolute inset-x-6 top-8 h-px bg-cyan-100/36" />
@@ -111,7 +83,7 @@ function PortalArt({ kind, index }: { kind: PortalConfig["imageKind"]; index: nu
       <div className="absolute inset-x-8 top-[88px] h-px bg-violet-100/22" />
       <div className="absolute bottom-5 left-6 right-6 h-px bg-gradient-to-r from-transparent via-cyan-100/46 to-transparent" />
       <div className="absolute right-5 top-5 grid grid-cols-4 gap-1 opacity-60">
-        {Array.from({ length: 16 }).map((_, itemIndex) => <span key={itemIndex} className="h-1 w-4 rounded-full bg-cyan-100/60" />)}
+        {Array.from({ length: 16 }).map((_, index) => <span key={index} className="h-1 w-4 rounded-full bg-cyan-100/60" />)}
       </div>
       <div className="absolute bottom-4 left-4 flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-100/44 bg-slate-900/48 backdrop-blur-md">
         <Icon className="h-5 w-5 text-cyan-50/86 drop-shadow-[0_0_14px_rgba(103,232,249,.86)]" />
@@ -137,26 +109,18 @@ function PortalCard({ portal, index }: { portal: PortalConfig; index: number }) 
         style={{ contain: "paint", transform: "translateZ(0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
       >
         <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(122deg,rgba(255,255,255,.14)_0%,rgba(255,255,255,.06)_12%,transparent_30%),radial-gradient(circle_at_18%_0%,rgba(125,211,252,.14),transparent_36%),radial-gradient(circle_at_100%_8%,rgba(167,139,250,.11),transparent_32%)] opacity-80" />
-        <motion.div
-          className="pointer-events-none absolute inset-0 z-[2] rounded-[inherit]"
+        <div
+          className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-24"
           aria-hidden="true"
-          initial={false}
-          animate={reduceMotion
-            ? { opacity: 0.2, scale: 1 }
-            : { opacity: [0.08, 0.08, 0.62, 0.24, 0.08], scale: [0.99, 0.99, 1.025, 1.008, 0.99] }}
-          transition={reduceMotion
-            ? { duration: 0 }
-            : { duration: 10.5, repeat: Infinity, ease: "easeInOut", times: [0, 0.58, 0.68, 0.82, 1], delay: index * 0.28 }}
           style={{
-            backgroundImage: "radial-gradient(circle at 8% 0%, rgba(255,255,255,.34), transparent 34%), radial-gradient(circle at 96% 10%, rgba(125,211,252,.22), transparent 31%), radial-gradient(circle at 88% 100%, rgba(196,181,253,.18), transparent 38%)",
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,.22), inset 0 0 58px rgba(34,211,238,.08)",
-            transformOrigin: "50% 50%",
-            willChange: reduceMotion ? "auto" : "opacity, transform",
+            backgroundImage: "linear-gradient(108deg, transparent 0%, rgba(255,255,255,.06) 43%, rgba(125,211,252,.12) 50%, rgba(255,255,255,.06) 57%, transparent 100%)",
+            backgroundPosition: "50% 0%",
+            backgroundSize: "240% 100%",
           }}
         />
-        <div className="relative z-[3] h-full rounded-[26px] border border-white/[0.07] bg-[linear-gradient(145deg,rgba(2,8,23,.86),rgba(5,18,37,.64)_52%,rgba(2,6,23,.90))] px-3 pb-3 pt-3 shadow-[inset_0_1px_0_rgba(255,255,255,.10),inset_0_0_34px_rgba(45,212,191,.07)]">
+        <div className="relative z-[1] h-full rounded-[26px] border border-white/[0.07] bg-[linear-gradient(145deg,rgba(2,8,23,.86),rgba(5,18,37,.64)_52%,rgba(2,6,23,.90))] px-3 pb-3 pt-3 shadow-[inset_0_1px_0_rgba(255,255,255,.10),inset_0_0_34px_rgba(45,212,191,.07)]">
           <div className="absolute left-6 top-6 z-10 h-7 w-7 rounded-full border border-cyan-200/40 bg-cyan-200/14 shadow-[0_0_28px_rgba(34,211,238,.34)]" />
-          <PortalArt kind={portal.imageKind} index={index} />
+          <PortalArt kind={portal.imageKind} />
           <div className="px-3 pb-3 pt-5">
             <div className="flex items-center justify-between gap-4">
               <h3 className="font-bold tracking-tight text-white transition group-hover:text-cyan-50">{portal.title}</h3>
