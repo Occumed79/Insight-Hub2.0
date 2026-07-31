@@ -1,7 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { latLngBounds, type LatLngTuple } from "leaflet";
-import { CircleMarker, MapContainer, TileLayer, useMap } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
 import {
   Building2,
   CheckCircle2,
@@ -16,6 +13,10 @@ import {
 } from "lucide-react";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
+import {
+  LocationsGlobeMap,
+  type LocationsGlobePoint,
+} from "@/components/insight/LocationsGlobeMap";
 import {
   discoverGeographicFootprint,
   getSavedGeographicEntities,
@@ -32,30 +33,7 @@ const ALL_SAVED = "all-saved";
 const SEARCH_RESULTS = "search-results";
 const MAPPABLE_CONFIDENCE = new Set(["exact", "place", "city"]);
 
-type CompanyPinPalette = {
-  fillColor: string;
-  borderColor: string;
-};
-
-function companyPinPalette(companyName: string): CompanyPinPalette {
-  const normalizedName = companyName.trim().toLowerCase() || "unknown-company";
-  let hash = 2166136261;
-
-  for (let index = 0; index < normalizedName.length; index += 1) {
-    hash ^= normalizedName.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  const unsignedHash = hash >>> 0;
-  const hue = (unsignedHash / 0xffffffff) * 360;
-  const saturation = 72 + ((unsignedHash >>> 8) % 17);
-  const lightness = 44 + ((unsignedHash >>> 16) % 10);
-
-  return {
-    fillColor: `hsl(${hue.toFixed(2)} ${saturation}% ${lightness}%)`,
-    borderColor: `hsl(${hue.toFixed(2)} ${Math.min(saturation + 5, 94)}% ${Math.min(lightness + 27, 82)}%)`,
-  };
-}
+type LatLngTuple = [number, number];
 
 type DisplayLocation = GeographicLocation & {
   companyName: string;
@@ -95,25 +73,6 @@ function confidenceLabel(location: GeographicLocation): string {
   return "Needs review";
 }
 
-function FitMapToLocations({ locations }: { locations: DisplayLocation[] }) {
-  const map = useMap();
-
-  useEffect(() => {
-    const points = locations.map(coordinatesFor).filter((point): point is LatLngTuple => Boolean(point));
-    if (points.length === 0) {
-      map.setView([20, 0], 2, { animate: true });
-      return;
-    }
-    if (points.length === 1) {
-      map.setView(points[0], 9, { animate: true });
-      return;
-    }
-    map.fitBounds(latLngBounds(points), { padding: [70, 70], maxZoom: 9, animate: true });
-  }, [locations, map]);
-
-  return null;
-}
-
 export default function GeographicData() {
   const [companyName, setCompanyName] = useState(() => sessionStorage.getItem(SESSION_COMPANY_KEY) || "");
   const [savedEntities, setSavedEntities] = useState<SavedGeographicEntity[]>([]);
@@ -121,6 +80,7 @@ export default function GeographicData() {
   const [searchResult, setSearchResult] = useState<GeographicFootprintResponse | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [immersiveMap, setImmersiveMap] = useState(false);
   const [loadingSaved, setLoadingSaved] = useState(true);
   const [searching, setSearching] = useState(false);
   const [savingLocationId, setSavingLocationId] = useState<number | null>(null);
@@ -252,10 +212,10 @@ export default function GeographicData() {
     setNotice(null);
   }
 
-  function openPreview(locationId: number) {
+  const openPreview = useCallback((locationId: number) => {
     setSelectedLocationId(locationId);
     setDetailOpen(false);
-  }
+  }, []);
 
   return (
     <main className="aurora-bg min-h-screen overflow-x-hidden text-white">
@@ -271,66 +231,48 @@ export default function GeographicData() {
           </p>
         </header>
 
-        <GlassCard
-          variant="glass"
-          className="relative overflow-hidden rounded-[36px] border border-cyan-100/20 bg-[#030916]/72 p-[6px] shadow-[0_28px_100px_rgba(0,0,0,.52),0_0_48px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.14)]"
-        >
-          <div className="relative overflow-hidden rounded-[30px] border border-white/[0.07] bg-[#050913]">
-            <div className="absolute left-5 top-5 z-[650] flex items-center gap-3 rounded-full border border-white/12 bg-[#07101d]/72 px-4 py-2 shadow-[0_14px_40px_rgba(0,0,0,.32)] backdrop-blur-xl">
-              <Globe2 size={15} className="text-cyan-200/80" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/78">{activeCompanyLabel}</span>
-              <span className="h-1 w-1 rounded-full bg-cyan-200/50" />
-              <span className="text-[10px] text-cyan-100/44">{displayedLocations.length} mapped</span>
-            </div>
+        <div className={immersiveMap ? "fixed inset-0 z-[980] bg-[#01040b]" : ""}>
+          <GlassCard
+            variant="glass"
+            className={immersiveMap
+              ? "h-full overflow-hidden rounded-none border-0 bg-[#01040b] p-0 shadow-none"
+              : "relative overflow-hidden rounded-[36px] border border-cyan-100/20 bg-[#030916]/72 p-[6px] shadow-[0_28px_100px_rgba(0,0,0,.52),0_0_48px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.14)]"}
+          >
+            <div className={immersiveMap
+              ? "relative h-full overflow-hidden bg-[#01040b]"
+              : "relative overflow-hidden rounded-[30px] border border-white/[0.07] bg-[#050913]"}
+            >
+              <div className={`absolute top-5 z-[650] flex items-center gap-3 rounded-full border border-white/12 bg-[#07101d]/72 px-4 py-2 shadow-[0_14px_40px_rgba(0,0,0,.32)] backdrop-blur-xl ${immersiveMap ? "left-44" : "left-5"}`}>
+                <Globe2 size={15} className="text-cyan-200/80" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/78">{activeCompanyLabel}</span>
+                <span className="h-1 w-1 rounded-full bg-cyan-200/50" />
+                <span className="text-[10px] text-cyan-100/44">{displayedLocations.length} mapped</span>
+              </div>
 
-            <div className="h-[calc(100vh-210px)] min-h-[620px] max-h-[940px] bg-[#050913]">
-              <MapContainer center={[20, 0]} zoom={2} minZoom={2} className="locations-map h-full w-full" worldCopyJump>
-                {import.meta.env.VITE_MAPBOX_ACCESS_TOKEN ? (
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url={`https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${encodeURIComponent(import.meta.env.VITE_MAPBOX_ACCESS_TOKEN)}`}
-                    tileSize={256}
-                  />
-                ) : (
-                  <TileLayer
-                    attribution='Tiles &copy; <a href="https://www.esri.com/">Esri</a> — Esri, TomTom, Garmin, FAO, NOAA, USGS, OpenStreetMap contributors, and the GIS User Community'
-                    url="https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
-                  />
-                )}
-                <FitMapToLocations locations={displayedLocations} />
-                {displayedLocations.map((location) => {
-                  const center = coordinatesFor(location);
-                  if (!center) return null;
-                  const active = location.id === selectedLocationId;
-                  const saved = location.reviewStatus === "verified";
-                  const pinPalette = companyPinPalette(location.companyName);
-                  return (
-                    <CircleMarker
-                      key={`${location.entityId}-${location.id}`}
-                      center={center}
-                      radius={active ? 12 : 8}
-                      pathOptions={{
-                        color: active ? "#ffffff" : pinPalette.borderColor,
-                        fillColor: pinPalette.fillColor,
-                        fillOpacity: active ? 1 : saved ? 0.94 : 0.8,
-                        weight: active ? 4 : saved ? 3 : 2,
-                      }}
-                      eventHandlers={{ click: () => openPreview(location.id) }}
-                    />
-                  );
-                })}
-              </MapContainer>
-            </div>
+              <div className={immersiveMap
+                ? "relative h-full min-h-0 bg-[#01040b]"
+                : "relative h-[calc(100vh-210px)] min-h-[620px] max-h-[940px] bg-[#050913]"}
+              >
+                <LocationsGlobeMap
+                  locations={displayedLocations as LocationsGlobePoint[]}
+                  selectedLocationId={selectedLocationId}
+                  immersive={immersiveMap}
+                  onSelectLocation={openPreview}
+                  onEnterImmersive={() => setImmersiveMap(true)}
+                  onExitImmersive={() => setImmersiveMap(false)}
+                />
+              </div>
 
-            {selectedLocation && (
-              <LocationPreview
-                location={selectedLocation}
-                onClose={() => setSelectedLocationId(null)}
-                onOpen={() => setDetailOpen(true)}
-              />
-            )}
-          </div>
-        </GlassCard>
+              {selectedLocation && (
+                <LocationPreview
+                  location={selectedLocation}
+                  onClose={() => setSelectedLocationId(null)}
+                  onOpen={() => setDetailOpen(true)}
+                />
+              )}
+            </div>
+          </GlassCard>
+        </div>
 
         <GlassCard
           variant="glass"
@@ -523,7 +465,7 @@ function LocationDetailModal({
   const discoveredBy = typeof metadata.discoveredBy === "string" ? metadata.discoveredBy : location.geocodeSource;
 
   return (
-    <div className="fixed inset-0 z-[900] flex items-center justify-center px-4 py-8">
+    <div className="fixed inset-0 z-[1100] flex items-center justify-center px-4 py-8">
       <button type="button" aria-label="Close location details" onClick={onClose} className="absolute inset-0 bg-[#01040b]/76 backdrop-blur-md" />
       <GlassCard
         variant="glass"
