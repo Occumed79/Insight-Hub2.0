@@ -6,8 +6,15 @@ const MAPBOX_GL_VERSION = "3.25.0";
 const MAPBOX_SCRIPT_URL = `https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_GL_VERSION}/mapbox-gl.js`;
 const MAPBOX_CSS_URL = `https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_GL_VERSION}/mapbox-gl.css`;
 const MAPBOX_LOAD_TIMEOUT_MS = 12_000;
+const LOCATIONS_SOURCE_ID = "occu-med-location-points";
+const LOCATIONS_GLOW_LAYER_ID = "occu-med-location-glow";
+const LOCATIONS_HALO_LAYER_ID = "occu-med-location-halo";
+const LOCATIONS_CORE_LAYER_ID = "occu-med-location-core";
 
 type LngLat = [number, number];
+type MapLayerFeature = { properties?: Record<string, unknown> };
+type MapLayerEvent = { features?: MapLayerFeature[] };
+type GeoJsonSource = { setData: (data: unknown) => void };
 
 export type LocationsGlobePoint = {
   id: number;
@@ -18,22 +25,28 @@ export type LocationsGlobePoint = {
   coordinates?: unknown;
 };
 
-type MapboxMarker = { remove: () => void };
 type MapboxMap = {
   addControl: (control: unknown, position?: string) => void;
+  addLayer: (layer: Record<string, unknown>, beforeId?: string) => void;
+  addSource: (id: string, source: Record<string, unknown>) => void;
   fitBounds: (bounds: [LngLat, LngLat], options?: Record<string, unknown>) => void;
   flyTo: (options: Record<string, unknown>) => void;
-  on: (event: string, handler: (...args: unknown[]) => void) => void;
+  getCanvas: () => HTMLCanvasElement;
+  getLayer: (id: string) => unknown;
+  getSource: (id: string) => GeoJsonSource | undefined;
+  on: {
+    (event: string, handler: (...args: unknown[]) => void): void;
+    (event: string, layerId: string, handler: (event: MapLayerEvent) => void): void;
+  };
   remove: () => void;
   resize: () => void;
   setFog: (fog: Record<string, unknown>) => void;
 };
+
 type MapboxGlobal = {
   Map: new (options: Record<string, unknown>) => MapboxMap;
-  Marker: new (options: { element: HTMLElement; anchor?: string }) => {
-    setLngLat: (coordinates: LngLat) => { addTo: (map: MapboxMap) => MapboxMarker };
-  };
   NavigationControl: new (options?: Record<string, unknown>) => unknown;
+  AttributionControl: new (options?: Record<string, unknown>) => unknown;
 };
 
 declare global {
@@ -118,6 +131,21 @@ function coordinatesFor(location: LocationsGlobePoint): LngLat | null {
   return [longitude, latitude];
 }
 
+const pinPalettes = [
+  { fillColor: "#ec4899", borderColor: "#f9a8d4" },
+  { fillColor: "#8b5cf6", borderColor: "#c4b5fd" },
+  { fillColor: "#3b82f6", borderColor: "#93c5fd" },
+  { fillColor: "#06b6d4", borderColor: "#67e8f9" },
+  { fillColor: "#14b8a6", borderColor: "#5eead4" },
+  { fillColor: "#22c55e", borderColor: "#86efac" },
+  { fillColor: "#84cc16", borderColor: "#bef264" },
+  { fillColor: "#eab308", borderColor: "#fde047" },
+  { fillColor: "#f59e0b", borderColor: "#fcd34d" },
+  { fillColor: "#f97316", borderColor: "#fdba74" },
+  { fillColor: "#ef4444", borderColor: "#fca5a5" },
+  { fillColor: "#d946ef", borderColor: "#f0abfc" },
+];
+
 function companyPinPalette(companyName: string) {
   const normalizedName = companyName.trim().toLowerCase() || "unknown-company";
   let hash = 2166136261;
@@ -125,13 +153,31 @@ function companyPinPalette(companyName: string) {
     hash ^= normalizedName.charCodeAt(index);
     hash = Math.imul(hash, 16777619);
   }
-  const unsignedHash = hash >>> 0;
-  const hue = (unsignedHash / 0xffffffff) * 360;
-  const saturation = 72 + ((unsignedHash >>> 8) % 17);
-  const lightness = 44 + ((unsignedHash >>> 16) % 10);
+  return pinPalettes[(hash >>> 0) % pinPalettes.length];
+}
+
+function locationsGeoJson(locations: LocationsGlobePoint[], selectedLocationId: number | null) {
   return {
-    fillColor: `hsl(${hue.toFixed(2)} ${saturation}% ${lightness}%)`,
-    borderColor: `hsl(${hue.toFixed(2)} ${Math.min(saturation + 5, 94)}% ${Math.min(lightness + 27, 82)}%)`,
+    type: "FeatureCollection",
+    features: locations.flatMap((location) => {
+      const coordinates = coordinatesFor(location);
+      if (!coordinates) return [];
+      const palette = companyPinPalette(location.companyName);
+      return [{
+        type: "Feature",
+        id: location.id,
+        properties: {
+          locationId: location.id,
+          companyName: location.companyName,
+          placeName: location.placeName,
+          fillColor: palette.fillColor,
+          borderColor: palette.borderColor,
+          selected: location.id === selectedLocationId,
+          verified: location.reviewStatus === "verified",
+        },
+        geometry: { type: "Point", coordinates },
+      }];
+    }),
   };
 }
 
@@ -161,22 +207,16 @@ const globeCss = String.raw`
   .locations-mapbox-canvas .mapboxgl-ctrl-group button { width: 36px; height: 36px; }
   .locations-mapbox-canvas .mapboxgl-ctrl-group button + button { border-top-color: rgba(207,250,254,.12); }
   .locations-mapbox-canvas .mapboxgl-ctrl-icon { filter: invert(1) brightness(1.7); }
-  .locations-mapbox-marker {
-    position: relative; width: 18px; height: 18px; padding: 0; cursor: pointer;
-    border: 3px solid var(--pin-border); border-radius: 999px; background: var(--pin-fill);
-    box-shadow: 0 0 0 2px rgba(2,8,23,.62), 0 0 18px color-mix(in srgb,var(--pin-fill) 80%,transparent), 0 8px 22px rgba(0,0,0,.46);
-    transition: width .18s ease, height .18s ease, border-color .18s ease, box-shadow .18s ease;
+  .locations-mapbox-canvas .mapboxgl-ctrl-attrib.mapboxgl-compact {
+    min-height: 26px; min-width: 26px; margin: 0 0 8px 8px; border: 1px solid rgba(207,250,254,.16);
+    border-radius: 999px; background-color: rgba(4,15,28,.72); box-shadow: 0 10px 28px rgba(0,0,0,.30);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   }
-  .locations-mapbox-marker::after {
-    content: ""; position: absolute; inset: -8px; border: 1px solid color-mix(in srgb,var(--pin-border) 60%,transparent);
-    border-radius: inherit; opacity: .45; animation: locations-pin-pulse 2.4s ease-out infinite;
+  .locations-mapbox-canvas .mapboxgl-ctrl-attrib.mapboxgl-compact-show {
+    max-width: min(86vw, 520px); border-radius: 12px; color: rgba(224,247,250,.78);
   }
-  .locations-mapbox-marker:hover,
-  .locations-mapbox-marker[data-active="true"] {
-    width: 26px; height: 26px; border-color: white;
-    box-shadow: 0 0 0 3px rgba(2,8,23,.72), 0 0 30px var(--pin-fill), 0 12px 30px rgba(0,0,0,.54);
-  }
-  .locations-mapbox-marker[data-saved="true"] { border-width: 4px; }
+  .locations-mapbox-canvas .mapboxgl-ctrl-attrib a { color: rgba(224,247,250,.82); }
+  .locations-mapbox-canvas .mapboxgl-ctrl-logo { margin: 0 0 8px 8px; opacity: .78; }
   .locations-light-burst {
     position: fixed; inset: 0; z-index: 1300; overflow: hidden; pointer-events: none;
     background: radial-gradient(circle at 50% 50%,rgba(255,255,255,.98),rgba(125,249,255,.58) 12%,rgba(82,126,255,.24) 28%,transparent 58%),
@@ -197,7 +237,6 @@ const globeCss = String.raw`
     background: hsl(var(--particle-hue) 100% 76%); box-shadow: 0 0 8px hsl(var(--particle-hue) 100% 82%), 0 0 24px hsl(var(--particle-hue) 100% 66% / .82);
     animation: locations-confetti-light calc(var(--particle-duration) * 1ms) cubic-bezier(.16,.74,.2,1) calc(var(--particle-delay) * 1ms) both;
   }
-  @keyframes locations-pin-pulse { 0% { transform: scale(.55); opacity: .78; } 72%,100% { transform: scale(1.5); opacity: 0; } }
   @keyframes locations-portal-wash {
     0% { opacity: 0; transform: scale(.72); filter: brightness(1); }
     28% { opacity: 1; transform: scale(1); filter: brightness(1.8); }
@@ -212,7 +251,6 @@ const globeCss = String.raw`
     0% { opacity: 0; transform: translate3d(0,0,0) scale(.2); } 24% { opacity: 1; }
     100% { opacity: 0; transform: translate3d(calc(var(--particle-drift) * 1px),-170px,0) scale(1.8); }
   }
-  @media (prefers-reduced-motion: reduce) { .locations-mapbox-marker::after { animation: none !important; } }
 `;
 
 export function LocationsGlobeMap({
@@ -232,7 +270,7 @@ export function LocationsGlobeMap({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapboxMap | null>(null);
-  const markersRef = useRef<MapboxMarker[]>([]);
+  const selectLocationRef = useRef(onSelectLocation);
   const enterTimerRef = useRef<number | null>(null);
   const burstTimerRef = useRef<number | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -240,6 +278,14 @@ export function LocationsGlobeMap({
   const [lightBurst, setLightBurst] = useState(false);
   const token = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string | undefined;
   const mappableLocations = useMemo(() => locations.filter((location) => coordinatesFor(location)), [locations]);
+  const pointData = useMemo(
+    () => locationsGeoJson(mappableLocations, selectedLocationId),
+    [mappableLocations, selectedLocationId],
+  );
+
+  useEffect(() => {
+    selectLocationRef.current = onSelectLocation;
+  }, [onSelectLocation]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return undefined;
@@ -247,6 +293,7 @@ export function LocationsGlobeMap({
       setMapError("The Mapbox access token is not configured.");
       return undefined;
     }
+
     let disposed = false;
     void loadMapboxGl().then((mapboxgl) => {
       if (disposed || !containerRef.current) return;
@@ -260,9 +307,13 @@ export function LocationsGlobeMap({
         minZoom: 0.8,
         maxZoom: 16,
         antialias: true,
-        attributionControl: true,
+        attributionControl: false,
+        logoPosition: "bottom-left",
       });
+
       map.addControl(new mapboxgl.NavigationControl({ showCompass: true, visualizePitch: true }), "bottom-right");
+      map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-left");
+
       map.on("style.load", () => map.setFog({
         color: "rgb(186, 226, 255)",
         "high-color": "rgb(36, 92, 223)",
@@ -270,15 +321,71 @@ export function LocationsGlobeMap({
         "space-color": "rgb(1, 5, 15)",
         "star-intensity": 0.32,
       }));
-      map.on("load", () => { if (!disposed) setMapReady(true); });
+
+      map.on("load", () => {
+        if (disposed) return;
+        map.addSource(LOCATIONS_SOURCE_ID, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+        map.addLayer({
+          id: LOCATIONS_GLOW_LAYER_ID,
+          type: "circle",
+          source: LOCATIONS_SOURCE_ID,
+          paint: {
+            "circle-radius": ["case", ["boolean", ["get", "selected"], false], 20, ["boolean", ["get", "verified"], false], 13, 11],
+            "circle-color": ["get", "fillColor"],
+            "circle-opacity": ["case", ["boolean", ["get", "selected"], false], 0.48, 0.30],
+            "circle-blur": 0.78,
+            "circle-emissive-strength": 1,
+          },
+        });
+        map.addLayer({
+          id: LOCATIONS_HALO_LAYER_ID,
+          type: "circle",
+          source: LOCATIONS_SOURCE_ID,
+          paint: {
+            "circle-radius": ["case", ["boolean", ["get", "selected"], false], 11, ["boolean", ["get", "verified"], false], 8.5, 7.5],
+            "circle-color": "rgba(2, 8, 23, 0.72)",
+            "circle-stroke-color": ["get", "borderColor"],
+            "circle-stroke-width": ["case", ["boolean", ["get", "selected"], false], 4, ["boolean", ["get", "verified"], false], 3.2, 2.4],
+            "circle-opacity": 0.96,
+            "circle-emissive-strength": 1,
+          },
+        });
+        map.addLayer({
+          id: LOCATIONS_CORE_LAYER_ID,
+          type: "circle",
+          source: LOCATIONS_SOURCE_ID,
+          paint: {
+            "circle-radius": ["case", ["boolean", ["get", "selected"], false], 6.5, 4.5],
+            "circle-color": ["get", "fillColor"],
+            "circle-stroke-color": ["case", ["boolean", ["get", "selected"], false], "#ffffff", ["get", "borderColor"]],
+            "circle-stroke-width": ["case", ["boolean", ["get", "selected"], false], 2.5, 1.5],
+            "circle-emissive-strength": 1,
+          },
+        });
+
+        const selectFeature = (event: MapLayerEvent) => {
+          const locationId = Number(event.features?.[0]?.properties?.locationId);
+          if (Number.isFinite(locationId)) selectLocationRef.current(locationId);
+        };
+        map.on("click", LOCATIONS_HALO_LAYER_ID, selectFeature);
+        map.on("mouseenter", LOCATIONS_HALO_LAYER_ID, () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", LOCATIONS_HALO_LAYER_ID, () => {
+          map.getCanvas().style.cursor = "";
+        });
+        setMapReady(true);
+      });
       mapRef.current = map;
     }).catch((loadError) => {
       if (!disposed) setMapError(loadError instanceof Error ? loadError.message : "The Mapbox globe could not be loaded.");
     });
+
     return () => {
       disposed = true;
-      markersRef.current.forEach((marker) => marker.remove());
-      markersRef.current = [];
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -286,31 +393,8 @@ export function LocationsGlobeMap({
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current = [];
-    for (const location of mappableLocations) {
-      const coordinates = coordinatesFor(location);
-      if (!coordinates || !window.mapboxgl) continue;
-      const palette = companyPinPalette(location.companyName);
-      const element = document.createElement("button");
-      element.type = "button";
-      element.className = "locations-mapbox-marker";
-      element.title = `${location.companyName} — ${location.placeName}`;
-      element.setAttribute("aria-label", `Open ${location.placeName} for ${location.companyName}`);
-      element.dataset.active = String(location.id === selectedLocationId);
-      element.dataset.saved = String(location.reviewStatus === "verified");
-      element.style.setProperty("--pin-fill", palette.fillColor);
-      element.style.setProperty("--pin-border", palette.borderColor);
-      element.addEventListener("click", (event) => {
-        event.stopPropagation();
-        onSelectLocation(location.id);
-      });
-      const marker = new window.mapboxgl.Marker({ element, anchor: "center" })
-        .setLngLat(coordinates)
-        .addTo(mapRef.current as MapboxMap);
-      markersRef.current.push(marker);
-    }
-  }, [mapReady, mappableLocations, onSelectLocation, selectedLocationId]);
+    mapRef.current.getSource(LOCATIONS_SOURCE_ID)?.setData(pointData);
+  }, [mapReady, pointData]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
