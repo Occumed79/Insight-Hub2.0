@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   typecheck-build-and-browser:
@@ -23,6 +23,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -35,8 +38,11 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - name: Install dependencies from lockfile
-        run: pnpm install --frozen-lockfile
+      - name: Apply React 19 map and OSHA persistence integration
+        run: python3 scripts/apply-final-hardening.py
+
+      - name: Regenerate dependencies and lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Repository integrity audit
         run: pnpm run audit:repository
@@ -61,6 +67,9 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
+      - name: React 19 map and OSHA persistence audit
+        run: pnpm run audit:osha-persistence
+
       - name: Production build
         run: pnpm run build
 
@@ -71,6 +80,23 @@ jobs:
       - name: Browser acceptance — Hub 2 UI hardening
         timeout-minutes: 5
         run: pnpm run test:browser
+
+      - name: Remove temporary integration tooling
+        run: |
+          rm -f scripts/apply-final-hardening.py
+          rm -f .github/workflows/final-hardening-oneshot.yml
+
+      - name: Commit validated integration back to branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No integration changes to commit."
+          else
+            git commit -m "Finish React 19 map compatibility and OSHA database persistence"
+            git push origin HEAD:${{ github.head_ref || github.ref_name }}
+          fi
 
       - name: Upload browser failure artifacts
         if: failure()
