@@ -1,0 +1,114 @@
+/* Shared UI resilience guardrails. Keep visual design ownership in the existing theme files. */
+html {
+  min-width: 320px;
+  width: 100%;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body,
+#root {
+  min-width: 320px;
+  width: 100%;
+  min-height: 100%;
+  overflow-x: clip;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+[role="button"],
+[role="tab"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid rgba(165, 243, 252, 0.92);
+  outline-offset: 3px;
+}
+
+:where(input, textarea, select)[aria-invalid="true"] {
+  border-color: rgba(253, 164, 175, 0.78) !important;
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.12) !important;
+}
+
+.insight-mobile-nav {
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.insight-mobile-nav::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .insight-mobile-nav ~ main {
+    padding-top: max(6.75rem, calc(env(safe-area-inset-top) + 5.75rem)) !important;
+  }
+
+  .standalone-map-page .insight-mobile-nav ~ main {
+    padding-top: max(6.75rem, calc(env(safe-area-inset-top) + 5.75rem)) !important;
+  }
+}
+
+@media (max-width: 767px), (pointer: coarse) {
+  :where(button, [role="button"], [role="tab"], select) {
+    min-height: 44px;
+  }
+
+  :where(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+    min-height: 44px;
+    font-size: max(16px, 1em);
+  }
+
+  .translucent-tool-page .glass-card,
+  .translucent-tool-page main div[class*="bg-[#"],
+  .translucent-tool-page main section[class*="bg-[#"] {
+    backdrop-filter: blur(18px) saturate(1.2) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(1.2) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .portal-shimmer,
+  .aurora-orbs,
+  .translucent-tool-page::before {
+    animation: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :where(a, button, input, select, textarea, [role="button"], [role="tab"]) {
+    forced-color-adjust: auto;
+  }
+}
