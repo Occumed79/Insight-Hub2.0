@@ -52,6 +52,20 @@ jobs:
           node-version: 24
           cache: pnpm
 
+      - name: Prepare bootstrap workflow for integration patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/build-check.yml')
+          text = path.read_text()
+          block = '''      - name: React 19 map and OSHA persistence audit
+        run: pnpm run audit:osha-persistence
+
+'''
+          text = text.replace(block, '', 1)
+          path.write_text(text)
+          PY
+
       - name: Apply React 19 map and OSHA persistence integration
         run: python3 scripts/apply-final-hardening.py
 
