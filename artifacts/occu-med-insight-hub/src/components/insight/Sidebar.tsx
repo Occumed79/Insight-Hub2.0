@@ -33,6 +33,11 @@ const nav = [
   { href: "/aor-risk-intelligence", label: "AOR Risk Intelligence", icon: ShieldAlert },
 ];
 
+function isActivePath(itemHref: string, currentPath: string) {
+  if (currentPath === itemHref) return true;
+  return itemHref === "/entities" && ["/prospects", "/clients"].includes(currentPath);
+}
+
 export function Sidebar() {
   const [location] = useLocation();
   const currentPath = location.split("?")[0];
@@ -57,7 +62,7 @@ export function Sidebar() {
           <nav className="space-y-1" aria-label="Insight Hub intelligence tools">
             {nav.map((item) => {
               const Icon = item.icon;
-              const active = currentPath === item.href;
+              const active = isActivePath(item.href, currentPath);
 
               return (
                 <Link
@@ -89,7 +94,7 @@ export function Sidebar() {
       >
         {nav.map((item) => {
           const Icon = item.icon;
-          const active = currentPath === item.href;
+          const active = isActivePath(item.href, currentPath);
           return (
             <Link
               key={item.href}
