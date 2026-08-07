@@ -34,6 +34,7 @@ const checks = [
   [app.includes("React.lazy") && app.includes("React.Suspense"), "workspace routes remain code-split behind a suspense boundary"],
   [app.includes('role="status"') && app.includes("Loading workspace"), "route loading state remains accessible"],
   [entities.includes('import * as DialogPrimitive from "@radix-ui/react-dialog"'), "Entities details use managed modal primitives"],
+  [entities.includes("restoreTriggerFocus") && entities.includes("onCloseAutoFocus"), "Entities details restore focus to the record trigger after close"],
   [entities.includes('role="tablist"') && entities.includes('role="tabpanel"'), "Entities tabs retain semantic tab structure"],
   [entities.includes("function EmptyCard") && entities.includes("filteredProspects.length === 0") && entities.includes("filteredClients.length === 0"), "Entities datasets and searches retain explicit empty states"],
   [entities.includes('aria-label={`Open details for ${item.name}`}'), "Entity record actions remain keyboard-operable semantic controls"],
