@@ -41,6 +41,11 @@ jobs:
       - name: Apply React 19 map and OSHA persistence integration
         run: python3 scripts/apply-final-hardening.py
 
+      - name: Remove temporary integration tooling
+        run: |
+          rm -f scripts/apply-final-hardening.py
+          rm -f .github/workflows/final-hardening-oneshot.yml
+
       - name: Regenerate dependencies and lockfile
         run: pnpm install --no-frozen-lockfile
 
@@ -77,11 +82,6 @@ jobs:
       - name: Browser acceptance — Hub 2 UI hardening
         timeout-minutes: 5
         run: pnpm run test:browser
-
-      - name: Remove temporary integration tooling
-        run: |
-          rm -f scripts/apply-final-hardening.py
-          rm -f .github/workflows/final-hardening-oneshot.yml
 
       - name: Commit validated integration back to branch
         run: |
