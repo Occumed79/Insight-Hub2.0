@@ -5,6 +5,7 @@ const root = process.cwd();
 const read = (relativePath) =>
   fs.readFileSync(path.join(root, relativePath), "utf8");
 
+const app = read("artifacts/occu-med-insight-hub/src/App.tsx");
 const appEntry = read("artifacts/occu-med-insight-hub/src/styles/app-entry.css");
 const hardeningCss = read("artifacts/occu-med-insight-hub/src/styles/ui-hardening.css");
 const sidebar = read("artifacts/occu-med-insight-hub/src/components/insight/Sidebar.tsx");
@@ -24,6 +25,8 @@ const checks = [
   [main.includes("class AppErrorBoundary"), "global UI error boundary exists"],
   [main.includes('role="alert"'), "crash recovery surface is announced accessibly"],
   [landing.includes('role="dialog"') && landing.includes('aria-modal="true"'), "landing link manager remains a semantic modal"],
+  [app.includes("React.lazy") && app.includes("React.Suspense"), "workspace routes remain code-split behind a suspense boundary"],
+  [app.includes('role="status"') && app.includes("Loading workspace"), "route loading state remains accessible"],
 ];
 
 const failures = checks.filter(([passed]) => !passed).map(([, label]) => label);
