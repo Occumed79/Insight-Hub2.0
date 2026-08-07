@@ -12,6 +12,17 @@ const port = rawPort ? Number(rawPort) : 3000;
 // BASE_PATH defaults to "/" for standard deployments (Render, Netlify, etc.)
 const basePath = process.env.BASE_PATH ?? "/";
 
+function splitVendorChunk(id: string): string | undefined {
+  if (!id.includes("node_modules")) return undefined;
+  if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return "react-vendor";
+  if (id.includes("node_modules/@tanstack/")) return "query-vendor";
+  if (id.includes("node_modules/@radix-ui/")) return "radix-vendor";
+  if (id.includes("node_modules/framer-motion/")) return "motion-vendor";
+  if (id.includes("node_modules/lucide-react/")) return "icons-vendor";
+  if (id.includes("node_modules/wouter/")) return "router-vendor";
+  return undefined;
+}
+
 export default defineConfig({
   base: basePath,
   plugins: [
@@ -49,6 +60,11 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: splitVendorChunk,
+      },
+    },
   },
   server: {
     port,
