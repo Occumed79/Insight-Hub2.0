@@ -10,12 +10,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  typecheck-and-build:
+  typecheck-build-and-browser:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       NODE_ENV: test
       BASE_PATH: /
+      CI: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,17 +30,37 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+      - name: Install dependencies from lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Repository integrity audit
         run: pnpm run audit:repository
 
+      - name: Unit tests
+        run: pnpm run test
+
       - name: Typecheck
         run: pnpm run typecheck
 
-      - name: Build
+      - name: Production build
         run: pnpm run build
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @workspace/occu-med-insight-hub exec playwright install --with-deps chromium
+
+      - name: Browser acceptance — Hub 2 UI hardening
+        run: pnpm run test:browser
+
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hub2-playwright-failure
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            artifacts/occu-med-insight-hub/playwright-report
+            artifacts/occu-med-insight-hub/test-results
