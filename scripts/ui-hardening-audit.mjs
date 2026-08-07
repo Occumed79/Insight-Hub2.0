@@ -41,7 +41,7 @@ const checks = [
   [viteConfig.includes("manualChunks: splitVendorChunk"), "shared frontend vendors remain split from the application entry"],
   [["mobile-320", "mobile-390", "tablet-768", "desktop-1440"].every((name) => playwrightConfig.includes(`name: "${name}"`)), "browser acceptance retains all required viewport coverage"],
   [browserSuite.includes("expectNoDocumentOverflow") && browserSuite.includes("pageerror"), "browser acceptance checks overflow and runtime errors"],
-  [["/entities", "/clients", "/competitors", "/federal-agencies"].every((route) => browserSuite.includes(`page.goto("${route}")`)), "browser acceptance covers all required core Hub 2 routes"],
+  [["/entities", "/clients", "/competitors", "/federal-agencies", "/location-overlap"].every((route) => browserSuite.includes(`page.goto("${route}")`)), "browser acceptance covers required core and active map routes"],
   [workflow.includes("pnpm install --frozen-lockfile") && workflow.includes("node-version: 24"), "CI remains lockfile-deterministic on Node 24"],
   [workflow.includes("pnpm run test") && workflow.includes("pnpm run test:browser"), "CI runs unit and real browser acceptance tests"],
 ];
