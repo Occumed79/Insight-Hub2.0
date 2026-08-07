@@ -62,7 +62,7 @@ for (const endpoint of [
 }
 
 assert.ok(
-  /core-intelligence/.test(apiIndex),
+  /router\.use\(\s*coreIntelligenceRouter\s*\)/.test(apiIndex),
   "Hub 2 API index must mount the transferred core-intelligence router",
 );
 
