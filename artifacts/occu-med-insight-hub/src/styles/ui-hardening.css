@@ -48,6 +48,34 @@ textarea,
   box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.12) !important;
 }
 
+:where(main, section, article, aside, div, p, h1, h2, h3, h4, td, th) {
+  min-width: 0;
+}
+
+:where(p, h1, h2, h3, h4, td, th, a) {
+  overflow-wrap: anywhere;
+}
+
+[role="dialog"] {
+  max-width: 100vw;
+  max-height: 100dvh;
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+[role="dialog"] > form,
+[role="dialog"] > aside,
+[role="dialog"] > section,
+[role="dialog"] > div {
+  max-width: min(100%, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+}
+
 .insight-mobile-nav {
   scrollbar-width: none;
   overscroll-behavior-x: contain;
