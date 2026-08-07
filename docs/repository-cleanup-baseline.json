@@ -1,15 +1,15 @@
 {
-  "description": "Post-Phase-6 structural ceiling with reviewed production additions for the internal intelligence portals. The total-file ceiling includes the Entity & DBA Resolution route from Issue #38, the Occupational Exposure & Service Fit Matrix route from Issue #40, the Company Live Intelligence files from Issue #42, Workers’ Compensation Source Coverage from Issue #44, Defense Base Act Intelligence from Issue #46, Source Governance from Issue #48, Unified Employer Workflow from Issue #50, the public-source employer brief from Issue #52, Location Overlap from PR #79, the two focused Neon-backed DBA Data Hub production files from PR #91, the cumulative 2001–2024 DBA workspace added from user-provided redacted workbooks, the standalone public-source tools, the dedicated AOR multi-source workspace, the CourtListener content-enrichment route, the focused public API repair router, the dedicated International Crisis Group CrisisWatch RSS adapter replacing the former CFR link-only conflict reference, the AOR source-policy route that retires ACLED from the active product, the bounded server-side state-geometry proxy supporting the clickable State Agencies map, the bounded LangSearch route that powers live Competitor, Federal Agency, general State Agency, and cross-state research, and the dedicated FMCSA QCMobile adapter that uses FMCSA_WEB_KEY for carrier-name and USDOT-number lookup instead of generic web search. SEC Filings, Organizational Chart, and DBA Data Hub remain standalone navigation destinations; the two global map workspaces remain portal-only destinations. Data Profiles, Company Library, company-file detail routes, frontend pages, API clients, and verification artifacts have been removed from the active repository. The two reviewed component-level style blocks are the existing app-shell effects and the route-scoped Location Overlap map effects. Duplicate files, generated artifacts, invalid coordinates, extra app shells, and additional injected-style files remain prohibited.",
+  "description": "Post-#127 structural ceiling for Insight Hub 2 after the browser-CI and dead-code hardening pass. The active application keeps one shell, three global CSS layers, the reviewed component-level style blocks, lazy-loaded workspaces, and the protected Hub 2 intelligence ownership routes. The unmounted Entity Discovery frontend and its manual/bulk location panels, along with the disconnected legacy workflow/filter/map/report/section/side-panel and legacy intelligence data-client chain, have been removed. CinematicPortal remains intentionally retained as a reviewed required production file. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
   "maximums": {
-    "totalFiles": 317,
+    "totalFiles": 227,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
-    "unreachableFrontendFiles": 65,
+    "unreachableFrontendFiles": 52,
     "appShellCount": 1,
     "globalCssLayerCount": 3,
     "invalidCoordinateCount": 0,
-    "knownArchitectureCandidateCount": 3,
+    "knownArchitectureCandidateCount": 1,
     "componentInjectedStyleCount": 2
   },
   "requiredFiles": [
