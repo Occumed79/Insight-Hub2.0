@@ -1,7 +1,7 @@
 {
-  "description": "Post-#128 structural ceiling for Insight Hub 2 after browser-CI, dead-code hardening, React 19 state-map compatibility, and OSHA database-persistence hardening. The active application keeps one shell, three global CSS layers, the reviewed component-level style blocks, lazy-loaded workspaces, and the protected Hub 2 intelligence ownership routes. The first-party React 19 state-map workspace replaces the incompatible upstream peer declaration, and the permanent OSHA persistence audit prevents regression to file-cache storage. CinematicPortal remains intentionally retained as a reviewed required production file. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
+  "description": "Post-#128 structural ceiling for Insight Hub 2 after browser-CI, dead-code hardening, React 19 state-map compatibility, and OSHA database-persistence hardening. The active application keeps one shell, three global CSS layers, the reviewed component-level style blocks, lazy-loaded workspaces, and the protected Hub 2 intelligence ownership routes. The first-party React 19 state-map workspace replaces the incompatible upstream peer declaration, OSHA uses Postgres persistence, and a real Postgres integration test plus permanent architecture audit prevent regression to file-cache storage. CinematicPortal remains intentionally retained as a reviewed required production file. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
   "maximums": {
-    "totalFiles": 231,
+    "totalFiles": 232,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
@@ -19,6 +19,7 @@
     "artifacts/occu-med-insight-hub/src/main.tsx",
     "artifacts/occu-med-insight-hub/src/App.tsx",
     "artifacts/api-server/src/index.ts",
+    "artifacts/api-server/src/services/__tests__/oshaPersistence.test.ts",
     "lib/db/src/schema/index.ts",
     "lib/react-simple-maps/package.json",
     "lib/react-simple-maps/src/index.tsx",
