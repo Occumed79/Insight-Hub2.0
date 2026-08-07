@@ -1,0 +1,77 @@
+name: Final React19 OSHA Hardening
+
+on:
+  push:
+    branches:
+      - hardening/finish-react19-osha-persistence
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-test-and-commit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      NODE_ENV: test
+      BASE_PATH: /
+      CI: true
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v6
+        with:
+          ref: hardening/finish-react19-osha-persistence
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Apply integration patches
+        run: python3 scripts/apply-final-hardening.py
+
+      - name: Regenerate workspace lockfile
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Repository integrity audit
+        run: pnpm run audit:repository
+
+      - name: Unit tests
+        run: pnpm run test
+
+      - name: Typecheck and production build
+        run: pnpm run build
+
+      - name: Install Playwright Chromium
+        timeout-minutes: 5
+        run: pnpm --filter @workspace/occu-med-insight-hub exec playwright install chromium
+
+      - name: Browser acceptance
+        timeout-minutes: 5
+        run: pnpm run test:browser
+
+      - name: Remove one-shot tooling
+        run: |
+          rm -f scripts/apply-final-hardening.py
+          rm -f .github/workflows/final-hardening-oneshot.yml
+
+      - name: Commit validated branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No generated changes to commit."
+          else
+            git commit -m "Finish React 19 map compatibility and OSHA database persistence"
+            git push origin HEAD:hardening/finish-react19-osha-persistence
+          fi
