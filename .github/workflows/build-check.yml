@@ -10,8 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: read
+  contents: read
 
 jobs:
   typecheck-build-and-browser:
@@ -36,25 +35,6 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-
-      - name: Regenerate lockfile for reviewed dependency upgrade
-        if: github.event_name == 'pull_request' && github.head_ref == 'hardening/post-127-browser-ci-cleanup'
-        shell: bash
-        run: |
-          git fetch origin "${GITHUB_HEAD_REF}"
-          git checkout -B "${GITHUB_HEAD_REF}" "origin/${GITHUB_HEAD_REF}"
-          pnpm install --lockfile-only --no-frozen-lockfile
-          if git diff --quiet -- pnpm-lock.yaml; then
-            echo "Lockfile already synchronized."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add pnpm-lock.yaml
-            git commit -m "Sync lockfile for React Leaflet 5"
-            git push origin "HEAD:${GITHUB_HEAD_REF}"
-            echo "Lockfile synchronized; ending this run so the new head validates from frozen state."
-            exit 1
-          fi
 
       - name: Install dependencies from lockfile
         run: pnpm install --frozen-lockfile
