@@ -13,8 +13,10 @@ const main = read("artifacts/occu-med-insight-hub/src/main.tsx");
 const landing = read("artifacts/occu-med-insight-hub/src/pages/landing.tsx");
 const entities = read("artifacts/occu-med-insight-hub/src/pages/entities.tsx");
 const viteConfig = read("artifacts/occu-med-insight-hub/vite.config.ts");
+const frontendPackage = read("artifacts/occu-med-insight-hub/package.json");
 const playwrightConfig = read("artifacts/occu-med-insight-hub/playwright.config.ts");
 const browserSuite = read("artifacts/occu-med-insight-hub/tests/ui-hardening.spec.ts");
+const stateMapSuite = read("artifacts/occu-med-insight-hub/tests/state-map.spec.ts");
 const workflow = read(".github/workflows/build-check.yml");
 
 const checks = [
@@ -43,6 +45,9 @@ const checks = [
   [browserSuite.includes("expectNoDocumentOverflow") && browserSuite.includes("pageerror"), "browser acceptance checks overflow and runtime errors"],
   [["/entities", "/clients", "/competitors", "/federal-agencies", "/location-overlap", "/hiring-intelligence"].every((route) => browserSuite.includes(`page.goto("${route}")`)), "browser acceptance covers required core, map, and chart routes"],
   [browserSuite.includes("svg.recharts-surface") && browserSuite.includes("hiringFixture"), "browser acceptance renders populated Recharts output"],
+  [stateMapSuite.includes('page.goto("/state-agencies")') && stateMapSuite.includes('name: "California"') && stateMapSuite.includes('page.keyboard.press("Enter")'), "browser acceptance exercises keyboard state selection on the State Agencies SVG map"],
+  [frontendPackage.includes('"react-leaflet": "^5.0.0"'), "active Leaflet binding remains on the React 19-compatible v5 line"],
+  [frontendPackage.includes('"recharts": "^3.10.1"') && frontendPackage.includes('"react-is": "^19.1.0"'), "Recharts remains on v3 with its required React runtime peer declared"],
   [workflow.includes("pnpm install --frozen-lockfile") && workflow.includes("node-version: 24"), "CI remains lockfile-deterministic on Node 24"],
   [workflow.includes("pnpm run test") && workflow.includes("pnpm run test:browser"), "CI runs unit and real browser acceptance tests"],
 ];
