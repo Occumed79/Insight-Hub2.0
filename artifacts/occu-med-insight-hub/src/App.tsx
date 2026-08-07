@@ -25,6 +25,7 @@ import WorkersCompCoverage from "@/pages/workers-comp-coverage";
 import DbaIntelligence from "@/pages/dba-intelligence";
 import SourceGovernance from "@/pages/source-governance";
 import AorRiskIntelligencePage from "@/pages/aor-risk-intelligence";
+import { EntitiesPage } from "@/pages/entities";
 import {
   CompetitorsPage,
   FederalAgenciesPage,
@@ -196,6 +197,14 @@ function TranslucentToolPage({ page, children }: { page: string; children: React
   );
 }
 
+function EntitiesRoute() {
+  return <EntitiesPage defaultTab="prospects" />;
+}
+
+function ClientsRoute() {
+  return <EntitiesPage defaultTab="clients" />;
+}
+
 function CompetitorsRoute() {
   return <TranslucentToolPage page="competitors"><CompetitorsPage /></TranslucentToolPage>;
 }
@@ -281,6 +290,9 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/entities" component={EntitiesRoute} />
+      <Route path="/prospects" component={EntitiesRoute} />
+      <Route path="/clients" component={ClientsRoute} />
       <Route path="/competitors" component={CompetitorsRoute} />
       <Route path="/federal-agencies" component={FederalAgenciesRoute} />
       <Route path="/state-agencies" component={StateAgenciesRoute} />
