@@ -13,7 +13,9 @@ const main = read("artifacts/occu-med-insight-hub/src/main.tsx");
 const landing = read("artifacts/occu-med-insight-hub/src/pages/landing.tsx");
 const entities = read("artifacts/occu-med-insight-hub/src/pages/entities.tsx");
 const viteConfig = read("artifacts/occu-med-insight-hub/vite.config.ts");
+const rootPackage = read("package.json");
 const frontendPackage = read("artifacts/occu-med-insight-hub/package.json");
+const renderConfig = read("render.yaml");
 const playwrightConfig = read("artifacts/occu-med-insight-hub/playwright.config.ts");
 const browserSuite = read("artifacts/occu-med-insight-hub/tests/ui-hardening.spec.ts");
 const stateMapSuite = read("artifacts/occu-med-insight-hub/tests/state-map.spec.ts");
@@ -50,6 +52,8 @@ const checks = [
   [frontendPackage.includes('"recharts": "^3.10.1"') && frontendPackage.includes('"react-is": "^19.1.0"'), "Recharts remains on v3 with its required React runtime peer declared"],
   [workflow.includes("pnpm install --frozen-lockfile") && workflow.includes("node-version: 24"), "CI remains lockfile-deterministic on Node 24"],
   [workflow.includes("pnpm run test") && workflow.includes("pnpm run test:browser"), "CI runs unit and real browser acceptance tests"],
+  [rootPackage.includes('"packageManager": "pnpm@10.34.5"') && rootPackage.includes('"node": "24.x"'), "workspace pins the reviewed pnpm and Node toolchain"],
+  [renderConfig.includes("pnpm install --frozen-lockfile") && renderConfig.includes("value: 24"), "Render deployment matches frozen Node 24 CI semantics"],
 ];
 
 const failures = checks.filter(([passed]) => !passed).map(([, label]) => label);
