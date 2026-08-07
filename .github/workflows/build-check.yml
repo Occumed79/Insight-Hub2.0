@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   typecheck-build-and-browser:
@@ -25,7 +25,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d postgres"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -37,9 +37,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -52,20 +49,8 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - name: Apply React 19 map and OSHA persistence integration
-        run: python3 scripts/apply-final-hardening.py
-
-      - name: Regenerate dependencies and lockfile
-        run: pnpm install --no-frozen-lockfile
-
-      - name: Normalize Build Check to final frozen-lockfile workflow
-        run: python3 scripts/write-final-build-check.py
-
-      - name: Remove temporary integration tooling
-        run: |
-          rm -f scripts/apply-final-hardening.py
-          rm -f scripts/write-final-build-check.py
-          rm -f .github/workflows/final-hardening-oneshot.yml
+      - name: Install dependencies from lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Repository integrity audit
         run: pnpm run audit:repository
@@ -90,6 +75,9 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
+      - name: React 19 map and OSHA persistence audit
+        run: pnpm run audit:osha-persistence
+
       - name: Production build
         run: pnpm run build
 
@@ -100,19 +88,6 @@ jobs:
       - name: Browser acceptance — Hub 2 UI hardening
         timeout-minutes: 5
         run: pnpm run test:browser
-
-      - name: Commit validated source changes back to branch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git reset -- .github/workflows/build-check.yml .github/workflows/final-hardening-oneshot.yml
-          if git diff --cached --quiet; then
-            echo "No non-workflow integration changes to commit."
-          else
-            git commit -m "Finish React 19 map compatibility and OSHA database persistence"
-            git push origin HEAD:${{ github.head_ref || github.ref_name }}
-          fi
 
       - name: Upload browser failure artifacts
         if: failure()
