@@ -13,6 +13,9 @@ const main = read("artifacts/occu-med-insight-hub/src/main.tsx");
 const landing = read("artifacts/occu-med-insight-hub/src/pages/landing.tsx");
 const entities = read("artifacts/occu-med-insight-hub/src/pages/entities.tsx");
 const viteConfig = read("artifacts/occu-med-insight-hub/vite.config.ts");
+const playwrightConfig = read("artifacts/occu-med-insight-hub/playwright.config.ts");
+const browserSuite = read("artifacts/occu-med-insight-hub/tests/ui-hardening.spec.ts");
+const workflow = read(".github/workflows/build-check.yml");
 
 const checks = [
   [appEntry.includes('@import "./ui-hardening.css"'), "shared UI hardening stylesheet is imported"],
@@ -35,6 +38,11 @@ const checks = [
   [entities.includes("function EmptyCard") && entities.includes("filteredProspects.length === 0") && entities.includes("filteredClients.length === 0"), "Entities datasets and searches retain explicit empty states"],
   [entities.includes('aria-label={`Open details for ${item.name}`}'), "Entity record actions remain keyboard-operable semantic controls"],
   [viteConfig.includes("manualChunks: splitVendorChunk"), "shared frontend vendors remain split from the application entry"],
+  [playwrightConfig.includes('name: "mobile-320"') && playwrightConfig.includes('name: "desktop-1440"'), "browser acceptance retains mobile-to-desktop viewport coverage"],
+  [browserSuite.includes("expectNoDocumentOverflow") && browserSuite.includes("pageerror"), "browser acceptance checks overflow and runtime errors"],
+  [browserSuite.includes('page.goto("/entities")') && browserSuite.includes('page.goto("/competitors")'), "browser acceptance covers core Hub 2 routes"],
+  [workflow.includes("pnpm install --frozen-lockfile") && workflow.includes("node-version: 24"), "CI remains lockfile-deterministic on Node 24"],
+  [workflow.includes("pnpm run test") && workflow.includes("pnpm run test:browser"), "CI runs unit and real browser acceptance tests"],
 ];
 
 const failures = checks.filter(([passed]) => !passed).map(([, label]) => label);
