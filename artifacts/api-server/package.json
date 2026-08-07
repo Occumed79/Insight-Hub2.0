@@ -8,7 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx src/services/__tests__/helpers.test.ts",
+    "test": "tsx --test src/services/__tests__/*.test.ts",
     "import:osha": "tsx scripts/import-osha.ts"
   },
   "dependencies": {
