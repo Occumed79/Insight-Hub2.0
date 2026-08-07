@@ -54,7 +54,7 @@ Set these in the Render dashboard (or via `render.yaml` with `sync: false`).
 | `COURTLISTENER_API_TOKEN` | Optional | CourtListener API token for litigation signals |
 | `SEC_USER_AGENT` | Optional | SEC EDGAR requires a User-Agent header (e.g. "Company admin@example.com") |
 | `OSHA_ITA_IMPORT_ENABLED` | Optional | Set to `true` to enable OSHA ITA cached data queries |
-| `OSHA_DATA_DIR` | Optional | Path to OSHA ITA JSON cache directory (default: `data/osha-ita`) |
+| `DATABASE_URL` | Optional | Path to OSHA ITA database persistence directory (default: `data/osha-ita`) |
 | `WORKERS_COMP_SOURCE_INDEX_ENABLED` | Optional | Set to `true` to enable state workers' comp source index |
 | `USASPENDING_API_ENABLED` | Optional | Set to `true` to enable USAspending federal award lookups |
 | `HHS_SOCRATA_APP_TOKEN` | Optional | Socrata app token for HealthData.gov higher rate limits (catalog discovery works without it) |
@@ -67,16 +67,16 @@ Set these in the Render dashboard (or via `render.yaml` with `sync: false`).
 ### OSHA ITA Persistent Disk (Production)
 
 If OSHA cached data is needed in production, Render must use a **persistent disk**
-mounted at `/var/data` and `OSHA_DATA_DIR` must point to a directory on that disk.
+mounted at `/var/data` and `DATABASE_URL` must point to a directory on that disk.
 
 1. In the Render dashboard, add a persistent disk to the web service.
 2. Set the mount path to `/var/data`.
-3. Set `OSHA_DATA_DIR=/var/data/osha-ita`.
+3. Set `DATABASE_URL=/var/data/osha-ita`.
 4. Set `OSHA_ITA_IMPORT_ENABLED=true`.
 5. Import OSHA ITA CSV data by running the import script:
    ```bash
-   # Using OSHA_DATA_DIR env var (preferred for Render):
-   OSHA_DATA_DIR=/var/data/osha-ita pnpm --filter @workspace/api-server run import:osha -- <csv_file> --year 2024 --name "OSHA ITA 2024"
+   # Using DATABASE_URL env var (preferred for Render):
+   DATABASE_URL=/var/data/osha-ita pnpm --filter @workspace/api-server run import:osha -- <csv_file> --year 2024 --name "OSHA ITA 2024"
 
    # Or using --output flag:
    pnpm --filter @workspace/api-server run import:osha -- --input <csv_file> --output /var/data/osha-ita --year 2024 --name "OSHA ITA 2024"
@@ -84,7 +84,7 @@ mounted at `/var/data` and `OSHA_DATA_DIR` must point to a directory on that dis
 
    The import script resolves the output directory in this order:
    1. `--output <dir>` flag (highest priority)
-   2. `OSHA_DATA_DIR` environment variable
+   2. `DATABASE_URL` environment variable
    3. `process.cwd()/data/osha-ita` (local fallback)
 
 Without a persistent disk, Render's filesystem is ephemeral — any imported OSHA

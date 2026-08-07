@@ -6,7 +6,7 @@ import { isConfigured as isOnetConfigured } from "../services/onetService";
 const router: IRouter = Router();
 
 type SourceCategory = "injury" | "occupation" | "entity" | "company" | "workers-comp" | "dba";
-type SourceMode = "live-api" | "manual-live" | "cached-import" | "static-index" | "official-workbook";
+type SourceMode = "live-api" | "manual-live" | "database-import" | "static-index" | "official-workbook";
 type SourceState = "ready" | "partial" | "disabled" | "not-configured";
 type ConfidenceTier = "high" | "moderate" | "context-only";
 
@@ -52,9 +52,8 @@ function sourceState(configured: boolean, enabled: boolean, partial = false): So
   return configured ? "ready" : "not-configured";
 }
 
-function getRegistry(): GovernedSource[] {
-  const oshaImported = isOshaDataImported();
-  const oshaInfo = getOshaImportInfo();
+async function getRegistry(): Promise<GovernedSource[]> {
+  const [oshaImported, oshaInfo] = await Promise.all([isOshaDataImported(), getOshaImportInfo()]);
   const latestOshaRun = oshaInfo.importRuns.at(-1)?.importedAt;
   const oshaEnabled = truthy(process.env.OSHA_ITA_IMPORT_ENABLED) || oshaImported;
 
@@ -72,17 +71,17 @@ function getRegistry(): GovernedSource[] {
       label: "OSHA Injury Tracking Application",
       authority: "U.S. Department of Labor — OSHA",
       category: "injury",
-      mode: "cached-import",
+      mode: "database-import",
       workspaces: ["Employer Intelligence", "Entity Resolution", "Exposure Matrix"],
       configured: oshaImported,
       enabled: oshaEnabled,
       state: sourceState(oshaImported, oshaEnabled),
-      environmentKeys: ["OSHA_ITA_IMPORT_ENABLED", "OSHA_DATA_DIR"],
+      environmentKeys: ["OSHA_ITA_IMPORT_ENABLED", "DATABASE_URL"],
       internalEndpoint: "/api/osha/establishments",
       sourceUrl: "https://www.osha.gov/Establishment-Specific-Injury-and-Illness-Data",
       provenance: { official: true, serverSide: true, reviewRequired: true, evidenceUnit: "OSHA establishment-year record" },
       confidence: { tier: "high", rationale: "Official establishment submissions, subject to reporting scope, name matching, and year coverage." },
-      freshness: { policy: "Manual cached import only", lastKnown: latestOshaRun },
+      freshness: { policy: "Transactional database import", lastKnown: latestOshaRun },
       limitations: ["Not every employer or establishment is required to submit.", "Entity-name matching can be incomplete or ambiguous.", "Records describe reported establishments and reporting years, not current legal conclusions."],
       safeguards: ["No automatic refresh", "No unsafe-employer conclusion", "Visible match confidence"],
     },
@@ -241,9 +240,9 @@ function getRegistry(): GovernedSource[] {
   ];
 }
 
-router.get("/source-governance/overview", (_req: Request, res: Response) => {
+router.get("/source-governance/overview", async (_req: Request, res: Response) => {
   try {
-    const sources = getRegistry();
+    const sources = await getRegistry();
     const summary = {
       totalSources: sources.length,
       readySources: sources.filter((source) => source.state === "ready").length,

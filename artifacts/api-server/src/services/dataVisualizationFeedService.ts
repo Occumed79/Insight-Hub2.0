@@ -194,7 +194,7 @@ function buildSourceStatus(): FeedSourceStatus[] {
       source: "OSHA ITA",
       configured: isTruthy(getEnv("OSHA_ITA_IMPORT_ENABLED")),
       enabled: isTruthy(getEnv("OSHA_ITA_IMPORT_ENABLED")),
-      notes: "OSHA establishment-level injury/illness records (cached JSON import)",
+      notes: "OSHA establishment-level injury/illness records (database-backed import)",
     },
     {
       source: "BLS IIF",
@@ -256,7 +256,7 @@ async function buildOshaCharts(
 ): Promise<FeedChartDefinition[]> {
   const charts: FeedChartDefinition[] = [];
   const importEnabled = isTruthy(getEnv("OSHA_ITA_IMPORT_ENABLED"));
-  const dataImported = isOshaDataImported();
+  const dataImported = await isOshaDataImported();
 
   if (!importEnabled || !dataImported) {
     missingData.push({
@@ -270,7 +270,7 @@ async function buildOshaCharts(
   }
 
   try {
-    const result = queryOshaEstablishments(
+    const result = await queryOshaEstablishments(
       company || undefined,
       state || undefined,
       naics || undefined,
@@ -309,7 +309,7 @@ async function buildOshaCharts(
     charts.push({
       id: "feed-osha-injury-signal",
       title: "OSHA Injury Signal by Establishment",
-      subtitle: "TRC, DART, and days-away rates from OSHA ITA cached data",
+      subtitle: "TRC, DART, and days-away rates from OSHA ITA database persistence",
       type: "grouped",
       data: injuryData,
       xKey: "label",
@@ -351,7 +351,7 @@ async function buildOshaCharts(
       label: "OSHA ITA Establishment Data",
       type: "Benchmark",
       url: "https://www.osha.gov/establishment-search",
-      note: `${records.length} establishment records from cached OSHA ITA import`,
+      note: `${records.length} establishment records from database-backed OSHA ITA import`,
       sourceName: "OSHA ITA",
       sourceType: "osha",
       confidence: "high",

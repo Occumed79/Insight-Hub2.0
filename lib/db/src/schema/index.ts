@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, integer, boolean, real } from "drizzle-orm/pg-core";
 
 export const entitiesTable = pgTable("entities", {
   id: serial("id").primaryKey(),
@@ -334,4 +334,88 @@ export const stateIntelItemsTable = pgTable("state_intel_items", {
   rawJson: text("raw_json"),
   fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+
+// OSHA ITA database persistence. The importer is the only writer; application services query these tables.
+export const oshaImportRunsTable = pgTable("osha_import_runs", {
+  id: serial("id").primaryKey(),
+  datasetName: text("dataset_name").notNull(),
+  datasetYear: integer("dataset_year").notNull(),
+  sourceUrl: text("source_url").notNull(),
+  sourceFileType: text("source_file_type").notNull(),
+  importedAt: timestamp("imported_at").notNull().defaultNow(),
+  recordCount: integer("record_count").notNull().default(0),
+  metadata: jsonb("metadata"),
+});
+
+export const oshaSourceFilesTable = pgTable("osha_source_files", {
+  id: serial("id").primaryKey(),
+  importRunId: integer("import_run_id").notNull().references(() => oshaImportRunsTable.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(),
+  sourceUrl: text("source_url").notNull(),
+  sourceFileType: text("source_file_type").notNull(),
+  datasetYear: integer("dataset_year").notNull(),
+  sha256: text("sha256"),
+  importedAt: timestamp("imported_at").notNull().defaultNow(),
+  metadata: jsonb("metadata"),
+});
+
+export const oshaEstablishmentsTable = pgTable("osha_establishments", {
+  id: serial("id").primaryKey(),
+  importRunId: integer("import_run_id").notNull().references(() => oshaImportRunsTable.id, { onDelete: "cascade" }),
+  sourceFileId: integer("source_file_id").references(() => oshaSourceFilesTable.id, { onDelete: "set null" }),
+  establishmentName: text("establishment_name").notNull(),
+  companyName: text("company_name").notNull(),
+  dbaName: text("dba_name"),
+  normalizedEstablishmentName: text("normalized_establishment_name").notNull(),
+  normalizedCompanyName: text("normalized_company_name").notNull(),
+  normalizedDbaName: text("normalized_dba_name"),
+  address: text("address").notNull().default(""),
+  city: text("city").notNull().default(""),
+  state: text("state").notNull().default(""),
+  zip: text("zip").notNull().default(""),
+  naics: text("naics").notNull().default(""),
+  year: integer("year").notNull(),
+  totalHoursWorked: integer("total_hours_worked"),
+  totalCases: integer("total_cases"),
+  dartCases: integer("dart_cases"),
+  daysAwayCases: integer("days_away_cases"),
+  jobTransferRestrictionCases: integer("job_transfer_restriction_cases"),
+  caseCategories: jsonb("case_categories"),
+  trcRate: real("trc_rate"),
+  dartRate: real("dart_rate"),
+  daysAwayRate: real("days_away_rate"),
+  sourceUrl: text("source_url").notNull(),
+  datasetName: text("dataset_name").notNull(),
+  datasetYear: integer("dataset_year").notNull(),
+  sourceFileType: text("source_file_type").notNull(),
+  lastImportedDate: timestamp("last_imported_date").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const employerAliasesTable = pgTable("employer_aliases", {
+  id: serial("id").primaryKey(),
+  canonicalName: text("canonical_name").notNull(),
+  normalizedCanonicalName: text("normalized_canonical_name").notNull(),
+  alias: text("alias").notNull(),
+  normalizedAlias: text("normalized_alias").notNull(),
+  source: text("source").notNull().default("manual"),
+  confidence: real("confidence").notNull().default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const oshaEntityMatchesTable = pgTable("osha_entity_matches", {
+  id: serial("id").primaryKey(),
+  oshaEstablishmentId: integer("osha_establishment_id").notNull().references(() => oshaEstablishmentsTable.id, { onDelete: "cascade" }),
+  entityId: integer("entity_id").references(() => entitiesTable.id, { onDelete: "set null" }),
+  canonicalName: text("canonical_name").notNull(),
+  matchedName: text("matched_name").notNull(),
+  matchType: text("match_type").notNull().default("name"),
+  confidence: real("confidence").notNull().default(0),
+  reviewed: boolean("reviewed").notNull().default(false),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
