@@ -42,6 +42,20 @@ jobs:
       - name: Repository integrity audit
         run: pnpm run audit:repository
 
+      - name: Frontend reachability inventory
+        shell: bash
+        run: |
+          node scripts/repository-audit.mjs --json > /tmp/hub2-repository-audit.json
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const report = JSON.parse(fs.readFileSync('/tmp/hub2-repository-audit.json', 'utf8'));
+          console.log(`Reachable frontend files: ${report.reachableFrontendFiles}`);
+          console.log(`Unreachable frontend files: ${report.unreachableFrontendFiles}`);
+          for (const file of report.unreachableFrontend ?? []) console.log(`UNREACHABLE ${file}`);
+          console.log('Known architecture candidates:');
+          for (const file of report.knownArchitectureCandidates ?? []) console.log(`CANDIDATE ${file}`);
+          NODE
+
       - name: Unit tests
         run: pnpm run test
 
