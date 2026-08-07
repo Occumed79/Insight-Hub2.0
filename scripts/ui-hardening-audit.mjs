@@ -38,9 +38,9 @@ const checks = [
   [entities.includes("function EmptyCard") && entities.includes("filteredProspects.length === 0") && entities.includes("filteredClients.length === 0"), "Entities datasets and searches retain explicit empty states"],
   [entities.includes('aria-label={`Open details for ${item.name}`}'), "Entity record actions remain keyboard-operable semantic controls"],
   [viteConfig.includes("manualChunks: splitVendorChunk"), "shared frontend vendors remain split from the application entry"],
-  [playwrightConfig.includes('name: "mobile-320"') && playwrightConfig.includes('name: "desktop-1440"'), "browser acceptance retains mobile-to-desktop viewport coverage"],
+  [["mobile-320", "mobile-390", "tablet-768", "desktop-1440"].every((name) => playwrightConfig.includes(`name: "${name}"`)), "browser acceptance retains all required viewport coverage"],
   [browserSuite.includes("expectNoDocumentOverflow") && browserSuite.includes("pageerror"), "browser acceptance checks overflow and runtime errors"],
-  [browserSuite.includes('page.goto("/entities")') && browserSuite.includes('page.goto("/competitors")'), "browser acceptance covers core Hub 2 routes"],
+  [["/entities", "/clients", "/competitors", "/federal-agencies"].every((route) => browserSuite.includes(`page.goto("${route}")`)), "browser acceptance covers all required core Hub 2 routes"],
   [workflow.includes("pnpm install --frozen-lockfile") && workflow.includes("node-version: 24"), "CI remains lockfile-deterministic on Node 24"],
   [workflow.includes("pnpm run test") && workflow.includes("pnpm run test:browser"), "CI runs unit and real browser acceptance tests"],
 ];
