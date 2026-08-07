@@ -1,4 +1,5 @@
 import { ArrowUpRight, Building2, Globe2, Landmark, Layers, Network, Save, Settings2, Sigma, X } from "lucide-react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
@@ -147,50 +148,67 @@ function PortalLinkManager({ links, onClose, onSaved }: { links: PortalLinks; on
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#02030d]/80 px-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="portal-link-manager-title">
-      <motion.form
-        initial={{ opacity: 0, y: 18, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        onSubmit={saveLinks}
-        className="w-full max-w-2xl rounded-[28px] border border-cyan-100/20 bg-[#080b1b]/95 p-6 shadow-[0_0_80px_rgba(34,211,238,.16)]"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 id="portal-link-manager-title" className="text-2xl font-bold text-white">Manage portal links</h2>
-            <p className="mt-2 text-sm leading-6 text-cyan-50/62">These links are saved to the shared database and apply to every user and device.</p>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-xl border border-white/10 p-2 text-cyan-50/70 transition hover:border-cyan-100/30 hover:text-white" aria-label="Close portal link manager">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[#02030d]/80 backdrop-blur-md" />
+        <DialogPrimitive.Content
+          asChild
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            document.getElementById("manage-portal-links-button")?.focus();
+          }}
+        >
+          <motion.form
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            onSubmit={saveLinks}
+            className="fixed left-1/2 top-1/2 z-[51] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[28px] border border-cyan-100/20 bg-[#080b1b]/95 p-6 shadow-[0_0_80px_rgba(34,211,238,.16)] outline-none"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <DialogPrimitive.Title className="text-2xl font-bold text-white">Manage portal links</DialogPrimitive.Title>
+                <DialogPrimitive.Description className="mt-2 text-sm leading-6 text-cyan-50/62">
+                  These links are saved to the shared database and apply to every user and device.
+                </DialogPrimitive.Description>
+              </div>
+              <DialogPrimitive.Close asChild>
+                <button type="button" className="rounded-xl border border-white/10 p-2 text-cyan-50/70 transition hover:border-cyan-100/30 hover:text-white" aria-label="Close portal link manager">
+                  <X className="h-5 w-5" />
+                </button>
+              </DialogPrimitive.Close>
+            </div>
 
-        <div className="mt-6 space-y-5">
-          {(Object.keys(portalLinkLabels) as PortalLinkKey[]).map((key) => (
-            <label key={key} className="block">
-              <span className="mb-2 block text-sm font-semibold text-cyan-50/86">{portalLinkLabels[key]}</span>
-              <input
-                type="text"
-                inputMode="url"
-                value={draft[key]}
-                onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))}
-                placeholder="https://portal.example.com"
-                className="w-full rounded-2xl border border-cyan-100/16 bg-white/[0.055] px-4 py-3 text-sm text-white outline-none transition placeholder:text-cyan-50/28 focus:border-cyan-200/45 focus:bg-white/[0.075]"
-              />
-            </label>
-          ))}
-        </div>
+            <div className="mt-6 space-y-5">
+              {(Object.keys(portalLinkLabels) as PortalLinkKey[]).map((key) => (
+                <label key={key} className="block">
+                  <span className="mb-2 block text-sm font-semibold text-cyan-50/86">{portalLinkLabels[key]}</span>
+                  <input
+                    type="text"
+                    inputMode="url"
+                    value={draft[key]}
+                    onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))}
+                    placeholder="https://portal.example.com"
+                    className="w-full rounded-2xl border border-cyan-100/16 bg-white/[0.055] px-4 py-3 text-sm text-white outline-none transition placeholder:text-cyan-50/28 focus:border-cyan-200/45 focus:bg-white/[0.075]"
+                  />
+                </label>
+              ))}
+            </div>
 
-        {error && <p className="mt-4 rounded-xl border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">{error}</p>}
+            {error && <p className="mt-4 rounded-xl border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">{error}</p>}
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-cyan-50/70 transition hover:border-white/20 hover:text-white">Cancel</button>
-          <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-cyan-200/35 bg-cyan-200/12 px-4 py-2.5 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-200/18 disabled:cursor-wait disabled:opacity-60">
-            <Save className="h-4 w-4" />
-            {saving ? "Saving..." : "Save links"}
-          </button>
-        </div>
-      </motion.form>
-    </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <DialogPrimitive.Close asChild>
+                <button type="button" className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-cyan-50/70 transition hover:border-white/20 hover:text-white">Cancel</button>
+              </DialogPrimitive.Close>
+              <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-cyan-200/35 bg-cyan-200/12 px-4 py-2.5 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-200/18 disabled:cursor-wait disabled:opacity-60">
+                <Save className="h-4 w-4" />
+                {saving ? "Saving..." : "Save links"}
+              </button>
+            </div>
+          </motion.form>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
@@ -238,6 +256,7 @@ export default function Landing() {
             The strategic intelligence command center for Occu-Med — surfacing occupational health opportunities, quantifying workforce risk, and mapping the competitive landscape.
           </p>
           <button
+            id="manage-portal-links-button"
             type="button"
             onClick={() => setManagerOpen(true)}
             className="mt-5 inline-flex items-center gap-2 rounded-full border border-cyan-100/18 bg-white/[0.045] px-4 py-2 text-xs font-semibold tracking-wide text-cyan-50/76 transition hover:border-cyan-100/36 hover:bg-white/[0.075] hover:text-white"

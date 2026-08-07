@@ -15,8 +15,6 @@ import {
 } from "../oshaDataService";
 import { deriveServiceTags, getOccupationFamily } from "../onetService";
 
-// ─── OSHA Rate Calculation ───────────────────────────────────────────────────
-
 describe("calculateRate", () => {
   it("returns undefined for zero hours", () => {
     assert.equal(calculateRate(5, 0), undefined);
@@ -34,8 +32,6 @@ describe("calculateRate", () => {
     assert.equal(calculateRate(50, 500000), 20);
   });
 });
-
-// ─── Entity Name Normalization ───────────────────────────────────────────────
 
 describe("normalizeName", () => {
   it("lowercases and strips suffixes", () => {
@@ -59,15 +55,13 @@ describe("normalizeName", () => {
   });
 });
 
-// ─── Name Similarity ─────────────────────────────────────────────────────────
-
 describe("nameSimilarity", () => {
   it("returns 1.0 for identical normalized names", () => {
     assert.equal(nameSimilarity("Acme Inc", "Acme Inc."), 1.0);
   });
 
-  it("returns 0.85 for substring match", () => {
-    assert.equal(nameSimilarity("Acme Construction", "Acme Construction Inc"), 0.85);
+  it("returns 0.85 for a real substring match", () => {
+    assert.equal(nameSimilarity("Acme", "Acme Construction Inc"), 0.85);
   });
 
   it("returns 0 for no common words", () => {
@@ -83,8 +77,6 @@ describe("nameSimilarity", () => {
     assert.equal(nameSimilarity("", ""), 0);
   });
 });
-
-// ─── O*NET Service Tag Derivation ────────────────────────────────────────────
 
 describe("deriveServiceTags", () => {
   it("returns fitness-for-duty tags for physical lifting indicators", () => {
@@ -150,8 +142,6 @@ describe("deriveServiceTags", () => {
     assert.equal(tags.length, unique.size);
   });
 });
-
-// ─── Occupation Family Mapping ───────────────────────────────────────────────
 
 describe("getOccupationFamily", () => {
   it("maps 47- prefix to Construction and Extraction", () => {

@@ -9,37 +9,76 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  typecheck-and-build:
+  typecheck-build-and-browser:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       NODE_ENV: test
       BASE_PATH: /
+      CI: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: 10
           run_install: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+      - name: Install dependencies from lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Repository integrity audit
         run: pnpm run audit:repository
 
+      - name: Frontend reachability inventory
+        shell: bash
+        run: |
+          node scripts/repository-audit.mjs --json > /tmp/hub2-repository-audit.json
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const report = JSON.parse(fs.readFileSync('/tmp/hub2-repository-audit.json', 'utf8'));
+          console.log(`Reachable frontend files: ${report.reachableFrontendFiles}`);
+          console.log(`Unreachable frontend files: ${report.unreachableFrontendFiles}`);
+          for (const file of report.unreachableFrontend ?? []) console.log(`UNREACHABLE ${file}`);
+          console.log('Known architecture candidates:');
+          for (const file of report.knownArchitectureCandidates ?? []) console.log(`CANDIDATE ${file}`);
+          NODE
+
+      - name: Unit tests
+        run: pnpm run test
+
       - name: Typecheck
         run: pnpm run typecheck
 
-      - name: Build
+      - name: Production build
         run: pnpm run build
+
+      - name: Install Playwright Chromium
+        timeout-minutes: 5
+        run: pnpm --filter @workspace/occu-med-insight-hub exec playwright install chromium
+
+      - name: Browser acceptance — Hub 2 UI hardening
+        timeout-minutes: 5
+        run: pnpm run test:browser
+
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: hub2-playwright-failure
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            artifacts/occu-med-insight-hub/playwright-report
+            artifacts/occu-med-insight-hub/test-results

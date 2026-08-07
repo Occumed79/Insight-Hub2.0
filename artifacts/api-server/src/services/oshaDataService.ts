@@ -24,8 +24,6 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 export type OshaEstablishmentRecord = {
   establishmentName: string;
   companyName: string;
@@ -69,8 +67,6 @@ export type OshaQueryResult = {
   warning: string;
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function getEnv(key: string): string | undefined {
   return process.env[key];
 }
@@ -92,6 +88,7 @@ function normalizeName(name: string): string {
 function nameSimilarity(a: string, b: string): number {
   const na = normalizeName(a);
   const nb = normalizeName(b);
+  if (!na || !nb) return 0;
   if (na === nb) return 1.0;
   if (na.includes(nb) || nb.includes(na)) return 0.85;
   const wordsA = na.split(" ").filter(Boolean);
@@ -100,8 +97,6 @@ function nameSimilarity(a: string, b: string): number {
   if (wordsA.length === 0 || wordsB.length === 0) return 0;
   return Math.min(common.length / Math.max(wordsA.length, wordsB.length), 0.8);
 }
-
-// ─── Cache Layer ─────────────────────────────────────────────────────────────
 
 function getOshaDataDir(): string {
   const envDir = getEnv("OSHA_DATA_DIR");
@@ -150,10 +145,7 @@ function loadCachedDatasets(): CachedDataset[] {
           if (!rec.datasetYear) rec.datasetYear = parsed.metadata.datasetYear;
           if (!rec.sourceFileType) rec.sourceFileType = parsed.metadata.sourceFileType;
         }
-        datasets.push({
-          metadata: parsed.metadata,
-          records: parsed.records,
-        });
+        datasets.push({ metadata: parsed.metadata, records: parsed.records });
       }
     } catch {
       console.error(`[OSHA] Failed to parse: ${entry}`);
@@ -169,8 +161,6 @@ export function reloadOshaCache(): void {
   cachedDatasets = null;
   cacheLoadTime = 0;
 }
-
-// ─── Public API ──────────────────────────────────────────────────────────────
 
 export function queryOshaEstablishments(
   company?: string,
@@ -190,7 +180,6 @@ export function queryOshaEstablishments(
   }
 
   const datasets = loadCachedDatasets();
-
   if (datasets.length === 0) {
     return {
       records: [],
@@ -211,17 +200,14 @@ export function queryOshaEstablishments(
       const yearNum = Number(year);
       records = records.filter((r) => r.year === yearNum || ds.metadata.datasetYear === yearNum);
     }
-
     if (state) {
       const stateUpper = state.toUpperCase().trim();
       records = records.filter((r) => r.state.toUpperCase() === stateUpper);
     }
-
     if (naics) {
       const naicsTrim = naics.trim();
       records = records.filter((r) => r.naics.startsWith(naicsTrim));
     }
-
     if (company) {
       const companyTrim = company.trim();
       records = records.filter((r) => {

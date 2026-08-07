@@ -138,11 +138,34 @@ function Drawer({
   onClose: () => void;
   children: ReactNode;
 }) {
+  function restoreTriggerFocus() {
+    window.setTimeout(() => {
+      const trigger = Array.from(
+        document.querySelectorAll<HTMLButtonElement>('button[aria-label^="Open details for "]'),
+      ).find((button) => button.getAttribute("aria-label") === `Open details for ${title}`);
+      trigger?.focus({ preventScroll: true });
+    }, 0);
+  }
+
   return (
-    <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <DialogPrimitive.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+          restoreTriggerFocus();
+        }
+      }}
+    >
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0" />
-        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-[1001] h-dvh w-full max-w-[520px] overflow-y-auto border-l border-cyan-100/14 bg-[#04101d]/97 p-6 text-white shadow-[-30px_0_90px_rgba(0,0,0,.58)] outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right">
+        <DialogPrimitive.Content
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            restoreTriggerFocus();
+          }}
+          className="fixed inset-y-0 right-0 z-[1001] h-dvh w-full max-w-[520px] overflow-y-auto border-l border-cyan-100/14 bg-[#04101d]/97 p-6 text-white shadow-[-30px_0_90px_rgba(0,0,0,.58)] outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right"
+        >
           <div className="mb-7 flex items-start justify-between gap-5">
             <div>
               <p className="text-xs uppercase tracking-[.24em] text-cyan-100/38">Intelligence Record</p>
