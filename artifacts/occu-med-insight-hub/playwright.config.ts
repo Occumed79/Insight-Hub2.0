@@ -39,9 +39,15 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm run serve -- --port 4173 --strictPort",
+    command: "pnpm exec vite preview --config vite.config.ts --host 127.0.0.1 --port 4173 --strictPort",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 30_000,
+    stdout: "pipe",
+    stderr: "pipe",
+    env: {
+      NODE_ENV: "production",
+      BASE_PATH: "/",
+    },
   },
 });
