@@ -30,7 +30,7 @@ const checks = [
   [sidebar.includes('aria-label="Insight Hub intelligence tools"'), "navigation has an accessible label"],
   [main.includes("class AppErrorBoundary"), "global UI error boundary exists"],
   [main.includes('role="alert"'), "crash recovery surface is announced accessibly"],
-  [landing.includes('role="dialog"') && landing.includes('aria-modal="true"'), "landing link manager remains a semantic modal"],
+  [landing.includes('import * as DialogPrimitive from "@radix-ui/react-dialog"') && landing.includes("<DialogPrimitive.Content") && landing.includes("onCloseAutoFocus"), "landing link manager uses managed modal focus behavior"],
   [app.includes("React.lazy") && app.includes("React.Suspense"), "workspace routes remain code-split behind a suspense boundary"],
   [app.includes('role="status"') && app.includes("Loading workspace"), "route loading state remains accessible"],
   [entities.includes('import * as DialogPrimitive from "@radix-ui/react-dialog"'), "Entities details use managed modal primitives"],
