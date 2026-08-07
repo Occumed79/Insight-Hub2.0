@@ -22,9 +22,15 @@ for (const route of [
   assert.ok(app.includes(`path=\"${route}\"`), `Hub 2 is missing route ${route}`);
 }
 
+const hasStaticEntitiesImport = app.includes(
+  'import { EntitiesPage } from "@/pages/entities"',
+);
+const hasLazyEntitiesImport =
+  app.includes('import("@/pages/entities")') &&
+  app.includes("default: module.EntitiesPage");
 assert.ok(
-  app.includes('import { EntitiesPage } from "@/pages/entities"'),
-  "Hub 2 App must import the transferred Entities workspace",
+  hasStaticEntitiesImport || hasLazyEntitiesImport,
+  "Hub 2 App must own and load the transferred Entities workspace",
 );
 assert.ok(
   sidebar.includes('{ href: "/entities", label: "Entities"'),
@@ -66,5 +72,6 @@ console.log(
     owner: "Insight-Hub2.0",
     frontendRoutes: 6,
     transferredDomains: ["entities", "competitors", "federal", "state"],
+    routeLoading: hasLazyEntitiesImport ? "lazy" : "static",
   }),
 );
