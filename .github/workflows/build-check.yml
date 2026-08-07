@@ -52,137 +52,20 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - name: Prepare bootstrap workflow for integration patch
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('.github/workflows/build-check.yml')
-          text = path.read_text()
-          block = '''      - name: React 19 map and OSHA persistence audit
-        run: pnpm run audit:osha-persistence
-
-'''
-          text = text.replace(block, '', 1)
-          path.write_text(text)
-          PY
-
       - name: Apply React 19 map and OSHA persistence integration
         run: python3 scripts/apply-final-hardening.py
-
-      - name: Remove temporary integration tooling
-        run: |
-          rm -f scripts/apply-final-hardening.py
-          rm -f .github/workflows/final-hardening-oneshot.yml
 
       - name: Regenerate dependencies and lockfile
         run: pnpm install --no-frozen-lockfile
 
       - name: Normalize Build Check to final frozen-lockfile workflow
-        shell: bash
+        run: python3 scripts/write-final-build-check.py
+
+      - name: Remove temporary integration tooling
         run: |
-          cat > .github/workflows/build-check.yml <<'YAML'
-          name: Build Check
-
-          on:
-            push:
-              branches:
-                - main
-            pull_request:
-              branches:
-                - main
-            workflow_dispatch:
-
-          permissions:
-            contents: read
-
-          jobs:
-            typecheck-build-and-browser:
-              runs-on: ubuntu-latest
-              services:
-                postgres:
-                  image: postgres:16
-                  env:
-                    POSTGRES_USER: postgres
-                    POSTGRES_PASSWORD: postgres
-                    POSTGRES_DB: postgres
-                  ports:
-                    - 5432:5432
-                  options: >-
-                    --health-cmd pg_isready
-                    --health-interval 5s
-                    --health-timeout 5s
-                    --health-retries 10
-              env:
-                DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
-                NODE_ENV: test
-                BASE_PATH: /
-                CI: true
-              steps:
-                - name: Checkout
-                  uses: actions/checkout@v6
-
-                - name: Setup pnpm
-                  uses: pnpm/action-setup@v6
-                  with:
-                    run_install: false
-
-                - name: Setup Node
-                  uses: actions/setup-node@v6
-                  with:
-                    node-version: 24
-                    cache: pnpm
-
-                - name: Install dependencies from lockfile
-                  run: pnpm install --frozen-lockfile
-
-                - name: Repository integrity audit
-                  run: pnpm run audit:repository
-
-                - name: Frontend reachability inventory
-                  shell: bash
-                  run: |
-                    node scripts/repository-audit.mjs --json > /tmp/hub2-repository-audit.json
-                    node --input-type=module - <<'NODE'
-                    import fs from 'node:fs';
-                    const report = JSON.parse(fs.readFileSync('/tmp/hub2-repository-audit.json', 'utf8'));
-                    console.log(`Reachable frontend files: ${report.reachableFrontendFiles}`);
-                    console.log(`Unreachable frontend files: ${report.unreachableFrontendFiles}`);
-                    for (const file of report.unreachableFrontend ?? []) console.log(`UNREACHABLE ${file}`);
-                    console.log('Known architecture candidates:');
-                    for (const file of report.knownArchitectureCandidates ?? []) console.log(`CANDIDATE ${file}`);
-                    NODE
-
-                - name: Unit and persistence integration tests
-                  run: pnpm run test
-
-                - name: Typecheck
-                  run: pnpm run typecheck
-
-                - name: React 19 map and OSHA persistence audit
-                  run: pnpm run audit:osha-persistence
-
-                - name: Production build
-                  run: pnpm run build
-
-                - name: Install Playwright Chromium
-                  timeout-minutes: 5
-                  run: pnpm --filter @workspace/occu-med-insight-hub exec playwright install chromium
-
-                - name: Browser acceptance — Hub 2 UI hardening
-                  timeout-minutes: 5
-                  run: pnpm run test:browser
-
-                - name: Upload browser failure artifacts
-                  if: failure()
-                  uses: actions/upload-artifact@v7
-                  with:
-                    name: hub2-playwright-failure
-                    if-no-files-found: ignore
-                    retention-days: 7
-                    path: |
-                      artifacts/occu-med-insight-hub/playwright-report
-                      artifacts/occu-med-insight-hub/test-results
-          YAML
+          rm -f scripts/apply-final-hardening.py
+          rm -f scripts/write-final-build-check.py
+          rm -f .github/workflows/final-hardening-oneshot.yml
 
       - name: Repository integrity audit
         run: pnpm run audit:repository
@@ -206,9 +89,6 @@ jobs:
 
       - name: Typecheck
         run: pnpm run typecheck
-
-      - name: React 19 map and OSHA persistence audit
-        run: pnpm run audit:osha-persistence
 
       - name: Production build
         run: pnpm run build
