@@ -12,6 +12,7 @@ const sidebar = read("artifacts/occu-med-insight-hub/src/components/insight/Side
 const main = read("artifacts/occu-med-insight-hub/src/main.tsx");
 const landing = read("artifacts/occu-med-insight-hub/src/pages/landing.tsx");
 const entities = read("artifacts/occu-med-insight-hub/src/pages/entities.tsx");
+const viteConfig = read("artifacts/occu-med-insight-hub/vite.config.ts");
 
 const checks = [
   [appEntry.includes('@import "./ui-hardening.css"'), "shared UI hardening stylesheet is imported"],
@@ -33,6 +34,7 @@ const checks = [
   [entities.includes('role="tablist"') && entities.includes('role="tabpanel"'), "Entities tabs retain semantic tab structure"],
   [entities.includes("function EmptyCard") && entities.includes("filteredProspects.length === 0") && entities.includes("filteredClients.length === 0"), "Entities datasets and searches retain explicit empty states"],
   [entities.includes('aria-label={`Open details for ${item.name}`}'), "Entity record actions remain keyboard-operable semantic controls"],
+  [viteConfig.includes("manualChunks: splitVendorChunk"), "shared frontend vendors remain split from the application entry"],
 ];
 
 const failures = checks.filter(([passed]) => !passed).map(([, label]) => label);
