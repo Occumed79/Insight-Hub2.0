@@ -101,25 +101,31 @@ function MetricCard({
 
 function LoadingCard({ label }: { label: string }) {
   return (
-    <GlassCard variant="glass" className="p-8 text-sm text-cyan-100/50" role="status" aria-live="polite">
-      Loading {label}…
-    </GlassCard>
+    <div role="status" aria-live="polite">
+      <GlassCard variant="glass" className="p-8 text-sm text-cyan-100/50">
+        Loading {label}…
+      </GlassCard>
+    </div>
   );
 }
 
 function ErrorCard({ error }: { error: unknown }) {
   return (
-    <GlassCard variant="glass" className="border-rose-300/20 p-8 text-sm text-rose-100/80" role="alert">
-      {error instanceof Error ? error.message : "This workspace could not be loaded."}
-    </GlassCard>
+    <div role="alert">
+      <GlassCard variant="glass" className="border-rose-300/20 p-8 text-sm text-rose-100/80">
+        {error instanceof Error ? error.message : "This workspace could not be loaded."}
+      </GlassCard>
+    </div>
   );
 }
 
 function EmptyCard({ children }: { children: ReactNode }) {
   return (
-    <GlassCard variant="glass" className="p-8 text-sm text-cyan-100/54" role="status">
-      {children}
-    </GlassCard>
+    <div role="status">
+      <GlassCard variant="glass" className="p-8 text-sm text-cyan-100/54">
+        {children}
+      </GlassCard>
+    </div>
   );
 }
 
