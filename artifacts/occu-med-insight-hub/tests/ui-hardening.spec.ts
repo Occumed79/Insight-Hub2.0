@@ -36,6 +36,53 @@ const clients = [
   },
 ];
 
+const savedGeographicEntities = [
+  {
+    id: 1,
+    name: "V2X",
+    company: "V2X",
+    status: "active",
+    locations: [
+      {
+        id: 101,
+        entityId: 1,
+        placeName: "V2X Fresno",
+        formattedAddress: "Fresno, CA, USA",
+        city: "Fresno",
+        state: "CA",
+        country: "US",
+        region: "California",
+        coordinates: [-119.7871, 36.7378],
+        geocodeSource: "manual",
+        geocodeConfidence: "exact",
+        reviewStatus: "verified",
+      },
+    ],
+  },
+  {
+    id: 2,
+    name: "Demo Engineering",
+    company: "Demo Engineering",
+    status: "active",
+    locations: [
+      {
+        id: 201,
+        entityId: 2,
+        placeName: "Demo Fresno",
+        formattedAddress: "Clovis, CA, USA",
+        city: "Clovis",
+        state: "CA",
+        country: "US",
+        region: "California",
+        coordinates: [-119.7029, 36.8252],
+        geocodeSource: "manual",
+        geocodeConfidence: "exact",
+        reviewStatus: "verified",
+      },
+    ],
+  },
+];
+
 async function fulfillJson(route: Route, body: unknown, status = 200) {
   await route.fulfill({
     status,
@@ -59,11 +106,15 @@ async function installDeterministicApi(page: Page) {
     if (path.endsWith("/api/clients")) {
       return fulfillJson(route, { clients });
     }
+    if (path.endsWith("/api/entities/saved")) {
+      return fulfillJson(route, { ok: true, entities: savedGeographicEntities });
+    }
 
     return fulfillJson(route, { ok: true, configured: true, results: [], records: [] });
   });
 
   await page.route(/images\.unsplash\.com/, (route) => route.abort());
+  await page.route(/services\.arcgisonline\.com/, (route) => route.abort());
 }
 
 async function expectNoDocumentOverflow(page: Page) {
@@ -166,5 +217,16 @@ test("core intelligence routes load through lazy boundaries without browser erro
   await expect(page.locator('a[aria-current="page"]').filter({ hasText: "Federal Agencies" })).toHaveCount(2);
   await expectNoDocumentOverflow(page);
 
+  expect(pageErrors).toEqual([]);
+});
+
+test("active Location Overlap Leaflet map renders safely", async ({ page }) => {
+  const pageErrors = collectPageErrors(page);
+  await page.goto("/location-overlap");
+
+  await expect(page.getByRole("heading", { name: "Global Location Overlap", exact: true })).toBeVisible();
+  await expect(page.locator(".location-overlap-map.leaflet-container")).toBeVisible();
+  await expect(page.getByText("2 worldwide sites")).toBeVisible();
+  await expectNoDocumentOverflow(page);
   expect(pageErrors).toEqual([]);
 });
