@@ -35,6 +35,25 @@ type Topology = {
   };
 };
 
+type GeoJsonGeometry = {
+  type: "Polygon" | "MultiPolygon";
+  coordinates: Point[][] | Point[][][];
+};
+
+type GeoJsonFeature = {
+  type: "Feature";
+  id?: string | number;
+  properties?: Record<string, unknown>;
+  geometry: GeoJsonGeometry;
+};
+
+type FeatureCollection = {
+  type: "FeatureCollection";
+  features: GeoJsonFeature[];
+};
+
+type GeographySource = Topology | FeatureCollection;
+
 export type GeographyData = {
   id?: string | number;
   rsmKey: string;
@@ -180,15 +199,12 @@ function projectPoint(
   ];
 }
 
-function ringToPath(
-  topology: Topology,
-  refs: number[],
+function pointsToPath(
+  points: Point[],
   id: string | number | undefined,
   context: ProjectionContextValue,
 ): string {
-  const points = stitchRing(topology, refs);
   if (points.length === 0) return "";
-
   return `${points
     .map(([lon, lat], index) => {
       const [x, y] = projectPoint(lon, lat, id, context);
@@ -197,7 +213,16 @@ function ringToPath(
     .join("")}Z`;
 }
 
-function geometryToPath(
+function ringToPath(
+  topology: Topology,
+  refs: number[],
+  id: string | number | undefined,
+  context: ProjectionContextValue,
+): string {
+  return pointsToPath(stitchRing(topology, refs), id, context);
+}
+
+function topologyGeometryToPath(
   topology: Topology,
   geometry: TopologyGeometry,
   context: ProjectionContextValue,
@@ -215,6 +240,23 @@ function geometryToPath(
     .join("");
 }
 
+function geoJsonGeometryToPath(
+  feature: GeoJsonFeature,
+  context: ProjectionContextValue,
+): string {
+  if (feature.geometry.type === "Polygon") {
+    return (feature.geometry.coordinates as Point[][])
+      .map((ring) => pointsToPath(ring, feature.id, context))
+      .join("");
+  }
+
+  return (feature.geometry.coordinates as Point[][][])
+    .flatMap((polygon) =>
+      polygon.map((ring) => pointsToPath(ring, feature.id, context)),
+    )
+    .join("");
+}
+
 function isTopology(value: unknown): value is Topology {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<Topology>;
@@ -226,20 +268,30 @@ function isTopology(value: unknown): value is Topology {
   );
 }
 
+function isFeatureCollection(value: unknown): value is FeatureCollection {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<FeatureCollection>;
+  return candidate.type === "FeatureCollection" && Array.isArray(candidate.features);
+}
+
+function isGeographySource(value: unknown): value is GeographySource {
+  return isTopology(value) || isFeatureCollection(value);
+}
+
 type GeographiesProps = {
-  geography: string | Topology;
+  geography: string | GeographySource;
   children: (args: { geographies: GeographyData[] }) => ReactNode;
 };
 
 export function Geographies({ geography, children }: GeographiesProps) {
   const context = useContext(ProjectionContext);
-  const [topology, setTopology] = useState<Topology | null>(
+  const [source, setSource] = useState<GeographySource | null>(
     typeof geography === "string" ? null : geography,
   );
 
   useEffect(() => {
     if (typeof geography !== "string") {
-      setTopology(geography);
+      setSource(geography);
       return;
     }
 
@@ -252,13 +304,13 @@ export function Geographies({ geography, children }: GeographiesProps) {
         return response.json() as Promise<unknown>;
       })
       .then((payload) => {
-        if (!active || !isTopology(payload)) return;
-        setTopology(payload);
+        if (!active || !isGeographySource(payload)) return;
+        setSource(payload);
       })
       .catch((error: unknown) => {
         if (!active || (error instanceof DOMException && error.name === "AbortError")) return;
         console.error("[state-map] Unable to load map geometry", error);
-        setTopology(null);
+        setSource(null);
       });
 
     return () => {
@@ -268,16 +320,25 @@ export function Geographies({ geography, children }: GeographiesProps) {
   }, [geography]);
 
   const geographies = useMemo<GeographyData[]>(() => {
-    if (!topology) return [];
-    const states = topology.objects.states;
+    if (!source) return [];
+
+    if (source.type === "FeatureCollection") {
+      return source.features.map((feature, index) => ({
+        id: feature.id,
+        rsmKey: `state-${feature.id ?? index}`,
+        d: geoJsonGeometryToPath(feature, context),
+      }));
+    }
+
+    const states = source.objects.states;
     if (!states || states.type !== "GeometryCollection") return [];
 
     return states.geometries.map((geometry, index) => ({
       id: geometry.id,
       rsmKey: `state-${geometry.id ?? index}`,
-      d: geometryToPath(topology, geometry, context),
+      d: topologyGeometryToPath(source, geometry, context),
     }));
-  }, [context, topology]);
+  }, [context, source]);
 
   return <>{children({ geographies })}</>;
 }
