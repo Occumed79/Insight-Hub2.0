@@ -5,6 +5,8 @@
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "pnpm run typecheck && pnpm run audit:core-ownership && pnpm run audit:ui-hardening && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run build",
+    "test": "pnpm -r --filter \"./artifacts/**\" --if-present run test",
+    "test:browser": "pnpm --filter @workspace/occu-med-insight-hub run test:browser",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "audit:repository": "node scripts/repository-audit.mjs --ci",
