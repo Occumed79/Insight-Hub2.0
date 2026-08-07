@@ -1,5 +1,6 @@
 import { useState, type ElementType, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   Building2,
   CalendarDays,
@@ -100,7 +101,7 @@ function MetricCard({
 
 function LoadingCard({ label }: { label: string }) {
   return (
-    <GlassCard variant="glass" className="p-8 text-sm text-cyan-100/50">
+    <GlassCard variant="glass" className="p-8 text-sm text-cyan-100/50" role="status" aria-live="polite">
       Loading {label}…
     </GlassCard>
   );
@@ -108,8 +109,16 @@ function LoadingCard({ label }: { label: string }) {
 
 function ErrorCard({ error }: { error: unknown }) {
   return (
-    <GlassCard variant="glass" className="border-rose-300/20 p-8 text-sm text-rose-100/80">
+    <GlassCard variant="glass" className="border-rose-300/20 p-8 text-sm text-rose-100/80" role="alert">
       {error instanceof Error ? error.message : "This workspace could not be loaded."}
+    </GlassCard>
+  );
+}
+
+function EmptyCard({ children }: { children: ReactNode }) {
+  return (
+    <GlassCard variant="glass" className="p-8 text-sm text-cyan-100/54" role="status">
+      {children}
     </GlassCard>
   );
 }
@@ -124,34 +133,29 @@ function Drawer({
   children: ReactNode;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-[1000] flex justify-end bg-black/50 backdrop-blur-sm"
-      onMouseDown={onClose}
-    >
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="h-full w-full max-w-[520px] overflow-y-auto border-l border-cyan-100/14 bg-[#04101d]/97 p-6 shadow-[-30px_0_90px_rgba(0,0,0,.58)]"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="mb-7 flex items-start justify-between gap-5">
-          <div>
-            <p className="text-xs uppercase tracking-[.24em] text-cyan-100/38">Intelligence Record</p>
-            <h2 className="mt-2 text-2xl font-black">{title}</h2>
+    <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0" />
+        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-[1001] h-dvh w-full max-w-[520px] overflow-y-auto border-l border-cyan-100/14 bg-[#04101d]/97 p-6 text-white shadow-[-30px_0_90px_rgba(0,0,0,.58)] outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right">
+          <div className="mb-7 flex items-start justify-between gap-5">
+            <div>
+              <p className="text-xs uppercase tracking-[.24em] text-cyan-100/38">Intelligence Record</p>
+              <DialogPrimitive.Title className="mt-2 text-2xl font-black">{title}</DialogPrimitive.Title>
+            </div>
+            <DialogPrimitive.Close asChild>
+              <button
+                type="button"
+                aria-label="Close details"
+                className="rounded-xl border border-white/8 bg-white/[0.035] p-2 text-cyan-100/45 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </DialogPrimitive.Close>
           </div>
-          <button
-            type="button"
-            aria-label="Close details"
-            onClick={onClose}
-            className="rounded-xl border border-white/8 bg-white/[0.035] p-2 text-cyan-100/45 hover:text-white"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className="space-y-4">{children}</div>
-      </aside>
-    </div>
+          <div className="space-y-4">{children}</div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
@@ -281,9 +285,12 @@ export function EntitiesPage({
   return (
     <WorkspaceShell>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex gap-2 rounded-2xl border border-cyan-100/10 bg-[#071321]/72 p-1.5">
+        <div className="flex gap-2 rounded-2xl border border-cyan-100/10 bg-[#071321]/72 p-1.5" role="tablist" aria-label="Entity record type">
           <button
             type="button"
+            role="tab"
+            aria-selected={tab === "prospects"}
+            aria-controls="entities-prospects-panel"
             onClick={() => setTab("prospects")}
             className={cn(
               "rounded-xl px-4 py-2 text-sm",
@@ -294,6 +301,9 @@ export function EntitiesPage({
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={tab === "clients"}
+            aria-controls="entities-clients-panel"
             onClick={() => setTab("clients")}
             className={cn(
               "rounded-xl px-4 py-2 text-sm",
@@ -303,19 +313,20 @@ export function EntitiesPage({
             Client Records
           </button>
         </div>
-        <label className="flex min-w-[260px] items-center gap-2 rounded-2xl border border-cyan-100/12 bg-[#071321]/82 px-4 py-2.5">
-          <Search size={16} className="text-cyan-100/45" />
+        <label className="flex w-full min-w-0 items-center gap-2 rounded-2xl border border-cyan-100/12 bg-[#071321]/82 px-4 py-2.5 sm:w-auto sm:min-w-[260px]">
+          <span className="sr-only">Search {tab}</span>
+          <Search size={16} className="shrink-0 text-cyan-100/45" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="w-full bg-transparent text-sm outline-none placeholder:text-cyan-100/28"
+            className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-cyan-100/28"
             placeholder={`Search ${tab}…`}
           />
         </label>
       </div>
 
       {tab === "prospects" ? (
-        <>
+        <div id="entities-prospects-panel" role="tabpanel">
           <div className="mb-6 grid gap-4 md:grid-cols-3">
             <MetricCard icon={Target} value={prospects.length} label="Tracked prospects" />
             <MetricCard
@@ -333,36 +344,46 @@ export function EntitiesPage({
             <LoadingCard label="prospects" />
           ) : prospectsQ.error ? (
             <ErrorCard error={prospectsQ.error} />
+          ) : prospects.length === 0 ? (
+            <EmptyCard>No prospect records are available yet.</EmptyCard>
+          ) : filteredProspects.length === 0 ? (
+            <EmptyCard>No prospects match “{query.trim()}”.</EmptyCard>
           ) : (
             <div className="grid gap-4 xl:grid-cols-2">
               {filteredProspects.map((item) => (
-                <GlassCard
+                <button
                   key={item.id}
-                  variant="glass"
-                  className="cursor-pointer p-5 transition hover:border-cyan-200/28"
+                  type="button"
                   onClick={() => setSelectedProspect(item)}
+                  className="block w-full rounded-[28px] text-left"
+                  aria-label={`Open details for ${item.name}`}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="mb-2 flex gap-2 text-[10px] uppercase tracking-wider text-cyan-100/55">
-                        <span>{item.tier}</span><span>·</span><span>{item.status}</span>
+                  <GlassCard
+                    variant="glass"
+                    className="h-full cursor-pointer p-5 transition hover:border-cyan-200/28"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="mb-2 flex gap-2 text-[10px] uppercase tracking-wider text-cyan-100/55">
+                          <span>{item.tier}</span><span>·</span><span>{item.status}</span>
+                        </div>
+                        <h2 className="text-lg font-bold">{item.name}</h2>
+                        <p className="mt-1 text-sm text-cyan-100/45">{item.industry || "Industry not reported"}</p>
                       </div>
-                      <h2 className="text-lg font-bold">{item.name}</h2>
-                      <p className="mt-1 text-sm text-cyan-100/45">{item.industry || "Industry not reported"}</p>
+                      <Target size={20} className="shrink-0 text-cyan-200/50" />
                     </div>
-                    <Target size={20} className="text-cyan-200/50" />
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-4 text-xs text-cyan-100/40">
-                    {item.headquarters ? <span className="flex items-center gap-1"><MapPin size={13} />{item.headquarters}</span> : null}
-                    <span className="flex items-center gap-1"><CalendarDays size={13} />{item.lastResearched ? formatDate(item.lastResearched) : "Not researched"}</span>
-                  </div>
-                </GlassCard>
+                    <div className="mt-4 flex flex-wrap gap-4 text-xs text-cyan-100/40">
+                      {item.headquarters ? <span className="flex items-center gap-1"><MapPin size={13} />{item.headquarters}</span> : null}
+                      <span className="flex items-center gap-1"><CalendarDays size={13} />{item.lastResearched ? formatDate(item.lastResearched) : "Not researched"}</span>
+                    </div>
+                  </GlassCard>
+                </button>
               ))}
             </div>
           )}
-        </>
+        </div>
       ) : (
-        <>
+        <div id="entities-clients-panel" role="tabpanel">
           <div className="mb-6 grid gap-4 md:grid-cols-3">
             <MetricCard icon={Building2} value={clients.length} label="Client records" />
             <MetricCard
@@ -380,32 +401,42 @@ export function EntitiesPage({
             <LoadingCard label="clients" />
           ) : clientsQ.error ? (
             <ErrorCard error={clientsQ.error} />
+          ) : clients.length === 0 ? (
+            <EmptyCard>No client records are available yet.</EmptyCard>
+          ) : filteredClients.length === 0 ? (
+            <EmptyCard>No clients match “{query.trim()}”.</EmptyCard>
           ) : (
             <div className="grid gap-4 xl:grid-cols-2">
               {filteredClients.map((item) => (
-                <GlassCard
+                <button
                   key={item.id}
-                  variant="glass"
-                  className="cursor-pointer p-5 transition hover:border-cyan-200/28"
+                  type="button"
                   onClick={() => setSelectedClient(item)}
+                  className="block w-full rounded-[28px] text-left"
+                  aria-label={`Open details for ${item.name}`}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h2 className="text-lg font-bold">{item.name}</h2>
-                      <p className="mt-1 text-sm text-cyan-100/45">{item.industry || "Industry not reported"}</p>
+                  <GlassCard
+                    variant="glass"
+                    className="h-full cursor-pointer p-5 transition hover:border-cyan-200/28"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h2 className="text-lg font-bold">{item.name}</h2>
+                        <p className="mt-1 text-sm text-cyan-100/45">{item.industry || "Industry not reported"}</p>
+                      </div>
+                      <Building2 size={20} className="shrink-0 text-emerald-200/55" />
                     </div>
-                    <Building2 size={20} className="text-emerald-200/55" />
-                  </div>
-                  <div className="mt-5 grid grid-cols-3 gap-3 text-center text-xs">
-                    <div className="rounded-xl border border-white/7 p-3"><b className="text-lg">{item.branches?.length ?? 0}</b><p className="text-cyan-100/38">Branches</p></div>
-                    <div className="rounded-xl border border-white/7 p-3"><b className="text-lg">{item.contacts?.length ?? 0}</b><p className="text-cyan-100/38">Contacts</p></div>
-                    <div className="rounded-xl border border-white/7 p-3"><b className="capitalize">{item.overallHiringTrend || "Unknown"}</b><p className="text-cyan-100/38">Hiring</p></div>
-                  </div>
-                </GlassCard>
+                    <div className="mt-5 grid grid-cols-1 gap-3 text-center text-xs sm:grid-cols-3">
+                      <div className="rounded-xl border border-white/7 p-3"><b className="text-lg">{item.branches?.length ?? 0}</b><p className="text-cyan-100/38">Branches</p></div>
+                      <div className="rounded-xl border border-white/7 p-3"><b className="text-lg">{item.contacts?.length ?? 0}</b><p className="text-cyan-100/38">Contacts</p></div>
+                      <div className="rounded-xl border border-white/7 p-3"><b className="capitalize">{item.overallHiringTrend || "Unknown"}</b><p className="text-cyan-100/38">Hiring</p></div>
+                    </div>
+                  </GlassCard>
+                </button>
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
 
       {selectedProspect ? (
