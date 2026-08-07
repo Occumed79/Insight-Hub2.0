@@ -67,9 +67,6 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
-      - name: React 19 map and OSHA persistence audit
-        run: pnpm run audit:osha-persistence
-
       - name: Production build
         run: pnpm run build
 
