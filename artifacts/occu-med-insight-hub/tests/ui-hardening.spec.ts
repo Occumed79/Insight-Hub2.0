@@ -83,6 +83,65 @@ const savedGeographicEntities = [
   },
 ];
 
+const hiringFixture = {
+  startedAt: "2026-08-07T20:00:00.000Z",
+  completedAt: "2026-08-07T20:00:01.000Z",
+  sourceUrl: "https://example.com/careers",
+  companyName: "Demo Engineering",
+  platform: "greenhouse",
+  coverage: {
+    complete: true,
+    analyzedPages: 1,
+    totalDiscovered: 3,
+    note: "Deterministic browser fixture.",
+  },
+  warnings: [],
+  summary: {
+    totalJobs: 3,
+    uniqueLocations: 2,
+    countries: 1,
+    remoteJobs: 1,
+    topLocations: [
+      { label: "Fresno, CA", count: 2 },
+      { label: "Remote", count: 1 },
+    ],
+    jobFamilies: [
+      { label: "Engineering", count: 2 },
+      { label: "Operations", count: 1 },
+    ],
+    seniority: [
+      { label: "Senior", count: 2 },
+      { label: "Individual contributor", count: 1 },
+    ],
+    employmentTypes: [{ label: "Full-time", count: 3 }],
+    remoteMix: [
+      { label: "Onsite", count: 2 },
+      { label: "Remote", count: 1 },
+    ],
+  },
+  jobs: [
+    {
+      id: "job-1",
+      title: "Senior Safety Engineer",
+      url: "https://example.com/careers/job-1",
+      companyName: "Demo Engineering",
+      locationText: "Fresno, CA",
+      city: "Fresno",
+      region: "CA",
+      country: "US",
+      department: "Engineering",
+      jobFamily: "Engineering",
+      seniority: "Senior",
+      employmentType: "Full-time",
+      remoteType: "onsite",
+      postedAt: "2026-08-01",
+      description: "Safety-sensitive engineering role.",
+      source: "https://example.com/careers/job-1",
+      adapter: "greenhouse",
+    },
+  ],
+};
+
 async function fulfillJson(route: Route, body: unknown, status = 200) {
   await route.fulfill({
     status,
@@ -108,6 +167,9 @@ async function installDeterministicApi(page: Page) {
     }
     if (path.endsWith("/api/entities/saved")) {
       return fulfillJson(route, { ok: true, entities: savedGeographicEntities });
+    }
+    if (path.endsWith("/api/hiring-intelligence/analyze")) {
+      return fulfillJson(route, hiringFixture);
     }
 
     return fulfillJson(route, { ok: true, configured: true, results: [], records: [] });
@@ -227,6 +289,22 @@ test("active Location Overlap Leaflet map renders safely", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Global Location Overlap", exact: true })).toBeVisible();
   await expect(page.locator(".location-overlap-map.leaflet-container")).toBeVisible();
   await expect(page.getByText("2 worldwide sites")).toBeVisible();
+  await expectNoDocumentOverflow(page);
+  expect(pageErrors).toEqual([]);
+});
+
+test("populated Hiring Intelligence Recharts render safely", async ({ page }) => {
+  const pageErrors = collectPageErrors(page);
+  await page.goto("/hiring-intelligence");
+
+  await expect(page.getByRole("heading", { name: "Hiring Intelligence", exact: true })).toBeVisible();
+  await page.getByPlaceholder("https://company.com/careers or the public ATS page").fill("https://example.com/careers");
+  await page.getByRole("button", { name: "Analyze careers site" }).click();
+
+  await expect(page.getByRole("heading", { name: "Where hiring is concentrated", exact: true })).toBeVisible();
+  await expect(page.locator("svg.recharts-surface").first()).toBeVisible();
+  await expect(page.locator("svg.recharts-surface")).toHaveCount(4);
+  await expect(page.getByText("Senior Safety Engineer", { exact: true })).toBeVisible();
   await expectNoDocumentOverflow(page);
   expect(pageErrors).toEqual([]);
 });
