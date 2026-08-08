@@ -36,6 +36,126 @@ const clients = [
   },
 ];
 
+const competitiveOverview = {
+  watchlist: [
+    {
+      id: "qtc",
+      displayName: "Leidos QTC Health Services",
+      canonicalName: "QTC Medical Services Inc",
+      website: "https://www.qtcm.com",
+      aliases: ["QTC Medical Services", "Leidos QTC Health Services"],
+      uei: "QTCDEMO12345",
+      cage: null,
+      recipientId: null,
+      relationshipType: "government-exam-network",
+      sourceScope: "federal",
+      status: "active",
+      evidenceUrl: "https://www.qtcm.com/providers",
+      evidenceNote: "Deterministic browser fixture.",
+      updatedAt: "2026-08-08T00:00:00.000Z",
+    },
+    {
+      id: "mbi",
+      displayName: "MBI Industrial Medicine",
+      canonicalName: "MBI Industrial Medicine Inc",
+      website: "https://www.gowithmbi.com",
+      aliases: ["MBI Industrial Medicine"],
+      uei: null,
+      cage: null,
+      recipientId: null,
+      relationshipType: "direct-regional",
+      sourceScope: "state",
+      status: "active",
+      evidenceUrl: "https://spo.az.gov/ctr073227",
+      evidenceNote: "Deterministic browser fixture.",
+      updatedAt: "2026-08-08T00:00:00.000Z",
+    },
+  ],
+  awards: [
+    {
+      id: "federal-demo",
+      competitorId: "qtc",
+      competitorName: "Leidos QTC Health Services",
+      sourceScope: "federal",
+      sourceName: "USAspending",
+      stateCode: null,
+      awardId: "15F06725DDEMO",
+      recipientName: "QTC Medical Services Inc",
+      recipientUei: "QTCDEMO12345",
+      title: "Medical evaluations and services",
+      description: "Nationwide patient physician network medical evaluations.",
+      agency: "Federal Bureau of Investigation",
+      subagency: "FBI",
+      amount: 110000000,
+      actionDate: "2026-08-01",
+      startDate: "2026-08-01",
+      endDate: "2031-07-31",
+      naics: "621111",
+      psc: "Q403",
+      placeOfPerformance: "United States",
+      sourceUrl: "https://www.usaspending.gov/",
+      matchConfidence: 1,
+      matchMethod: "uei",
+      firstSeenAt: "2026-08-08T00:00:00.000Z",
+      lastSeenAt: "2026-08-08T00:00:00.000Z",
+    },
+    {
+      id: "state-demo",
+      competitorId: "mbi",
+      competitorName: "MBI Industrial Medicine",
+      sourceScope: "state",
+      sourceName: "Arizona State Procurement Office",
+      stateCode: "AZ",
+      awardId: "CTR073227",
+      recipientName: "MBI INDUSTRIAL MEDICINE INC",
+      recipientUei: null,
+      title: "Statewide Employee Medical Exam Services",
+      description: "Medical exams, health services, occupational health and health screenings.",
+      agency: "Arizona Department of Administration",
+      subagency: null,
+      amount: null,
+      actionDate: "2024-09-01",
+      startDate: "2024-09-01",
+      endDate: "2027-08-31",
+      naics: null,
+      psc: null,
+      placeOfPerformance: "AZ",
+      sourceUrl: "https://spo.az.gov/ctr073227",
+      matchConfidence: 0.99,
+      matchMethod: "exact-name-or-alias+official-state-domain",
+      firstSeenAt: "2026-08-08T00:00:00.000Z",
+      lastSeenAt: "2026-08-08T00:00:00.000Z",
+    },
+  ],
+  candidates: [
+    {
+      id: "candidate-demo",
+      displayName: "Demo Occupational Medical LLC",
+      normalizedName: "demo occupational medical",
+      firstSeenAt: "2026-08-01T00:00:00.000Z",
+      lastSeenAt: "2026-08-08T00:00:00.000Z",
+      awardCount: 3,
+      totalValue: 2500000,
+      sourceScopes: ["federal", "state"],
+      sampleAwards: [],
+      status: "candidate",
+    },
+  ],
+  sourceCoverage: [
+    { key: "usaspending", scope: "federal", name: "USAspending federal awards", method: "api", configured: true, state: "success", resultCount: 1, limitation: "Deterministic browser fixture." },
+    { key: "az-spo", scope: "state", stateCode: "AZ", name: "Arizona State Procurement Office", method: "official-index", configured: true, state: "success", resultCount: 1, limitation: "Deterministic browser fixture." },
+  ],
+  summary: {
+    watchedCompetitors: 2,
+    awardsInWindow: 2,
+    totalAwardValue: 110000000,
+    candidateCompetitors: 1,
+    federalAwards: 1,
+    stateAwards: 1,
+  },
+  generatedAt: "2026-08-08T00:00:00.000Z",
+};
+
 const savedGeographicEntities = [
   {
     id: 1,
@@ -165,6 +285,9 @@ async function installDeterministicApi(page: Page) {
     if (path.endsWith("/api/clients")) {
       return fulfillJson(route, { clients });
     }
+    if (path.endsWith("/api/competitive-awards/overview")) {
+      return fulfillJson(route, competitiveOverview);
+    }
     if (path.endsWith("/api/entities/saved")) {
       return fulfillJson(route, { ok: true, entities: savedGeographicEntities });
     }
@@ -270,8 +393,11 @@ test("core intelligence routes load through lazy boundaries without browser erro
   const pageErrors = collectPageErrors(page);
 
   await page.goto("/competitors");
-  await expect(page.getByRole("heading", { name: "Competitors", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Competitive Awards", exact: true })).toBeVisible();
   await expect(page.locator('a[aria-current="page"]').filter({ hasText: "Competitors" })).toHaveCount(2);
+  await expect(page.getByRole("textbox", { name: "Search competitive awards" })).toBeVisible();
+  await expect(page.getByText("Leidos QTC Health Services", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Arizona State Procurement Office", { exact: true }).first()).toBeVisible();
   await expectNoDocumentOverflow(page);
 
   await page.goto("/federal-agencies");

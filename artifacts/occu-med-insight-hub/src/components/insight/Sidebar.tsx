@@ -8,10 +8,10 @@ import {
   Home,
   Landmark,
   Map,
+  Radar,
   Scale,
   ShieldAlert,
   ShieldCheck,
-  Target,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 const nav = [
   { href: "/", label: "Home", icon: Home },
   { href: "/entities", label: "Entities", icon: Building2 },
-  { href: "/competitors", label: "Competitors", icon: Target },
+  { href: "/competitors", label: "Competitors", icon: Radar },
   { href: "/federal-agencies", label: "Federal Agencies", icon: Landmark },
   { href: "/state-agencies", label: "State Agencies", icon: Map },
   { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
