@@ -29,9 +29,7 @@ const AorRiskIntelligencePage = React.lazy(() => import("@/pages/aor-risk-intell
 const EntitiesPage = React.lazy(() =>
   import("@/pages/entities").then((module) => ({ default: module.EntitiesPage })),
 );
-const CompetitorsPage = React.lazy(() =>
-  import("@/pages/core-intelligence").then((module) => ({ default: module.CompetitorsPage })),
-);
+const CompetitorsPage = React.lazy(() => import("@/pages/competitive-awards"));
 const FederalAgenciesPage = React.lazy(() =>
   import("@/pages/core-intelligence").then((module) => ({ default: module.FederalAgenciesPage })),
 );
