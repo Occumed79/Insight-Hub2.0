@@ -8,6 +8,7 @@ import {
   Home,
   Landmark,
   Map,
+  Radar,
   Scale,
   ShieldAlert,
   ShieldCheck,
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 const nav = [
   { href: "/", label: "Home", icon: Home },
   { href: "/entities", label: "Entities", icon: Building2 },
+  { href: "/competitors", label: "Competitors", icon: Radar },
   { href: "/federal-agencies", label: "Federal Agencies", icon: Landmark },
   { href: "/state-agencies", label: "State Agencies", icon: Map },
   { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
@@ -81,7 +83,7 @@ export function Sidebar() {
             })}
           </nav>
           <div className="mt-6 border-t border-cyan-100/8 pt-4 text-[9px] leading-4 text-cyan-100/26">
-            Entities, Federal Agencies, and State Agencies are owned by Insight Hub 2. Global Locations and Location Overlap remain available from their portal cards.
+            Entities, Competitors, Federal Agencies, and State Agencies are owned by Insight Hub 2. Global Locations and Location Overlap remain available from their portal cards.
           </div>
         </div>
       </aside>
