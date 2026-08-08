@@ -37,8 +37,12 @@ assert.ok(
   "Hub 2 sidebar must expose Entities",
 );
 assert.ok(
-  sidebar.includes("Entities, Competitors, Federal Agencies, and State Agencies are owned by Insight Hub 2"),
-  "Hub 2 sidebar must state core intelligence ownership",
+  !sidebar.includes('{ href: "/competitors", label: "Competitors"'),
+  "Competitors must remain hidden from the Intelligence Tools navigation",
+);
+assert.ok(
+  sidebar.includes("Entities, Federal Agencies, and State Agencies are owned by Insight Hub 2"),
+  "Hub 2 sidebar must state visible core intelligence ownership",
 );
 
 for (const expected of [
@@ -71,7 +75,8 @@ console.log(
     event: "core_intelligence_ownership_audit_passed",
     owner: "Insight-Hub2.0",
     frontendRoutes: 6,
-    transferredDomains: ["entities", "competitors", "federal", "state"],
+    visibleSidebarDomains: ["entities", "federal", "state"],
+    retainedDeepLinkDomains: ["competitors"],
     routeLoading: hasLazyEntitiesImport ? "lazy" : "static",
   }),
 );
