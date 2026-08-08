@@ -15,6 +15,20 @@ permissions:
 jobs:
   typecheck-build-and-browser:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       NODE_ENV: test
@@ -55,11 +69,14 @@ jobs:
           for (const file of report.knownArchitectureCandidates ?? []) console.log(`CANDIDATE ${file}`);
           NODE
 
-      - name: Unit tests
+      - name: Unit and persistence integration tests
         run: pnpm run test
 
       - name: Typecheck
         run: pnpm run typecheck
+
+      - name: React 19 map and OSHA persistence audit
+        run: pnpm run audit:osha-persistence
 
       - name: Production build
         run: pnpm run build

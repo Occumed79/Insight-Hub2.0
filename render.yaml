@@ -75,8 +75,6 @@ services:
         sync: false
       - key: OSHA_ITA_IMPORT_ENABLED
         sync: false
-      - key: OSHA_DATA_DIR
-        sync: false
       - key: WORKERS_COMP_SOURCE_INDEX_ENABLED
         sync: false
       - key: USASPENDING_API_ENABLED

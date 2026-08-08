@@ -100,7 +100,7 @@ type SourceStatus = {
   enabled: boolean;
   lastSync?: string;
   lastError?: string;
-  dataType: "live-api" | "cached-import" | "static-index" | "not-configured";
+  dataType: "live-api" | "cached-import" | "database-import" | "static-index" | "not-configured";
   nextRefresh?: string;
   notes: string;
 };
@@ -141,12 +141,9 @@ async function safeFetch(url: string, options?: RequestInit): Promise<unknown | 
 }
 
 // ─── OSHA Connector ──────────────────────────────────────────────────────────
-// OSHA ITA data layer is now in src/services/oshaDataService.ts
-// It reads from cached JSON files (data/osha-ita/) populated by scripts/import-osha.ts
-// If no data is imported, it returns an empty result with a clear message.
-
-function getOshaEstablishments(company?: string, state?: string, naics?: string, year?: string): OshaEstablishment[] {
-  const result = queryOshaEstablishments(company, state, naics, year);
+// OSHA ITA data is imported into Postgres by scripts/import-osha.ts and queried from the database.
+async function getOshaEstablishments(company?: string, state?: string, naics?: string, year?: string): Promise<OshaEstablishment[]> {
+  const result = await queryOshaEstablishments(company, state, naics, year);
   return result.records;
 }
 
@@ -468,7 +465,7 @@ async function resolveEntity(
   }
 
   // OSHA establishment matching
-  const oshaRecords = getOshaEstablishments(companyName, state, naics);
+  const oshaRecords = await getOshaEstablishments(companyName, state, naics);
   for (const record of oshaRecords) {
     const sim = nameSimilarity(companyName, record.establishmentName);
     if (sim > 0.6) {
@@ -733,14 +730,14 @@ router.post("/employers/resolve", async (req: Request, res: Response) => {
 });
 
 // GET /api/osha/establishments
-router.get("/osha/establishments", (req: Request, res: Response) => {
+router.get("/osha/establishments", async (req: Request, res: Response) => {
   try {
     const company = String(req.query?.company || "").trim();
     const state = String(req.query?.state || "").trim();
     const naics = String(req.query?.naics || "").trim();
     const year = String(req.query?.year || "").trim();
 
-    const result = queryOshaEstablishments(
+    const result = await queryOshaEstablishments(
       company || undefined,
       state || undefined,
       naics || undefined,
@@ -751,7 +748,7 @@ router.get("/osha/establishments", (req: Request, res: Response) => {
       ok: true,
       records: result.records,
       count: result.count,
-      source: result.dataSource === "cached-json" ? "OSHA ITA (cached/imported)" : "OSHA ITA (not imported)",
+      source: result.dataSource === "database" ? "OSHA ITA (Postgres)" : "OSHA ITA (not imported)",
       importEnabled: isTruthy(getEnv("OSHA_ITA_IMPORT_ENABLED")),
       importRuns: result.importRuns,
       dataSource: result.dataSource,
@@ -1075,10 +1072,9 @@ router.get("/cms/provider-data/status", (_req: Request, res: Response) => {
 });
 
 // GET /api/sources/status
-router.get("/sources/status", (_req: Request, res: Response) => {
+router.get("/sources/status", async (_req: Request, res: Response) => {
   try {
-    const oshaImportInfo = getOshaImportInfo();
-    const oshaDataImported = isOshaDataImported();
+    const [oshaImportInfo, oshaDataImported] = await Promise.all([getOshaImportInfo(), isOshaDataImported()]);
     const oshaRefreshCron = getEnv("OSHA_DATA_REFRESH_CRON");
 
     const statuses: SourceStatus[] = [
@@ -1114,11 +1110,11 @@ router.get("/sources/status", (_req: Request, res: Response) => {
         source: "OSHA ITA",
         configured: isTruthy(getEnv("OSHA_ITA_IMPORT_ENABLED")),
         enabled: isTruthy(getEnv("OSHA_ITA_IMPORT_ENABLED")),
-        dataType: oshaDataImported ? "cached-import" : isTruthy(getEnv("OSHA_ITA_IMPORT_ENABLED")) ? "cached-import" : "not-configured",
+        dataType: oshaDataImported ? "database-import" : isTruthy(getEnv("OSHA_ITA_IMPORT_ENABLED")) ? "database-import" : "not-configured",
         lastSync: oshaImportInfo.importRuns.length > 0 ? oshaImportInfo.importRuns[oshaImportInfo.importRuns.length - 1].importedAt : undefined,
         nextRefresh: oshaRefreshCron || undefined,
         notes: oshaDataImported
-          ? `Establishment-level injury/illness data (${oshaImportInfo.totalRecords} records from ${oshaImportInfo.importRuns.length} dataset(s)). Cached import from data/osha-ita/.`
+          ? `Establishment-level injury/illness data (${oshaImportInfo.totalRecords} records from ${oshaImportInfo.importRuns.length} dataset(s)). Persisted in Postgres.`
           : "Import enabled but no dataset imported yet. Download OSHA ITA CSV files and run scripts/import-osha.ts.",
       },
       {

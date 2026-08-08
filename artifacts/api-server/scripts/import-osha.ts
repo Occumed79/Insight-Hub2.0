@@ -1,108 +1,96 @@
-/**
- * OSHA ITA Establishment Data Import Script
- *
- * Usage:
- *   npx tsx scripts/import-osha.ts <input.csv> [--year 2022] [--name "OSHA ITA 2022"] [--output <dir>]
- *   npx tsx scripts/import-osha.ts --input <input.csv> --year 2022 --name "OSHA ITA 2022" --output /var/data/osha-ita
- *
- * Output directory resolution (first match wins):
- *   1. --output <dir>          (explicit flag)
- *   2. OSHA_DATA_DIR env var   (e.g. /var/data/osha-ita on Render)
- *   3. process.cwd()/data/osha-ita  (local fallback)
- *
- * This script reads an OSHA ITA establishment-specific injury/illness CSV file
- * (downloaded from https://www.osha.gov/establishment-specific-injury-and-illness-data),
- * parses it, and writes a JSON cache file to the resolved output directory.
- *
- * The JSON file format is:
- * {
- *   "metadata": {
- *     "datasetName": "...",
- *     "datasetYear": 2022,
- *     "sourceUrl": "https://www.osha.gov/establishment-specific-injury-and-illness-data",
- *     "sourceFileType": "csv",
- *     "importedAt": "2024-01-15T...",
- *     "recordCount": 12345
- *   },
- *   "records": [ { ... }, ... ]
- * }
- *
- * CSV expected columns (case-insensitive, flexible):
- *   - Establishment Name / establishment_name
- *   - Company Name / company_name / legal_name
- *   - DBA Name / dba_name
- *   - Street Address / address
- *   - City
- *   - State
- *   - ZIP / zip_code
- *   - NAICS / naics_code
- *   - Year
- *   - Total Hours Worked / total_hours
- *   - Total Cases / total_recordable_cases
- *   - DART Cases / dart_cases
- *   - Days Away Cases / days_away_cases
- *   - Job Transfer or Restriction Cases
- *
- * If columns don't match exactly, the script attempts fuzzy header matching.
- */
+import { createHash } from "node:crypto";
+import { readFileSync, existsSync } from "node:fs";
+import { basename, extname, resolve } from "node:path";
+import {
+  calculateRate,
+  ensureOshaPersistence,
+  normalizeName,
+  type OshaEstablishmentRecord,
+} from "../src/services/oshaDataService";
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join, resolve, basename, extname } from "node:path";
+type ParsedRecord = Omit<
+  OshaEstablishmentRecord,
+  "sourceUrl" | "datasetName" | "datasetYear" | "sourceFileType" | "lastImportedDate"
+>;
 
-interface ParsedRecord {
-  establishmentName: string;
-  companyName: string;
-  dbaName?: string;
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  naics: string;
-  year: number;
-  totalHoursWorked?: number;
-  totalCases?: number;
-  dartCases?: number;
-  daysAwayCases?: number;
-  jobTransferRestrictionCases?: number;
-  caseCategories?: string[];
-}
+type LegacyPayload = {
+  metadata?: {
+    datasetName?: string;
+    datasetYear?: number;
+    sourceUrl?: string;
+    sourceFileType?: string;
+    importedAt?: string;
+    recordCount?: number;
+  };
+  records?: Array<Partial<OshaEstablishmentRecord>>;
+};
 
-function parseArgs(): { inputPath: string; year?: string; name?: string; outputDir?: string } {
+type ImportOptions = {
+  inputPath: string;
+  year?: string;
+  name?: string;
+  append: boolean;
+};
+
+const OSHA_SOURCE_URL =
+  "https://www.osha.gov/establishment-specific-injury-and-illness-data";
+
+function parseArgs(): ImportOptions {
   const args = process.argv.slice(2);
   if (args.length === 0) {
-    console.error("Usage: npx tsx scripts/import-osha.ts <input.csv> [--year 2022] [--name 'OSHA ITA 2022'] [--output <dir>]");
-    console.error("       npx tsx scripts/import-osha.ts --input <input.csv> --year 2022 --name 'OSHA ITA 2022' --output /var/data/osha-ita");
+    console.error(
+      "Usage: pnpm import:osha -- --input <input.csv|legacy.json> [--year 2025] [--name 'OSHA ITA 2025'] [--append]",
+    );
     process.exit(1);
   }
+
   let inputPath = "";
   let year: string | undefined;
   let name: string | undefined;
-  let outputDir: string | undefined;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--year") { year = args[++i]; continue; }
-    if (args[i] === "--name") { name = args[++i]; continue; }
-    if (args[i] === "--output") { outputDir = args[++i]; continue; }
-    if (args[i] === "--input") { inputPath = args[++i]; continue; }
-    if (!args[i].startsWith("--")) { inputPath = args[i]; }
+  let append = false;
+
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (arg === "--year") {
+      year = args[++index];
+      continue;
+    }
+    if (arg === "--name") {
+      name = args[++index];
+      continue;
+    }
+    if (arg === "--input") {
+      inputPath = args[++index];
+      continue;
+    }
+    if (arg === "--append") {
+      append = true;
+      continue;
+    }
+    if (!arg.startsWith("--")) inputPath = arg;
   }
+
   if (!inputPath) {
-    console.error("Error: input file path is required");
-    console.error("Provide a positional path or use --input <path>");
+    console.error("Error: input file path is required.");
     process.exit(1);
   }
-  return { inputPath, year, name, outputDir };
+
+  return { inputPath, year, name, append };
 }
 
-function normalizeHeader(h: string): string {
-  return h.toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+function normalizeHeader(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
 }
 
 function findColumn(headers: string[], candidates: string[]): string | undefined {
   const normalized = headers.map(normalizeHeader);
   for (const candidate of candidates) {
-    const normCandidate = normalizeHeader(candidate);
-    const idx = normalized.indexOf(normCandidate);
-    if (idx >= 0) return headers[idx];
+    const index = normalized.indexOf(normalizeHeader(candidate));
+    if (index >= 0) return headers[index];
   }
   return undefined;
 }
@@ -113,84 +101,57 @@ function parseCsv(content: string): string[][] {
   let currentField = "";
   let inQuotes = false;
 
-  for (let i = 0; i < content.length; i++) {
-    const char = content[i];
+  for (let index = 0; index < content.length; index++) {
+    const char = content[index];
     if (inQuotes) {
       if (char === '"') {
-        if (content[i + 1] === '"') {
+        if (content[index + 1] === '"') {
           currentField += '"';
-          i++;
+          index++;
         } else {
           inQuotes = false;
         }
       } else {
         currentField += char;
       }
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      currentRow.push(currentField);
+      currentField = "";
+    } else if (char === "\n" || char === "\r") {
+      if (char === "\r" && content[index + 1] === "\n") index++;
+      currentRow.push(currentField);
+      rows.push(currentRow);
+      currentRow = [];
+      currentField = "";
     } else {
-      if (char === '"') {
-        inQuotes = true;
-      } else if (char === ',') {
-        currentRow.push(currentField);
-        currentField = "";
-      } else if (char === '\n' || char === '\r') {
-        if (char === '\r' && content[i + 1] === '\n') i++;
-        currentRow.push(currentField);
-        rows.push(currentRow);
-        currentRow = [];
-        currentField = "";
-      } else {
-        currentField += char;
-      }
+      currentField += char;
     }
   }
+
   if (currentField || currentRow.length > 0) {
     currentRow.push(currentField);
     rows.push(currentRow);
   }
+
   return rows;
 }
 
-function toNumber(val: string | undefined): number | undefined {
-  if (!val || val.trim() === "") return undefined;
-  const cleaned = val.trim().replace(/[, $%]/g, "");
-  const num = Number(cleaned);
-  return isNaN(num) ? undefined : num;
+function toNumber(value: string | undefined): number | undefined {
+  if (!value?.trim()) return undefined;
+  const parsed = Number(value.trim().replace(/[, $%]/g, ""));
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function resolveOutputDir(explicit?: string): string {
-  if (explicit) return resolve(explicit);
-  const envDir = process.env.OSHA_DATA_DIR;
-  if (envDir) return resolve(envDir);
-  return resolve(process.cwd(), "data", "osha-ita");
-}
-
-function main() {
-  const { inputPath, year, name, outputDir } = parseArgs();
-  const absPath = resolve(inputPath);
-
-  if (!existsSync(absPath)) {
-    console.error(`Error: File not found: ${absPath}`);
-    process.exit(1);
-  }
-
-  const ext = extname(absPath).toLowerCase();
-  if (ext !== ".csv") {
-    console.error(`Error: Only CSV files are supported in this script. Got: ${ext}`);
-    console.error("For XLSX files, convert to CSV first using Excel or a tool like `xlsx-to-csv`.");
-    process.exit(1);
-  }
-
-  const content = readFileSync(absPath, "utf-8");
+function parseCsvRecords(content: string, fallbackYear?: number): ParsedRecord[] {
   const rows = parseCsv(content);
-
-  if (rows.length < 2) {
-    console.error("Error: CSV file appears to be empty or has no data rows");
-    process.exit(1);
-  }
+  if (rows.length < 2) throw new Error("CSV file is empty or has no data rows.");
 
   const headers = rows[0];
-  console.log(`Found ${headers.length} columns, ${rows.length - 1} data rows`);
-
   const colEstablishment = findColumn(headers, ["Establishment Name", "establishment_name", "establishment"]);
   const colCompany = findColumn(headers, ["Company Name", "company_name", "legal_name", "legal_business_name"]);
   const colDba = findColumn(headers, ["DBA Name", "dba_name", "doing_business_as"]);
@@ -207,78 +168,285 @@ function main() {
   const colJobTransfer = findColumn(headers, ["Job Transfer or Restriction Cases", "job_transfer_restriction_cases", "jtr_cases"]);
 
   if (!colEstablishment && !colCompany) {
-    console.error("Error: Could not find establishment name or company name column");
-    console.error("Available columns:", headers.join(", "));
-    process.exit(1);
+    throw new Error(`Could not find establishment/company name column. Columns: ${headers.join(", ")}`);
   }
 
   const records: ParsedRecord[] = [];
-  let skipped = 0;
 
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (row.length === 0 || (row.length === 1 && !row[0].trim())) {
-      skipped++;
-      continue;
-    }
+  for (let rowIndex = 1; rowIndex < rows.length; rowIndex++) {
+    const row = rows[rowIndex];
+    if (row.length === 0 || (row.length === 1 && !row[0]?.trim())) continue;
 
-    const getVal = (col: string | undefined) => col ? row[headers.indexOf(col)]?.trim() || "" : "";
+    const get = (column: string | undefined): string =>
+      column ? row[headers.indexOf(column)]?.trim() || "" : "";
 
-    const establishmentName = getVal(colEstablishment) || getVal(colCompany);
-    const companyName = getVal(colCompany) || establishmentName;
+    const establishmentName = get(colEstablishment) || get(colCompany);
+    const companyName = get(colCompany) || establishmentName;
+    if (!establishmentName) continue;
 
-    if (!establishmentName) {
-      skipped++;
-      continue;
-    }
+    const totalHoursWorked = toNumber(get(colHours));
+    const totalCases = toNumber(get(colTotalCases));
+    const dartCases = toNumber(get(colDartCases));
+    const daysAwayCases = toNumber(get(colDaysAway));
 
-    const record: ParsedRecord = {
+    records.push({
       establishmentName,
       companyName,
-      dbaName: getVal(colDba) || undefined,
-      address: getVal(colAddress),
-      city: getVal(colCity),
-      state: getVal(colState).toUpperCase(),
-      zip: getVal(colZip),
-      naics: getVal(colNaics),
-      year: toNumber(getVal(colYear)) || Number(year) || new Date().getFullYear() - 1,
-      totalHoursWorked: toNumber(getVal(colHours)),
-      totalCases: toNumber(getVal(colTotalCases)),
-      dartCases: toNumber(getVal(colDartCases)),
-      daysAwayCases: toNumber(getVal(colDaysAway)),
-      jobTransferRestrictionCases: toNumber(getVal(colJobTransfer)),
-    };
-
-    records.push(record);
+      dbaName: get(colDba) || undefined,
+      address: get(colAddress),
+      city: get(colCity),
+      state: get(colState).toUpperCase(),
+      zip: get(colZip),
+      naics: get(colNaics),
+      year: toNumber(get(colYear)) || fallbackYear || new Date().getFullYear() - 1,
+      totalHoursWorked,
+      totalCases,
+      dartCases,
+      daysAwayCases,
+      jobTransferRestrictionCases: toNumber(get(colJobTransfer)),
+      trcRate:
+        totalCases !== undefined && totalHoursWorked !== undefined
+          ? calculateRate(totalCases, totalHoursWorked)
+          : undefined,
+      dartRate:
+        dartCases !== undefined && totalHoursWorked !== undefined
+          ? calculateRate(dartCases, totalHoursWorked)
+          : undefined,
+      daysAwayRate:
+        daysAwayCases !== undefined && totalHoursWorked !== undefined
+          ? calculateRate(daysAwayCases, totalHoursWorked)
+          : undefined,
+    });
   }
 
-  console.log(`Parsed ${records.length} records, skipped ${skipped} empty rows`);
-
-  const datasetName = name || basename(absPath, extname(absPath));
-  const datasetYear = Number(year) || records[0]?.year || new Date().getFullYear() - 1;
-  const resolvedOutputDir = resolveOutputDir(outputDir);
-  if (!existsSync(resolvedOutputDir)) {
-    mkdirSync(resolvedOutputDir, { recursive: true });
-  }
-
-  const outputFileName = `${datasetName.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
-  const outputPath = join(resolvedOutputDir, outputFileName);
-
-  const output = {
-    metadata: {
-      datasetName,
-      datasetYear,
-      sourceUrl: "https://www.osha.gov/establishment-specific-injury-and-illness-data",
-      sourceFileType: "csv",
-      importedAt: new Date().toISOString(),
-      recordCount: records.length,
-    },
-    records,
-  };
-
-  writeFileSync(outputPath, JSON.stringify(output, null, 2));
-  console.log(`Wrote ${records.length} records to ${outputPath}`);
-  console.log(`Dataset: ${datasetName} (Year: ${datasetYear})`);
+  return records;
 }
 
-main();
+function parseLegacyRecords(payload: LegacyPayload, fallbackYear?: number): ParsedRecord[] {
+  return (payload.records ?? [])
+    .filter((record) => record.establishmentName || record.companyName)
+    .map((record) => {
+      const establishmentName = record.establishmentName || record.companyName || "";
+      const companyName = record.companyName || establishmentName;
+      const totalHoursWorked = record.totalHoursWorked;
+      const totalCases = record.totalCases;
+      const dartCases = record.dartCases;
+      const daysAwayCases = record.daysAwayCases;
+
+      return {
+        establishmentName,
+        companyName,
+        dbaName: record.dbaName,
+        address: record.address || "",
+        city: record.city || "",
+        state: (record.state || "").toUpperCase(),
+        zip: record.zip || "",
+        naics: record.naics || "",
+        year: record.year || fallbackYear || payload.metadata?.datasetYear || new Date().getFullYear() - 1,
+        totalHoursWorked,
+        totalCases,
+        dartCases,
+        daysAwayCases,
+        jobTransferRestrictionCases: record.jobTransferRestrictionCases,
+        caseCategories: record.caseCategories,
+        trcRate:
+          record.trcRate ??
+          (totalCases !== undefined && totalHoursWorked !== undefined
+            ? calculateRate(totalCases, totalHoursWorked)
+            : undefined),
+        dartRate:
+          record.dartRate ??
+          (dartCases !== undefined && totalHoursWorked !== undefined
+            ? calculateRate(dartCases, totalHoursWorked)
+            : undefined),
+        daysAwayRate:
+          record.daysAwayRate ??
+          (daysAwayCases !== undefined && totalHoursWorked !== undefined
+            ? calculateRate(daysAwayCases, totalHoursWorked)
+            : undefined),
+      };
+    });
+}
+
+async function main() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required. OSHA imports now persist directly to Postgres.");
+  }
+
+  const options = parseArgs();
+  const absolutePath = resolve(options.inputPath);
+  if (!existsSync(absolutePath)) throw new Error(`File not found: ${absolutePath}`);
+
+  const rawBuffer = readFileSync(absolutePath);
+  const rawText = rawBuffer.toString("utf-8");
+  const extension = extname(absolutePath).toLowerCase();
+  const fallbackYear = options.year ? Number(options.year) : undefined;
+
+  let legacyMetadata: LegacyPayload["metadata"] | undefined;
+  let records: ParsedRecord[];
+
+  if (extension === ".csv") {
+    records = parseCsvRecords(rawText, fallbackYear);
+  } else if (extension === ".json") {
+    const payload = JSON.parse(rawText) as LegacyPayload;
+    legacyMetadata = payload.metadata;
+    records = parseLegacyRecords(payload, fallbackYear);
+  } else {
+    throw new Error(`Unsupported input type ${extension}. Use CSV or a legacy OSHA JSON cache file.`);
+  }
+
+  if (records.length === 0) throw new Error("No OSHA establishment records were parsed.");
+
+  const sourceFileType = extension.replace(".", "") || legacyMetadata?.sourceFileType || "unknown";
+  const datasetName = options.name || legacyMetadata?.datasetName || basename(absolutePath, extension);
+  const datasetYear =
+    fallbackYear || legacyMetadata?.datasetYear || records[0]?.year || new Date().getFullYear() - 1;
+  const sourceUrl = legacyMetadata?.sourceUrl || OSHA_SOURCE_URL;
+  const importedAt = new Date();
+  const sha256 = createHash("sha256").update(rawBuffer).digest("hex");
+
+  await ensureOshaPersistence();
+  const { pool } = await import("@workspace/db");
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    if (!options.append) {
+      await client.query(
+        "DELETE FROM osha_import_runs WHERE dataset_name = $1 AND dataset_year = $2",
+        [datasetName, datasetYear],
+      );
+    }
+
+    const runResult = await client.query<{ id: number }>(
+      `
+        INSERT INTO osha_import_runs (
+          dataset_name, dataset_year, source_url, source_file_type, imported_at, record_count, metadata
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+        RETURNING id
+      `,
+      [
+        datasetName,
+        datasetYear,
+        sourceUrl,
+        sourceFileType,
+        importedAt,
+        records.length,
+        JSON.stringify({
+          mode: options.append ? "append" : "replace-dataset-year",
+          migratedFromLegacyJson: extension === ".json",
+        }),
+      ],
+    );
+    const importRunId = runResult.rows[0].id;
+
+    const sourceFileResult = await client.query<{ id: number }>(
+      `
+        INSERT INTO osha_source_files (
+          import_run_id, file_name, source_url, source_file_type, dataset_year, sha256, imported_at, metadata
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+        RETURNING id
+      `,
+      [
+        importRunId,
+        basename(absolutePath),
+        sourceUrl,
+        sourceFileType,
+        datasetYear,
+        sha256,
+        importedAt,
+        JSON.stringify({ bytes: rawBuffer.byteLength, sourceImportedAt: legacyMetadata?.importedAt ?? null }),
+      ],
+    );
+    const sourceFileId = sourceFileResult.rows[0].id;
+
+    const columns = [
+      "import_run_id", "source_file_id", "establishment_name", "company_name", "dba_name",
+      "normalized_establishment_name", "normalized_company_name", "normalized_dba_name",
+      "address", "city", "state", "zip", "naics", "year", "total_hours_worked", "total_cases",
+      "dart_cases", "days_away_cases", "job_transfer_restriction_cases", "case_categories",
+      "trc_rate", "dart_rate", "days_away_rate", "source_url", "dataset_name", "dataset_year",
+      "source_file_type", "last_imported_date",
+    ];
+
+    const batchSize = 250;
+    for (let offset = 0; offset < records.length; offset += batchSize) {
+      const batch = records.slice(offset, offset + batchSize);
+      const values: unknown[] = [];
+      const placeholders = batch.map((record) => {
+        const row = [
+          importRunId,
+          sourceFileId,
+          record.establishmentName,
+          record.companyName,
+          record.dbaName ?? null,
+          normalizeName(record.establishmentName),
+          normalizeName(record.companyName),
+          record.dbaName ? normalizeName(record.dbaName) : null,
+          record.address,
+          record.city,
+          record.state,
+          record.zip,
+          record.naics,
+          record.year,
+          record.totalHoursWorked ?? null,
+          record.totalCases ?? null,
+          record.dartCases ?? null,
+          record.daysAwayCases ?? null,
+          record.jobTransferRestrictionCases ?? null,
+          JSON.stringify(record.caseCategories ?? []),
+          record.trcRate ?? null,
+          record.dartRate ?? null,
+          record.daysAwayRate ?? null,
+          sourceUrl,
+          datasetName,
+          datasetYear,
+          sourceFileType,
+          importedAt,
+        ];
+
+        const start = values.length;
+        values.push(...row);
+        return `(${row.map((_, index) => `$${start + index + 1}`).join(", ")})`;
+      });
+
+      await client.query(
+        `INSERT INTO osha_establishments (${columns.join(", ")}) VALUES ${placeholders.join(", ")}`,
+        values,
+      );
+    }
+
+    await client.query("COMMIT");
+
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          storage: "postgres",
+          datasetName,
+          datasetYear,
+          records: records.length,
+          file: basename(absolutePath),
+          sha256,
+          mode: options.append ? "append" : "replace-dataset-year",
+        },
+        null,
+        2,
+      ),
+    );
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
+void main().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+});
