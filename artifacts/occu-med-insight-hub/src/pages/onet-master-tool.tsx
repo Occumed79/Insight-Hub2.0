@@ -6,7 +6,6 @@ import {
   BrainCircuit,
   BriefcaseBusiness,
   ChevronRight,
-  CircleGauge,
   CloudSun,
   HeartPulse,
   Layers3,
@@ -14,23 +13,22 @@ import {
   Loader2,
   Search,
   ShieldAlert,
-  Sparkles,
   Waves,
 } from "lucide-react";
 import {
-  PolarAngleAxis,
-  PolarGrid,
-  Radar,
-  RadarChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
   ResponsiveContainer,
   Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
 import { GlassCard } from "@/components/insight/GlassCard";
 import {
   EvidenceGradeBadge,
   MetricOrb,
   OccupationalToolShell,
-  RingGauge,
   SectionTabs,
   ToolHero,
 } from "@/components/insight/OccupationalToolPrimitives";
@@ -48,9 +46,9 @@ type ViewId = "command" | "demands" | "tasks" | "collision" | "matches";
 
 const views: Array<{ id: ViewId; label: string; icon: typeof Activity }> = [
   { id: "command", label: "Command View", icon: Activity },
-  { id: "demands", label: "Demand Signature", icon: CircleGauge },
+  { id: "demands", label: "Demand Evidence", icon: BrainCircuit },
   { id: "tasks", label: "Task Explorer", icon: ListChecks },
-  { id: "collision", label: "Condition Collision", icon: HeartPulse },
+  { id: "collision", label: "Condition-Demand Filter", icon: HeartPulse },
   { id: "matches", label: "Occupation Matches", icon: Layers3 },
 ];
 
@@ -58,54 +56,103 @@ const collisionModels = [
   {
     id: "musculoskeletal",
     label: "Musculoskeletal / arthritis",
-    pattern:
-      /lift|carry|bend|kneel|crawl|climb|repetitive|stand|walk|strength|balance|handling/i,
+    terms: [
+      "lifting",
+      "carrying",
+      "bending",
+      "kneeling",
+      "crouching",
+      "crawling",
+      "climbing",
+      "repetitive motions",
+      "standing",
+      "walking",
+      "static strength",
+      "dynamic strength",
+      "handling and moving objects",
+    ],
     icon: Activity,
     explanation:
-      "Physical loading, repetition, posture, mobility, and material-handling demands.",
+      "Filters returned O*NET items for explicit physical-loading, posture, mobility, and material-handling language.",
   },
   {
     id: "cardiovascular",
     label: "Cardiovascular / hypertension",
-    pattern:
-      /heat|weather|physical|strength|exert|climb|pace|time pressure|emergency/i,
+    terms: [
+      "extreme heat",
+      "very hot",
+      "climbing",
+      "stamina",
+      "dynamic strength",
+      "emergency",
+      "time pressure",
+    ],
     icon: HeartPulse,
     explanation:
-      "Exertion, heat, pace, emergency response, and environmental demand signals.",
+      "Filters for explicit heat, endurance, exertion, emergency, and time-pressure language. It does not estimate cardiovascular risk.",
   },
   {
     id: "respiratory",
     label: "Respiratory condition",
-    pattern:
-      /contaminant|dust|fume|chemical|respirat|disease|infection|protective equipment/i,
+    terms: [
+      "contaminants",
+      "dust",
+      "fumes",
+      "chemical",
+      "disease or infections",
+      "protective equipment",
+      "respiratory",
+    ],
     icon: Waves,
     explanation:
-      "Airborne exposure, respiratory protection, contamination, and infection context.",
+      "Filters for explicit airborne, contamination, infection, and respiratory-protection language.",
   },
   {
     id: "hearing",
     label: "Hearing impairment",
-    pattern: /noise|hearing|auditory|sound|communication/i,
+    terms: [
+      "noise levels",
+      "hearing sensitivity",
+      "auditory attention",
+      "sound localization",
+      "warning signals",
+    ],
     icon: Waves,
     explanation:
-      "Noise, auditory discrimination, communication, and warning-signal demands.",
+      "Filters for explicit noise, hearing, auditory, and warning-signal language.",
   },
   {
     id: "fatigue",
     label: "Sleep / fatigue vulnerability",
-    pattern:
-      /night|schedule|driv|vehicle|attention|vigilance|time pressure|consequence|decision/i,
+    terms: [
+      "night work",
+      "time pressure",
+      "operating vehicles",
+      "driving",
+      "selective attention",
+      "time sharing",
+      "emergency",
+    ],
     icon: BrainCircuit,
     explanation:
-      "Vigilance, driving, schedule, sustained attention, and consequential-decision signals.",
+      "Filters for explicit schedule, vigilance, vehicle, attention, and time-pressure language. It does not infer impairment.",
   },
   {
     id: "heat-metabolic",
     label: "Metabolic / heat vulnerability",
-    pattern: /heat|hot|outdoor|weather|protective|physical|stand|walk|exert/i,
+    terms: [
+      "extreme heat",
+      "very hot",
+      "outdoors",
+      "weather",
+      "protective equipment",
+      "standing",
+      "walking",
+      "stamina",
+    ],
     icon: CloudSun,
     explanation:
-      "Heat, PPE, outdoor work, mobility, and physical-workload interactions.",
+      "Filters for explicit heat, outdoor, PPE, mobility, and endurance language. It does not estimate an individual's tolerance.",
   },
 ] as const;
 
@@ -117,9 +164,18 @@ function labels(items: Array<string | OnetNamedItem> | undefined): string[] {
     .filter(Boolean);
 }
 
-function signalScore(texts: string[], pattern: RegExp, scale = 8): number {
-  const count = texts.filter((value) => pattern.test(value)).length;
-  return Math.min(100, count * scale);
+function unique(items: string[]): string[] {
+  return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
+}
+
+function phraseMatch(text: string, phrase: string): boolean {
+  const escaped = phrase
+    .toLowerCase()
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/\s+/g, "\\s+");
+  return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(
+    text.toLowerCase(),
+  );
 }
 
 function ResultList({
@@ -134,38 +190,38 @@ function ResultList({
   limit?: number;
 }) {
   const toneClasses = {
-    cyan: "border-cyan-100/10 bg-cyan-300/[0.035] text-cyan-50/70",
-    violet: "border-violet-100/10 bg-violet-300/[0.035] text-violet-50/70",
-    emerald: "border-emerald-100/10 bg-emerald-300/[0.035] text-emerald-50/70",
-    rose: "border-rose-100/10 bg-rose-300/[0.035] text-rose-50/70",
-    amber: "border-amber-100/10 bg-amber-300/[0.035] text-amber-50/70",
+    cyan: "border-cyan-100/14 bg-cyan-300/[0.045] text-cyan-50/78",
+    violet: "border-violet-100/14 bg-violet-300/[0.045] text-violet-50/78",
+    emerald: "border-emerald-100/14 bg-emerald-300/[0.045] text-emerald-50/78",
+    rose: "border-rose-100/14 bg-rose-300/[0.045] text-rose-50/78",
+    amber: "border-amber-100/14 bg-amber-300/[0.045] text-amber-50/78",
   }[tone];
   return (
     <GlassCard className="p-5">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-100/38">
-            O*NET evidence
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/58">
+            O*NET source evidence
           </p>
           <h2 className="mt-1 text-lg font-black text-white">{title}</h2>
         </div>
-        <span className="text-xs text-cyan-100/32">{items.length} signals</span>
+        <span className="text-xs text-cyan-50/52">{items.length} items</span>
       </div>
       <div className="mt-4 space-y-2">
         {items.slice(0, limit).map((item, index) => (
           <motion.div
             key={`${item}-${index}`}
-            initial={{ opacity: 0, x: -8 }}
+            initial={{ opacity: 0, x: -6 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: Math.min(index * 0.025, 0.25) }}
-            className={`rounded-2xl border px-4 py-3 text-xs leading-6 ${toneClasses}`}
+            transition={{ delay: Math.min(index * 0.02, 0.2) }}
+            className={`rounded-xl border px-4 py-3 text-xs leading-6 ${toneClasses}`}
           >
             {item}
           </motion.div>
         ))}
         {items.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-xs text-cyan-100/38">
-            No signals returned for this section.
+          <p className="rounded-xl border border-dashed border-white/12 p-6 text-center text-xs text-cyan-50/55">
+            No source items returned for this section.
           </p>
         ) : null}
       </div>
@@ -220,100 +276,85 @@ export default function OnetMasterTool() {
     if (event.key === "Enter") void analyze();
   }
 
-  const evidence = useMemo(() => {
-    if (!context) return [];
-    return [
-      ...labels(context.physical_demands.abilities),
-      ...labels(context.physical_demands.work_activities),
-      ...labels(context.physical_demands.work_context),
-      ...labels(context.cognitive_demands.abilities),
-      ...labels(context.cognitive_demands.work_activities),
-      ...labels(context.cognitive_demands.work_context),
-      ...labels(context.environmental_indicators.work_context),
-      ...context.safety_sensitive_indicators.indicators,
-      ...labels(profile?.tasks),
-      ...labels(profile?.work_context),
-    ];
+  const groups = useMemo(() => {
+    if (!context)
+      return {
+        physical: [] as string[],
+        cognitive: [] as string[],
+        environmental: [] as string[],
+        safety: [] as string[],
+        tasks: [] as string[],
+        detailed: [] as string[],
+      };
+    return {
+      physical: unique([
+        ...labels(context.physical_demands.abilities),
+        ...labels(context.physical_demands.work_activities),
+        ...labels(context.physical_demands.work_context),
+        ...labels(context.physical_demands.detailed_work_activities),
+      ]),
+      cognitive: unique([
+        ...labels(context.cognitive_demands.abilities),
+        ...labels(context.cognitive_demands.work_activities),
+        ...labels(context.cognitive_demands.work_context),
+      ]),
+      environmental: unique(labels(context.environmental_indicators.work_context)),
+      safety: unique([
+        ...context.safety_sensitive_indicators.indicators,
+        ...labels(context.safety_sensitive_indicators.work_context),
+        ...labels(context.safety_sensitive_indicators.work_activities),
+        ...labels(context.safety_sensitive_indicators.tasks),
+      ]),
+      tasks: unique([
+        ...labels(profile?.tasks),
+        ...(context.essential_function_suggestions ?? []),
+      ]),
+      detailed: unique(labels(profile?.detailed_work_activities)),
+    };
   }, [context, profile]);
 
-  const signature = useMemo(
-    () => [
-      {
-        subject: "Physical",
-        score: signalScore(
-          evidence,
-          /lift|carry|bend|kneel|climb|stand|walk|strength|handling|repetitive/i,
-          7,
-        ),
-      },
-      {
-        subject: "Environment",
-        score: signalScore(
-          evidence,
-          /outdoor|weather|heat|cold|noise|vibration|contaminant|hazard/i,
-          9,
-        ),
-      },
-      {
-        subject: "Safety",
-        score: signalScore(
-          evidence,
-          /safety|hazard|protective|high places|equipment|consequence|emergency/i,
-          9,
-        ),
-      },
-      {
-        subject: "Cognitive",
-        score: signalScore(
-          evidence,
-          /decision|attention|problem|information|communication|monitor|analy/i,
-          5,
-        ),
-      },
-      {
-        subject: "Fatigue",
-        score: signalScore(
-          evidence,
-          /schedule|night|driv|vehicle|vigilance|time pressure|pace/i,
-          13,
-        ),
-      },
-      {
-        subject: "Exposure",
-        score: signalScore(
-          evidence,
-          /noise|contaminant|infection|radiation|chemical|respirat|weather/i,
-          11,
-        ),
-      },
-    ],
-    [evidence],
+  const evidence = useMemo(
+    () =>
+      unique([
+        ...groups.physical,
+        ...groups.cognitive,
+        ...groups.environmental,
+        ...groups.safety,
+        ...groups.tasks,
+        ...groups.detailed,
+        ...labels(profile?.work_context),
+      ]),
+    [groups, profile],
   );
+
+  const demandCounts = [
+    { category: "Physical", items: groups.physical.length },
+    { category: "Cognitive", items: groups.cognitive.length },
+    { category: "Environment", items: groups.environmental.length },
+    { category: "Safety", items: groups.safety.length },
+  ];
 
   const selectedCollision =
     collisionModels.find((model) => model.id === conditionId) ??
     collisionModels[0];
-  const collisionMatches = evidence
-    .filter((value) => selectedCollision.pattern.test(value))
-    .slice(0, 18);
-  const collisionIndex = Math.min(100, collisionMatches.length * 9);
-  const overallSignal =
-    signature.reduce((sum, item) => sum + item.score, 0) / signature.length;
+  const collisionMatches = evidence.filter((value) =>
+    selectedCollision.terms.some((term) => phraseMatch(value, term)),
+  );
 
   return (
     <OccupationalToolShell
       eyebrow="Independent Intelligence Tool · O*NET Web Services"
       title="O*NET Master Tool"
-      subtitle="A unified occupational-demand workspace for job context, task intelligence, condition-demand collisions, and occupation comparison."
-      notice="This tool is independent. It uses live O*NET occupational data only and does not read from, write to, or pass results into any other Insight Hub tool. Outputs describe occupations broadly and are not individualized medical, disability, legal, or fitness-for-duty determinations."
+      subtitle="Live occupational tasks, demands, work context, and transparent condition-demand filtering from O*NET."
+      notice="This tool uses O*NET occupational data only. It does not read or write client/case data. Counts and filters below describe returned source items; they are not probabilities, medical-risk scores, disability findings, or fitness-for-duty determinations."
     >
       <ToolHero
-        kicker="Live occupational intelligence"
-        title="Turn any job title into an interactive demand signature."
-        description="Search once to explore the occupation’s physical, cognitive, safety, environmental, task, and related-role evidence inside this standalone workspace."
+        kicker="Live occupational evidence"
+        title="Search a job title and inspect what O*NET actually says."
+        description="The master tool keeps source fields separate, removes opaque demand scores, and shows the exact evidence behind every occupational-demand view."
       >
-        <div className="rounded-[28px] border border-white/12 bg-black/20 p-4 backdrop-blur-2xl">
-          <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-100/42">
+        <div className="rounded-2xl border border-white/12 bg-black/20 p-4">
+          <label className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/60">
             Job title or occupation
           </label>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row">
@@ -322,359 +363,207 @@ export default function OnetMasterTool() {
               onChange={(event) => setKeyword(event.target.value)}
               onKeyDown={onKeyDown}
               placeholder="Aircraft mechanic, firefighter, bus driver…"
-              className="min-h-12 flex-1 rounded-2xl border border-cyan-100/14 bg-[#06101c]/86 px-4 text-sm text-white outline-none placeholder:text-cyan-100/25 focus:border-cyan-200/40"
+              className="min-h-11 flex-1 rounded-xl border border-cyan-100/18 bg-[#040c16]/92 px-4 text-sm text-white outline-none placeholder:text-cyan-50/35 focus:border-cyan-200/46"
             />
             <button
               type="button"
               onClick={() => void analyze()}
               disabled={loading || !keyword.trim()}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-cyan-200/22 bg-cyan-300/14 px-5 text-sm font-black text-white transition hover:bg-cyan-300/20 disabled:opacity-45"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-cyan-200/24 bg-cyan-300/14 px-5 text-sm font-black text-white transition hover:bg-cyan-300/20 disabled:opacity-45"
             >
-              {loading ? (
-                <Loader2 size={17} className="animate-spin" />
-              ) : (
-                <Search size={17} />
-              )}
-              {loading ? "Analyzing" : "Analyze"}
+              {loading ? <Loader2 size={17} className="animate-spin" /> : <Search size={17} />}
+              {loading ? "Loading" : "Analyze"}
             </button>
           </div>
         </div>
       </ToolHero>
 
       {error ? (
-        <GlassCard className="mb-6 border-rose-200/16 p-5">
+        <GlassCard className="mb-5 border-rose-200/18 p-5">
           <div className="flex items-start gap-3 text-rose-100">
             <AlertTriangle size={19} className="mt-0.5 shrink-0" />
             <div>
               <p className="font-black">O*NET analysis unavailable</p>
-              <p className="mt-2 text-xs leading-6 text-rose-100/62">{error}</p>
+              <p className="mt-2 text-xs leading-6 text-rose-50/72">{error}</p>
             </div>
           </div>
         </GlassCard>
       ) : null}
 
       {!context && !loading && !error ? (
-        <GlassCard className="p-10 text-center">
-          <BriefcaseBusiness className="mx-auto h-10 w-10 text-cyan-200/40" />
-          <p className="mt-4 text-lg font-black text-white">
-            The O*NET workspace is ready.
-          </p>
-          <p className="mx-auto mt-2 max-w-2xl text-sm leading-7 text-cyan-100/45">
-            Search an occupation to generate its live master profile. Nothing is
-            prefilled from another tool.
+        <GlassCard className="p-9 text-center">
+          <BriefcaseBusiness className="mx-auto h-9 w-9 text-cyan-200/55" />
+          <p className="mt-3 text-lg font-black text-white">Search an occupation to begin.</p>
+          <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-cyan-50/62">
+            No occupation, classification, or source record is preselected.
           </p>
         </GlassCard>
       ) : null}
 
       {context ? (
         <>
-          <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <MetricOrb
-              label="Top occupation"
+              label="Resolved occupation"
               value={context.occupation.title}
               note={context.occupation.code}
               icon={BriefcaseBusiness}
             />
             <MetricOrb
-              label="Source evidence"
+              label="Returned source items"
               value={evidence.length.toLocaleString()}
-              note="Returned context and task signals"
+              note="Deduplicated items used in this view"
               icon={Layers3}
               tone="violet"
             />
             <MetricOrb
-              label="Safety context"
-              value={
-                context.safety_sensitive_indicators.safety_sensitive
-                  ? "Elevated"
-                  : "Limited"
-              }
-              note={`${context.safety_sensitive_indicators.indicators.length} direct indicators`}
+              label="Explicit safety matches"
+              value={context.safety_sensitive_indicators.safety_sensitive ? "Present" : "None found"}
+              note="Bounded source-term classification"
               icon={ShieldAlert}
-              tone={
-                context.safety_sensitive_indicators.safety_sensitive
-                  ? "rose"
-                  : "emerald"
-              }
+              tone={context.safety_sensitive_indicators.safety_sensitive ? "amber" : "emerald"}
             />
             <MetricOrb
-              label="Signal density"
-              value={`${overallSignal.toFixed(0)}/100`}
-              note="Descriptive density, not injury probability"
-              icon={Sparkles}
-              tone="amber"
+              label="Alternative matches"
+              value={context.matches.length.toString()}
+              note="O*NET search results"
+              icon={ChevronRight}
+              tone="emerald"
             />
           </section>
 
-          <SectionTabs<ViewId>
-            tabs={views}
-            active={activeView}
-            onChange={setActiveView}
-          />
+          <SectionTabs<ViewId> tabs={views} active={activeView} onChange={setActiveView} />
 
           {activeView === "command" ? (
-            <div className="grid gap-6 xl:grid-cols-[.82fr_1.18fr]">
-              <GlassCard className="grid place-items-center p-6">
-                <RingGauge
-                  value={overallSignal}
-                  label="signal density"
-                  detail="The amount of physical, environmental, safety, cognitive, fatigue, and exposure context returned for this occupation."
-                  tone="cyan"
-                />
-              </GlassCard>
-              <GlassCard className="p-5 md:p-6">
-                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-100/38">
-                  Occupation master profile
-                </p>
-                <h2 className="mt-2 text-2xl font-black text-white">
-                  {context.occupation.title}
-                </h2>
-                <p className="mt-3 text-sm leading-7 text-cyan-100/55">
-                  {context.occupation.description ||
-                    profile?.description ||
-                    "No occupation description returned."}
-                </p>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  {context.essential_function_suggestions
-                    .slice(0, 8)
-                    .map((suggestion, index) => (
-                      <div
-                        key={`${suggestion}-${index}`}
-                        className="rounded-2xl border border-cyan-100/10 bg-cyan-300/[0.035] px-4 py-3 text-xs leading-5 text-cyan-50/68"
-                      >
-                        {suggestion}
-                      </div>
-                    ))}
+            <div className="grid gap-5 xl:grid-cols-[.9fr_1.1fr]">
+              <GlassCard className="p-5">
+                <div className="flex flex-wrap items-center gap-3">
+                  <EvidenceGradeBadge grade="A" />
+                  <span className="text-xs text-cyan-50/62">O*NET Web Services API v2</span>
                 </div>
+                <h2 className="mt-4 text-2xl font-black text-white">{context.occupation.title}</h2>
+                <p className="mt-3 text-sm leading-7 text-cyan-50/70">
+                  {context.occupation.description || "No occupation description was returned."}
+                </p>
+                {context.partialErrors?.length ? (
+                  <div className="mt-4 rounded-xl border border-amber-200/18 bg-amber-300/[0.05] p-3 text-xs leading-5 text-amber-50/72">
+                    Some O*NET detail sections were unavailable: {context.partialErrors.map((item) => item.section).join(", ")}.
+                  </div>
+                ) : null}
+              </GlassCard>
+              <GlassCard className="p-5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/58">
+                  Returned evidence counts
+                </p>
+                <div className="mt-4 h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={demandCounts} layout="vertical">
+                      <CartesianGrid stroke="rgba(165,243,252,.1)" horizontal={false} />
+                      <XAxis type="number" allowDecimals={false} tick={{ fill: "rgba(207,250,254,.58)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <YAxis type="category" dataKey="category" width={86} tick={{ fill: "rgba(207,250,254,.72)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(103,232,249,.2)", borderRadius: 12 }} />
+                      <Bar dataKey="items" name="Source items" fill="#67e8f9" radius={[0, 8, 8, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[10px] leading-5 text-cyan-50/52">
+                  Bar lengths are counts of returned O*NET evidence items—not severity or risk scores.
+                </p>
               </GlassCard>
             </div>
           ) : null}
 
           {activeView === "demands" ? (
-            <div className="grid gap-6 xl:grid-cols-[.9fr_1.1fr]">
-              <GlassCard className="p-5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-100/38">
-                  Interactive occupation fingerprint
-                </p>
-                <div className="mt-4 h-[380px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={signature} outerRadius="72%">
-                      <PolarGrid stroke="rgba(165,243,252,.14)" />
-                      <PolarAngleAxis
-                        dataKey="subject"
-                        tick={{ fill: "rgba(207,250,254,.58)", fontSize: 11 }}
-                      />
-                      <Radar
-                        dataKey="score"
-                        stroke="#67e8f9"
-                        fill="#22d3ee"
-                        fillOpacity={0.25}
-                        strokeWidth={2}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          background: "rgba(3,10,23,.96)",
-                          border: "1px solid rgba(103,232,249,.18)",
-                          borderRadius: 16,
-                          color: "#ecfeff",
-                        }}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-                <p className="text-xs leading-5 text-cyan-100/38">
-                  Signal density reflects keyword-matched O*NET context returned
-                  for this role. It is not a worker risk score.
-                </p>
-              </GlassCard>
-              <div className="grid gap-4 md:grid-cols-2">
-                {signature.map((item, index) => (
-                  <MetricOrb
-                    key={item.subject}
-                    label={item.subject}
-                    value={`${item.score}/100`}
-                    note="Returned O*NET context density"
-                    tone={
-                      (
-                        [
-                          "cyan",
-                          "emerald",
-                          "rose",
-                          "violet",
-                          "amber",
-                          "cyan",
-                        ] as const
-                      )[index]
-                    }
-                  />
-                ))}
-              </div>
-              <ResultList
-                title="Physical demands"
-                items={[
-                  ...labels(context.physical_demands.abilities),
-                  ...labels(context.physical_demands.work_activities),
-                  ...labels(context.physical_demands.work_context),
-                ]}
-                tone="emerald"
-              />
-              <ResultList
-                title="Environmental and safety context"
-                items={[
-                  ...labels(context.environmental_indicators.work_context),
-                  ...context.safety_sensitive_indicators.indicators,
-                ]}
-                tone="rose"
-              />
+            <div className="grid gap-5 xl:grid-cols-2">
+              <ResultList title="Physical demand evidence" items={groups.physical} tone="cyan" />
+              <ResultList title="Cognitive demand evidence" items={groups.cognitive} tone="violet" />
+              <ResultList title="Environmental evidence" items={groups.environmental} tone="amber" />
+              <ResultList title="Explicit safety evidence" items={groups.safety} tone="rose" />
             </div>
           ) : null}
 
           {activeView === "tasks" ? (
-            <div className="grid gap-6 xl:grid-cols-2">
-              <ResultList
-                title="Tasks"
-                items={labels(profile?.tasks)}
-                tone="cyan"
-                limit={24}
-              />
-              <ResultList
-                title="Detailed work activities"
-                items={labels(profile?.detailed_work_activities)}
-                tone="violet"
-                limit={24}
-              />
-              <ResultList
-                title="Abilities"
-                items={labels(profile?.abilities)}
-                tone="emerald"
-                limit={24}
-              />
-              <ResultList
-                title="Work context"
-                items={labels(profile?.work_context)}
-                tone="amber"
-                limit={24}
-              />
+            <div className="grid gap-5 xl:grid-cols-2">
+              <ResultList title="Tasks / essential-function source statements" items={groups.tasks} tone="cyan" limit={24} />
+              <ResultList title="Detailed work activities" items={groups.detailed} tone="emerald" limit={24} />
             </div>
           ) : null}
 
           {activeView === "collision" ? (
-            <div className="grid gap-6 xl:grid-cols-[.72fr_1.28fr]">
+            <div className="grid gap-5 xl:grid-cols-[.72fr_1.28fr]">
               <GlassCard className="p-5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-100/38">
-                  Select condition category
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/58">
+                  Exploratory filter
+                </p>
+                <h2 className="mt-1 text-lg font-black text-white">Condition-demand overlap</h2>
+                <p className="mt-2 text-xs leading-6 text-cyan-50/66">
+                  Choose a condition category to filter the already-returned O*NET text for explicit demand terms. This does not calculate aggravation probability or medical risk.
                 </p>
                 <div className="mt-4 space-y-2">
                   {collisionModels.map((model) => {
                     const Icon = model.icon;
+                    const active = model.id === conditionId;
                     return (
                       <button
                         key={model.id}
                         type="button"
                         onClick={() => setConditionId(model.id)}
-                        className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left text-xs font-semibold transition ${conditionId === model.id ? "border-rose-200/24 bg-rose-300/10 text-white" : "border-white/8 bg-white/[0.025] text-cyan-100/52 hover:border-white/14 hover:text-white"}`}
+                        className={`flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left text-xs transition ${active ? "border-amber-200/28 bg-amber-300/[0.09] text-white" : "border-white/10 bg-white/[0.025] text-cyan-50/62 hover:border-white/16"}`}
                       >
-                        <Icon size={16} className="shrink-0" />
-                        {model.label}
+                        <Icon size={16} />
+                        <span className="font-bold">{model.label}</span>
                       </button>
                     );
                   })}
                 </div>
               </GlassCard>
-              <GlassCard className="p-5 md:p-6">
-                <div className="grid gap-6 md:grid-cols-[220px_1fr] md:items-center">
-                  <RingGauge
-                    value={collisionIndex}
-                    label="interaction index"
-                    detail="Descriptive O*NET signal overlap—not a medical probability or compensability decision."
-                    tone={
-                      collisionIndex >= 65
-                        ? "rose"
-                        : collisionIndex >= 35
-                          ? "amber"
-                          : "emerald"
-                    }
-                  />
+              <GlassCard className="p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="text-2xl font-black text-white">
-                        {selectedCollision.label}
-                      </h2>
-                      <EvidenceGradeBadge
-                        grade={collisionMatches.length ? "C" : "Unavailable"}
-                      />
-                    </div>
-                    <p className="mt-3 text-sm leading-7 text-cyan-100/54">
-                      {selectedCollision.explanation}
-                    </p>
-                    <p className="mt-3 text-xs leading-6 text-amber-100/55">
-                      This view identifies possible demand interactions for
-                      human review. It does not determine aggravation,
-                      work-relatedness, disability, or fitness.
-                    </p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-50/62">{selectedCollision.label}</p>
+                    <h2 className="mt-1 text-xl font-black text-white">{collisionMatches.length} explicit source matches</h2>
                   </div>
+                  <EvidenceGradeBadge grade="D" />
                 </div>
-                <div className="mt-6 grid gap-2 md:grid-cols-2">
-                  {collisionMatches.map((match, index) => (
-                    <div
-                      key={`${match}-${index}`}
-                      className="rounded-2xl border border-rose-100/10 bg-rose-300/[0.04] px-4 py-3 text-xs leading-6 text-rose-50/68"
-                    >
-                      {match}
+                <p className="mt-3 text-xs leading-6 text-cyan-50/66">{selectedCollision.explanation}</p>
+                <p className="mt-2 text-[10px] leading-5 text-cyan-50/50">
+                  Match terms: {selectedCollision.terms.join(", ")}.
+                </p>
+                <div className="mt-4 space-y-2">
+                  {collisionMatches.slice(0, 24).map((item, index) => (
+                    <div key={`${item}-${index}`} className="rounded-xl border border-amber-100/14 bg-amber-300/[0.045] px-4 py-3 text-xs leading-6 text-amber-50/78">
+                      {item}
                     </div>
                   ))}
+                  {!collisionMatches.length ? (
+                    <div className="rounded-xl border border-dashed border-white/12 p-6 text-center text-xs text-cyan-50/55">
+                      No explicit phrase match was found in the returned O*NET evidence.
+                    </div>
+                  ) : null}
                 </div>
-                {collisionMatches.length === 0 ? (
-                  <p className="mt-6 rounded-2xl border border-dashed border-white/10 p-8 text-center text-xs text-cyan-100/38">
-                    No matching O*NET interaction signals were returned for this
-                    category.
-                  </p>
-                ) : null}
               </GlassCard>
             </div>
           ) : null}
 
           {activeView === "matches" ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {context.matches.map((match, index) => (
-                <motion.button
-                  key={match.code}
-                  type="button"
-                  onClick={() => void analyze(match.title)}
-                  initial={{ opacity: 0, y: 12 }}
+                <motion.div
+                  key={`${match.code}-${index}`}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(index * 0.04, 0.3) }}
-                  className="group rounded-[25px] border border-white/10 bg-white/[0.035] p-[1px] text-left shadow-[0_20px_55px_rgba(0,0,0,.25)] transition hover:-translate-y-1 hover:border-cyan-200/24"
+                  transition={{ delay: Math.min(index * 0.03, 0.25) }}
+                  className="rounded-2xl border border-white/12 bg-[#071321]/84 p-4"
                 >
-                  <div className="h-full rounded-[24px] border border-white/[0.06] bg-[#071321]/78 p-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.19em] text-cyan-100/38">
-                          Match {index + 1}
-                        </p>
-                        <h2 className="mt-2 text-lg font-black text-white">
-                          {match.title}
-                        </h2>
-                        <p className="mt-1 text-xs text-cyan-100/40">
-                          {match.code}
-                        </p>
-                      </div>
-                      <ChevronRight className="mt-1 text-cyan-100/30 transition group-hover:translate-x-1 group-hover:text-cyan-200" />
-                    </div>
-                    <p className="mt-5 text-xs text-cyan-100/44">
-                      Analyze this occupation independently in the current tool.
-                    </p>
-                  </div>
-                </motion.button>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-cyan-50/52">{match.code}</p>
+                  <p className="mt-2 font-black text-white">{match.title}</p>
+                  {typeof match.score === "number" ? (
+                    <p className="mt-2 text-xs text-cyan-50/55">O*NET search relevance: {match.score}</p>
+                  ) : null}
+                </motion.div>
               ))}
             </div>
           ) : null}
-
-          <footer className="mt-8 border-t border-cyan-100/10 pt-4 text-[10px] leading-5 text-cyan-100/38">
-            This application incorporates information from O*NET Web Services by
-            the U.S. Department of Labor, Employment and Training
-            Administration. O*NET® is a trademark of USDOL/ETA.
-          </footer>
         </>
       ) : null}
     </OccupationalToolShell>
