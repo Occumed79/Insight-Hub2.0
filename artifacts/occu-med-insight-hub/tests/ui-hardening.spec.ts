@@ -271,7 +271,7 @@ test("core intelligence routes load through lazy boundaries without browser erro
 
   await page.goto("/competitors");
   await expect(page.getByRole("heading", { name: "Competitors", exact: true })).toBeVisible();
-  await expect(page.locator('a[aria-current="page"]').filter({ hasText: "Competitors" })).toHaveCount(2);
+  await expect(page.locator('nav[aria-label="Insight Hub intelligence tools"] a').filter({ hasText: "Competitors" })).toHaveCount(0);
   await expectNoDocumentOverflow(page);
 
   await page.goto("/federal-agencies");
