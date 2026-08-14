@@ -8,50 +8,94 @@ import { EmployerWorkflowProvider } from "@/components/insight/EmployerWorkflowC
 
 const NotFound = React.lazy(() => import("@/pages/not-found"));
 const Landing = React.lazy(() => import("@/pages/landing"));
-const DataVisualization = React.lazy(() => import("@/pages/data-visualization"));
+const DataVisualization = React.lazy(
+  () => import("@/pages/data-visualization"),
+);
 const QuantifiableData = React.lazy(() => import("@/pages/quantifiable-data"));
 const GeographicData = React.lazy(() => import("@/pages/geographic-data"));
 const LocationOverlap = React.lazy(() => import("@/pages/location-overlap"));
 const JobIntelligence = React.lazy(() => import("@/pages/job-intelligence"));
-const HiringIntelligence = React.lazy(() => import("@/pages/hiring-intelligence"));
+const HiringIntelligence = React.lazy(
+  () => import("@/pages/hiring-intelligence"),
+);
 const LeadershipMap = React.lazy(() => import("@/pages/leadership-map"));
-const CorporateStructure = React.lazy(() => import("@/pages/corporate-structure"));
+const CorporateStructure = React.lazy(
+  () => import("@/pages/corporate-structure"),
+);
 const EmployerWorkflow = React.lazy(() => import("@/pages/employer-workflow"));
-const EmployerIntelligence = React.lazy(() => import("@/pages/employer-intelligence"));
+const EmployerIntelligence = React.lazy(
+  () => import("@/pages/employer-intelligence"),
+);
 const EntityResolution = React.lazy(() => import("@/pages/entity-resolution"));
-const OccupationalExposure = React.lazy(() => import("@/pages/occupational-exposure"));
-const CorporateSignals = React.lazy(() => import("@/pages/company-live-intelligence"));
+const OccupationalExposure = React.lazy(
+  () => import("@/pages/occupational-exposure"),
+);
+const CorporateSignals = React.lazy(
+  () => import("@/pages/company-live-intelligence"),
+);
 const SecFilings = React.lazy(() => import("@/pages/sec-filings"));
-const WorkersCompCoverage = React.lazy(() => import("@/pages/workers-comp-coverage"));
+const WorkersCompCoverage = React.lazy(
+  () => import("@/pages/workers-comp-coverage"),
+);
 const DbaIntelligence = React.lazy(() => import("@/pages/dba-intelligence"));
 const SourceGovernance = React.lazy(() => import("@/pages/source-governance"));
-const AorRiskIntelligencePage = React.lazy(() => import("@/pages/aor-risk-intelligence"));
+const AorRiskIntelligencePage = React.lazy(
+  () => import("@/pages/aor-risk-intelligence"),
+);
 const EntitiesPage = React.lazy(() =>
-  import("@/pages/entities").then((module) => ({ default: module.EntitiesPage })),
+  import("@/pages/entities").then((module) => ({
+    default: module.EntitiesPage,
+  })),
 );
 const CompetitorsPage = React.lazy(() =>
-  import("@/pages/core-intelligence").then((module) => ({ default: module.CompetitorsPage })),
+  import("@/pages/core-intelligence").then((module) => ({
+    default: module.CompetitorsPage,
+  })),
 );
 const FederalAgenciesPage = React.lazy(() =>
-  import("@/pages/core-intelligence").then((module) => ({ default: module.FederalAgenciesPage })),
+  import("@/pages/core-intelligence").then((module) => ({
+    default: module.FederalAgenciesPage,
+  })),
 );
 const StateAgenciesPage = React.lazy(() =>
-  import("@/pages/core-intelligence").then((module) => ({ default: module.StateAgenciesPage })),
+  import("@/pages/core-intelligence").then((module) => ({
+    default: module.StateAgenciesPage,
+  })),
 );
 const FecFilingsPage = React.lazy(() =>
-  import("@/pages/standalone-public-tools").then((module) => ({ default: module.FecFilingsPage })),
+  import("@/pages/standalone-public-tools").then((module) => ({
+    default: module.FecFilingsPage,
+  })),
 );
 const FederalAwardsPage = React.lazy(() =>
-  import("@/pages/standalone-public-tools").then((module) => ({ default: module.FederalAwardsPage })),
+  import("@/pages/standalone-public-tools").then((module) => ({
+    default: module.FederalAwardsPage,
+  })),
 );
 const IndustryBenchmarksPage = React.lazy(() =>
-  import("@/pages/standalone-public-tools").then((module) => ({ default: module.IndustryBenchmarksPage })),
+  import("@/pages/standalone-public-tools").then((module) => ({
+    default: module.IndustryBenchmarksPage,
+  })),
 );
 const LegalReferencesPage = React.lazy(() =>
-  import("@/pages/standalone-public-tools").then((module) => ({ default: module.LegalReferencesPage })),
+  import("@/pages/standalone-public-tools").then((module) => ({
+    default: module.LegalReferencesPage,
+  })),
 );
 const OccupationalDemandsPage = React.lazy(() =>
-  import("@/pages/standalone-public-tools").then((module) => ({ default: module.OccupationalDemandsPage })),
+  import("@/pages/standalone-public-tools").then((module) => ({
+    default: module.OccupationalDemandsPage,
+  })),
+);
+const OnetMasterTool = React.lazy(() => import("@/pages/onet-master-tool"));
+const OccupationalDataExplorer = React.lazy(
+  () => import("@/pages/occupational-data-explorer"),
+);
+const IndustryImpactCalculator = React.lazy(
+  () => import("@/pages/industry-impact-calculator"),
+);
+const OccupationalCalculators = React.lazy(
+  () => import("@/pages/occupational-calculators"),
 );
 
 const queryClient = new QueryClient();
@@ -61,7 +105,9 @@ function RouteLoading() {
     <main className="grid min-h-screen place-items-center bg-[#020817] px-6 text-white">
       <div role="status" aria-live="polite" className="text-center">
         <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-cyan-100/18 border-t-cyan-100/80" />
-        <p className="mt-4 text-sm font-semibold text-cyan-50/66">Loading workspace…</p>
+        <p className="mt-4 text-sm font-semibold text-cyan-50/66">
+          Loading workspace…
+        </p>
       </div>
     </main>
   );
@@ -161,6 +207,38 @@ function OccupationalDemandsRoute() {
   );
 }
 
+function OnetMasterToolRoute() {
+  return (
+    <TranslucentToolPage page="onet-master">
+      <OnetMasterTool />
+    </TranslucentToolPage>
+  );
+}
+
+function OccupationalDataExplorerRoute() {
+  return (
+    <TranslucentToolPage page="occupational-data-explorer">
+      <OccupationalDataExplorer />
+    </TranslucentToolPage>
+  );
+}
+
+function IndustryImpactCalculatorRoute() {
+  return (
+    <TranslucentToolPage page="industry-impact-calculator">
+      <IndustryImpactCalculator />
+    </TranslucentToolPage>
+  );
+}
+
+function OccupationalCalculatorsRoute() {
+  return (
+    <TranslucentToolPage page="occupational-calculators">
+      <OccupationalCalculators />
+    </TranslucentToolPage>
+  );
+}
+
 function FederalAwardsRoute() {
   return (
     <TranslucentToolPage page="federal-awards">
@@ -232,16 +310,44 @@ function Router() {
         <Route path="/leadership-map" component={LeadershipMapRoute} />
         <Route path="/dba-intelligence" component={DbaRoute} />
         <Route path="/fec-filings" component={FecFilingsRoute} />
-        <Route path="/industry-injury-benchmarks" component={IndustryBenchmarksRoute} />
-        <Route path="/occupational-demands" component={OccupationalDemandsRoute} />
+        <Route
+          path="/industry-injury-benchmarks"
+          component={IndustryBenchmarksRoute}
+        />
+        <Route
+          path="/occupational-demands"
+          component={OccupationalDemandsRoute}
+        />
+        <Route path="/onet-master-tool" component={OnetMasterToolRoute} />
+        <Route
+          path="/occupational-data-explorer"
+          component={OccupationalDataExplorerRoute}
+        />
+        <Route
+          path="/industry-impact-calculator"
+          component={IndustryImpactCalculatorRoute}
+        />
+        <Route
+          path="/occupational-calculators"
+          component={OccupationalCalculatorsRoute}
+        />
         <Route path="/federal-awards" component={FederalAwardsRoute} />
-        <Route path="/public-legal-references" component={LegalReferencesRoute} />
+        <Route
+          path="/public-legal-references"
+          component={LegalReferencesRoute}
+        />
         <Route path="/aor-risk-intelligence" component={AorRiskRoute} />
 
         <Route path="/geographic-footprint" component={GlobalLocationsRoute} />
         <Route path="/geographic-data" component={GlobalLocationsRoute} />
-        <Route path="/location-overlap" component={GlobalLocationOverlapRoute} />
-        <Route path="/geographic-overlap" component={GlobalLocationOverlapRoute} />
+        <Route
+          path="/location-overlap"
+          component={GlobalLocationOverlapRoute}
+        />
+        <Route
+          path="/geographic-overlap"
+          component={GlobalLocationOverlapRoute}
+        />
 
         <Route path="/data-visualization" component={DataVisualization} />
         <Route path="/quantifiable-data" component={QuantifiableData} />
@@ -251,7 +357,10 @@ function Router() {
         <Route path="/employer-workflow" component={EmployerWorkflow} />
         <Route path="/employer-intelligence" component={EmployerIntelligence} />
         <Route path="/entity-resolution" component={EntityResolution} />
-        <Route path="/injury-workforce-exposure" component={OccupationalExposure} />
+        <Route
+          path="/injury-workforce-exposure"
+          component={OccupationalExposure}
+        />
         <Route path="/occupational-exposure" component={OccupationalExposure} />
         <Route path="/corporate-signals" component={CorporateSignals} />
         <Route path="/company-live-intelligence" component={CorporateSignals} />

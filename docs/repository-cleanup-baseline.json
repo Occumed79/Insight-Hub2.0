@@ -1,7 +1,7 @@
 {
-  "description": "Post-#128 structural ceiling for Insight Hub 2 after browser-CI, dead-code hardening, React 19 state-map compatibility, and OSHA database-persistence hardening. The active application keeps one shell, three global CSS layers, the reviewed component-level style blocks, lazy-loaded workspaces, and the protected Hub 2 intelligence ownership routes. The first-party React 19 state-map workspace replaces the incompatible upstream peer declaration, OSHA uses Postgres persistence, and a real Postgres integration test plus permanent architecture audit prevent regression to file-cache storage. CinematicPortal remains intentionally retained as a reviewed required production file. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
+  "description": "Post-occupational-intelligence-tools structural ceiling for Insight Hub 2 after browser-CI, dead-code hardening, React 19 state-map compatibility, OSHA database-persistence hardening, and the deliberate addition of four independent occupational intelligence routes plus a Data.gov catalog route. The active application keeps one shell, three global CSS layers, the reviewed component-level style blocks, lazy-loaded workspaces, and the protected Hub 2 intelligence ownership routes. The first-party React 19 state-map workspace replaces the incompatible upstream peer declaration, OSHA uses Postgres persistence, and a real Postgres integration test plus permanent architecture audit prevent regression to file-cache storage. CinematicPortal remains intentionally retained as a reviewed required production file. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
   "maximums": {
-    "totalFiles": 232,
+    "totalFiles": 239,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
@@ -26,7 +26,12 @@
     "scripts/osha-persistence-audit.mjs",
     "artifacts/occu-med-insight-hub/src/styles/foundation.css",
     "artifacts/occu-med-insight-hub/src/styles/application.css",
-    "artifacts/occu-med-insight-hub/src/components/insight/CinematicPortal.tsx"
+    "artifacts/occu-med-insight-hub/src/components/insight/CinematicPortal.tsx",
+    "artifacts/occu-med-insight-hub/src/pages/onet-master-tool.tsx",
+    "artifacts/occu-med-insight-hub/src/pages/occupational-data-explorer.tsx",
+    "artifacts/occu-med-insight-hub/src/pages/industry-impact-calculator.tsx",
+    "artifacts/occu-med-insight-hub/src/pages/occupational-calculators.tsx",
+    "artifacts/api-server/src/routes/occupational-tools.ts"
   ],
   "forbiddenNewPatterns": [
     "(^|/)dist/",
