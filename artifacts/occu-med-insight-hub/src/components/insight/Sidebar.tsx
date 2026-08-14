@@ -13,7 +13,6 @@ import {
   Scale,
   ShieldAlert,
   ShieldCheck,
-  Target,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
@@ -21,7 +20,6 @@ import { cn } from "@/lib/utils";
 const nav = [
   { href: "/", label: "Home", icon: Home },
   { href: "/entities", label: "Entities", icon: Building2 },
-  { href: "/competitors", label: "Competitors", icon: Target },
   { href: "/federal-agencies", label: "Federal Agencies", icon: Landmark },
   { href: "/state-agencies", label: "State Agencies", icon: Map },
   { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
@@ -72,7 +70,7 @@ const nav = [
 ];
 
 const CORE_OWNERSHIP_NOTICE =
-  "Entities, Competitors, Federal Agencies, and State Agencies are owned by Insight Hub 2. Global Locations and Location Overlap remain available from their portal cards.";
+  "Entities, Federal Agencies, and State Agencies are owned by Insight Hub 2. Global Locations and Location Overlap remain available from their portal cards.";
 
 function isActivePath(itemHref: string, currentPath: string) {
   if (currentPath === itemHref) return true;

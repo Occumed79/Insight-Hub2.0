@@ -37,10 +37,7 @@ export function clamp(value: number, min = 0, max = 100): number {
   return Math.min(max, Math.max(min, safeNumber(value)));
 }
 
-export function calculateIncidentRate(
-  cases: number,
-  hoursWorked: number,
-): number {
+export function calculateIncidentRate(cases: number, hoursWorked: number): number {
   if (hoursWorked <= 0) return 0;
   return safeNumber((Math.max(cases, 0) * 200_000) / hoursWorked);
 }
@@ -49,8 +46,7 @@ export function expectedCasesFromRate(
   rate: number | null | undefined,
   workforce: number,
 ): number {
-  if (rate === null || rate === undefined || rate < 0 || workforce <= 0)
-    return 0;
+  if (rate === null || rate === undefined || rate < 0 || workforce <= 0) return 0;
   return safeNumber((rate * workforce) / 100);
 }
 
@@ -58,30 +54,20 @@ export function expectedCasesFromHours(
   rate: number | null | undefined,
   hoursWorked: number,
 ): number {
-  if (rate === null || rate === undefined || rate < 0 || hoursWorked <= 0)
-    return 0;
+  if (rate === null || rate === undefined || rate < 0 || hoursWorked <= 0) return 0;
   return safeNumber((rate * hoursWorked) / 200_000);
 }
 
 export function calculateIndustryImpact(
   input: IndustryImpactInputs,
 ): IndustryImpactResult {
-  const expectedRecordables = expectedCasesFromHours(
-    input.trcRate,
-    input.annualHours,
-  );
-  const expectedDartCases = expectedCasesFromHours(
-    input.dartRate,
-    input.annualHours,
-  );
+  const expectedRecordables = expectedCasesFromHours(input.trcRate, input.annualHours);
+  const expectedDartCases = expectedCasesFromHours(input.dartRate, input.annualHours);
   const expectedDaysAwayCases = expectedCasesFromHours(
     input.daysAwayRate,
     input.annualHours,
   );
-  const observedTrir = calculateIncidentRate(
-    input.observedCases,
-    input.annualHours,
-  );
+  const observedTrir = calculateIncidentRate(input.observedCases, input.annualHours);
   const observedDartRate = calculateIncidentRate(
     input.observedDartCases,
     input.annualHours,
@@ -100,8 +86,7 @@ export function calculateIndustryImpact(
     directAvoidedCost * Math.max(input.indirectMultiplier, 0);
   const potentialAvoidedCost = directAvoidedCost + indirectAvoidedCost;
   const margin = Math.max(input.profitMarginPercent, 0) / 100;
-  const revenueRequiredToRecover =
-    margin > 0 ? potentialAvoidedCost / margin : 0;
+  const revenueRequiredToRecover = margin > 0 ? potentialAvoidedCost / margin : 0;
 
   return {
     expectedRecordables,
@@ -137,15 +122,11 @@ export function calculateWorkersCompCost(input: {
   const claims = Math.max(input.claims, 0);
   const medical = claims * Math.max(input.medicalCostPerClaim, 0);
   const wageReplacement =
-    claims *
-    Math.max(input.lostDaysPerClaim, 0) *
-    Math.max(input.dailyCompensationCost, 0);
+    claims * Math.max(input.lostDaysPerClaim, 0) * Math.max(input.dailyCompensationCost, 0);
   const administration =
-    (medical + wageReplacement) *
-    (Math.max(input.administrativePercent, 0) / 100);
+    (medical + wageReplacement) * (Math.max(input.administrativePercent, 0) / 100);
   const indirect =
-    (medical + wageReplacement + administration) *
-    Math.max(input.indirectMultiplier, 0);
+    (medical + wageReplacement + administration) * Math.max(input.indirectMultiplier, 0);
   return {
     medical,
     wageReplacement,
@@ -159,15 +140,20 @@ export function calculateLostTime(input: {
   cases: number;
   daysAway: number;
   restrictedDays: number;
+  restrictedProductivityLossPercent: number;
   hourlyCompensation: number;
   overtimePercent: number;
 }) {
   const cases = Math.max(input.cases, 0);
   const awayHours = cases * Math.max(input.daysAway, 0) * 8;
   const restrictedHours = cases * Math.max(input.restrictedDays, 0) * 8;
-  const productiveHoursLost = awayHours + restrictedHours * 0.5;
-  const baseExposure =
-    productiveHoursLost * Math.max(input.hourlyCompensation, 0);
+  const restrictedLossFraction = clamp(
+    input.restrictedProductivityLossPercent,
+    0,
+    100,
+  ) / 100;
+  const productiveHoursLost = awayHours + restrictedHours * restrictedLossFraction;
+  const baseExposure = productiveHoursLost * Math.max(input.hourlyCompensation, 0);
   const overtimeExposure =
     awayHours *
     Math.max(input.hourlyCompensation, 0) *
@@ -175,6 +161,7 @@ export function calculateLostTime(input: {
   return {
     awayHours,
     restrictedHours,
+    restrictedLossFraction,
     productiveHoursLost,
     baseExposure,
     overtimeExposure,
@@ -195,82 +182,13 @@ export function calculateReturnToWork(input: {
   const modifiedProductivityLoss =
     1 - clamp(input.modifiedProductivityPercent, 0, 100) / 100;
   const withModifiedDuty =
-    workers *
-    Math.max(input.modifiedDutyDays, 0) *
-    daily *
-    modifiedProductivityLoss;
+    workers * Math.max(input.modifiedDutyDays, 0) * daily * modifiedProductivityLoss;
   return {
     withoutModifiedDuty,
     withModifiedDuty,
     potentialDifference: Math.max(withoutModifiedDuty - withModifiedDuty, 0),
-    daysRecovered: Math.max(
-      (input.fullDutyDays - input.modifiedDutyDays) * workers,
-      0,
-    ),
-  };
-}
-
-export function calculateFatigueIndex(input: {
-  shiftHours: number;
-  weeklyHours: number;
-  consecutiveShifts: number;
-  nightWorkPercent: number;
-  drivingPercent: number;
-  physicalDemandPercent: number;
-}) {
-  const shift = clamp(((input.shiftHours - 8) / 8) * 25, 0, 25);
-  const weekly = clamp(((input.weeklyHours - 40) / 30) * 25, 0, 25);
-  const consecutive = clamp(((input.consecutiveShifts - 4) / 6) * 15, 0, 15);
-  const night = clamp(input.nightWorkPercent, 0, 100) * 0.15;
-  const driving = clamp(input.drivingPercent, 0, 100) * 0.1;
-  const physical = clamp(input.physicalDemandPercent, 0, 100) * 0.1;
-  const score = clamp(
-    shift + weekly + consecutive + night + driving + physical,
-  );
-  return {
-    score,
-    band:
-      score >= 70
-        ? "Critical"
-        : score >= 50
-          ? "High"
-          : score >= 30
-            ? "Elevated"
-            : "Lower",
-    components: { shift, weekly, consecutive, night, driving, physical },
-  };
-}
-
-export function calculateReadinessIndex(input: {
-  demandCompatibility: number;
-  healthResilience: number;
-  fatigueControl: number;
-  surveillanceCoverage: number;
-  modifiedDutyCapacity: number;
-  environmentalControls: number;
-}) {
-  const dimensions = {
-    demandCompatibility: clamp(input.demandCompatibility),
-    healthResilience: clamp(input.healthResilience),
-    fatigueControl: clamp(input.fatigueControl),
-    surveillanceCoverage: clamp(input.surveillanceCoverage),
-    modifiedDutyCapacity: clamp(input.modifiedDutyCapacity),
-    environmentalControls: clamp(input.environmentalControls),
-  };
-  const score =
-    Object.values(dimensions).reduce((sum, value) => sum + value, 0) /
-    Object.keys(dimensions).length;
-  return {
-    score,
-    band:
-      score >= 80
-        ? "Strong"
-        : score >= 65
-          ? "Stable"
-          : score >= 45
-            ? "Watch"
-            : "Vulnerable",
-    dimensions,
+    daysRecovered: Math.max((input.fullDutyDays - input.modifiedDutyDays) * workers, 0),
+    modifiedProductivityLoss,
   };
 }
 
@@ -285,14 +203,11 @@ export function calculateBreakEven(input: {
     input.baselineEventsPerHundred,
     input.population,
   );
-  const avoidedEvents =
-    expectedEvents * (clamp(input.effectivenessPercent) / 100);
+  const avoidedEvents = expectedEvents * (clamp(input.effectivenessPercent) / 100);
   const potentialBenefit = avoidedEvents * Math.max(input.costPerEvent, 0);
   const netImpact = potentialBenefit - Math.max(input.programCost, 0);
   const eventsToBreakEven =
-    input.costPerEvent > 0
-      ? Math.max(input.programCost, 0) / input.costPerEvent
-      : 0;
+    input.costPerEvent > 0 ? Math.max(input.programCost, 0) / input.costPerEvent : 0;
   return {
     expectedEvents,
     avoidedEvents,

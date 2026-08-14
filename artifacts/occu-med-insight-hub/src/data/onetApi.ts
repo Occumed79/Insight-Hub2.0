@@ -10,6 +10,8 @@ export type OnetSearchResponse = {
   keyword?: string;
   matches?: OnetOccupationMatch[];
   count?: number;
+  source?: string;
+  sourceEndpoint?: string;
   error?: string;
 };
 
@@ -17,6 +19,7 @@ export type OnetNamedItem = {
   name: string;
   description?: string;
   value?: unknown;
+  response?: unknown;
 };
 
 export type OnetOccupationProfile = {
@@ -40,6 +43,7 @@ export type OnetOccupationResponse = {
   ok: boolean;
   occupation?: OnetOccupationProfile;
   source?: string;
+  partialErrors?: Array<{ section: string; error: string }>;
   error?: string;
 };
 
@@ -76,6 +80,7 @@ export type OnetJobContext = {
     work_context: (string | OnetNamedItem)[];
   };
   essential_function_suggestions: string[];
+  partialErrors?: Array<{ section: string; error: string }>;
   raw?: {
     tasks: (string | OnetNamedItem)[];
     work_context: (string | OnetNamedItem)[];
@@ -90,25 +95,37 @@ export type OnetJobContextResponse = {
   context?: OnetJobContext | null;
   message?: string;
   source?: string;
+  classification?: string;
   error?: string;
 };
 
-export async function searchOnetOccupations(keyword: string): Promise<OnetSearchResponse> {
-  const response = await fetch(`/api/onet/search?keyword=${encodeURIComponent(keyword)}`);
-  const data = (await response.json()) as OnetSearchResponse;
-  return data;
+const OCCUPATIONAL_ONET_BASE = "/api/occupational-onet";
+
+export async function searchOnetOccupations(
+  keyword: string,
+): Promise<OnetSearchResponse> {
+  const response = await fetch(
+    `${OCCUPATIONAL_ONET_BASE}/search?keyword=${encodeURIComponent(keyword)}`,
+  );
+  return (await response.json()) as OnetSearchResponse;
 }
 
-export async function fetchOnetOccupation(code: string): Promise<OnetOccupationResponse> {
-  const response = await fetch(`/api/onet/occupation/${encodeURIComponent(code)}`);
-  const data = (await response.json()) as OnetOccupationResponse;
-  return data;
+export async function fetchOnetOccupation(
+  code: string,
+): Promise<OnetOccupationResponse> {
+  const response = await fetch(
+    `${OCCUPATIONAL_ONET_BASE}/occupation/${encodeURIComponent(code)}`,
+  );
+  return (await response.json()) as OnetOccupationResponse;
 }
 
-export async function fetchOnetJobContext(keyword: string): Promise<OnetJobContextResponse> {
-  const response = await fetch(`/api/onet/job-context?keyword=${encodeURIComponent(keyword)}`);
-  const data = (await response.json()) as OnetJobContextResponse;
-  return data;
+export async function fetchOnetJobContext(
+  keyword: string,
+): Promise<OnetJobContextResponse> {
+  const response = await fetch(
+    `${OCCUPATIONAL_ONET_BASE}/job-context?keyword=${encodeURIComponent(keyword)}`,
+  );
+  return (await response.json()) as OnetJobContextResponse;
 }
 
 export function itemName(item: string | OnetNamedItem): string {
@@ -116,7 +133,9 @@ export function itemName(item: string | OnetNamedItem): string {
   return item.name || "";
 }
 
-export function itemDescription(item: string | OnetNamedItem): string | undefined {
+export function itemDescription(
+  item: string | OnetNamedItem,
+): string | undefined {
   if (typeof item === "string") return undefined;
   return item.description;
 }

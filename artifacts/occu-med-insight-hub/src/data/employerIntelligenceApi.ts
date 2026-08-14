@@ -48,7 +48,7 @@ export type OshaResponse = {
   error?: string;
 };
 
-export type BlsAuthMode = "registered-v2" | "public-v1";
+export type BlsAuthMode = "registered-v2" | "public-v2";
 
 export type BlsBenchmark = {
   naics: string;
