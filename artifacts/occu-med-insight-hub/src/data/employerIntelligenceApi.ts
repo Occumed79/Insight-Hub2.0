@@ -42,7 +42,7 @@ export type OshaResponse = {
   source: string;
   importEnabled: boolean;
   importRuns?: OshaImportRun[];
-  dataSource: "cached-json" | "database-import" | "none";
+  dataSource: "cached-json" | "none";
   warning: string;
   sourceUrl: string;
   error?: string;
@@ -161,7 +161,7 @@ export type SourceStatus = {
   enabled: boolean;
   lastSync?: string;
   lastError?: string;
-  dataType: "live-api" | "cached-import" | "database-import" | "static-index" | "not-configured";
+  dataType: "live-api" | "cached-import" | "static-index" | "not-configured";
   nextRefresh?: string;
   notes: string;
 };
@@ -228,31 +228,187 @@ export async function fetchBlsBenchmark(params: {
   return await response.json();
 }
 
-export async function fetchWorkersCompSources(
-  state: string,
-): Promise<WorkersCompSource> {
-  const response = await fetch(
-    `/api/workers-comp/sources?state=${encodeURIComponent(state)}`,
-  );
-  return await response.json();
-}
-
-export async function fetchSourceStatus(): Promise<SourcesStatusResponse> {
-  const response = await fetch("/api/sources/status");
+export async function fetchWorkersCompSources(state: string): Promise<WorkersCompSource> {
+  const response = await fetch(`/api/workers-comp/sources?state=${encodeURIComponent(state)}`);
   return await response.json();
 }
 
 export async function scoreOpportunity(input: {
-  companyName?: string;
-  state?: string;
-  naics?: string;
-  jobTitles?: string[];
-  workforceSize?: number;
+  companyName: string;
+  oshaEstablishments?: OshaEstablishment[];
+  blsBenchmark?: BlsBenchmark | null;
+  onetMapping?: JobNormalization | null;
+  workersCompNotes?: WorkersCompSource | null;
+  locationContext?: string;
+  entityConfidence?: number;
 }): Promise<OpportunityScore> {
-  const response = await fetch("/api/opportunities/score", {
+  const response = await fetch("/api/opportunity/score", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
+  return await response.json();
+}
+
+export async function fetchSourcesStatus(): Promise<SourcesStatusResponse> {
+  const response = await fetch("/api/sources/status");
+  return await response.json();
+}
+
+// ─── HHS / HealthData.gov Catalog ────────────────────────────────────────────
+
+export type HhsDataset = {
+  id: string;
+  title: string;
+  description: string;
+  domain: string;
+  agency?: string;
+  publisher?: string;
+  category?: string;
+  tags: string[];
+  updatedAt?: string;
+  createdAt?: string;
+  rowCount?: number;
+  datasetUrl?: string;
+  apiEndpoint?: string;
+  exportLinks?: { format: string; url: string }[];
+};
+
+export type HhsCatalogSearchResponse = {
+  ok: boolean;
+  datasets: HhsDataset[];
+  total: number;
+  page: number;
+  pageSize: number;
+  authMode: "app-token" | "public";
+  domain: string;
+  message?: string;
+  error?: string;
+};
+
+export type HhsCatalogDatasetResponse = {
+  ok: boolean;
+  dataset: HhsDataset | null;
+  authMode: "app-token" | "public";
+  message?: string;
+  error?: string;
+};
+
+export type HhsCatalogStatusResponse = {
+  ok: boolean;
+  configured: boolean;
+  enabled: boolean;
+  authMode: "app-token" | "public";
+  domain: string;
+  notes: string;
+  error?: string;
+};
+
+export async function searchHhsCatalog(params: {
+  query?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+}): Promise<HhsCatalogSearchResponse> {
+  const qs = new URLSearchParams();
+  if (params.query) qs.set("query", params.query);
+  if (params.page) qs.set("page", String(params.page));
+  if (params.pageSize) qs.set("pageSize", String(params.pageSize));
+  if (params.sortBy) qs.set("sortBy", params.sortBy);
+  const response = await fetch(`/api/hhs/catalog/search?${qs}`);
+  return await response.json();
+}
+
+export async function fetchHhsDataset(id: string): Promise<HhsCatalogDatasetResponse> {
+  const response = await fetch(`/api/hhs/catalog/datasets/${encodeURIComponent(id)}`);
+  return await response.json();
+}
+
+export async function fetchHhsCatalogStatus(): Promise<HhsCatalogStatusResponse> {
+  const response = await fetch("/api/hhs/catalog/status");
+  return await response.json();
+}
+
+// ─── CMS Provider Data Catalog ───────────────────────────────────────────────
+
+export type CmsDistribution = {
+  identifier?: string;
+  title?: string;
+  format?: string;
+  downloadUrl?: string;
+  mediaType?: string;
+  apiEndpoint?: string;
+};
+
+export type CmsDataset = {
+  identifier: string;
+  title: string;
+  description: string;
+  publisher?: string;
+  bureauCode?: string[];
+  programCode?: string[];
+  theme?: string[];
+  keywords?: string[];
+  modified?: string;
+  released?: string;
+  accessLevel?: string;
+  distributions: CmsDistribution[];
+  apiEndpoint?: string;
+  downloadLinks?: { format: string; url: string }[];
+  sourceUrl?: string;
+};
+
+export type CmsSearchResponse = {
+  ok: boolean;
+  datasets: CmsDataset[];
+  total: number;
+  page: number;
+  pageSize: number;
+  authMode: "public";
+  baseUrl: string;
+  message?: string;
+  error?: string;
+};
+
+export type CmsDatasetResponse = {
+  ok: boolean;
+  dataset: CmsDataset | null;
+  authMode: "public";
+  message?: string;
+  error?: string;
+};
+
+export type CmsProviderDataStatusResponse = {
+  ok: boolean;
+  configured: boolean;
+  enabled: boolean;
+  authMode: "public";
+  baseUrl: string;
+  notes: string;
+  error?: string;
+};
+
+export async function searchCmsProviderData(params: {
+  query?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+}): Promise<CmsSearchResponse> {
+  const qs = new URLSearchParams();
+  if (params.query) qs.set("query", params.query);
+  if (params.page) qs.set("page", String(params.page));
+  if (params.pageSize) qs.set("pageSize", String(params.pageSize));
+  if (params.sort) qs.set("sort", params.sort);
+  const response = await fetch(`/api/cms/provider-data/search?${qs}`);
+  return await response.json();
+}
+
+export async function fetchCmsDataset(identifier: string): Promise<CmsDatasetResponse> {
+  const response = await fetch(`/api/cms/provider-data/datasets/${encodeURIComponent(identifier)}`);
+  return await response.json();
+}
+
+export async function fetchCmsProviderDataStatus(): Promise<CmsProviderDataStatusResponse> {
+  const response = await fetch("/api/cms/provider-data/status");
   return await response.json();
 }
