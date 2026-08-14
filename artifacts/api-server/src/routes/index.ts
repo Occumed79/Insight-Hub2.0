@@ -31,6 +31,7 @@ import leadershipMapCerebrasV2Router from "./leadership-map-cerebras-v2";
 import leadershipMapLangSearchRouter from "./leadership-map-langsearch";
 import leadershipMapOrchestrationRouter from "./leadership-map-orchestration";
 import corporateStructureRouter from "./corporate-structure";
+import occupationalToolsRouter from "./occupational-tools";
 
 const router: IRouter = Router();
 
@@ -76,5 +77,6 @@ router.use(leadershipMapCerebrasV2Router);
 router.use(leadershipMapLangSearchRouter);
 router.use(leadershipMapOrchestrationRouter);
 router.use(corporateStructureRouter);
+router.use(occupationalToolsRouter);
 
 export default router;

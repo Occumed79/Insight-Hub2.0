@@ -2,7 +2,9 @@ import {
   BarChart3,
   BookOpenCheck,
   Building2,
+  Calculator,
   CircleDollarSign,
+  Database,
   FileSearch,
   GitBranch,
   Home,
@@ -26,16 +28,57 @@ const nav = [
   { href: "/leadership-map", label: "Organizational Chart", icon: GitBranch },
   { href: "/dba-intelligence", label: "DBA Data Hub", icon: ShieldCheck },
   { href: "/fec-filings", label: "FEC Filings", icon: Landmark },
-  { href: "/industry-injury-benchmarks", label: "Industry Injury Benchmarks", icon: BarChart3 },
-  { href: "/occupational-demands", label: "Occupational Demands", icon: BookOpenCheck },
+  {
+    href: "/onet-master-tool",
+    label: "O*NET Master Tool",
+    icon: BookOpenCheck,
+  },
+  {
+    href: "/occupational-data-explorer",
+    label: "Occupational Data Explorer",
+    icon: Database,
+  },
+  {
+    href: "/industry-impact-calculator",
+    label: "Industry Impact Calculator",
+    icon: BarChart3,
+  },
+  {
+    href: "/occupational-calculators",
+    label: "Occupational Calculators",
+    icon: Calculator,
+  },
+  {
+    href: "/industry-injury-benchmarks",
+    label: "Industry Injury Benchmarks",
+    icon: BarChart3,
+  },
+  {
+    href: "/occupational-demands",
+    label: "Occupational Demands",
+    icon: BookOpenCheck,
+  },
   { href: "/federal-awards", label: "Federal Awards", icon: CircleDollarSign },
-  { href: "/public-legal-references", label: "Public Legal References", icon: Scale },
-  { href: "/aor-risk-intelligence", label: "AOR Risk Intelligence", icon: ShieldAlert },
+  {
+    href: "/public-legal-references",
+    label: "Public Legal References",
+    icon: Scale,
+  },
+  {
+    href: "/aor-risk-intelligence",
+    label: "AOR Risk Intelligence",
+    icon: ShieldAlert,
+  },
 ];
+
+const CORE_OWNERSHIP_NOTICE =
+  "Entities, Competitors, Federal Agencies, and State Agencies are owned by Insight Hub 2. Global Locations and Location Overlap remain available from their portal cards.";
 
 function isActivePath(itemHref: string, currentPath: string) {
   if (currentPath === itemHref) return true;
-  return itemHref === "/entities" && ["/prospects", "/clients"].includes(currentPath);
+  return (
+    itemHref === "/entities" && ["/prospects", "/clients"].includes(currentPath)
+  );
 }
 
 export function Sidebar() {
@@ -45,21 +88,34 @@ export function Sidebar() {
   return (
     <>
       <aside className="insight-sidebar fixed left-0 top-0 z-30 hidden h-screen w-[210px] overflow-y-auto overscroll-contain border-r border-cyan-100/16 bg-[#030813]/96 px-4 py-5 shadow-[18px_0_70px_rgba(0,0,0,.46),inset_-1px_0_0_rgba(255,255,255,.07)] backdrop-blur-3xl lg:block">
-        <Link href="/" className="block py-1 focus-visible:rounded-2xl" aria-label="Insight Hub 2 home">
+        <Link
+          href="/"
+          className="block py-1 focus-visible:rounded-2xl"
+          aria-label="Insight Hub 2 home"
+        >
           <div className="flex h-16 items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-cyan-100/16 bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,.10),0_0_24px_rgba(34,211,238,.06)]">
               <span className="h-3 w-6 rounded-full bg-white shadow-[0_0_14px_rgba(255,255,255,.32)]" />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white">Occu-Med</p>
-              <p className="text-[9px] uppercase tracking-[0.28em] text-cyan-100/38">Insight Hub 2</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white">
+                Occu-Med
+              </p>
+              <p className="text-[9px] uppercase tracking-[0.28em] text-cyan-100/38">
+                Insight Hub 2
+              </p>
             </div>
           </div>
         </Link>
 
         <div className="mt-8 pb-8">
-          <p className="mb-2 px-1 text-[10px] uppercase tracking-[0.25em] text-cyan-100/38">Intelligence Tools</p>
-          <nav className="space-y-1" aria-label="Insight Hub intelligence tools">
+          <p className="mb-2 px-1 text-[10px] uppercase tracking-[0.25em] text-cyan-100/38">
+            Intelligence Tools
+          </p>
+          <nav
+            className="space-y-1"
+            aria-label="Insight Hub intelligence tools"
+          >
             {nav.map((item) => {
               const Icon = item.icon;
               const active = isActivePath(item.href, currentPath);
@@ -83,7 +139,7 @@ export function Sidebar() {
             })}
           </nav>
           <div className="mt-6 border-t border-cyan-100/8 pt-4 text-[9px] leading-4 text-cyan-100/26">
-            Entities, Competitors, Federal Agencies, and State Agencies are owned by Insight Hub 2. Global Locations and Location Overlap remain available from their portal cards.
+            {CORE_OWNERSHIP_NOTICE}
           </div>
         </div>
       </aside>
