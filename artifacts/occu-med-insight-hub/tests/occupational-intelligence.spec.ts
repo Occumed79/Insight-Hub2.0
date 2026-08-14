@@ -190,8 +190,8 @@ test("O*NET Master Tool shows source evidence instead of pseudo-risk scores", as
   await page.getByRole("button", { name: "Analyze" }).click();
 
   await expect(page.getByText("Electricians", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Returned source items")).toBeVisible();
-  await expect(page.getByText("Explicit safety matches")).toBeVisible();
+  await expect(page.getByText("Returned source items", { exact: true })).toBeVisible();
+  await expect(page.getByText("Explicit safety matches", { exact: true })).toBeVisible();
   await expect(page.getByText(/not severity or risk scores/i)).toBeVisible();
   await expect(page.getByText("Risk Index", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Collision Index", { exact: true })).toHaveCount(0);
