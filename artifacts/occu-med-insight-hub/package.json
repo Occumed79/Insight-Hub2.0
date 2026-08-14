@@ -72,6 +72,7 @@
     "react-leaflet": "^5.0.0",
     "react-resizable-panels": "^2.1.7",
     "react-simple-maps": "workspace:*",
+    "recharts": "^3.10.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "catalog:",
     "tailwindcss": "catalog:",
