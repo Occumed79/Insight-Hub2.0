@@ -58,7 +58,7 @@ async function getRegistry(): Promise<GovernedSource[]> {
   const oshaEnabled = truthy(process.env.OSHA_ITA_IMPORT_ENABLED) || oshaImported;
 
   const blsStatus = getBlsStatus();
-  const blsConfigured = Boolean(process.env.BLS_API_KEY) || blsStatus.authMode === "public-v1";
+  const blsConfigured = Boolean(process.env.BLS_API_KEY) || blsStatus.authMode === "public-v2";
   const samConfigured = Boolean(process.env.SAM_API_KEY || process.env.SAM_GOV_API_KEY);
   const secConfigured = Boolean(process.env.SEC_USER_AGENT);
   const courtConfigured = Boolean(process.env.COURTLISTENER_API_TOKEN);
