@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity,
@@ -9,6 +9,7 @@ import {
   CircleGauge,
   Clock3,
   HeartPulse,
+  Loader2,
   RotateCcw,
   ShieldAlert,
   Sparkles,
@@ -41,35 +42,41 @@ import {
   calculateLostTime,
   calculateReturnToWork,
   calculateWorkersCompCost,
+  expectedCasesFromHours,
 } from "@/data/occupationalCalculations";
+import type { BlsBenchmark } from "@/data/employerIntelligenceApi";
 
-type CalculatorId =
-  | "rates"
-  | "workers-comp"
-  | "lost-time"
-  | "return-to-work"
-  | "aggravation"
-  | "chronic-aging"
-  | "readiness"
-  | "fatigue"
-  | "break-even";
+type CalculatorId = "rates" | "workers-comp" | "lost-time" | "return-to-work" | "aggravation" | "chronic-aging" | "readiness" | "fatigue" | "break-even";
 
-const calculatorOptions: Array<{
-  id: CalculatorId;
-  label: string;
-  note: string;
-  icon: typeof Activity;
-  tone: string;
-}> = [
-  { id: "rates", label: "TRIR & DART", note: "Rate arithmetic", icon: CircleGauge, tone: "cyan" },
-  { id: "workers-comp", label: "Workers’ Comp Cost", note: "Entered cost assumptions", icon: BadgeDollarSign, tone: "violet" },
-  { id: "lost-time", label: "Lost Time", note: "Capacity arithmetic", icon: Clock3, tone: "rose" },
-  { id: "return-to-work", label: "Return to Work", note: "Scenario comparison", icon: RotateCcw, tone: "emerald" },
-  { id: "aggravation", label: "Aggravation Review", note: "Condition-demand review builder", icon: ShieldAlert, tone: "amber" },
-  { id: "chronic-aging", label: "Age & Chronic Burden", note: "Aggregate entered prevalence", icon: HeartPulse, tone: "rose" },
-  { id: "readiness", label: "Readiness Profile", note: "Six entered dimensions", icon: Users, tone: "cyan" },
-  { id: "fatigue", label: "Fatigue / Shift Profile", note: "Schedule and exposure inputs", icon: BrainCircuit, tone: "violet" },
-  { id: "break-even", label: "Intervention Break-Even", note: "Scenario arithmetic", icon: TrendingUp, tone: "emerald" },
+type Manifest = {
+  workforceGroups: Array<{ id: string; label: string; occupations: string[] }>;
+  blsSectors: Array<{ id: string; naics: string; label: string; description: string }>;
+};
+
+type EvidenceItem = { name: string; description?: string; value?: number; category?: string };
+type OnetProfile = {
+  occupation: { code: string; title: string; description: string };
+  tasks: EvidenceItem[];
+  workContext: EvidenceItem[];
+  abilities: EvidenceItem[];
+  workActivities: EvidenceItem[];
+  detailedWorkActivities: EvidenceItem[];
+};
+
+type BlsSector = { id: string; naics: string; label: string; description: string; benchmark: BlsBenchmark | null };
+
+type SharedData = { manifest: Manifest | null; blsSectors: BlsSector[] };
+
+const options: Array<{ id: CalculatorId; label: string; note: string; icon: typeof Activity; tone: string }> = [
+  { id: "rates", label: "TRIR & DART", note: "Auto BLS comparison", icon: CircleGauge, tone: "cyan" },
+  { id: "workers-comp", label: "Workers’ Comp Cost", note: "Cost sensitivity", icon: BadgeDollarSign, tone: "violet" },
+  { id: "lost-time", label: "Lost Time", note: "Capacity & coverage", icon: Clock3, tone: "rose" },
+  { id: "return-to-work", label: "Return to Work", note: "Modified-duty scenario", icon: RotateCcw, tone: "emerald" },
+  { id: "aggravation", label: "Condition × Job Demands", note: "Live O*NET evidence", icon: ShieldAlert, tone: "amber" },
+  { id: "chronic-aging", label: "Workforce Health Burden", note: "Multi-condition planning", icon: HeartPulse, tone: "rose" },
+  { id: "readiness", label: "Deployment Readiness", note: "Operational funnel", icon: Users, tone: "cyan" },
+  { id: "fatigue", label: "Shift & Fatigue Exposure", note: "Schedule facts", icon: BrainCircuit, tone: "violet" },
+  { id: "break-even", label: "Intervention Break-Even", note: "Sensitivity arithmetic", icon: TrendingUp, tone: "emerald" },
 ];
 
 const toneClasses: Record<string, string> = {
@@ -80,681 +87,125 @@ const toneClasses: Record<string, string> = {
   amber: "border-amber-200/20 bg-amber-300/[0.07] text-amber-100",
 };
 
-function money(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
+function money(value: number): string { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(Number.isFinite(value) ? value : 0); }
+function number(value: number, digits = 1): string { return (Number.isFinite(value) ? value : 0).toLocaleString("en-US", { maximumFractionDigits: digits }); }
+
+function Frame({ title, description, evidence = "D", children, results }: { title: string; description: string; evidence?: "A" | "B" | "C" | "D" | "Unavailable"; children: ReactNode; results: ReactNode }) {
+  return <motion.section initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="grid gap-5 2xl:grid-cols-[.72fr_1.28fr]"><GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Independent occupational tool</p><h2 className="mt-1 text-2xl font-black tracking-tight text-white">{title}</h2><p className="mt-2 text-xs leading-6 text-cyan-50/60">{description}</p></div><EvidenceGradeBadge grade={evidence} /></div><div className="mt-5 space-y-4">{children}</div></GlassCard><div className="space-y-5">{results}</div></motion.section>;
 }
 
-function number(value: number, digits = 1): string {
-  return value.toLocaleString("en-US", { maximumFractionDigits: digits });
-}
+function Waiting({ text }: { text: string }) { return <GlassCard className="p-8 text-center"><Sparkles className="mx-auto h-8 w-8 text-cyan-200/40" /><p className="mt-3 font-black text-white">Waiting for real inputs</p><p className="mx-auto mt-2 max-w-2xl text-xs leading-6 text-cyan-50/52">{text}</p></GlassCard>; }
 
-function CalculatorFrame({
-  title,
-  description,
-  children,
-  results,
-}: {
-  title: string;
-  description: string;
-  children: ReactNode;
-  results: ReactNode;
-}) {
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -6 }}
-      transition={{ duration: 0.22 }}
-      className="grid gap-5 2xl:grid-cols-[.72fr_1.28fr]"
-    >
-      <GlassCard className="p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/58">Independent scenario tool</p>
-            <h2 className="mt-1 text-2xl font-black tracking-tight text-white">{title}</h2>
-            <p className="mt-2 text-xs leading-6 text-cyan-50/64">{description}</p>
-          </div>
-          <EvidenceGradeBadge grade="D" />
-        </div>
-        <div className="mt-5 space-y-4">{children}</div>
-      </GlassCard>
-      <div className="space-y-5">{results}</div>
-    </motion.section>
-  );
-}
-
-function Waiting({ text }: { text: string }) {
-  return (
-    <GlassCard className="p-8 text-center">
-      <Sparkles className="mx-auto h-8 w-8 text-cyan-200/40" />
-      <p className="mt-3 font-black text-white">Waiting for scenario inputs</p>
-      <p className="mx-auto mt-2 max-w-2xl text-xs leading-6 text-cyan-50/55">{text}</p>
-    </GlassCard>
-  );
-}
-
-function RateCalculator() {
+function RateCalculator({ data }: { data: SharedData }) {
   const [recordables, setRecordables] = useState(0);
   const [dartCases, setDartCases] = useState(0);
   const [hours, setHours] = useState(0);
-  const [benchmarkTrir, setBenchmarkTrir] = useState(0);
-  const [benchmarkDart, setBenchmarkDart] = useState(0);
-  const ready = hours > 0;
+  const [benchmark, setBenchmark] = useState<BlsBenchmark | null>(null);
   const trir = calculateIncidentRate(recordables, hours);
   const dart = calculateIncidentRate(dartCases, hours);
-  const casesAtBenchmark = benchmarkTrir > 0 ? (benchmarkTrir * hours) / 200_000 : 0;
-  const reductionNeeded = benchmarkTrir > 0 ? Math.max(recordables - casesAtBenchmark, 0) : 0;
-  const chartData = [
-    benchmarkTrir > 0 && ready ? { metric: "TRIR", scenario: trir, benchmark: benchmarkTrir } : null,
-    benchmarkDart > 0 && ready ? { metric: "DART", scenario: dart, benchmark: benchmarkDart } : null,
-  ].filter((item): item is { metric: string; scenario: number; benchmark: number } => item !== null);
-
-  return (
-    <CalculatorFrame
-      title="TRIR & DART Arithmetic"
-      description="Calculates incident rates from anonymous case counts and hours. Optional benchmark fields are manual inputs in this calculator and are not source-verified here."
-      results={ready ? (
-        <>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricOrb label="TRIR" value={number(trir, 2)} note="Recordables × 200,000 ÷ hours" icon={CircleGauge} />
-            <MetricOrb label="DART rate" value={number(dart, 2)} note="DART cases × 200,000 ÷ hours" icon={CalendarClock} tone="violet" />
-            <MetricOrb label="Cases at entered TRIR benchmark" value={benchmarkTrir > 0 ? number(casesAtBenchmark, 1) : "—"} note={benchmarkTrir > 0 ? "Manual benchmark arithmetic" : "No benchmark entered"} icon={Activity} tone="emerald" />
-            <MetricOrb label="Case difference" value={benchmarkTrir > 0 ? number(reductionNeeded, 1) : "—"} note="Arithmetic difference only" icon={TrendingUp} tone="amber" />
-          </section>
-          {chartData.length ? (
-            <GlassCard className="p-5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/58">Entered benchmark comparison</p>
-              <div className="mt-3 h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                    <CartesianGrid stroke="rgba(165,243,252,.10)" vertical={false} />
-                    <XAxis dataKey="metric" tick={{ fill: "rgba(207,250,254,.7)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: "rgba(207,250,254,.52)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(103,232,249,.2)", borderRadius: 12 }} />
-                    <Bar dataKey="scenario" fill="#a78bfa" radius={[7, 7, 2, 2]} />
-                    <Bar dataKey="benchmark" fill="#67e8f9" radius={[7, 7, 2, 2]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </GlassCard>
-          ) : null}
-        </>
-      ) : <Waiting text="Enter hours worked. Zero case counts are allowed once hours are present; no example findings are preloaded." />}
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <NumberField label="Recordable cases" value={recordables} onChange={setRecordables} />
-        <NumberField label="DART cases" value={dartCases} onChange={setDartCases} />
-        <NumberField label="Hours worked" value={hours} onChange={setHours} step={10_000} />
-        <NumberField label="Optional TRIR benchmark" value={benchmarkTrir} onChange={setBenchmarkTrir} step={0.1} />
-        <NumberField label="Optional DART benchmark" value={benchmarkDart} onChange={setBenchmarkDart} step={0.1} />
-      </div>
-      <p className="text-[10px] leading-5 text-cyan-50/50">Formula: cases × 200,000 ÷ hours. Benchmark values are user-entered unless obtained independently from a source such as BLS.</p>
-    </CalculatorFrame>
-  );
+  const expected = expectedCasesFromHours(benchmark?.trcRate, hours);
+  const excess = Math.max(recordables - expected, 0);
+  const gapPct = benchmark?.trcRate && hours > 0 ? ((trir / benchmark.trcRate) - 1) * 100 : null;
+  const chart = benchmark && hours > 0 ? [{ metric: "TRIR", actual: trir, benchmark: benchmark.trcRate ?? 0 }, { metric: "DART", actual: dart, benchmark: benchmark.dartRate ?? 0 }] : [];
+  return <Frame title="TRIR & DART Benchmark Calculator" description="Choose a ready BLS industry benchmark instead of manually hunting for a rate, then enter anonymous case counts and hours." evidence={benchmark ? "A" : "D"} results={hours > 0 ? <><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="TRIR" value={number(trir, 2)} note="Recordables × 200,000 ÷ hours" icon={CircleGauge} /><MetricOrb label="DART" value={number(dart, 2)} note="DART cases × 200,000 ÷ hours" icon={CalendarClock} tone="violet" /><MetricOrb label="Cases at BLS benchmark" value={benchmark ? number(expected, 1) : "—"} note={benchmark?.industryTitle || "Choose an industry"} icon={Activity} tone="emerald" /><MetricOrb label="Cases above benchmark" value={benchmark ? number(excess, 1) : "—"} note={gapPct == null ? "No benchmark" : `${gapPct >= 0 ? "+" : ""}${number(gapPct, 1)}% relative rate gap`} icon={TrendingUp} tone={gapPct != null && gapPct > 0 ? "rose" : "emerald"} /></section>{chart.length ? <GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Actual vs live BLS benchmark</p><div className="mt-3 h-[310px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={chart}><CartesianGrid stroke="rgba(165,243,252,.09)" vertical={false} /><XAxis dataKey="metric" tick={{ fill: "rgba(207,250,254,.65)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(103,232,249,.2)", borderRadius: 12 }} /><Bar dataKey="actual" fill="#fda4af" radius={[7,7,2,2]} /><Bar dataKey="benchmark" fill="#67e8f9" radius={[7,7,2,2]} /></BarChart></ResponsiveContainer></div></GlassCard> : null}</> : <Waiting text="Enter annual hours. The BLS industry library is already available on the left." />}><div><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">BLS industry library</p><div className="mt-2 grid gap-2 sm:grid-cols-2">{data.blsSectors.map((sector) => <button key={sector.id} type="button" onClick={() => setBenchmark(sector.benchmark)} className={`rounded-xl border p-3 text-left ${benchmark?.naics === sector.benchmark?.naics && benchmark ? "border-cyan-200/28 bg-cyan-300/[0.08]" : "border-white/10 bg-[#071321]/70 hover:border-cyan-200/18"}`}><p className="text-[11px] font-black text-white">{sector.label}</p><p className="mt-1 text-[9px] text-cyan-50/45">TRC {sector.benchmark?.trcRate != null ? number(sector.benchmark.trcRate, 1) : "—"} · DART {sector.benchmark?.dartRate != null ? number(sector.benchmark.dartRate, 1) : "—"}</p></button>)}</div></div><div className="grid gap-4 sm:grid-cols-2"><NumberField label="Recordable cases" value={recordables} onChange={setRecordables} /><NumberField label="DART cases" value={dartCases} onChange={setDartCases} /><NumberField label="Hours worked" value={hours} onChange={setHours} step={10_000} /></div></Frame>;
 }
 
 function WorkersCompCalculator() {
-  const [claims, setClaims] = useState(0);
-  const [medical, setMedical] = useState(0);
-  const [lostDays, setLostDays] = useState(0);
-  const [dailyCost, setDailyCost] = useState(0);
-  const [admin, setAdmin] = useState(0);
-  const [indirect, setIndirect] = useState(0);
+  const [claims, setClaims] = useState(0); const [medical, setMedical] = useState(0); const [lostDays, setLostDays] = useState(0); const [dailyCost, setDailyCost] = useState(0); const [admin, setAdmin] = useState(0); const [indirect, setIndirect] = useState(0);
+  const result = calculateWorkersCompCost({ claims, medicalCostPerClaim: medical, lostDaysPerClaim: lostDays, dailyCompensationCost: dailyCost, administrativePercent: admin, indirectMultiplier: indirect });
   const ready = claims > 0 && (medical > 0 || (lostDays > 0 && dailyCost > 0));
-  const result = calculateWorkersCompCost({
-    claims,
-    medicalCostPerClaim: medical,
-    lostDaysPerClaim: lostDays,
-    dailyCompensationCost: dailyCost,
-    administrativePercent: admin,
-    indirectMultiplier: indirect,
-  });
-  const data = [
-    { name: "Medical", value: result.medical },
-    { name: "Wage replacement", value: result.wageReplacement },
-    { name: "Administration", value: result.administration },
-    { name: "Indirect", value: result.indirect },
-  ];
-
-  return (
-    <CalculatorFrame
-      title="Workers’ Compensation Cost Scenario"
-      description="Performs arithmetic on entered claim, medical, wage-replacement, administrative, and indirect-cost assumptions. It does not predict claim severity or substitute for jurisdiction-specific workers’ compensation rules."
-      results={ready ? (
-        <>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricOrb label="Scenario total" value={money(result.total)} note={`${claims} entered claims`} icon={BadgeDollarSign} tone="violet" />
-            <MetricOrb label="Medical" value={money(result.medical)} note="Claims × entered medical cost" icon={BriefcaseMedical} />
-            <MetricOrb label="Wage replacement" value={money(result.wageReplacement)} note="Entered days × entered daily cost" icon={CalendarClock} tone="rose" />
-            <MetricOrb label="Indirect" value={money(result.indirect)} note={`${indirect}× entered base`} icon={Sparkles} tone="amber" />
-          </section>
-          <GlassCard className="p-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/58">Scenario cost components</p>
-            <div className="mt-3 h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data} layout="vertical">
-                  <CartesianGrid stroke="rgba(165,243,252,.10)" horizontal={false} />
-                  <XAxis type="number" tick={{ fill: "rgba(207,250,254,.52)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="name" width={118} tick={{ fill: "rgba(207,250,254,.7)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={(value) => money(Number(value))} contentStyle={{ background: "#06101d", border: "1px solid rgba(167,139,250,.2)", borderRadius: 12 }} />
-                  <Bar dataKey="value" fill="#a78bfa" radius={[0, 8, 8, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </GlassCard>
-        </>
-      ) : <Waiting text="Enter at least one claim and a cost basis. The calculator starts at zero so sample assumptions cannot be confused with claims data." />}
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <NumberField label="Claims" value={claims} onChange={setClaims} />
-        <NumberField label="Medical cost per claim" value={medical} onChange={setMedical} step={1_000} suffix="USD" />
-        <NumberField label="Lost days per claim" value={lostDays} onChange={setLostDays} />
-        <NumberField label="Daily compensation cost" value={dailyCost} onChange={setDailyCost} step={10} suffix="USD" />
-        <NumberField label="Administrative load" value={admin} onChange={setAdmin} suffix="%" />
-        <NumberField label="Indirect multiplier" value={indirect} onChange={setIndirect} step={0.1} suffix="×" />
-      </div>
-    </CalculatorFrame>
-  );
+  const sensitivity = [0.75, 1, 1.5].map((factor) => ({ label: factor === 1 ? "Base" : factor < 1 ? "Low" : "High", total: result.total * factor }));
+  return <Frame title="Workers’ Compensation Cost Scenario" description="Breaks entered claim costs into medical, wage replacement, administration, and indirect exposure, with a transparent low/base/high sensitivity band." results={ready ? <><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Scenario total" value={money(result.total)} note={`${claims} entered claims`} icon={BadgeDollarSign} tone="violet" /><MetricOrb label="Medical" value={money(result.medical)} note="Claims × medical cost" icon={BriefcaseMedical} /><MetricOrb label="Wage replacement" value={money(result.wageReplacement)} note="Entered days × daily cost" icon={CalendarClock} tone="rose" /><MetricOrb label="Indirect" value={money(result.indirect)} note={`${indirect}× entered base`} icon={Sparkles} tone="amber" /></section><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Sensitivity around entered base</p><div className="mt-4 grid grid-cols-3 gap-3">{sensitivity.map((item) => <div key={item.label} className="rounded-xl border border-white/10 bg-black/15 p-4 text-center"><p className="text-[9px] text-cyan-50/45">{item.label}</p><p className="mt-2 text-lg font-black text-white">{money(item.total)}</p></div>)}</div><p className="mt-3 text-[10px] text-cyan-50/45">Low and high panels are simple 0.75× and 1.5× sensitivity checks around the user-entered base—not jurisdictional claim estimates.</p></GlassCard></> : <Waiting text="Enter claims and a medical or wage-replacement cost basis." />}><div className="grid gap-4 sm:grid-cols-2"><NumberField label="Claims" value={claims} onChange={setClaims} /><NumberField label="Medical cost per claim" value={medical} onChange={setMedical} step={1000} suffix="USD" /><NumberField label="Lost days per claim" value={lostDays} onChange={setLostDays} /><NumberField label="Daily compensation cost" value={dailyCost} onChange={setDailyCost} suffix="USD" /><NumberField label="Administrative load" value={admin} onChange={setAdmin} suffix="%" /><NumberField label="Indirect multiplier" value={indirect} onChange={setIndirect} step={0.1} suffix="×" /></div></Frame>;
 }
 
 function LostTimeCalculator() {
-  const [cases, setCases] = useState(0);
-  const [daysAway, setDaysAway] = useState(0);
-  const [restrictedDays, setRestrictedDays] = useState(0);
-  const [restrictedLoss, setRestrictedLoss] = useState(0);
-  const [hourlyCost, setHourlyCost] = useState(0);
-  const [overtime, setOvertime] = useState(0);
-  const ready = cases > 0 && (daysAway > 0 || restrictedDays > 0);
-  const result = calculateLostTime({
-    cases,
-    daysAway,
-    restrictedDays,
-    restrictedProductivityLossPercent: restrictedLoss,
-    hourlyCompensation: hourlyCost,
-    overtimePercent: overtime,
-  });
-
-  return (
-    <CalculatorFrame
-      title="Lost Time & Capacity Scenario"
-      description="Converts entered days away and restricted days into hours. Restricted-duty productivity loss is an explicit user input rather than a hidden assumption."
-      results={ready ? (
-        <>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricOrb label="Away hours" value={result.awayHours.toLocaleString()} note="8 hours per entered day" icon={Clock3} tone="rose" />
-            <MetricOrb label="Restricted hours" value={result.restrictedHours.toLocaleString()} note="Before entered productivity-loss factor" icon={CalendarClock} tone="amber" />
-            <MetricOrb label="Modeled productive hours lost" value={number(result.productiveHoursLost, 0)} note={`${restrictedLoss}% restricted-day loss assumption`} icon={Activity} />
-            <MetricOrb label="Cost arithmetic" value={hourlyCost > 0 ? money(result.total) : "—"} note={hourlyCost > 0 ? "Entered compensation assumptions" : "No hourly cost entered"} icon={BadgeDollarSign} tone="violet" />
-          </section>
-          <GlassCard className="p-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/58">Capacity components</p>
-            <div className="mt-4 grid grid-cols-12 gap-2">
-              {Array.from({ length: 96 }, (_, index) => {
-                const equivalentDays = result.productiveHoursLost / 8;
-                return <span key={index} className={`aspect-square rounded-md border ${index < Math.min(Math.ceil(equivalentDays), 96) ? "border-rose-200/24 bg-rose-300/28" : "border-white/7 bg-white/[0.02]"}`} />;
-              })}
-            </div>
-            <p className="mt-3 text-[10px] text-cyan-50/50">Each illuminated cell represents up to one eight-hour equivalent of modeled productive time; display capped at 96 cells.</p>
-          </GlassCard>
-        </>
-      ) : <Waiting text="Enter cases and at least one day category. Restricted-duty loss starts at 0% until you explicitly choose an assumption." />}
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <NumberField label="Cases" value={cases} onChange={setCases} />
-        <NumberField label="Days away per case" value={daysAway} onChange={setDaysAway} />
-        <NumberField label="Restricted days per case" value={restrictedDays} onChange={setRestrictedDays} />
-        <RangeField label="Restricted-day productivity loss" value={restrictedLoss} onChange={setRestrictedLoss} />
-        <NumberField label="Hourly compensation" value={hourlyCost} onChange={setHourlyCost} suffix="USD" />
-        <NumberField label="Overtime premium" value={overtime} onChange={setOvertime} suffix="%" />
-      </div>
-    </CalculatorFrame>
-  );
+  const [cases, setCases] = useState(0); const [daysAway, setDaysAway] = useState(0); const [restrictedDays, setRestrictedDays] = useState(0); const [restrictedLoss, setRestrictedLoss] = useState(0); const [hourly, setHourly] = useState(0); const [overtime, setOvertime] = useState(0);
+  const result = calculateLostTime({ cases, daysAway, restrictedDays, restrictedProductivityLossPercent: restrictedLoss, hourlyCompensation: hourly, overtimePercent: overtime }); const ready = cases > 0 && (daysAway > 0 || restrictedDays > 0);
+  return <Frame title="Lost Time & Capacity Scenario" description="Converts entered days away and restricted days into productive-hour exposure. Restricted-duty productivity loss stays explicit rather than hidden." results={ready ? <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Away hours" value={number(result.awayHours, 0)} note="8 hours per entered day" icon={Clock3} /><MetricOrb label="Restricted hours" value={number(result.restrictedHours, 0)} note={`${restrictedLoss}% entered productivity loss`} icon={CalendarClock} tone="violet" /><MetricOrb label="Productive hours lost" value={number(result.productiveHoursLost, 0)} note="Away + entered restricted loss" icon={Activity} tone="rose" /><MetricOrb label="Modeled capacity cost" value={hourly > 0 ? money(result.total) : "—"} note={hourly > 0 ? "Entered hourly + overtime basis" : "No hourly cost entered"} icon={BadgeDollarSign} tone="amber" /></section> : <Waiting text="Enter cases and at least one day category." />}><div className="grid gap-4 sm:grid-cols-2"><NumberField label="Cases" value={cases} onChange={setCases} /><NumberField label="Days away per case" value={daysAway} onChange={setDaysAway} /><NumberField label="Restricted days per case" value={restrictedDays} onChange={setRestrictedDays} /><RangeField label="Restricted-day productivity loss" value={restrictedLoss} onChange={setRestrictedLoss} /><NumberField label="Hourly compensation" value={hourly} onChange={setHourly} suffix="USD" /><NumberField label="Overtime premium" value={overtime} onChange={setOvertime} suffix="%" /></div></Frame>;
 }
 
 function ReturnToWorkCalculator() {
-  const [workers, setWorkers] = useState(0);
-  const [fullDays, setFullDays] = useState(0);
-  const [modifiedDays, setModifiedDays] = useState(0);
-  const [dailyCost, setDailyCost] = useState(0);
-  const [productivity, setProductivity] = useState(0);
-  const ready = workers > 0 && fullDays > 0;
-  const result = calculateReturnToWork({
-    workers,
-    fullDutyDays: fullDays,
-    modifiedDutyDays: modifiedDays,
-    dailyCompensationCost: dailyCost,
-    modifiedProductivityPercent: productivity,
-  });
-  const data = [
-    { scenario: "Full absence", amount: result.withoutModifiedDuty },
-    { scenario: "Modified duty loss", amount: result.withModifiedDuty },
-  ];
-
-  return (
-    <CalculatorFrame
-      title="Return-to-Work Scenario Comparison"
-      description="Compares an entered full-absence scenario with an entered modified-duty duration and productivity percentage. It does not determine restrictions, eligibility, or medical readiness."
-      results={ready ? (
-        <>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricOrb label="Full-absence days" value={number(fullDays * workers, 0)} note="Entered workers × days" icon={CalendarClock} tone="rose" />
-            <MetricOrb label="Modified-duty days" value={number(modifiedDays * workers, 0)} note={`${productivity}% entered productivity`} icon={RotateCcw} tone="amber" />
-            <MetricOrb label="Day difference" value={number(result.daysRecovered, 0)} note="Scenario arithmetic" icon={Activity} tone="emerald" />
-            <MetricOrb label="Cost difference" value={dailyCost > 0 ? money(result.potentialDifference) : "—"} note={dailyCost > 0 ? "Entered compensation basis" : "No daily cost entered"} icon={TrendingUp} tone="violet" />
-          </section>
-          {dailyCost > 0 ? (
-            <GlassCard className="p-5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/58">Entered scenario cost comparison</p>
-              <div className="mt-3 h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data}>
-                    <CartesianGrid stroke="rgba(165,243,252,.10)" vertical={false} />
-                    <XAxis dataKey="scenario" tick={{ fill: "rgba(207,250,254,.68)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: "rgba(207,250,254,.52)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <Tooltip formatter={(value) => money(Number(value))} contentStyle={{ background: "#06101d", border: "1px solid rgba(110,231,183,.2)", borderRadius: 12 }} />
-                    <Bar dataKey="amount" fill="#6ee7b7" radius={[8, 8, 2, 2]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </GlassCard>
-          ) : null}
-        </>
-      ) : <Waiting text="Enter workers and a full-absence duration. No modified-duty scenario or cost is assumed until you add it." />}
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <NumberField label="Workers" value={workers} onChange={setWorkers} />
-        <NumberField label="Full absence days" value={fullDays} onChange={setFullDays} />
-        <NumberField label="Modified-duty days" value={modifiedDays} onChange={setModifiedDays} />
-        <NumberField label="Daily compensation cost" value={dailyCost} onChange={setDailyCost} suffix="USD" />
-        <RangeField label="Modified-duty productivity" value={productivity} onChange={setProductivity} />
-      </div>
-    </CalculatorFrame>
-  );
+  const [workers, setWorkers] = useState(0); const [fullDays, setFullDays] = useState(0); const [modifiedDays, setModifiedDays] = useState(0); const [dailyCost, setDailyCost] = useState(0); const [productivity, setProductivity] = useState(0);
+  const result = calculateReturnToWork({ workers, fullDutyDays: fullDays, modifiedDutyDays: modifiedDays, dailyCompensationCost: dailyCost, modifiedProductivityPercent: productivity }); const ready = workers > 0 && fullDays > 0;
+  const data = [{ scenario: "Full absence", amount: result.withoutModifiedDuty }, { scenario: "Modified-duty loss", amount: result.withModifiedDuty }];
+  return <Frame title="Return-to-Work Scenario Comparison" description="Compares an entered full-absence scenario with entered modified-duty duration and productivity. It does not determine restrictions or medical eligibility." results={ready ? <><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Full-absence days" value={number(fullDays * workers, 0)} note="Workers × entered days" icon={CalendarClock} tone="rose" /><MetricOrb label="Modified-duty days" value={number(modifiedDays * workers, 0)} note={`${productivity}% entered productivity`} icon={RotateCcw} tone="amber" /><MetricOrb label="Day difference" value={number(result.daysRecovered, 0)} note="Scenario arithmetic" icon={Activity} tone="emerald" /><MetricOrb label="Cost difference" value={dailyCost > 0 ? money(result.potentialDifference) : "—"} note="Entered compensation basis" icon={TrendingUp} tone="violet" /></section>{dailyCost > 0 ? <GlassCard className="p-5"><div className="h-[290px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={data}><CartesianGrid stroke="rgba(165,243,252,.09)" vertical={false} /><XAxis dataKey="scenario" tick={{ fill: "rgba(207,250,254,.64)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip formatter={(value) => money(Number(value))} contentStyle={{ background: "#06101d", border: "1px solid rgba(110,231,183,.2)", borderRadius: 12 }} /><Bar dataKey="amount" fill="#6ee7b7" radius={[7,7,2,2]} /></BarChart></ResponsiveContainer></div></GlassCard> : null}</> : <Waiting text="Enter workers and full-absence days." />}><div className="grid gap-4 sm:grid-cols-2"><NumberField label="Workers" value={workers} onChange={setWorkers} /><NumberField label="Full absence days" value={fullDays} onChange={setFullDays} /><NumberField label="Modified-duty days" value={modifiedDays} onChange={setModifiedDays} /><NumberField label="Daily compensation cost" value={dailyCost} onChange={setDailyCost} suffix="USD" /><RangeField label="Modified-duty productivity" value={productivity} onChange={setProductivity} /></div></Frame>;
 }
 
-const reviewConditions = [
-  "Musculoskeletal / arthritis",
-  "Cardiovascular / hypertension",
-  "Respiratory",
-  "Hearing",
-  "Sleep / fatigue",
-  "Metabolic / heat vulnerability",
+const conditions = [
+  { id: "musculoskeletal", label: "Musculoskeletal / arthritis", terms: ["lifting", "carrying", "bending", "kneeling", "crouching", "crawling", "climbing", "static strength", "dynamic strength", "handling and moving objects", "standing", "walking"] },
+  { id: "cardiovascular", label: "Cardiovascular / hypertension", terms: ["extreme heat", "very hot", "climbing", "stamina", "dynamic strength", "emergency", "time pressure"] },
+  { id: "respiratory", label: "Respiratory condition", terms: ["contaminant", "dust", "fume", "chemical", "disease or infections", "protective equipment", "respiratory"] },
+  { id: "hearing", label: "Hearing impairment", terms: ["noise", "hearing sensitivity", "auditory attention", "sound localization", "warning signal"] },
+  { id: "fatigue", label: "Sleep / fatigue vulnerability", terms: ["night", "time pressure", "operating vehicles", "driving", "selective attention", "time sharing", "emergency"] },
+  { id: "heat", label: "Heat / metabolic vulnerability", terms: ["extreme heat", "very hot", "outdoors", "weather", "protective equipment", "standing", "walking", "stamina"] },
 ] as const;
+function escapeRegExp(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+function phraseMatch(text: string, phrase: string) { const pattern = escapeRegExp(phrase.toLowerCase()).replace(/\s+/g, "\\s+"); return new RegExp(`(^|[^a-z0-9])${pattern}([^a-z0-9]|$)`, "i").test(text.toLowerCase()); }
 
-const reviewDemands = [
-  "Heavy lifting / carrying",
-  "Repetition",
-  "Awkward postures",
-  "Standing / walking",
-  "Heat / outdoor work",
-  "Noise",
-  "Dust / fumes / contaminants",
-  "Respirator / PPE use",
-  "Driving / vehicle operation",
-  "Heights / hazardous equipment",
-  "Night / rotating shifts",
-  "Time pressure / emergency response",
-] as const;
-
-function AggravationReview() {
-  const [condition, setCondition] = useState<(typeof reviewConditions)[number]>(reviewConditions[0]);
-  const [selected, setSelected] = useState<string[]>([]);
-  const toggle = (value: string) => setSelected((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
-
-  return (
-    <CalculatorFrame
-      title="Condition-Demand Review Builder"
-      description="Creates a transparent human-review packet from a selected condition category and selected work demands. It intentionally does not assign weights, an aggravation score, a probability, or a compensability conclusion."
-      results={selected.length ? (
-        <>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <MetricOrb label="Condition category" value={condition} note="Selected review topic" icon={HeartPulse} tone="rose" />
-            <MetricOrb label="Selected work demands" value={selected.length.toString()} note="No weighting or score" icon={ShieldAlert} tone="amber" />
-            <MetricOrb label="Automated conclusion" value="None" note="Human evidence review required" icon={Sparkles} tone="emerald" />
-          </section>
-          <GlassCard className="p-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/58">Review packet</p>
-            <h3 className="mt-1 text-lg font-black text-white">{condition}</h3>
-            <div className="mt-4 grid gap-2 md:grid-cols-2">
-              {selected.map((item) => <div key={item} className="rounded-xl border border-amber-100/14 bg-amber-300/[0.045] px-4 py-3 text-xs leading-5 text-amber-50/75">{item}</div>)}
-            </div>
-            <p className="mt-4 text-xs leading-6 text-cyan-50/58">Next step: compare these selected demands against actual job tasks, exposure measurements, medical restrictions, and appropriate clinical/occupational evidence. This tool does not perform that determination automatically.</p>
-          </GlassCard>
-        </>
-      ) : <Waiting text="Choose one or more work demands. The tool will build a review packet only; it will not manufacture an aggravation index." />}
-    >
-      <label className="block">
-        <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-cyan-50/62">Condition category</span>
-        <select value={condition} onChange={(event) => setCondition(event.target.value as (typeof reviewConditions)[number])} className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none">
-          {reviewConditions.map((item) => <option key={item}>{item}</option>)}
-        </select>
-      </label>
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-cyan-50/62">Work demands to review</p>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {reviewDemands.map((item) => (
-            <button key={item} type="button" onClick={() => toggle(item)} className={`rounded-xl border px-3 py-3 text-left text-xs font-semibold transition ${selected.includes(item) ? "border-amber-200/26 bg-amber-300/10 text-white" : "border-white/10 bg-[#071321]/70 text-cyan-50/62 hover:border-white/16"}`}>{item}</button>
-          ))}
-        </div>
-      </div>
-    </CalculatorFrame>
-  );
+function ConditionDemandAnalyzer({ data }: { data: SharedData }) {
+  const [conditionId, setConditionId] = useState<(typeof conditions)[number]["id"]>("musculoskeletal"); const [occupation, setOccupation] = useState(""); const [profile, setProfile] = useState<OnetProfile | null>(null); const [loading, setLoading] = useState(false); const [error, setError] = useState("");
+  const selectedCondition = conditions.find((item) => item.id === conditionId) ?? conditions[0];
+  const occupations = useMemo(() => Array.from(new Set((data.manifest?.workforceGroups ?? []).flatMap((group) => group.occupations))), [data.manifest]);
+  async function loadJob(job: string) { setOccupation(job); setProfile(null); setLoading(true); setError(""); try { const response = await fetch(`/api/occupational-discovery/onet/profile?keyword=${encodeURIComponent(job)}`); const payload = await response.json(); if (!response.ok || !payload.ok) throw new Error(payload.error || "O*NET request failed."); setProfile(payload.profile ?? null); } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "O*NET request failed."); } finally { setLoading(false); } }
+  const evidence = useMemo(() => { if (!profile) return []; const all = [...profile.tasks, ...profile.workContext, ...profile.abilities, ...profile.workActivities, ...profile.detailedWorkActivities]; return all.filter((item) => selectedCondition.terms.some((term) => phraseMatch(`${item.name} ${item.description ?? ""}`, term))); }, [profile, selectedCondition]);
+  return <Frame title="Condition × Job Demand Analyzer" description="Pick a common occupation and a condition category. The tool loads live O*NET tasks, abilities, activities, and work context, then surfaces exact occupational evidence that warrants human review against actual restrictions." evidence={profile ? "A" : "D"} results={profile ? <><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><MetricOrb label="Resolved occupation" value={profile.occupation.title} note={profile.occupation.code} icon={Users} /><MetricOrb label="Matched demand evidence" value={evidence.length.toString()} note={`${selectedCondition.label} review filter`} icon={ShieldAlert} tone="amber" /><MetricOrb label="Automated medical conclusion" value="None" note="Compare evidence to actual restrictions" icon={HeartPulse} tone="emerald" /></section><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-50/55">Exact O*NET evidence to review</p><div className="mt-4 space-y-2">{evidence.slice(0, 40).map((item, index) => <div key={`${item.name}-${index}`} className="rounded-xl border border-amber-100/13 bg-amber-300/[0.04] p-3"><div className="flex items-start justify-between gap-3"><p className="text-xs font-bold text-white">{item.name}</p>{item.value != null ? <span className="shrink-0 text-[9px] font-bold text-amber-100/65">O*NET {number(item.value, 0)}</span> : null}</div>{item.description ? <p className="mt-1 text-[10px] leading-5 text-cyan-50/50">{item.description}</p> : null}</div>)}{!evidence.length ? <p className="text-xs text-cyan-50/50">No returned O*NET items matched this transparent condition-demand term set. That is not a medical clearance conclusion.</p> : null}</div></GlassCard></> : loading ? <Waiting text="Loading live O*NET evidence for the selected occupation…" /> : <Waiting text="Choose one of the ready occupations. No free-text search is required." />}><label className="block"><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">Condition category</span><select value={conditionId} onChange={(event) => setConditionId(event.target.value as (typeof conditions)[number]["id"])} className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none">{conditions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><div><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">Ready occupation library</p><div className="mt-2 grid max-h-[430px] gap-2 overflow-auto pr-1 sm:grid-cols-2">{occupations.map((job) => <button key={job} type="button" onClick={() => void loadJob(job)} className={`rounded-xl border px-3 py-3 text-left text-xs font-bold transition ${occupation === job ? "border-amber-200/28 bg-amber-300/[0.08] text-white" : "border-white/10 bg-[#071321]/70 text-cyan-50/65 hover:border-amber-200/18"}`}>{job}</button>)}</div></div>{error ? <p className="text-xs text-rose-100/75">{error}</p> : null}</Frame>;
 }
 
-function ChronicAgingCalculator() {
-  const [workforce, setWorkforce] = useState(0);
-  const [age55, setAge55] = useState(0);
-  const [underPrev, setUnderPrev] = useState(0);
-  const [overPrev, setOverPrev] = useState(0);
-  const ready = workforce > 0;
-  const olderWorkers = (workforce * age55) / 100;
-  const youngerWorkers = workforce - olderWorkers;
-  const olderBurden = (olderWorkers * overPrev) / 100;
-  const youngerBurden = (youngerWorkers * underPrev) / 100;
-  const totalBurden = olderBurden + youngerBurden;
-  const data = [
-    { group: "Under 55", workforce: youngerWorkers, modeled: youngerBurden },
-    { group: "55+", workforce: olderWorkers, modeled: olderBurden },
-  ];
-
-  return (
-    <CalculatorFrame
-      title="Age-Band & Chronic-Condition Scenario"
-      description="Applies user-entered age-band and prevalence percentages to an aggregate workforce. Age is not treated as incapacity, performance, or a fitness determination."
-      results={ready ? (
-        <>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricOrb label="Entered workforce" value={workforce.toLocaleString()} note="Aggregate scenario" icon={Users} />
-            <MetricOrb label="Workers age 55+" value={number(olderWorkers, 0)} note={`${age55}% entered share`} icon={Users} tone="violet" />
-            <MetricOrb label="Modeled condition count" value={number(totalBurden, 0)} note="From entered prevalence assumptions" icon={HeartPulse} tone="rose" />
-            <MetricOrb label="Individual inference" value="None" note="Aggregate arithmetic only" icon={ShieldAlert} tone="emerald" />
-          </section>
-          <GlassCard className="p-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/58">Entered age-band scenario</p>
-            <div className="mt-3 h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data}>
-                  <CartesianGrid stroke="rgba(165,243,252,.10)" vertical={false} />
-                  <XAxis dataKey="group" tick={{ fill: "rgba(207,250,254,.68)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "rgba(207,250,254,.52)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(251,113,133,.2)", borderRadius: 12 }} />
-                  <Bar dataKey="workforce" name="Workers" fill="#67e8f9" radius={[7, 7, 2, 2]} />
-                  <Bar dataKey="modeled" name="Modeled condition count" fill="#fda4af" radius={[7, 7, 2, 2]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </GlassCard>
-        </>
-      ) : <Waiting text="Enter an aggregate workforce. Age-band and prevalence percentages begin at zero and must be supplied by the user." />}
-    >
-      <NumberField label="Workforce size" value={workforce} onChange={setWorkforce} />
-      <RangeField label="Workforce age 55+" value={age55} onChange={setAge55} />
-      <RangeField label="Under-55 prevalence assumption" value={underPrev} onChange={setUnderPrev} />
-      <RangeField label="55+ prevalence assumption" value={overPrev} onChange={setOverPrev} />
-      <p className="text-[10px] leading-5 text-cyan-50/50">Prevalence values are not fetched or validated in this calculator. Enter them only when you have an appropriate aggregate source.</p>
-    </CalculatorFrame>
-  );
+function HealthBurdenCalculator() {
+  const [workforce, setWorkforce] = useState(0); const [under45, setUnder45] = useState(0); const [age45, setAge45] = useState(0); const [age55, setAge55] = useState(0); const [age65, setAge65] = useState(0); const [msk, setMsk] = useState(0); const [cardio, setCardio] = useState(0); const [metabolic, setMetabolic] = useState(0); const [respiratory, setRespiratory] = useState(0); const [sleep, setSleep] = useState(0);
+  const ageTotal = under45 + age45 + age55 + age65;
+  const ageData = [{ band: "<45", workers: workforce * under45 / 100 }, { band: "45–54", workers: workforce * age45 / 100 }, { band: "55–64", workers: workforce * age55 / 100 }, { band: "65+", workers: workforce * age65 / 100 }];
+  const conditionsData = [{ condition: "MSK", count: workforce * msk / 100 }, { condition: "Cardiovascular", count: workforce * cardio / 100 }, { condition: "Metabolic", count: workforce * metabolic / 100 }, { condition: "Respiratory", count: workforce * respiratory / 100 }, { condition: "Sleep / OSA", count: workforce * sleep / 100 }];
+  return <Frame title="Workforce Health Burden Scenario" description="Model multiple age bands and chronic-condition prevalence assumptions for aggregate service planning. Condition counts are shown separately because comorbidity overlap is unknown." results={workforce > 0 ? <><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Workforce" value={workforce.toLocaleString()} note="Aggregate entered population" icon={Users} /><MetricOrb label="Age bands entered" value={`${ageTotal}%`} note={ageTotal === 100 ? "Complete age distribution" : "Should total 100% for a full distribution"} icon={CalendarClock} tone={ageTotal === 100 ? "emerald" : "amber"} /><MetricOrb label="Condition categories" value={conditionsData.filter((item) => item.count > 0).length.toString()} note="Separate prevalence assumptions" icon={HeartPulse} tone="rose" /><MetricOrb label="Comorbidity assumption" value="None" note="Counts are not summed across conditions" icon={ShieldAlert} tone="emerald" /></section><div className="grid gap-5 xl:grid-cols-2"><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Age-band workforce</p><div className="mt-3 h-[310px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={ageData}><CartesianGrid stroke="rgba(165,243,252,.09)" vertical={false} /><XAxis dataKey="band" tick={{ fill: "rgba(207,250,254,.64)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(103,232,249,.2)", borderRadius: 12 }} /><Bar dataKey="workers" fill="#67e8f9" radius={[7,7,2,2]} /></BarChart></ResponsiveContainer></div></GlassCard><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-50/55">Condition-specific planning counts</p><div className="mt-3 h-[310px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={conditionsData} layout="vertical"><CartesianGrid stroke="rgba(165,243,252,.09)" horizontal={false} /><XAxis type="number" tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis type="category" dataKey="condition" width={105} tick={{ fill: "rgba(207,250,254,.64)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(251,113,133,.2)", borderRadius: 12 }} /><Bar dataKey="count" fill="#fda4af" radius={[0,7,7,0]} /></BarChart></ResponsiveContainer></div><p className="text-[10px] leading-5 text-cyan-50/45">Do not sum these bars to estimate unique affected workers unless you supply a separate comorbidity model.</p></GlassCard></div></> : <Waiting text="Enter an aggregate workforce, then fill only the age-band and prevalence assumptions you have a defensible source for." />}><NumberField label="Workforce size" value={workforce} onChange={setWorkforce} /><div className="grid gap-3 sm:grid-cols-2"><RangeField label="Under 45" value={under45} onChange={setUnder45} /><RangeField label="45–54" value={age45} onChange={setAge45} /><RangeField label="55–64" value={age55} onChange={setAge55} /><RangeField label="65+" value={age65} onChange={setAge65} /></div><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">Condition prevalence assumptions</p><div className="grid gap-3 sm:grid-cols-2"><RangeField label="Musculoskeletal" value={msk} onChange={setMsk} /><RangeField label="Cardiovascular" value={cardio} onChange={setCardio} /><RangeField label="Metabolic / diabetes" value={metabolic} onChange={setMetabolic} /><RangeField label="Respiratory" value={respiratory} onChange={setRespiratory} /><RangeField label="Sleep / OSA" value={sleep} onChange={setSleep} /></div></Frame>;
 }
 
-function ReadinessProfile() {
-  const [demand, setDemand] = useState(0);
-  const [health, setHealth] = useState(0);
-  const [fatigue, setFatigue] = useState(0);
-  const [surveillance, setSurveillance] = useState(0);
-  const [modified, setModified] = useState(0);
-  const [environment, setEnvironment] = useState(0);
-  const data = [
-    { dimension: "Demand compatibility", value: demand },
-    { dimension: "Health resilience", value: health },
-    { dimension: "Fatigue controls", value: fatigue },
-    { dimension: "Surveillance", value: surveillance },
-    { dimension: "Modified duty", value: modified },
-    { dimension: "Environment", value: environment },
-  ];
-  const entered = data.filter((item) => item.value > 0);
-
-  return (
-    <CalculatorFrame
-      title="Workforce Readiness Input Profile"
-      description="Visualizes six user-entered operational dimensions independently. The previous unvalidated weighted/averaged readiness score and Strong/Stable/Watch/Vulnerable bands have been removed."
-      results={entered.length ? (
-        <>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <MetricOrb label="Entered dimensions" value={`${entered.length}/6`} note="No composite score" icon={Users} />
-            <MetricOrb label="Highest entered value" value={`${Math.max(...entered.map((item) => item.value))}%`} note={entered.reduce((a, b) => a.value > b.value ? a : b).dimension} icon={TrendingUp} tone="emerald" />
-            <MetricOrb label="Automated readiness classification" value="None" note="No validated band asserted" icon={ShieldAlert} tone="violet" />
-          </section>
-          <GlassCard className="p-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/58">User-entered dimensions</p>
-            <div className="mt-3 h-[340px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data} layout="vertical">
-                  <CartesianGrid stroke="rgba(165,243,252,.10)" horizontal={false} />
-                  <XAxis type="number" domain={[0, 100]} tick={{ fill: "rgba(207,250,254,.52)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="dimension" width={118} tick={{ fill: "rgba(207,250,254,.68)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(103,232,249,.2)", borderRadius: 12 }} />
-                  <Bar dataKey="value" fill="#67e8f9" radius={[0, 8, 8, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </GlassCard>
-        </>
-      ) : <Waiting text="Enter any dimensions you want to visualize. The tool no longer generates an unsupported single readiness index." />}
-    >
-      <RangeField label="Demand compatibility" value={demand} onChange={setDemand} />
-      <RangeField label="Health resilience" value={health} onChange={setHealth} />
-      <RangeField label="Fatigue controls" value={fatigue} onChange={setFatigue} />
-      <RangeField label="Surveillance coverage" value={surveillance} onChange={setSurveillance} />
-      <RangeField label="Modified-duty capacity" value={modified} onChange={setModified} />
-      <RangeField label="Environmental controls" value={environment} onChange={setEnvironment} />
-    </CalculatorFrame>
-  );
+function ReadinessCalculator() {
+  const [workforce, setWorkforce] = useState(0); const [allReady, setAllReady] = useState(0); const [exams, setExams] = useState(0); const [surveillance, setSurveillance] = useState(0); const [respirator, setRespirator] = useState(0); const [audiograms, setAudiograms] = useState(0); const [fitTests, setFitTests] = useState(0); const [immunizations, setImmunizations] = useState(0); const [pendingReview, setPendingReview] = useState(0); const [restricted, setRestricted] = useState(0);
+  const requirements = [{ name: "Medical exams current", current: exams }, { name: "Surveillance current", current: surveillance }, { name: "Respirator clearance current", current: respirator }, { name: "Audiograms current", current: audiograms }, { name: "Fit tests current", current: fitTests }, { name: "Immunizations current", current: immunizations }];
+  const data = requirements.map((item) => ({ ...item, gap: Math.max(workforce - item.current, 0), coverage: workforce > 0 ? Math.min(item.current / workforce * 100, 100) : 0 }));
+  const bottleneck = [...data].filter((item) => item.current > 0).sort((a, b) => a.coverage - b.coverage)[0];
+  const readyPct = workforce > 0 ? Math.min(allReady / workforce * 100, 100) : 0;
+  return <Frame title="Workforce Deployment Readiness Funnel" description="Use observable operational counts—current exams, surveillance, clearances, fit tests, audiograms, immunizations, restrictions, and pending reviews. The tool never invents a health-resilience percentage." results={workforce > 0 ? <><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Workforce" value={workforce.toLocaleString()} note="Entered population" icon={Users} /><MetricOrb label="Meeting all entered requirements" value={allReady.toLocaleString()} note={`${number(readyPct, 1)}% of workforce`} icon={Activity} tone="emerald" /><MetricOrb label="Pending medical review" value={pendingReview.toLocaleString()} note="Entered operational queue" icon={Clock3} tone="amber" /><MetricOrb label="Restricted / accommodated" value={restricted.toLocaleString()} note="Entered count; not classified by tool" icon={ShieldAlert} tone="violet" /></section><GlassCard className="p-5"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Requirement coverage</p><h3 className="mt-1 text-lg font-black text-white">Operational bottlenecks</h3></div><span className="text-xs text-cyan-50/48">{bottleneck ? `Lowest entered coverage: ${bottleneck.name}` : "Enter requirement counts"}</span></div><div className="mt-3 h-[360px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={data} layout="vertical"><CartesianGrid stroke="rgba(165,243,252,.09)" horizontal={false} /><XAxis type="number" domain={[0, 100]} tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis type="category" dataKey="name" width={145} tick={{ fill: "rgba(207,250,254,.64)", fontSize: 9 }} axisLine={false} tickLine={false} /><Tooltip formatter={(value) => `${number(Number(value), 1)}%`} contentStyle={{ background: "#06101d", border: "1px solid rgba(103,232,249,.2)", borderRadius: 12 }} /><Bar dataKey="coverage" fill="#67e8f9" radius={[0,7,7,0]} /></BarChart></ResponsiveContainer></div><p className="text-[10px] leading-5 text-cyan-50/45">“Meeting all requirements” is entered explicitly because individual requirement populations may overlap; the tool does not pretend it can derive deployability by subtracting unrelated queues.</p></GlassCard></> : <Waiting text="Enter workforce size and operational counts from the readiness process." />}><div className="grid gap-4 sm:grid-cols-2"><NumberField label="Workforce" value={workforce} onChange={setWorkforce} /><NumberField label="Workers meeting all requirements" value={allReady} onChange={setAllReady} /><NumberField label="Medical exams current" value={exams} onChange={setExams} /><NumberField label="Surveillance current" value={surveillance} onChange={setSurveillance} /><NumberField label="Respirator clearances current" value={respirator} onChange={setRespirator} /><NumberField label="Audiograms current" value={audiograms} onChange={setAudiograms} /><NumberField label="Fit tests current" value={fitTests} onChange={setFitTests} /><NumberField label="Immunizations current" value={immunizations} onChange={setImmunizations} /><NumberField label="Pending medical reviews" value={pendingReview} onChange={setPendingReview} /><NumberField label="Restricted / accommodated" value={restricted} onChange={setRestricted} /></div></Frame>;
 }
 
-function FatigueProfile() {
-  const [shiftHours, setShiftHours] = useState(0);
-  const [weeklyHours, setWeeklyHours] = useState(0);
-  const [consecutive, setConsecutive] = useState(0);
-  const [night, setNight] = useState(0);
-  const [driving, setDriving] = useState(0);
-  const [physical, setPhysical] = useState(0);
-  const ready = shiftHours > 0 || weeklyHours > 0 || consecutive > 0 || night > 0 || driving > 0 || physical > 0;
-  const percentageData = [
-    { dimension: "Night work", value: night },
-    { dimension: "Driving / vigilance", value: driving },
-    { dimension: "Physical demand", value: physical },
-  ];
+function parseTime(value: string): number | null { const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim()); if (!match) return null; const hour = Number(match[1]); const minute = Number(match[2]); if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null; return hour * 60 + minute; }
+function durationHours(start: string, end: string): number { const a = parseTime(start); const b = parseTime(end); if (a == null || b == null) return 0; let minutes = b - a; if (minutes <= 0) minutes += 1440; return minutes / 60; }
+function nightHours(start: string, end: string): number { const a = parseTime(start); if (a == null || parseTime(end) == null) return 0; const duration = durationHours(start, end) * 60; let total = 0; for (let minute = 0; minute < duration; minute += 15) { const clock = (a + minute) % 1440; if (clock >= 22 * 60 || clock < 6 * 60) total += Math.min(15, duration - minute); } return total / 60; }
 
-  return (
-    <CalculatorFrame
-      title="Fatigue & Shift Input Profile"
-      description="Displays entered schedule and exposure characteristics without converting them into an arbitrary fatigue-risk score or impairment classification."
-      results={ready ? (
-        <>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <MetricOrb label="Shift length" value={shiftHours > 0 ? `${shiftHours} hr` : "—"} note="Entered schedule value" icon={Clock3} />
-            <MetricOrb label="Weekly hours" value={weeklyHours > 0 ? weeklyHours.toString() : "—"} note="Entered schedule value" icon={CalendarClock} tone="violet" />
-            <MetricOrb label="Consecutive shifts" value={consecutive > 0 ? consecutive.toString() : "—"} note="Entered schedule value" icon={BrainCircuit} tone="amber" />
-          </section>
-          <GlassCard className="p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/58">Exposure mix</p>
-                <h3 className="mt-1 text-lg font-black text-white">Entered percentages only</h3>
-              </div>
-              <span className="text-xs text-cyan-50/52">No fatigue score</span>
-            </div>
-            <div className="mt-3 h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={percentageData}>
-                  <CartesianGrid stroke="rgba(165,243,252,.10)" vertical={false} />
-                  <XAxis dataKey="dimension" tick={{ fill: "rgba(207,250,254,.68)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} tick={{ fill: "rgba(207,250,254,.52)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(167,139,250,.2)", borderRadius: 12 }} />
-                  <Bar dataKey="value" fill="#a78bfa" radius={[7, 7, 2, 2]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="text-[10px] leading-5 text-cyan-50/50">Interpretation requires appropriate fatigue, scheduling, and safety evidence for the actual operation. This display does not diagnose impairment or establish a safe/unsafe threshold.</p>
-          </GlassCard>
-        </>
-      ) : <Waiting text="Enter schedule or exposure characteristics. The previous custom fatigue index and severity bands have been removed." />}
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <NumberField label="Shift length" value={shiftHours} onChange={setShiftHours} max={24} suffix="hours" />
-        <NumberField label="Weekly hours" value={weeklyHours} onChange={setWeeklyHours} max={168} />
-        <NumberField label="Consecutive shifts" value={consecutive} onChange={setConsecutive} max={31} />
-        <RangeField label="Night work" value={night} onChange={setNight} />
-        <RangeField label="Driving / vigilance" value={driving} onChange={setDriving} />
-        <RangeField label="Physical demand" value={physical} onChange={setPhysical} />
-      </div>
-    </CalculatorFrame>
-  );
+function FatigueCalculator() {
+  const [start, setStart] = useState(""); const [end, setEnd] = useState(""); const [nextStart, setNextStart] = useState(""); const [commuteEachWay, setCommuteEachWay] = useState(0); const [breakMinutes, setBreakMinutes] = useState(0); const [consecutive, setConsecutive] = useState(0); const [weeklyHours, setWeeklyHours] = useState(0); const [drivingAfter, setDrivingAfter] = useState(0); const [onCall, setOnCall] = useState(0);
+  const shift = durationHours(start, end); const night = nightHours(start, end); const endMinutes = parseTime(end); const nextMinutes = parseTime(nextStart); let interShift = 0; if (endMinutes != null && nextMinutes != null) { let diff = nextMinutes - endMinutes; if (diff <= 0) diff += 1440; interShift = diff / 60; } const nonCommute = Math.max(interShift - commuteEachWay * 2, 0); const netWork = Math.max(shift - breakMinutes / 60, 0); const cumulative = shift * Math.max(consecutive, 0); const cumulativeNight = night * Math.max(consecutive, 0); const ready = shift > 0 || weeklyHours > 0 || consecutive > 0;
+  const bars = [{ factor: "Shift", hours: shift }, { factor: "Net work", hours: netWork }, { factor: "Night overlap", hours: night }, { factor: "Driving after", hours: drivingAfter }, { factor: "On-call", hours: onCall }];
+  return <Frame title="Shift & Fatigue Exposure Analyzer" description="Enter actual schedule facts. The tool calculates duty duration, nighttime overlap, inter-shift interval, commute-adjusted non-work time, cumulative consecutive duty, and post-shift driving—without inventing an impairment score." results={ready ? <><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Shift duration" value={shift > 0 ? `${number(shift, 1)} hr` : "—"} note={`${breakMinutes} entered break minutes`} icon={Clock3} /><MetricOrb label="Nighttime overlap" value={shift > 0 ? `${number(night, 1)} hr` : "—"} note="Clock time between 22:00 and 06:00" icon={BrainCircuit} tone="violet" /><MetricOrb label="Inter-shift interval" value={interShift > 0 ? `${number(interShift, 1)} hr` : "—"} note={interShift > 0 ? `${number(nonCommute, 1)} hr after entered commute time` : "Enter next shift start"} icon={CalendarClock} tone="emerald" /><MetricOrb label="Consecutive-duty exposure" value={consecutive > 0 ? `${number(cumulative, 1)} hr` : "—"} note={consecutive > 0 ? `${number(cumulativeNight, 1)} nighttime hours across entered shifts` : "Enter consecutive shifts"} icon={Activity} tone="amber" /></section><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-50/55">Schedule facts</p><div className="mt-3 h-[310px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={bars}><CartesianGrid stroke="rgba(165,243,252,.09)" vertical={false} /><XAxis dataKey="factor" tick={{ fill: "rgba(207,250,254,.64)", fontSize: 9 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(167,139,250,.2)", borderRadius: 12 }} /><Bar dataKey="hours" fill="#c4b5fd" radius={[7,7,2,2]} /></BarChart></ResponsiveContainer></div><div className="mt-3 grid gap-2 sm:grid-cols-3"><div className="rounded-xl border border-white/9 bg-black/15 p-3"><p className="text-[9px] text-cyan-50/45">Weekly hours</p><p className="mt-1 text-lg font-black text-white">{weeklyHours || "—"}</p></div><div className="rounded-xl border border-white/9 bg-black/15 p-3"><p className="text-[9px] text-cyan-50/45">Post-shift driving</p><p className="mt-1 text-lg font-black text-white">{drivingAfter ? `${drivingAfter} hr` : "—"}</p></div><div className="rounded-xl border border-white/9 bg-black/15 p-3"><p className="text-[9px] text-cyan-50/45">On-call exposure</p><p className="mt-1 text-lg font-black text-white">{onCall ? `${onCall} hr` : "—"}</p></div></div><p className="mt-3 text-[10px] leading-5 text-cyan-50/45">These are schedule/exposure facts. This tool does not diagnose fatigue, impairment, sleep adequacy, or safe/unsafe status.</p></GlassCard></> : <Waiting text="Enter shift start/end or weekly schedule facts." />}><div className="grid gap-4 sm:grid-cols-2"><label><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">Shift start</span><input value={start} onChange={(event) => setStart(event.target.value)} placeholder="18:00" className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /></label><label><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">Shift end</span><input value={end} onChange={(event) => setEnd(event.target.value)} placeholder="06:00" className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /></label><label><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">Next shift starts</span><input value={nextStart} onChange={(event) => setNextStart(event.target.value)} placeholder="18:00" className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /></label><NumberField label="Commute each way" value={commuteEachWay} onChange={setCommuteEachWay} step={0.25} suffix="hours" /><NumberField label="Break time" value={breakMinutes} onChange={setBreakMinutes} step={15} suffix="minutes" /><NumberField label="Consecutive shifts" value={consecutive} onChange={setConsecutive} /><NumberField label="Weekly hours" value={weeklyHours} onChange={setWeeklyHours} max={168} /><NumberField label="Driving after shift" value={drivingAfter} onChange={setDrivingAfter} step={0.25} suffix="hours" /><NumberField label="On-call hours / week" value={onCall} onChange={setOnCall} step={0.5} /></div></Frame>;
 }
 
 function BreakEvenCalculator() {
-  const [programCost, setProgramCost] = useState(0);
-  const [costPerEvent, setCostPerEvent] = useState(0);
-  const [effectiveness, setEffectiveness] = useState(0);
-  const [population, setPopulation] = useState(0);
-  const [baseline, setBaseline] = useState(0);
-  const ready = population > 0 && baseline > 0 && costPerEvent > 0;
-  const result = calculateBreakEven({
-    programCost,
-    costPerEvent,
-    effectivenessPercent: effectiveness,
-    population,
-    baselineEventsPerHundred: baseline,
-  });
-  const curve = Array.from({ length: 11 }, (_, index) => {
-    const pct = index * 5;
-    const scenario = calculateBreakEven({
-      programCost,
-      costPerEvent,
-      effectivenessPercent: pct,
-      population,
-      baselineEventsPerHundred: baseline,
-    });
-    return { effectiveness: pct, benefit: scenario.potentialBenefit, cost: programCost };
-  });
-
-  return (
-    <CalculatorFrame
-      title="Intervention Break-Even Scenario"
-      description="Performs break-even arithmetic from entered population, baseline event rate, cost per event, program cost, and effectiveness assumption. It does not infer intervention effectiveness."
-      results={ready ? (
-        <>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricOrb label="Baseline-implied events" value={number(result.expectedEvents, 1)} note="Entered rate × population" icon={Activity} />
-            <MetricOrb label="Modeled avoided events" value={effectiveness > 0 ? number(result.avoidedEvents, 1) : "0"} note={`${effectiveness}% entered effectiveness`} icon={ShieldAlert} tone="emerald" />
-            <MetricOrb label="Modeled benefit" value={money(result.potentialBenefit)} note="Avoided events × entered cost" icon={BadgeDollarSign} tone="violet" />
-            <MetricOrb label="Net arithmetic" value={money(result.netImpact)} note="Modeled benefit − entered program cost" icon={TrendingUp} tone={result.netImpact >= 0 ? "emerald" : "rose"} />
-          </section>
-          <GlassCard className="p-5">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/58">Sensitivity arithmetic</p>
-                <h3 className="mt-1 text-lg font-black text-white">Benefit across entered-effectiveness scenarios</h3>
-              </div>
-              <p className="text-xs text-cyan-50/55">Cost-only break-even: {number(result.eventsToBreakEven, 2)} events</p>
-            </div>
-            <div className="mt-3 h-[330px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={curve}>
-                  <CartesianGrid stroke="rgba(165,243,252,.10)" />
-                  <XAxis dataKey="effectiveness" tick={{ fill: "rgba(207,250,254,.68)", fontSize: 10 }} tickFormatter={(value) => `${value}%`} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "rgba(207,250,254,.52)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={(value) => money(Number(value))} contentStyle={{ background: "#06101d", border: "1px solid rgba(110,231,183,.2)", borderRadius: 12 }} />
-                  <Line dataKey="benefit" name="Modeled benefit" stroke="#6ee7b7" strokeWidth={3} dot={false} />
-                  <Line dataKey="cost" name="Program cost" stroke="#fda4af" strokeWidth={2} strokeDasharray="6 6" dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </GlassCard>
-        </>
-      ) : <Waiting text="Enter a population, baseline event rate, and cost per event. Effectiveness begins at zero and must be supplied explicitly." />}
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <NumberField label="Program cost" value={programCost} onChange={setProgramCost} step={5_000} suffix="USD" />
-        <NumberField label="Cost per event" value={costPerEvent} onChange={setCostPerEvent} step={5_000} suffix="USD" />
-        <RangeField label="Effectiveness assumption" value={effectiveness} onChange={setEffectiveness} max={100} />
-        <NumberField label="Population" value={population} onChange={setPopulation} />
-        <NumberField label="Baseline events per 100" value={baseline} onChange={setBaseline} step={0.1} />
-      </div>
-    </CalculatorFrame>
-  );
+  const [programCost, setProgramCost] = useState(0); const [costPerEvent, setCostPerEvent] = useState(0); const [effectiveness, setEffectiveness] = useState(0); const [population, setPopulation] = useState(0); const [baseline, setBaseline] = useState(0);
+  const result = calculateBreakEven({ programCost, costPerEvent, effectivenessPercent: effectiveness, population, baselineEventsPerHundred: baseline }); const ready = population > 0 && baseline > 0 && costPerEvent > 0;
+  const curve = Array.from({ length: 11 }, (_, index) => { const pct = index * 5; const scenario = calculateBreakEven({ programCost, costPerEvent, effectivenessPercent: pct, population, baselineEventsPerHundred: baseline }); return { effectiveness: pct, benefit: scenario.potentialBenefit, cost: programCost }; });
+  return <Frame title="Intervention Break-Even Scenario" description="Tests how much entered effectiveness would be needed to offset an entered program cost. Effectiveness is never inferred by the tool." results={ready ? <><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Baseline-implied events" value={number(result.expectedEvents, 1)} note="Entered rate × population" icon={Activity} /><MetricOrb label="Modeled avoided events" value={number(result.avoidedEvents, 1)} note={`${effectiveness}% entered effectiveness`} icon={ShieldAlert} tone="emerald" /><MetricOrb label="Modeled benefit" value={money(result.potentialBenefit)} note="Avoided events × cost" icon={BadgeDollarSign} tone="violet" /><MetricOrb label="Net arithmetic" value={money(result.netImpact)} note="Benefit − program cost" icon={TrendingUp} tone={result.netImpact >= 0 ? "emerald" : "rose"} /></section><GlassCard className="p-5"><div className="flex flex-wrap items-end justify-between gap-3"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Effectiveness sensitivity</p><p className="text-xs text-cyan-50/48">Cost-only break-even: {number(result.eventsToBreakEven, 2)} events</p></div><div className="mt-3 h-[320px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={curve}><CartesianGrid stroke="rgba(165,243,252,.09)" /><XAxis dataKey="effectiveness" tickFormatter={(value) => `${value}%`} tick={{ fill: "rgba(207,250,254,.64)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip formatter={(value) => money(Number(value))} contentStyle={{ background: "#06101d", border: "1px solid rgba(110,231,183,.2)", borderRadius: 12 }} /><Line dataKey="benefit" stroke="#6ee7b7" strokeWidth={3} dot={false} /><Line dataKey="cost" stroke="#fda4af" strokeWidth={2} strokeDasharray="6 6" dot={false} /></LineChart></ResponsiveContainer></div></GlassCard></> : <Waiting text="Enter population, baseline events per 100, and cost per event." />}><div className="grid gap-4 sm:grid-cols-2"><NumberField label="Program cost" value={programCost} onChange={setProgramCost} step={5000} suffix="USD" /><NumberField label="Cost per event" value={costPerEvent} onChange={setCostPerEvent} step={5000} suffix="USD" /><RangeField label="Effectiveness assumption" value={effectiveness} onChange={setEffectiveness} /><NumberField label="Population" value={population} onChange={setPopulation} /><NumberField label="Baseline events per 100" value={baseline} onChange={setBaseline} step={0.1} /></div></Frame>;
 }
 
-function ActiveCalculator({ id }: { id: CalculatorId }) {
-  if (id === "rates") return <RateCalculator />;
+function Active({ id, data }: { id: CalculatorId; data: SharedData }) {
+  if (id === "rates") return <RateCalculator data={data} />;
   if (id === "workers-comp") return <WorkersCompCalculator />;
   if (id === "lost-time") return <LostTimeCalculator />;
   if (id === "return-to-work") return <ReturnToWorkCalculator />;
-  if (id === "aggravation") return <AggravationReview />;
-  if (id === "chronic-aging") return <ChronicAgingCalculator />;
-  if (id === "readiness") return <ReadinessProfile />;
-  if (id === "fatigue") return <FatigueProfile />;
+  if (id === "aggravation") return <ConditionDemandAnalyzer data={data} />;
+  if (id === "chronic-aging") return <HealthBurdenCalculator />;
+  if (id === "readiness") return <ReadinessCalculator />;
+  if (id === "fatigue") return <FatigueCalculator />;
   return <BreakEvenCalculator />;
 }
 
 export default function OccupationalCalculators() {
-  const [activeCalculator, setActiveCalculator] = useState<CalculatorId>("rates");
-  return (
-    <OccupationalToolShell
-      eyebrow="Independent Intelligence Tool · Calculator Suite"
-      title="Occupational Calculators"
-      subtitle="Nine independent occupational-health scenario tools with explicit inputs, transparent arithmetic, and no preloaded findings."
-      notice="Each calculator is independent and starts from zero or an empty selection. Nothing transfers from another Insight Hub tool or client/case data. Scenario-only tools do not claim medical risk, aggravation probability, compensability, disability, readiness, fatigue impairment, or intervention effectiveness."
-    >
-      <ToolHero
-        kicker="Nine independent tools"
-        title="Useful models without fake certainty."
-        description="Rate and financial tools perform transparent arithmetic. Review/profile tools visualize user-entered information without manufacturing unsupported risk scores or authoritative-looking defaults."
-        accent="rose"
-      >
-        <div className="grid grid-cols-3 gap-2">
-          {calculatorOptions.slice(0, 6).map((item) => {
-            const Icon = item.icon;
-            return (
-              <div key={item.id} className={`rounded-xl border p-3 ${toneClasses[item.tone]}`}>
-                <Icon size={16} />
-                <p className="mt-2 text-[10px] font-bold leading-4 text-white">{item.label}</p>
-              </div>
-            );
-          })}
-        </div>
-      </ToolHero>
-
-      <div className="mb-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-        {calculatorOptions.map((item) => {
-          const Icon = item.icon;
-          const active = activeCalculator === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setActiveCalculator(item.id)}
-              className={`rounded-xl border p-3 text-left transition ${active ? toneClasses[item.tone] : "border-white/10 bg-[#06101d]/80 text-cyan-50/60 hover:border-white/16"}`}
-            >
-              <div className="flex items-center gap-2">
-                <Icon size={16} />
-                <span className="text-xs font-black text-white">{item.label}</span>
-              </div>
-              <p className="mt-1 text-[9px] leading-4 opacity-65">{item.note}</p>
-            </button>
-          );
-        })}
-      </div>
-
-      <AnimatePresence mode="wait">
-        <motion.div key={activeCalculator} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-          <ActiveCalculator id={activeCalculator} />
-        </motion.div>
-      </AnimatePresence>
-    </OccupationalToolShell>
-  );
+  const [active, setActive] = useState<CalculatorId>("rates");
+  const [manifest, setManifest] = useState<Manifest | null>(null);
+  const [blsSectors, setBlsSectors] = useState<BlsSector[]>([]);
+  useEffect(() => {
+    void fetch("/api/occupational-discovery/manifest").then((response) => response.json()).then((payload) => { if (payload.ok) setManifest(payload); }).catch(() => undefined);
+    void fetch("/api/occupational-discovery/bls-overview").then((response) => response.json()).then((payload) => { if (payload.ok) setBlsSectors(payload.sectors ?? []); }).catch(() => undefined);
+  }, []);
+  const data = { manifest, blsSectors };
+  return <OccupationalToolShell eyebrow="Independent Intelligence Tool · Calculator Suite" title="Occupational Calculators" subtitle="Nine independent tools rebuilt around ready source data, observable operational inputs, and transparent scenario arithmetic." notice="Each tool remains independent and does not inherit client/case data. Where source data exists, the calculator loads it for the user; where employer facts or assumptions are required, they remain explicit. No calculator declares medical risk, compensability, disability, fatigue impairment, or fitness for duty."><ToolHero kicker="Nine stronger tools" title="Less manual hunting. More useful analysis." description="BLS benchmarks are ready to click, job-demand review uses live O*NET evidence, readiness uses operational counts, fatigue uses real schedule facts, and health-burden planning supports multiple conditions without pretending comorbidity is known." accent="rose"><div className="grid grid-cols-3 gap-2">{options.slice(0, 6).map((item) => { const Icon = item.icon; return <div key={item.id} className={`rounded-xl border p-3 ${toneClasses[item.tone]}`}><Icon size={16} /><p className="mt-2 text-[10px] font-bold leading-4 text-white">{item.label}</p></div>; })}</div></ToolHero><div className="mb-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">{options.map((item) => { const Icon = item.icon; const selected = active === item.id; return <button key={item.id} type="button" onClick={() => setActive(item.id)} className={`rounded-xl border p-3 text-left transition ${selected ? toneClasses[item.tone] : "border-white/10 bg-[#06101d]/80 text-cyan-50/60 hover:border-white/16"}`}><div className="flex items-center gap-2"><Icon size={16} /><span className="text-xs font-black text-white">{item.label}</span></div><p className="mt-1 text-[9px] leading-4 opacity-65">{item.note}</p></button>; })}</div>{!manifest && active === "aggravation" ? <div className="mb-4 flex items-center gap-2 text-xs text-cyan-50/50"><Loader2 size={14} className="animate-spin" />Loading ready occupations…</div> : null}<AnimatePresence mode="wait"><motion.div key={active} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><Active id={active} data={data} /></motion.div></AnimatePresence></OccupationalToolShell>;
 }
