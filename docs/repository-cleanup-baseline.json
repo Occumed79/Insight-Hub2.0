@@ -1,7 +1,7 @@
 {
-  "description": "Post-discovery-first occupational-intelligence structural ceiling for Insight Hub 2 after browser-CI, dead-code hardening, React 19 state-map compatibility, OSHA database-persistence hardening, and the deliberate occupational intelligence expansion. The active application keeps one shell, three global CSS layers, the reviewed component-level style blocks, lazy-loaded workspaces, and the protected Hub 2 intelligence ownership routes. The first-party React 19 state-map workspace replaces the incompatible upstream peer declaration, OSHA summary data uses Postgres persistence, and the discovery-first occupational pass adds a curated discovery API, historical BLS route, OSHA Form 300/301 case-detail persistence/import/analytics, and a bounded Data.gov CKAN datastore workbench. The occupational browser regression suite remains the required guardrail for source-first behavior and removal of pseudo-risk scoring. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
+  "description": "Post-full-source-visibility structural ceiling for Insight Hub 2 after browser-CI, dead-code hardening, React 19 state-map compatibility, OSHA database-persistence hardening, the discovery-first occupational pass, and the deliberate complete-source browser expansion. The active application keeps one shell, three global CSS layers, the reviewed component-level style blocks, lazy-loaded workspaces, and the protected Hub 2 intelligence ownership routes. The occupational intelligence pages now add three reachable production files: a backend source-browser route, a complete BLS/OSHA/Data.gov browser, and a complete O*NET browser. These expose source catalogs, schemas, records, dimensions, and paginated source content without creating another application shell or disconnected frontend. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
   "maximums": {
-    "totalFiles": 246,
+    "totalFiles": 249,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
@@ -27,6 +27,8 @@
     "artifacts/occu-med-insight-hub/src/styles/foundation.css",
     "artifacts/occu-med-insight-hub/src/styles/application.css",
     "artifacts/occu-med-insight-hub/src/components/insight/CinematicPortal.tsx",
+    "artifacts/occu-med-insight-hub/src/components/insight/FullSourceBrowser.tsx",
+    "artifacts/occu-med-insight-hub/src/components/insight/OnetDatabaseBrowser.tsx",
     "artifacts/occu-med-insight-hub/src/pages/onet-master-tool.tsx",
     "artifacts/occu-med-insight-hub/src/pages/occupational-data-explorer.tsx",
     "artifacts/occu-med-insight-hub/src/pages/industry-impact-calculator.tsx",
@@ -37,6 +39,7 @@
     "artifacts/api-server/src/routes/occupational-bls-history.ts",
     "artifacts/api-server/src/routes/occupational-case-detail.ts",
     "artifacts/api-server/src/routes/occupational-datagov-workbench.ts",
+    "artifacts/api-server/src/routes/occupational-source-browser.ts",
     "artifacts/api-server/src/services/oshaCaseDataService.ts",
     "artifacts/api-server/scripts/import-osha-case-detail.ts"
   ],
