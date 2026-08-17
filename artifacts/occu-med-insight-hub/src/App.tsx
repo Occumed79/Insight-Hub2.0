@@ -14,7 +14,7 @@ const DataVisualization = React.lazy(
 const QuantifiableData = React.lazy(() => import("@/pages/quantifiable-data"));
 const GeographicData = React.lazy(() => import("@/pages/geographic-data"));
 const LocationOverlap = React.lazy(() => import("@/pages/location-overlap"));
-const JobIntelligence = React.lazy(() => import("@/pages/job-intelligence"));
+const LegacyJobIntelligence = React.lazy(() => import("@/pages/job-intelligence"));
 const HiringIntelligence = React.lazy(
   () => import("@/pages/hiring-intelligence"),
 );
@@ -41,6 +41,36 @@ const DbaIntelligence = React.lazy(() => import("@/pages/dba-intelligence"));
 const SourceGovernance = React.lazy(() => import("@/pages/source-governance"));
 const AorRiskIntelligencePage = React.lazy(
   () => import("@/pages/aor-risk-intelligence"),
+);
+const ReviewerInjuriesMedicalPage = React.lazy(() =>
+  import("@/pages/reviewer-tool-suite").then((module) => ({
+    default: module.ReviewerInjuriesMedicalPage,
+  })),
+);
+const ReviewerJobIntelligencePage = React.lazy(() =>
+  import("@/pages/reviewer-tool-suite").then((module) => ({
+    default: module.ReviewerJobIntelligencePage,
+  })),
+);
+const ReviewerAorFactorsPage = React.lazy(() =>
+  import("@/pages/reviewer-tool-suite").then((module) => ({
+    default: module.ReviewerAorFactorsPage,
+  })),
+);
+const ReviewerDrugCheckerPage = React.lazy(() =>
+  import("@/pages/reviewer-tool-suite").then((module) => ({
+    default: module.ReviewerDrugCheckerPage,
+  })),
+);
+const ReviewerClinicalCalculatorsPage = React.lazy(() =>
+  import("@/pages/reviewer-tool-suite").then((module) => ({
+    default: module.ReviewerClinicalCalculatorsPage,
+  })),
+);
+const ReviewerStandardsIntelligencePage = React.lazy(() =>
+  import("@/pages/reviewer-tool-suite").then((module) => ({
+    default: module.ReviewerStandardsIntelligencePage,
+  })),
 );
 const EntitiesPage = React.lazy(() =>
   import("@/pages/entities").then((module) => ({
@@ -310,6 +340,23 @@ function Router() {
         <Route path="/leadership-map" component={LeadershipMapRoute} />
         <Route path="/dba-intelligence" component={DbaRoute} />
         <Route path="/fec-filings" component={FecFilingsRoute} />
+
+        <Route
+          path="/injuries-medical-conditions"
+          component={ReviewerInjuriesMedicalPage}
+        />
+        <Route path="/job-intelligence" component={ReviewerJobIntelligencePage} />
+        <Route path="/aor-factors" component={ReviewerAorFactorsPage} />
+        <Route path="/drug-checker" component={ReviewerDrugCheckerPage} />
+        <Route
+          path="/clinical-calculators"
+          component={ReviewerClinicalCalculatorsPage}
+        />
+        <Route
+          path="/standards-intelligence"
+          component={ReviewerStandardsIntelligencePage}
+        />
+
         <Route
           path="/industry-injury-benchmarks"
           component={IndustryBenchmarksRoute}
@@ -353,7 +400,7 @@ function Router() {
         <Route path="/quantifiable-data" component={QuantifiableData} />
         <Route path="/hiring-intelligence" component={HiringIntelligence} />
         <Route path="/corporate-structure" component={CorporateStructure} />
-        <Route path="/job-intelligence" component={JobIntelligence} />
+        <Route path="/legacy-job-intelligence" component={LegacyJobIntelligence} />
         <Route path="/employer-workflow" component={EmployerWorkflow} />
         <Route path="/employer-intelligence" component={EmployerIntelligence} />
         <Route path="/entity-resolution" component={EntityResolution} />
