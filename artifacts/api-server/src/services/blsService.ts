@@ -44,6 +44,25 @@ export type BlsStatus = {
   notes: string;
 };
 
+export type BlsHistoryPoint = {
+  year: number;
+  trcRate?: number;
+  dartRate?: number;
+  daysAwayRate?: number;
+};
+
+export type BlsHistoryResult = {
+  naics: string;
+  industryTitle: string;
+  points: BlsHistoryPoint[];
+  source: string;
+  sourceUrl: string;
+  limitation: string;
+  authMode: BlsAuthMode;
+  attemptedSeriesIds: string[];
+  reason: string;
+};
+
 type Measure = "TRC" | "DART" | "Days Away";
 
 type SeriesDefinition = {
@@ -100,339 +119,150 @@ const CASE_TYPES: Array<{ code: string; measure: Measure }> = [
   { code: "2", measure: "DART" },
   { code: "3", measure: "Days Away" },
 ];
-const BLS_LIMITATION =
-  "BLS SOII rates are aggregate industry benchmarks per 100 full-time workers. They are not establishment-level injury data and should not be interpreted as an employer-specific finding.";
+const BLS_LIMITATION = "BLS SOII rates are aggregate industry benchmarks per 100 full-time workers. They are not establishment-level injury data and should not be interpreted as an employer-specific finding.";
 
-function getEnv(key: string): string | undefined {
-  return process.env[key]?.trim() || undefined;
-}
-
-function getAuthMode(): BlsAuthMode {
-  return getEnv("BLS_API_KEY") ? "registered-v2" : "public-v2";
-}
-
+function getEnv(key: string): string | undefined { return process.env[key]?.trim() || undefined; }
+function getAuthMode(): BlsAuthMode { return getEnv("BLS_API_KEY") ? "registered-v2" : "public-v2"; }
 function sanitizeError(error: unknown): string {
   if (!(error instanceof Error)) return "BLS request failed";
-  return error.message
-    .replace(/https?:\/\/[^\s]+/g, "[URL redacted]")
-    .replace(/registrationkey[=:][^&\s]+/gi, "registrationkey=[redacted]")
-    .slice(0, 500);
+  return error.message.replace(/https?:\/\/[^\s]+/g, "[URL redacted]").replace(/registrationkey[=:][^&\s]+/gi, "registrationkey=[redacted]").slice(0, 500);
 }
 
 export function getBlsStatus(): BlsStatus {
   const hasKey = !!getEnv("BLS_API_KEY");
-  return {
-    configured: hasKey,
-    enabled: true,
-    authMode: getAuthMode(),
-    notes: `BLS SOII industry benchmark rates using current IS-series IDs and POST timeseries queries. Auth mode: ${getAuthMode()}. ${BLS_LIMITATION}`,
-  };
+  return { configured: hasKey, enabled: true, authMode: getAuthMode(), notes: `BLS SOII industry benchmark rates using current IS-series IDs and POST timeseries queries. Auth mode: ${getAuthMode()}. ${BLS_LIMITATION}` };
 }
 
-function normalizeNaics(value: string): string {
-  return value.replace(/\D/g, "").slice(0, 6);
+function normalizeNaics(value: string): string { return value.replace(/\D/g, "").slice(0, 6); }
+function makeSeriesId(supersector: string, industry: string, caseType: string, area = PRIVATE_US_AREA): string { return `ISU${supersector}${industry}${RATE_DATA_TYPE}${caseType}${area}`; }
+function buildGroup(group: string, supersector: string, industry: string, title: string, specificity: "exact" | "sector", area = PRIVATE_US_AREA, ownership = "Private industry, All U.S."): SeriesDefinition[] {
+  return CASE_TYPES.map(({ code, measure }) => ({ seriesId: makeSeriesId(supersector, industry, code, area), measure, group, industryTitle: title, specificity, ownership }));
 }
 
-function makeSeriesId(
-  supersector: string,
-  industry: string,
-  caseType: string,
-  area = PRIVATE_US_AREA,
-): string {
-  return `ISU${supersector}${industry}${RATE_DATA_TYPE}${caseType}${area}`;
-}
-
-function buildGroup(
-  group: string,
-  supersector: string,
-  industry: string,
-  title: string,
-  specificity: "exact" | "sector",
-  area = PRIVATE_US_AREA,
-  ownership = "Private industry, All U.S.",
-): SeriesDefinition[] {
-  return CASE_TYPES.map(({ code, measure }) => ({
-    seriesId: makeSeriesId(supersector, industry, code, area),
-    measure,
-    group,
-    industryTitle: title,
-    specificity,
-    ownership,
-  }));
-}
-
-function resolveSeries(naicsInput: string): {
-  definitions: SeriesDefinition[];
-  unsupportedReason?: string;
-} {
+function resolveSeries(naicsInput: string): { definitions: SeriesDefinition[]; unsupportedReason?: string } {
   const naics = normalizeNaics(naicsInput);
-  if (naics.length < 2) {
-    return { definitions: [], unsupportedReason: "Enter a 2- to 6-digit NAICS code." };
-  }
-
+  if (naics.length < 2) return { definitions: [], unsupportedReason: "Enter a 2- to 6-digit NAICS code." };
   const sectorCode = naics.slice(0, 2);
   const sector = SECTOR_SERIES[sectorCode];
-  if (!sector) {
-    return {
-      definitions: [],
-      unsupportedReason: `No current SOII sector mapping is configured for NAICS ${naics}.`,
-    };
-  }
-
-  if (sectorCode === "92") {
-    return {
-      definitions: [],
-      unsupportedReason:
-        "Public Administration SOII rates are published by government ownership (for example state or local government). Selectable ownership is not yet exposed in this tool, so no single rate is returned instead of silently substituting one.",
-    };
-  }
-
+  if (!sector) return { definitions: [], unsupportedReason: `No current SOII sector mapping is configured for NAICS ${naics}.` };
+  if (sectorCode === "92") return { definitions: [], unsupportedReason: "Public Administration SOII rates are published by government ownership (for example state or local government). Selectable ownership is not yet exposed in this tool, so no single rate is returned instead of silently substituting one." };
   const definitions: SeriesDefinition[] = [];
-
   if (naics.length >= 3) {
     const exactIndustry = naics.padEnd(6, "0");
-    definitions.push(
-      ...buildGroup(
-        `exact:${exactIndustry}`,
-        sector.supersector,
-        exactIndustry,
-        `NAICS ${naics}`,
-        "exact",
-      ),
-    );
+    definitions.push(...buildGroup(`exact:${exactIndustry}`, sector.supersector, exactIndustry, `NAICS ${naics}`, "exact"));
   }
-
-  definitions.push(
-    ...buildGroup(
-      `sector:${sectorCode}`,
-      sector.supersector,
-      sector.industry,
-      sector.title,
-      "sector",
-    ),
-  );
-
-  return {
-    definitions: definitions.filter(
-      (definition, index, items) =>
-        items.findIndex((candidate) => candidate.seriesId === definition.seriesId) === index,
-    ),
-  };
+  definitions.push(...buildGroup(`sector:${sectorCode}`, sector.supersector, sector.industry, sector.title, "sector"));
+  return { definitions: definitions.filter((definition, index, items) => items.findIndex((candidate) => candidate.seriesId === definition.seriesId) === index) };
 }
 
-type BlsApiSeries = {
-  seriesID?: string;
-  data?: Array<{ year?: string; period?: string; value?: string | number }>;
-};
-
-type BlsApiPayload = {
-  status?: string;
-  message?: string[];
-  Results?: { series?: BlsApiSeries[] };
-};
-
-function numericRate(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value !== "string") return undefined;
-  const parsed = Number(value.replace(/,/g, ""));
-  return Number.isFinite(parsed) ? parsed : undefined;
+type BlsApiSeries = { seriesID?: string; data?: Array<{ year?: string; period?: string; value?: string | number }> };
+type BlsApiPayload = { status?: string; message?: string[]; Results?: { series?: BlsApiSeries[] } };
+function numericRate(value: unknown): number | undefined { if (typeof value === "number" && Number.isFinite(value)) return value; if (typeof value !== "string") return undefined; const parsed = Number(value.replace(/,/g, "")); return Number.isFinite(parsed) ? parsed : undefined; }
+function annualPoints(series: BlsApiSeries | undefined): Array<{ year: number; value: number }> {
+  return (series?.data ?? []).filter((point) => !point.period || point.period === "A01").map((point) => ({ year: Number(point.year), value: numericRate(point.value) })).filter((point): point is { year: number; value: number } => Number.isFinite(point.year) && point.value !== undefined).sort((a, b) => a.year - b.year);
 }
-
-function pickAnnualPoint(
-  series: BlsApiSeries | undefined,
-  requestedYear?: string,
-): { year: number; value: number } | null {
-  const points = series?.data ?? [];
-  const annual = points
-    .filter((point) => !point.period || point.period === "A01")
-    .map((point) => ({
-      year: Number(point.year),
-      value: numericRate(point.value),
-    }))
-    .filter(
-      (point): point is { year: number; value: number } =>
-        Number.isFinite(point.year) && point.value !== undefined,
-    )
-    .sort((a, b) => b.year - a.year);
-
-  if (requestedYear) {
-    const exact = annual.find((point) => point.year === Number(requestedYear));
-    return exact ?? null;
-  }
+function pickAnnualPoint(series: BlsApiSeries | undefined, requestedYear?: string): { year: number; value: number } | null {
+  const annual = annualPoints(series).sort((a, b) => b.year - a.year);
+  if (requestedYear) return annual.find((point) => point.year === Number(requestedYear)) ?? null;
   return annual[0] ?? null;
 }
 
-export async function fetchBlsBenchmark(
-  naicsInput: string,
-  year?: string,
-): Promise<BlsQueryResult> {
+async function requestSeries(seriesIds: string[], startyear: string, endyear: string): Promise<{ payload: BlsApiPayload | null; reason?: string }> {
+  const apiKey = getEnv("BLS_API_KEY");
+  try {
+    const body: Record<string, unknown> = { seriesid: seriesIds, startyear, endyear };
+    if (apiKey) body.registrationkey = apiKey;
+    const response = await fetch(BLS_API_URL, { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": "Occu-Med-Insight-Hub/2.0" }, body: JSON.stringify(body) });
+    if (!response.ok) return { payload: null, reason: `BLS API request failed with HTTP ${response.status}. This is an upstream/API response error; it is not being mislabeled as a NAICS mapping error.` };
+    const payload = (await response.json()) as BlsApiPayload;
+    if (payload.status && payload.status !== "REQUEST_SUCCEEDED") return { payload: null, reason: (payload.message ?? []).filter(Boolean).join(" ") || `BLS API returned status ${payload.status}.` };
+    return { payload };
+  } catch (error) {
+    return { payload: null, reason: `BLS API request failed: ${sanitizeError(error)}.` };
+  }
+}
+
+function groupDefinitions(definitions: SeriesDefinition[]): Map<string, SeriesDefinition[]> {
+  const groups = new Map<string, SeriesDefinition[]>();
+  for (const definition of definitions) { const current = groups.get(definition.group) ?? []; current.push(definition); groups.set(definition.group, current); }
+  return groups;
+}
+
+export async function fetchBlsHistory(naicsInput: string, startYear = new Date().getUTCFullYear() - 7, endYear = new Date().getUTCFullYear() - 1): Promise<BlsHistoryResult> {
+  const naics = normalizeNaics(naicsInput);
+  const resolved = resolveSeries(naics);
+  const attemptedSeriesIds = resolved.definitions.map((definition) => definition.seriesId);
+  const authMode = getAuthMode();
+  if (resolved.unsupportedReason) return { naics, industryTitle: `NAICS ${naics}`, points: [], source: BLS_SOURCE, sourceUrl: BLS_SOURCE_URL, limitation: BLS_LIMITATION, authMode, attemptedSeriesIds, reason: resolved.unsupportedReason };
+  const safeStart = Math.max(2014, Math.min(Math.floor(startYear), new Date().getUTCFullYear()));
+  const safeEnd = Math.max(safeStart, Math.min(Math.floor(endYear), new Date().getUTCFullYear()));
+  const request = await requestSeries(attemptedSeriesIds, String(safeStart), String(safeEnd));
+  if (!request.payload) return { naics, industryTitle: `NAICS ${naics}`, points: [], source: BLS_SOURCE, sourceUrl: BLS_SOURCE_URL, limitation: BLS_LIMITATION, authMode, attemptedSeriesIds, reason: request.reason || "BLS history request failed." };
+  const returnedSeries = request.payload.Results?.series ?? [];
+  const byId = new Map(returnedSeries.map((series) => [series.seriesID || "", series]));
+  const candidates = Array.from(groupDefinitions(resolved.definitions).values()).map((definitions) => ({ definitions, count: definitions.reduce((sum, definition) => sum + annualPoints(byId.get(definition.seriesId)).length, 0), specificity: definitions[0]?.specificity ?? "sector" })).filter((candidate) => candidate.count > 0).sort((a, b) => { if (a.specificity !== b.specificity) return a.specificity === "exact" ? -1 : 1; return b.count - a.count; });
+  const selected = candidates[0];
+  if (!selected) return { naics, industryTitle: `NAICS ${naics}`, points: [], source: BLS_SOURCE, sourceUrl: BLS_SOURCE_URL, limitation: BLS_LIMITATION, authMode, attemptedSeriesIds, reason: `BLS returned no annual SOII rate values for NAICS ${naics} from ${safeStart} through ${safeEnd}.` };
+  const byYear = new Map<number, BlsHistoryPoint>();
+  for (const definition of selected.definitions) {
+    for (const point of annualPoints(byId.get(definition.seriesId))) {
+      const row = byYear.get(point.year) ?? { year: point.year };
+      if (definition.measure === "TRC") row.trcRate = point.value;
+      else if (definition.measure === "DART") row.dartRate = point.value;
+      else row.daysAwayRate = point.value;
+      byYear.set(point.year, row);
+    }
+  }
+  const first = selected.definitions[0];
+  const fellBack = first.specificity === "sector" && naics.length >= 3;
+  return {
+    naics,
+    industryTitle: fellBack ? `${first.industryTitle} (sector benchmark for NAICS ${naics})` : first.industryTitle,
+    points: Array.from(byYear.values()).sort((a, b) => a.year - b.year),
+    source: BLS_SOURCE,
+    sourceUrl: BLS_SOURCE_URL,
+    limitation: fellBack ? `${BLS_LIMITATION} A specific NAICS time series was not available, so the broader sector history is shown.` : BLS_LIMITATION,
+    authMode,
+    attemptedSeriesIds,
+    reason: fellBack ? "Historical series uses the broader sector fallback." : "Historical SOII series retrieved from BLS.",
+  };
+}
+
+export async function fetchBlsBenchmark(naicsInput: string, year?: string): Promise<BlsQueryResult> {
   const apiKey = getEnv("BLS_API_KEY");
   const authMode = getAuthMode();
   const naics = normalizeNaics(naicsInput);
   const resolved = resolveSeries(naics);
   const attemptedSeriesIds = resolved.definitions.map((definition) => definition.seriesId);
-
-  if (resolved.unsupportedReason) {
-    return {
-      benchmark: null,
-      configured: !!apiKey,
-      enabled: true,
-      authMode,
-      attempted: false,
-      attemptedSeriesIds,
-      reason: resolved.unsupportedReason,
-    };
-  }
-
+  if (resolved.unsupportedReason) return { benchmark: null, configured: !!apiKey, enabled: true, authMode, attempted: false, attemptedSeriesIds, reason: resolved.unsupportedReason };
   const now = new Date();
   const latestLikelyYear = now.getUTCFullYear() - 2;
   const requestedYear = year?.trim() || undefined;
   const startyear = requestedYear || String(latestLikelyYear - 1);
   const endyear = requestedYear || String(latestLikelyYear + 1);
-
-  try {
-    const body: Record<string, unknown> = {
-      seriesid: attemptedSeriesIds,
-      startyear,
-      endyear,
-    };
-    if (apiKey) body.registrationkey = apiKey;
-
-    const response = await fetch(BLS_API_URL, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "Occu-Med-Insight-Hub/2.0",
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      return {
-        benchmark: null,
-        configured: !!apiKey,
-        enabled: true,
-        authMode,
-        attempted: true,
-        attemptedSeriesIds,
-        reason: `BLS API request failed with HTTP ${response.status}. This is an upstream/API response error; it is not being mislabeled as a NAICS mapping error.`,
-      };
-    }
-
-    const payload = (await response.json()) as BlsApiPayload;
-    if (payload.status && payload.status !== "REQUEST_SUCCEEDED") {
-      const detail = (payload.message ?? []).filter(Boolean).join(" ");
-      return {
-        benchmark: null,
-        configured: !!apiKey,
-        enabled: true,
-        authMode,
-        attempted: true,
-        attemptedSeriesIds,
-        reason: detail || `BLS API returned status ${payload.status}.`,
-      };
-    }
-
-    const returnedSeries = payload.Results?.series ?? [];
-    const byId = new Map(returnedSeries.map((series) => [series.seriesID || "", series]));
-    const groups = new Map<string, SeriesDefinition[]>();
-    for (const definition of resolved.definitions) {
-      const current = groups.get(definition.group) ?? [];
-      current.push(definition);
-      groups.set(definition.group, current);
-    }
-
-    const evaluated = Array.from(groups.entries()).map(([group, definitions]) => {
-      const values = definitions.map((definition) => ({
-        definition,
-        point: pickAnnualPoint(byId.get(definition.seriesId), requestedYear),
-      }));
-      const available = values.filter((entry) => entry.point !== null);
-      const specificity = definitions[0]?.specificity ?? "sector";
-      return { group, definitions, values, available, specificity };
-    });
-
-    const selected = evaluated
-      .filter((candidate) => candidate.available.length > 0)
-      .sort((a, b) => {
-        const specificityRank = (value: "exact" | "sector") => (value === "exact" ? 1 : 0);
-        const aExact = specificityRank(a.specificity);
-        const bExact = specificityRank(b.specificity);
-        if (aExact !== bExact) return bExact - aExact;
-        return b.available.length - a.available.length;
-      })[0];
-
-    if (!selected) {
-      return {
-        benchmark: null,
-        configured: !!apiKey,
-        enabled: true,
-        authMode,
-        attempted: true,
-        attemptedSeriesIds,
-        reason: requestedYear
-          ? `BLS returned no annual SOII rate values for NAICS ${naics} in ${requestedYear}. No substitute values were generated.`
-          : `BLS returned no annual SOII rate values for NAICS ${naics} in the queried current-year window. No substitute values were generated.`,
-      };
-    }
-
-    let trcRate: number | undefined;
-    let dartRate: number | undefined;
-    let daysAwayRate: number | undefined;
-    let dataYear = 0;
-
-    for (const entry of selected.values) {
-      if (!entry.point) continue;
-      dataYear = Math.max(dataYear, entry.point.year);
-      if (entry.definition.measure === "TRC") trcRate = entry.point.value;
-      else if (entry.definition.measure === "DART") dartRate = entry.point.value;
-      else if (entry.definition.measure === "Days Away") daysAwayRate = entry.point.value;
-    }
-
-    const first = selected.definitions[0];
-    const fellBackToSector = first.specificity === "sector" && naics.length >= 3;
-    const title = fellBackToSector
-      ? `${first.industryTitle} (sector benchmark for NAICS ${naics})`
-      : first.industryTitle;
-
-    return {
-      benchmark: {
-        naics,
-        industryTitle: title,
-        year: dataYear,
-        trcRate,
-        dartRate,
-        daysAwayRate,
-        source: BLS_SOURCE,
-        sourceUrl: BLS_SOURCE_URL,
-        apiDocsUrl: BLS_API_DOCS_URL,
-        developerDocsUrl: BLS_DEVELOPER_DOCS_URL,
-        sourceMetadata: `U.S. Bureau of Labor Statistics, Survey of Occupational Injuries and Illnesses (SOII), current IS-series industry benchmark; ${first.ownership}.`,
-        limitation: fellBackToSector
-          ? `${BLS_LIMITATION} A more specific NAICS series was not available in the queried window, so the broader ${first.industryTitle} sector benchmark is shown and labeled as such.`
-          : BLS_LIMITATION,
-        authMode,
-        attemptedSeriesIds,
-      },
-      configured: !!apiKey,
-      enabled: true,
-      authMode,
-      attempted: true,
-      attemptedSeriesIds,
-      reason: fellBackToSector
-        ? "BLS returned a broader sector benchmark after the more specific NAICS series had no usable annual values."
-        : "Benchmark data retrieved from the BLS SOII API.",
-    };
-  } catch (error) {
-    return {
-      benchmark: null,
-      configured: !!apiKey,
-      enabled: true,
-      authMode,
-      attempted: true,
-      attemptedSeriesIds,
-      reason: `BLS API request failed: ${sanitizeError(error)}.`,
-    };
-  }
+  const request = await requestSeries(attemptedSeriesIds, startyear, endyear);
+  if (!request.payload) return { benchmark: null, configured: !!apiKey, enabled: true, authMode, attempted: true, attemptedSeriesIds, reason: request.reason || "BLS API request failed." };
+  const returnedSeries = request.payload.Results?.series ?? [];
+  const byId = new Map(returnedSeries.map((series) => [series.seriesID || "", series]));
+  const evaluated = Array.from(groupDefinitions(resolved.definitions).entries()).map(([group, definitions]) => {
+    const values = definitions.map((definition) => ({ definition, point: pickAnnualPoint(byId.get(definition.seriesId), requestedYear) }));
+    const available = values.filter((entry) => entry.point !== null);
+    return { group, definitions, values, available, specificity: definitions[0]?.specificity ?? "sector" };
+  });
+  const selected = evaluated.filter((candidate) => candidate.available.length > 0).sort((a, b) => { const rank = (value: "exact" | "sector") => value === "exact" ? 1 : 0; const diff = rank(b.specificity) - rank(a.specificity); return diff || b.available.length - a.available.length; })[0];
+  if (!selected) return { benchmark: null, configured: !!apiKey, enabled: true, authMode, attempted: true, attemptedSeriesIds, reason: requestedYear ? `BLS returned no annual SOII rate values for NAICS ${naics} in ${requestedYear}. No substitute values were generated.` : `BLS returned no annual SOII rate values for NAICS ${naics} in the queried current-year window. No substitute values were generated.` };
+  let trcRate: number | undefined; let dartRate: number | undefined; let daysAwayRate: number | undefined; let dataYear = 0;
+  for (const entry of selected.values) { if (!entry.point) continue; dataYear = Math.max(dataYear, entry.point.year); if (entry.definition.measure === "TRC") trcRate = entry.point.value; else if (entry.definition.measure === "DART") dartRate = entry.point.value; else daysAwayRate = entry.point.value; }
+  const first = selected.definitions[0];
+  const fellBackToSector = first.specificity === "sector" && naics.length >= 3;
+  const title = fellBackToSector ? `${first.industryTitle} (sector benchmark for NAICS ${naics})` : first.industryTitle;
+  return {
+    benchmark: { naics, industryTitle: title, year: dataYear, trcRate, dartRate, daysAwayRate, source: BLS_SOURCE, sourceUrl: BLS_SOURCE_URL, apiDocsUrl: BLS_API_DOCS_URL, developerDocsUrl: BLS_DEVELOPER_DOCS_URL, sourceMetadata: `U.S. Bureau of Labor Statistics, Survey of Occupational Injuries and Illnesses (SOII), current IS-series industry benchmark; ${first.ownership}.`, limitation: fellBackToSector ? `${BLS_LIMITATION} A more specific NAICS series was not available in the queried window, so the broader ${first.industryTitle} sector benchmark is shown and labeled as such.` : BLS_LIMITATION, authMode, attemptedSeriesIds },
+    configured: !!apiKey,
+    enabled: true,
+    authMode,
+    attempted: true,
+    attemptedSeriesIds,
+    reason: fellBackToSector ? "BLS returned a broader sector benchmark after the more specific NAICS series had no usable annual values." : "Benchmark data retrieved from the BLS SOII API.",
+  };
 }
