@@ -35,6 +35,7 @@ import occupationalToolsRouter from "./occupational-tools";
 import occupationalDiscoveryRouter from "./occupational-discovery";
 import occupationalCaseDetailRouter from "./occupational-case-detail";
 import occupationalBlsHistoryRouter from "./occupational-bls-history";
+import occupationalDatagovWorkbenchRouter from "./occupational-datagov-workbench";
 
 const router: IRouter = Router();
 
@@ -84,5 +85,6 @@ router.use(occupationalToolsRouter);
 router.use(occupationalDiscoveryRouter);
 router.use(occupationalCaseDetailRouter);
 router.use(occupationalBlsHistoryRouter);
+router.use(occupationalDatagovWorkbenchRouter);
 
 export default router;
