@@ -38,6 +38,7 @@ import occupationalBlsHistoryRouter from "./occupational-bls-history";
 import occupationalDatagovWorkbenchRouter from "./occupational-datagov-workbench";
 import occupationalOnetDatabaseRouter from "./occupational-onet-database";
 import occupationalSourceBrowserRouter from "./occupational-source-browser";
+import officialSourceWebviewRouter from "./official-source-webview";
 
 const router: IRouter = Router();
 
@@ -90,5 +91,6 @@ router.use(occupationalBlsHistoryRouter);
 router.use(occupationalDatagovWorkbenchRouter);
 router.use(occupationalOnetDatabaseRouter);
 router.use(occupationalSourceBrowserRouter);
+router.use(officialSourceWebviewRouter);
 
 export default router;
