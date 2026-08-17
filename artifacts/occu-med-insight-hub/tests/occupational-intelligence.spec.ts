@@ -120,8 +120,8 @@ test("Occupational Data Explorer exposes prepared intelligence before search", a
   await expect(page.getByText("Largest reported injury burden")).toBeVisible();
   await expect(page.getByText("Example Infrastructure Co", { exact: true })).toBeVisible();
   await expect(page.getByText("Injury composition is query-ready.")).toBeVisible();
-  await expect(page.getByText("Sprains, strains, tears")).toBeVisible();
-  await expect(page.getByText("Overexertion and bodily reaction")).toBeVisible();
+  await expect(page.getByText("Sprains, strains, tears", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Overexertion and bodily reaction", { exact: true }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "Public Data Collections" }).click();
   await expect(page.getByText("The useful government-data searches are already done.")).toBeVisible();
