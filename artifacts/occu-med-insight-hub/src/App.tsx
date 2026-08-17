@@ -52,10 +52,8 @@ const ReviewerJobIntelligencePage = React.lazy(() =>
     default: module.ReviewerJobIntelligencePage,
   })),
 );
-const ReviewerAorFactorsPage = React.lazy(() =>
-  import("@/pages/reviewer-tool-suite").then((module) => ({
-    default: module.ReviewerAorFactorsPage,
-  })),
+const ReviewerAorFactorsPage = React.lazy(
+  () => import("@/pages/reviewer-aor-factors"),
 );
 const ReviewerDrugCheckerPage = React.lazy(() =>
   import("@/pages/reviewer-tool-suite").then((module) => ({
