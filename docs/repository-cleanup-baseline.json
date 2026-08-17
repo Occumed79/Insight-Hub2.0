@@ -1,7 +1,7 @@
 {
-  "description": "Post-reviewer-tool-suite structural ceiling for Insight Hub 2 after browser-CI, dead-code hardening, React 19 state-map compatibility, OSHA database-persistence hardening, discovery-first occupational work, isolated official-source webviews, and the native six-tool reviewer intelligence transplant. The active application keeps one shell, three global CSS layers, reviewed component-level style blocks, lazy-loaded workspaces, and protected Hub 2 intelligence ownership routes. The reviewer-derived Injuries & Medical Conditions, Job Intelligence, AOR Factors, Drug Checker, Clinical Calculators, and Standards Intelligence workspaces are rendered with the native Hub 2 Sidebar/HeaderBar/GlassCard design system rather than importing a second application shell or reviewer stylesheet. Standards Intelligence now uses the full transplanted reviewer standards rule engine in its own native Hub 2 page. Their additional public-source adapters are consolidated in one registered API route. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
+  "description": "Post-reviewer-tool-suite structural ceiling for Insight Hub 2 after browser-CI, dead-code hardening, React 19 state-map compatibility, OSHA database-persistence hardening, discovery-first occupational work, isolated official-source webviews, and the native six-tool reviewer intelligence transplant. The active application keeps one shell, three global CSS layers, reviewed component-level style blocks, lazy-loaded workspaces, and protected Hub 2 intelligence ownership routes. The reviewer-derived Injuries & Medical Conditions, Job Intelligence, AOR Factors, Drug Checker, Clinical Calculators, and Standards Intelligence workspaces are rendered with the native Hub 2 Sidebar/HeaderBar/GlassCard design system rather than importing a second application shell or reviewer stylesheet. Standards Intelligence uses the full transplanted reviewer standards rule engine in its own native Hub 2 page. AOR Factors uses the existing Hub 2 Leaflet stack for a native dark command/event map without introducing another map library or API key. Their additional public-source adapters are consolidated in one registered API route. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
   "maximums": {
-    "totalFiles": 254,
+    "totalFiles": 255,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
@@ -33,6 +33,7 @@
     "artifacts/occu-med-insight-hub/src/pages/industry-impact-calculator.tsx",
     "artifacts/occu-med-insight-hub/src/pages/occupational-calculators.tsx",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-tool-suite.tsx",
+    "artifacts/occu-med-insight-hub/src/pages/reviewer-aor-factors.tsx",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-standards-data.ts",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-standards-intelligence.tsx",
     "artifacts/occu-med-insight-hub/tests/occupational-intelligence.spec.ts",
