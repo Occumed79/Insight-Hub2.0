@@ -67,10 +67,8 @@ const ReviewerClinicalCalculatorsPage = React.lazy(() =>
     default: module.ReviewerClinicalCalculatorsPage,
   })),
 );
-const ReviewerStandardsIntelligencePage = React.lazy(() =>
-  import("@/pages/reviewer-tool-suite").then((module) => ({
-    default: module.ReviewerStandardsIntelligencePage,
-  })),
+const ReviewerStandardsIntelligencePage = React.lazy(
+  () => import("@/pages/reviewer-standards-intelligence"),
 );
 const EntitiesPage = React.lazy(() =>
   import("@/pages/entities").then((module) => ({
