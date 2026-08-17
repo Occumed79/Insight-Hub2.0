@@ -74,6 +74,51 @@ const onetProfile = {
   limitation: "Service matches are transparent filters, not medical conclusions.",
 };
 
+const reviewerAor = {
+  ok: true,
+  command: "centcom",
+  commandLabel: "USCENTCOM",
+  partial: false,
+  sourceHealth: [
+    { provider: "WHO Disease Outbreak News", ok: true, count: 1 },
+    { provider: "GDACS", ok: true, count: 1 },
+    { provider: "USGS Earthquake Catalog", ok: true, count: 1 },
+  ],
+  outbreaks: [
+    {
+      id: "who-1",
+      title: "Test outbreak — Jordan",
+      publishedAt: "2026-08-16T12:00:00.000Z",
+      summary: "A source-attributed outbreak item for browser acceptance.",
+      matchedArea: "Jordan",
+      url: "https://www.who.int/emergencies/disease-outbreak-news",
+    },
+  ],
+  disasters: [
+    {
+      id: "gdacs-1",
+      title: "Flood event",
+      alertLevel: "orange",
+      country: "Pakistan",
+      eventType: "FL",
+      fromDate: "2026-08-16T08:00:00.000Z",
+      url: "https://www.gdacs.org/",
+    },
+  ],
+  earthquakes: [
+    {
+      id: "usgs-1",
+      title: "M 5.1 — Iran",
+      place: "Iran",
+      magnitude: 5.1,
+      occurredAt: "2026-08-16T06:00:00.000Z",
+      depthKm: 12.4,
+      tsunami: false,
+      url: "https://earthquake.usgs.gov/",
+    },
+  ],
+};
+
 async function installOccupationalApi(page: Page) {
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
@@ -128,6 +173,29 @@ async function installOccupationalApi(page: Page) {
       return fulfillJson(route, { ok: true, benchmark: constructionBenchmark, message: "Benchmark data retrieved." });
     }
     if (path.endsWith("/api/occupational-discovery/onet/profile")) return fulfillJson(route, onetProfile);
+    if (path.endsWith("/api/occupational-discovery/osha-overview")) {
+      return fulfillJson(route, {
+        ok: true,
+        imported: true,
+        latestYear: 2025,
+        topEmployers: [{ establishment_name: "Example Employer", total_cases: 41 }],
+        topStates: [{ state: "TX", total_cases: 310 }],
+        highRateEstablishments: [{ establishment_name: "Example Facility", trc: 7.4 }],
+      });
+    }
+    if (path.endsWith("/api/reviewer-tools/aor")) return fulfillJson(route, reviewerAor);
+    if (path.endsWith("/api/reviewer-tools/rxnorm")) {
+      return fulfillJson(route, { ok: true, source: "NLM RxNorm", candidates: [{ rxcui: "25480", name: "gabapentin 300 MG Oral Capsule", score: 100 }] });
+    }
+    if (path.endsWith("/api/reviewer-tools/pubchem")) {
+      return fulfillJson(route, {
+        ok: true,
+        source: "NIH PubChem PUG REST",
+        molecule: { CID: 3446, MolecularFormula: "C9H17NO2", MolecularWeight: "171.24", XLogP: -1.1, TPSA: 63.3 },
+        structureImageUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E",
+        pubchemUrl: "https://pubchem.ncbi.nlm.nih.gov/compound/3446",
+      });
+    }
 
     return fulfillJson(route, { ok: true, configured: true, records: [], datasets: [], matches: [] });
   });
@@ -214,5 +282,54 @@ test("O*NET Master Tool renders the official O*NET site through the working webv
   await expect(page.frameLocator('iframe[title="O*NET OnLine official data portal"]').getByText("O*NET official source")).toBeVisible();
   await expect(page.getByText("Browse by Occu-Med service opportunity")).toHaveCount(0);
   await expect(page.getByText("Raw O*NET Database Tables")).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+});
+
+test("all six transplanted reviewer tools render and retain their core interactions", async ({ page }) => {
+  await page.goto("/injuries-medical-conditions");
+  await expect(page.getByRole("heading", { name: "Injuries & Medical Conditions" })).toBeVisible();
+  await expect(page.getByText("Reported injury burden")).toBeVisible();
+  await page.getByRole("tab", { name: "Medical Conditions" }).click();
+  await expect(page.getByRole("heading", { name: "Diabetes" })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await page.goto("/job-intelligence");
+  await expect(page.getByRole("heading", { name: "Job Intelligence" })).toBeVisible();
+  await page.getByPlaceholder("Aircraft mechanic, firefighter, HVAC mechanic…").fill("Aircraft mechanic");
+  await page.getByRole("button", { name: "Search O*NET" }).click();
+  await expect(page.getByText("Aircraft Mechanics and Service Technicians")).toBeVisible();
+  await page.getByRole("button", { name: "Add" }).first().click().catch(() => undefined);
+  await expectNoHorizontalOverflow(page);
+
+  await page.goto("/aor-factors");
+  await expect(page.getByRole("heading", { name: "AOR Factors" })).toBeVisible();
+  await expect(page.getByText("WHO Disease Outbreaks")).toBeVisible();
+  await expect(page.getByText("Test outbreak — Jordan")).toBeVisible();
+  await page.getByRole("tab", { name: "Environmental & Performance Factors" }).click();
+  await expect(page.getByText("Build the work environment")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await page.goto("/drug-checker");
+  await expect(page.getByRole("heading", { name: "Drug Checker" })).toBeVisible();
+  await page.getByPlaceholder("Gabapentin, Eliquis, metoprolol…").fill("gabapentin");
+  await expect(page.getByRole("button", { name: /gabapentin 300 MG Oral Capsule/ })).toBeVisible();
+  await page.getByRole("button", { name: /gabapentin 300 MG Oral Capsule/ }).click();
+  await expect(page.getByText("Reviewed occupational profile")).toBeVisible();
+  await expect(page.getByText("C9H17NO2")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await page.goto("/clinical-calculators");
+  await expect(page.getByRole("heading", { name: "Clinical Calculators" })).toBeVisible();
+  await page.getByLabel("Weight · kg").fill("78");
+  await page.getByLabel("Height · cm").fill("180");
+  await page.getByRole("button", { name: "Calculate" }).click();
+  await expect(page.getByText("24.1", { exact: true })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await page.goto("/standards-intelligence");
+  await expect(page.getByRole("heading", { name: "Standards Intelligence" })).toBeVisible();
+  await expect(page.getByText("Deployment functional baseline")).toBeVisible();
+  await page.getByLabel("Condition").fill("Obstructive sleep apnea");
+  await expect(page.getByText("Obstructive sleep apnea deployment criteria")).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
