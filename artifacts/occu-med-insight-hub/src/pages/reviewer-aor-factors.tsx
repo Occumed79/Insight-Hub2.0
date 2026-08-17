@@ -38,13 +38,6 @@ type EnvironmentState = {
   night: boolean;
 };
 
-async function loadJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload?.error || `Request failed (${response.status}).`);
-  return payload as T;
-}
-
 function Surface({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <GlassCard variant="glass" className={`border border-white/24 bg-white/[0.065] p-[1px] shadow-[0_24px_72px_rgba(0,0,0,.28),0_0_34px_rgba(186,230,253,.07)] backdrop-blur-3xl ${className}`}>
@@ -134,9 +127,9 @@ export default function ReviewerAorFactorsPage() {
           subtitle="The Exam Reviewer operating-environment workspace transplanted into Insight Hub 2 with command selection, mapped hazards, WHO outbreaks, GDACS disasters, USGS seismic activity, and human-performance factors."
         />
 
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
-          <button type="button" onClick={() => setTab("command")} className={`min-h-11 rounded-2xl border px-4 text-xs font-black ${tab === "command" ? "border-cyan-100/34 bg-cyan-300/[0.12]" : "border-white/12 bg-white/[0.03] text-cyan-100/55"}`}>AOR & Command Intelligence</button>
-          <button type="button" onClick={() => setTab("environment")} className={`min-h-11 rounded-2xl border px-4 text-xs font-black ${tab === "environment" ? "border-cyan-100/34 bg-cyan-300/[0.12]" : "border-white/12 bg-white/[0.03] text-cyan-100/55"}`}>Environmental & Performance Factors</button>
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="AOR Factors domains">
+          <button type="button" role="tab" aria-selected={tab === "command"} onClick={() => setTab("command")} className={`min-h-11 rounded-2xl border px-4 text-xs font-black ${tab === "command" ? "border-cyan-100/34 bg-cyan-300/[0.12]" : "border-white/12 bg-white/[0.03] text-cyan-100/55"}`}>AOR & Command Intelligence</button>
+          <button type="button" role="tab" aria-selected={tab === "environment"} onClick={() => setTab("environment")} className={`min-h-11 rounded-2xl border px-4 text-xs font-black ${tab === "environment" ? "border-cyan-100/34 bg-cyan-300/[0.12]" : "border-white/12 bg-white/[0.03] text-cyan-100/55"}`}>Environmental & Performance Factors</button>
         </div>
 
         {tab === "command" ? (
