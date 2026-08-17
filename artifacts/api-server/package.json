@@ -9,7 +9,8 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test src/services/__tests__/*.test.ts",
-    "import:osha": "tsx scripts/import-osha.ts"
+    "import:osha": "tsx scripts/import-osha.ts",
+    "sync:osha-cases": "tsx scripts/import-osha-case-detail.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
