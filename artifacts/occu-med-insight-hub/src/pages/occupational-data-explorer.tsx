@@ -37,57 +37,130 @@ import type { BlsBenchmark, OshaEstablishment } from "@/data/employerIntelligenc
 type ExplorerTab = "library" | "bls" | "osha" | "datagov";
 
 type Manifest = {
-  businessQuestions: Array<{ id: string; title: string; description: string; source: string; serviceId?: string }>;
-  blsSectors: Array<{ id: string; naics: string; label: string; description: string }>;
-  dataGovCollections: Array<{ id: string; label: string; query: string; why: string; analyses: string[] }>;
-  sources: Array<{ id: string; source: string; status: string; officialUrl: string; dataFamilies: Array<{ name: string; coverage: string; status: string }> }>;
+  businessQuestions: Array<{
+    id: string;
+    title: string;
+    description: string;
+    source: string;
+  }>;
+  sources: Array<{
+    id: string;
+    source: string;
+    status: string;
+    officialUrl: string;
+    dataFamilies: Array<{ name: string; coverage: string; status: string }>;
+  }>;
 };
 
-type BlsSector = { id: string; naics: string; label: string; description: string; benchmark: BlsBenchmark | null; message?: string };
-type BlsOverview = { sectors: BlsSector[]; ranked: BlsSector[]; limitation?: string };
-type BlsHistory = { naics: string; industryTitle: string; points: Array<{ year: number; trcRate?: number; dartRate?: number; daysAwayRate?: number }>; limitation: string; reason: string };
+type BlsSector = {
+  id: string;
+  naics: string;
+  label: string;
+  description: string;
+  benchmark: BlsBenchmark | null;
+  message?: string;
+};
 
-type OshaOverview = {
+type BlsOverview = {
+  sectors: BlsSector[];
+  ranked: BlsSector[];
+  limitation?: string;
+};
+
+type BlsHistory = {
+  industryTitle: string;
+  points: Array<{
+    year: number;
+    trcRate?: number;
+    dartRate?: number;
+    daysAwayRate?: number;
+  }>;
+  limitation: string;
+  reason: string;
+};
+
+type OshaSummaryOverview = {
   configured: boolean;
   imported: boolean;
   latestYear?: number;
-  importInfo?: { totalRecords: number; importRuns: Array<{ datasetName: string; datasetYear: number; importedAt: string; recordCount: number }> };
+  warning?: string;
+  limitation?: string;
+  importInfo?: { totalRecords: number };
   trend?: Array<Record<string, number>>;
   topEmployers?: Array<Record<string, string | number | null>>;
   topStates?: Array<Record<string, string | number | null>>;
-  topIndustries?: Array<Record<string, string | number | null>>;
   highRateEstablishments?: Array<Record<string, string | number | null>>;
-  limitation?: string;
-  warning?: string;
 };
 
 type CaseClassification = { name: string; code: string; count: number };
+
 type CaseOverviewResponse = {
   configured: boolean;
   imported: boolean;
   warning?: string;
   limitation?: string;
-  importInfo?: { totalCases: number; years: number[]; latestImport?: string };
+  importInfo?: { totalCases: number; years: number[] };
   overview?: {
     totalCases: number;
-    years: number[];
     latestYear: number | null;
-    outcomeCounts: Array<{ name: string; count: number; daysAway: number; restrictedDays: number }>;
-    incidentTypes: Array<{ name: string; count: number }>;
+    outcomeCounts: Array<{
+      name: string;
+      count: number;
+      daysAway: number;
+      restrictedDays: number;
+    }>;
     natures: CaseClassification[];
     bodyParts: CaseClassification[];
     events: CaseClassification[];
     sources: CaseClassification[];
-    secondarySources: CaseClassification[];
     occupations: CaseClassification[];
-    trend: Array<{ year: number; cases: number; daysAway: number; restrictedDays: number }>;
   } | null;
 };
 
-type DataGovResource = { id: string; name: string; format: string; url: string; apiReady: boolean };
-type DataGovDataset = { id: string; name?: string; title: string; description: string; agency: string; updatedAt: string; apiReady: boolean; catalogUrl: string; resources: DataGovResource[] };
-type DataGovOverview = { collections: Array<{ id: string; label: string; why: string; analyses: string[]; count: number | null; datasets: DataGovDataset[]; error?: string }> };
-type WorkbenchPreview = { resourceId: string; total: number; displayed: number; columns: Array<{ name: string; declaredType: string; nonEmpty: number; inferredType: string; min?: number; max?: number; samples: string[] }>; records: Array<Record<string, unknown>>; limitation: string };
+type DataGovResource = {
+  id: string;
+  name: string;
+  format: string;
+  url: string;
+  apiReady: boolean;
+};
+
+type DataGovDataset = {
+  id: string;
+  title: string;
+  description: string;
+  agency: string;
+  catalogUrl: string;
+  apiReady: boolean;
+  resources: DataGovResource[];
+};
+
+type DataGovOverview = {
+  collections: Array<{
+    id: string;
+    label: string;
+    why: string;
+    analyses: string[];
+    count: number | null;
+    datasets: DataGovDataset[];
+  }>;
+};
+
+type WorkbenchPreview = {
+  total: number;
+  displayed: number;
+  columns: Array<{
+    name: string;
+    declaredType: string;
+    nonEmpty: number;
+    inferredType: string;
+    min?: number;
+    max?: number;
+    samples: string[];
+  }>;
+  records: Array<Record<string, unknown>>;
+  limitation: string;
+};
 
 const tabs: Array<{ id: ExplorerTab; label: string; icon: typeof Database }> = [
   { id: "library", label: "Occu-Med Data Library", icon: Sparkles },
@@ -96,82 +169,782 @@ const tabs: Array<{ id: ExplorerTab; label: string; icon: typeof Database }> = [
   { id: "datagov", label: "Public Data Collections", icon: Globe2 },
 ];
 
-function fmt(value: unknown, digits = 1): string {
+function formatNumber(value: unknown, digits = 1): string {
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed.toLocaleString(undefined, { maximumFractionDigits: digits }) : "—";
+  return Number.isFinite(parsed)
+    ? parsed.toLocaleString(undefined, { maximumFractionDigits: digits })
+    : "—";
 }
-function statusLabel(value: string): string { return value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
-function ExternalLink({ href, children }: { href: string; children: string }) { return <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-cyan-200/80 transition hover:text-white">{children}<ArrowUpRight size={13} /></a>; }
-function LoadingCard({ text }: { text: string }) { return <GlassCard className="p-8 text-center"><Loader2 className="mx-auto h-7 w-7 animate-spin text-cyan-200/70" /><p className="mt-3 text-sm font-bold text-white">{text}</p></GlassCard>; }
 
-function DataLibrary({ manifest, onOpen }: { manifest: Manifest; onOpen: (source: ExplorerTab) => void }) {
-  const sourceMap: Record<string, ExplorerTab> = { osha: "osha", bls: "bls", datagov: "datagov" };
-  return <div className="space-y-5">
-    <GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-50/55">Start with the business question</p><h2 className="mt-1 text-xl font-black text-white">Useful intelligence is already organized for you.</h2><p className="mt-2 max-w-4xl text-xs leading-6 text-cyan-50/62">No API names, BLS series IDs, NAICS knowledge, OSHA dataset names, or government search terms are required to begin.</p><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{manifest.businessQuestions.map((question) => <button key={question.id} type="button" onClick={() => onOpen(sourceMap[question.source] ?? "library")} className="rounded-2xl border border-cyan-100/12 bg-[#071321]/76 p-4 text-left transition hover:-translate-y-0.5 hover:border-cyan-200/25 hover:bg-cyan-300/[0.055]"><p className="text-sm font-black leading-5 text-white">{question.title}</p><p className="mt-2 text-[11px] leading-5 text-cyan-50/56">{question.description}</p><span className="mt-3 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-200/68">Open prepared view <ArrowUpRight size={12} /></span></button>)}</div></GlassCard>
-    <div className="grid gap-4 xl:grid-cols-2">{manifest.sources.map((source) => <GlassCard key={source.id} className="p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-cyan-50/50">Data inventory</p><h3 className="mt-1 text-lg font-black text-white">{source.source}</h3></div><span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-cyan-50/65">{statusLabel(source.status)}</span></div><div className="mt-4 space-y-2">{source.dataFamilies.map((family) => <div key={`${source.id}-${family.name}`} className="rounded-xl border border-white/9 bg-black/15 p-3"><div className="flex flex-wrap items-start justify-between gap-2"><p className="text-xs font-bold text-white">{family.name}</p><span className="text-[9px] text-cyan-50/42">{family.coverage}</span></div><p className="mt-1 text-[10px] leading-5 text-cyan-50/54">{family.status}</p></div>)}</div><div className="mt-4 flex flex-wrap gap-4">{sourceMap[source.id] ? <button type="button" onClick={() => onOpen(sourceMap[source.id])} className="text-xs font-black text-cyan-200/82 hover:text-white">Open workspace</button> : null}<ExternalLink href={source.officialUrl}>Official source</ExternalLink></div></GlassCard>)}</div>
-  </div>;
+function ExternalLink({ href, children }: { href: string; children: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-1.5 text-xs font-bold text-cyan-200/80 transition hover:text-white"
+    >
+      {children}
+      <ArrowUpRight size={13} />
+    </a>
+  );
+}
+
+function LoadingCard({ text }: { text: string }) {
+  return (
+    <GlassCard className="p-8 text-center">
+      <Loader2 className="mx-auto h-7 w-7 animate-spin text-cyan-200/70" />
+      <p className="mt-3 text-sm font-bold text-white">{text}</p>
+    </GlassCard>
+  );
+}
+
+function DataLibrary({
+  manifest,
+  onOpen,
+}: {
+  manifest: Manifest;
+  onOpen: (tab: ExplorerTab) => void;
+}) {
+  const sourceTabs: Record<string, ExplorerTab> = {
+    osha: "osha",
+    bls: "bls",
+    datagov: "datagov",
+  };
+
+  return (
+    <div className="space-y-5">
+      <GlassCard className="p-5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-50/55">
+          Start with the business question
+        </p>
+        <h2 className="mt-1 text-xl font-black text-white">
+          Useful intelligence is already organized for you.
+        </h2>
+        <p className="mt-2 max-w-4xl text-xs leading-6 text-cyan-50/62">
+          No API names, BLS series IDs, NAICS knowledge, OSHA dataset names, or government search terms are required to begin.
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {manifest.businessQuestions.map((question) => (
+            <button
+              key={question.id}
+              type="button"
+              onClick={() => onOpen(sourceTabs[question.source] ?? "library")}
+              className="rounded-2xl border border-cyan-100/12 bg-[#071321]/76 p-4 text-left transition hover:-translate-y-0.5 hover:border-cyan-200/25 hover:bg-cyan-300/[0.055]"
+            >
+              <p className="text-sm font-black leading-5 text-white">{question.title}</p>
+              <p className="mt-2 text-[11px] leading-5 text-cyan-50/56">{question.description}</p>
+              <span className="mt-3 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-200/68">
+                Open prepared view <ArrowUpRight size={12} />
+              </span>
+            </button>
+          ))}
+        </div>
+      </GlassCard>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        {manifest.sources.map((source) => (
+          <GlassCard key={source.id} className="p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-cyan-50/50">Data inventory</p>
+                <h3 className="mt-1 text-lg font-black text-white">{source.source}</h3>
+              </div>
+              <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-cyan-50/65">
+                {source.status.replace(/-/g, " ")}
+              </span>
+            </div>
+            <div className="mt-4 space-y-2">
+              {source.dataFamilies.map((family) => (
+                <div key={`${source.id}-${family.name}`} className="rounded-xl border border-white/9 bg-black/15 p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="text-xs font-bold text-white">{family.name}</p>
+                    <span className="text-[9px] text-cyan-50/42">{family.coverage}</span>
+                  </div>
+                  <p className="mt-1 text-[10px] leading-5 text-cyan-50/54">{family.status}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-4">
+              {sourceTabs[source.id] ? (
+                <button
+                  type="button"
+                  onClick={() => onOpen(sourceTabs[source.id])}
+                  className="text-xs font-black text-cyan-200/82 hover:text-white"
+                >
+                  Open workspace
+                </button>
+              ) : null}
+              <ExternalLink href={source.officialUrl}>Official source</ExternalLink>
+            </div>
+          </GlassCard>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function BlsWorkspace({ overview }: { overview: BlsOverview | null }) {
-  const [naics, setNaics] = useState(""); const [year, setYear] = useState(""); const [benchmark, setBenchmark] = useState<BlsBenchmark | null>(null); const [history, setHistory] = useState<BlsHistory | null>(null); const [loading, setLoading] = useState(false); const [message, setMessage] = useState("");
-  async function loadHistory(code: string) { try { const response = await fetch(`/api/occupational-discovery/bls-history?naics=${encodeURIComponent(code)}&startYear=2016&endYear=${new Date().getFullYear()}`); const payload = await response.json(); if (payload.ok) setHistory(payload.history); } catch { setHistory(null); } }
-  async function selectSector(sector: BlsSector) { setNaics(sector.naics); setBenchmark(sector.benchmark); setMessage(sector.message || ""); setHistory(null); await loadHistory(sector.naics); }
-  async function lookup() { if (!naics) return; setLoading(true); setBenchmark(null); setHistory(null); setMessage(""); try { const params = new URLSearchParams({ naics }); if (year) params.set("year", year); const response = await fetch(`/api/bls/industry-benchmark?${params}`); const payload = await response.json(); if (!response.ok || !payload.ok) throw new Error(payload.error || "BLS lookup failed."); setBenchmark(payload.benchmark ?? null); setMessage(payload.message || payload.limitation || ""); await loadHistory(naics); } catch (error) { setMessage(error instanceof Error ? error.message : "BLS lookup failed."); } finally { setLoading(false); } }
+  const [selectedNaics, setSelectedNaics] = useState("");
+  const [benchmark, setBenchmark] = useState<BlsBenchmark | null>(null);
+  const [history, setHistory] = useState<BlsHistory | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [year, setYear] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function loadHistory(naics: string) {
+    setHistoryLoading(true);
+    setHistory(null);
+    try {
+      const response = await fetch(
+        `/api/occupational-discovery/bls-history?naics=${encodeURIComponent(naics)}&startYear=2016&endYear=${new Date().getFullYear()}`,
+      );
+      const payload = await response.json();
+      if (response.ok && payload.ok) setHistory(payload.history ?? null);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  async function selectSector(sector: BlsSector) {
+    setSelectedNaics(sector.naics);
+    setBenchmark(sector.benchmark);
+    setMessage(sector.message || "");
+    await loadHistory(sector.naics);
+  }
+
+  async function lookup() {
+    if (!selectedNaics) return;
+    setLoading(true);
+    setBenchmark(null);
+    setMessage("");
+    try {
+      const params = new URLSearchParams({ naics: selectedNaics });
+      if (year) params.set("year", year);
+      const response = await fetch(`/api/bls/industry-benchmark?${params}`);
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.error || "BLS lookup failed.");
+      setBenchmark(payload.benchmark ?? null);
+      setMessage(payload.message || payload.limitation || "");
+      await loadHistory(selectedNaics);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "BLS lookup failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (!overview) return <LoadingCard text="Loading live BLS industry intelligence" />;
-  const chart = overview.ranked.slice(0, 8).map((sector) => ({ name: sector.label, trc: sector.benchmark?.trcRate ?? 0, dart: sector.benchmark?.dartRate ?? 0 }));
-  return <div className="space-y-5">
-    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Prepared sectors" value={overview.sectors.length.toString()} note="Live BLS SOII priority industries" icon={Database} /><MetricOrb label="Highest returned TRC" value={fmt(overview.ranked[0]?.benchmark?.trcRate)} note={overview.ranked[0]?.label || "No returned sector"} icon={BarChart3} tone="rose" /><MetricOrb label="Historical coverage" value="2016+" note="Selectable sector time series" icon={BookOpenCheck} tone="emerald" /><MetricOrb label="Search required" value="No" note="Prepared intelligence loads first" icon={Search} tone="violet" /></section>
-    <div className="grid gap-5 2xl:grid-cols-[1.08fr_.92fr]"><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Priority industry library</p><h2 className="mt-1 text-xl font-black text-white">Click an industry. The BLS series logic stays behind the scenes.</h2><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{overview.sectors.map((sector) => <button key={sector.id} type="button" onClick={() => void selectSector(sector)} className={`rounded-2xl border p-4 text-left transition ${benchmark && naics === sector.naics ? "border-cyan-200/28 bg-cyan-300/[0.07]" : "border-white/10 bg-[#071321]/72 hover:border-cyan-200/20"}`}><div className="flex items-start justify-between gap-2"><p className="text-sm font-black text-white">{sector.label}</p><span className="text-[8px] text-cyan-50/35">{sector.naics}</span></div><p className="mt-2 text-[9px] leading-4 text-cyan-50/47">{sector.description}</p><div className="mt-3 grid grid-cols-3 gap-2 text-center"><div className="rounded-lg bg-black/20 p-2"><p className="text-sm font-black text-white">{fmt(sector.benchmark?.trcRate)}</p><p className="text-[8px] text-cyan-50/40">TRC</p></div><div className="rounded-lg bg-black/20 p-2"><p className="text-sm font-black text-white">{fmt(sector.benchmark?.dartRate)}</p><p className="text-[8px] text-cyan-50/40">DART</p></div><div className="rounded-lg bg-black/20 p-2"><p className="text-sm font-black text-white">{fmt(sector.benchmark?.daysAwayRate)}</p><p className="text-[8px] text-cyan-50/40">Away</p></div></div></button>)}</div></GlassCard><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Prepared comparison</p><h2 className="mt-1 text-xl font-black text-white">Priority sectors ranked by returned rate</h2><div className="mt-4 h-[390px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={chart} layout="vertical"><CartesianGrid stroke="rgba(165,243,252,.09)" horizontal={false} /><XAxis type="number" tick={{ fill: "rgba(207,250,254,.5)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis type="category" dataKey="name" width={130} tick={{ fill: "rgba(207,250,254,.65)", fontSize: 9 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(103,232,249,.2)", borderRadius: 12 }} /><Bar dataKey="trc" fill="#67e8f9" radius={[0,7,7,0]} /><Bar dataKey="dart" fill="#c4b5fd" radius={[0,7,7,0]} /></BarChart></ResponsiveContainer></div></GlassCard></div>
-    {benchmark ? <><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Selected TRC" value={fmt(benchmark.trcRate)} note={benchmark.industryTitle} icon={BarChart3} /><MetricOrb label="DART" value={fmt(benchmark.dartRate)} note="Cases per 100 FTE" icon={Layers3} tone="violet" /><MetricOrb label="Days-away" value={fmt(benchmark.daysAwayRate)} note="Cases per 100 FTE" icon={BookOpenCheck} tone="rose" /><MetricOrb label="Latest returned year" value={String(benchmark.year)} note={benchmark.authMode} icon={Database} tone="emerald" /></section>{history?.points.length ? <GlassCard className="p-5"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-50/55">Historical SOII time series</p><h2 className="mt-1 text-xl font-black text-white">{history.industryTitle}</h2></div><span className="text-xs text-cyan-50/48">{history.points[0]?.year}–{history.points[history.points.length - 1]?.year}</span></div><div className="mt-4 h-[360px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={history.points}><CartesianGrid stroke="rgba(165,243,252,.08)" /><XAxis dataKey="year" tick={{ fill: "rgba(207,250,254,.62)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(110,231,183,.2)", borderRadius: 12 }} /><Line dataKey="trcRate" name="TRC" stroke="#67e8f9" strokeWidth={3} dot={false} /><Line dataKey="dartRate" name="DART" stroke="#c4b5fd" strokeWidth={2.5} dot={false} /><Line dataKey="daysAwayRate" name="Days away" stroke="#fda4af" strokeWidth={2.5} dot={false} /></LineChart></ResponsiveContainer></div><p className="text-[10px] leading-5 text-cyan-50/45">{history.limitation}</p></GlassCard> : <LoadingCard text="Loading historical BLS series for the selected industry" />}</> : null}
-    <GlassCard className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/48">Advanced lookup</p><h3 className="mt-1 text-lg font-black text-white">Specific NAICS not in the ready library?</h3></div><Search size={18} className="text-cyan-200/55" /></div><div className="mt-4 grid gap-3 md:grid-cols-[1fr_.45fr_auto] md:items-end"><input value={naics} onChange={(event) => setNaics(event.target.value.replace(/[^0-9]/g, "").slice(0, 6))} placeholder="2–6 digit NAICS" className="min-h-11 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /><input value={year} onChange={(event) => setYear(event.target.value.replace(/[^0-9]/g, "").slice(0, 4))} placeholder="Year optional" className="min-h-11 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /><button type="button" onClick={() => void lookup()} disabled={loading || !naics} className="min-h-11 rounded-xl border border-cyan-200/22 bg-cyan-300/10 px-5 text-sm font-black text-white disabled:opacity-45">{loading ? "Loading…" : "Lookup"}</button></div>{message && !benchmark ? <p className="mt-3 text-xs text-amber-50/70">{message}</p> : null}</GlassCard>
-  </div>;
+
+  const rankingData = overview.ranked.slice(0, 8).map((sector) => ({
+    name: sector.label,
+    trc: sector.benchmark?.trcRate ?? 0,
+    dart: sector.benchmark?.dartRate ?? 0,
+  }));
+
+  return (
+    <div className="space-y-5">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricOrb label="Prepared sectors" value={overview.sectors.length.toString()} note="Live BLS SOII priority industries" icon={Database} />
+        <MetricOrb label="Highest returned TRC" value={formatNumber(overview.ranked[0]?.benchmark?.trcRate)} note={overview.ranked[0]?.label || "No returned sector"} icon={BarChart3} tone="rose" />
+        <MetricOrb label="Historical coverage" value="2016+" note="Selectable SOII time series" icon={BookOpenCheck} tone="emerald" />
+        <MetricOrb label="Search required" value="No" note="Prepared intelligence loads first" icon={Search} tone="violet" />
+      </section>
+
+      <div className="grid gap-5 2xl:grid-cols-[1.08fr_.92fr]">
+        <GlassCard className="p-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Priority industry library</p>
+          <h2 className="mt-1 text-xl font-black text-white">Click an industry. The BLS series logic stays behind the scenes.</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {overview.sectors.map((sector) => (
+              <button
+                key={sector.id}
+                type="button"
+                onClick={() => void selectSector(sector)}
+                className={`rounded-2xl border p-4 text-left transition ${selectedNaics === sector.naics && benchmark ? "border-cyan-200/28 bg-cyan-300/[0.07]" : "border-white/10 bg-[#071321]/72 hover:border-cyan-200/20"}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-black text-white">{sector.label}</p>
+                  <span className="text-[8px] text-cyan-50/35">{sector.naics}</span>
+                </div>
+                <p className="mt-2 text-[9px] leading-4 text-cyan-50/47">{sector.description}</p>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-lg bg-black/20 p-2"><p className="text-sm font-black text-white">{formatNumber(sector.benchmark?.trcRate)}</p><p className="text-[8px] text-cyan-50/40">TRC</p></div>
+                  <div className="rounded-lg bg-black/20 p-2"><p className="text-sm font-black text-white">{formatNumber(sector.benchmark?.dartRate)}</p><p className="text-[8px] text-cyan-50/40">DART</p></div>
+                  <div className="rounded-lg bg-black/20 p-2"><p className="text-sm font-black text-white">{formatNumber(sector.benchmark?.daysAwayRate)}</p><p className="text-[8px] text-cyan-50/40">Away</p></div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Prepared comparison</p>
+          <h2 className="mt-1 text-xl font-black text-white">Priority sectors ranked by returned rate</h2>
+          <div className="mt-4 h-[390px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={rankingData} layout="vertical">
+                <CartesianGrid stroke="rgba(165,243,252,.09)" horizontal={false} />
+                <XAxis type="number" tick={{ fill: "rgba(207,250,254,.5)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" width={130} tick={{ fill: "rgba(207,250,254,.65)", fontSize: 9 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(103,232,249,.2)", borderRadius: 12 }} />
+                <Bar dataKey="trc" fill="#67e8f9" radius={[0, 7, 7, 0]} />
+                <Bar dataKey="dart" fill="#c4b5fd" radius={[0, 7, 7, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </GlassCard>
+      </div>
+
+      {benchmark ? (
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricOrb label="Selected TRC" value={formatNumber(benchmark.trcRate)} note={benchmark.industryTitle} icon={BarChart3} />
+          <MetricOrb label="DART" value={formatNumber(benchmark.dartRate)} note="Cases per 100 FTE" icon={Layers3} tone="violet" />
+          <MetricOrb label="Days-away" value={formatNumber(benchmark.daysAwayRate)} note="Cases per 100 FTE" icon={BookOpenCheck} tone="rose" />
+          <MetricOrb label="Latest returned year" value={String(benchmark.year)} note={benchmark.authMode} icon={Database} tone="emerald" />
+        </section>
+      ) : null}
+
+      {historyLoading ? <LoadingCard text="Loading historical BLS series for the selected industry" /> : null}
+      {!historyLoading && history?.points.length ? (
+        <GlassCard className="p-5">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-50/55">Historical SOII time series</p>
+              <h2 className="mt-1 text-xl font-black text-white">{history.industryTitle}</h2>
+            </div>
+            <span className="text-xs text-cyan-50/48">{history.points[0]?.year}–{history.points[history.points.length - 1]?.year}</span>
+          </div>
+          <div className="mt-4 h-[360px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={history.points}>
+                <CartesianGrid stroke="rgba(165,243,252,.08)" />
+                <XAxis dataKey="year" tick={{ fill: "rgba(207,250,254,.62)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(110,231,183,.2)", borderRadius: 12 }} />
+                <Line dataKey="trcRate" name="TRC" stroke="#67e8f9" strokeWidth={3} dot={false} />
+                <Line dataKey="dartRate" name="DART" stroke="#c4b5fd" strokeWidth={2.5} dot={false} />
+                <Line dataKey="daysAwayRate" name="Days away" stroke="#fda4af" strokeWidth={2.5} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="text-[10px] leading-5 text-cyan-50/45">{history.limitation}</p>
+        </GlassCard>
+      ) : null}
+      {!historyLoading && history && history.points.length === 0 ? (
+        <GlassCard className="p-5 text-xs leading-6 text-amber-50/68">{history.reason}</GlassCard>
+      ) : null}
+
+      <GlassCard className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/48">Advanced lookup</p>
+            <h3 className="mt-1 text-lg font-black text-white">Specific NAICS not in the ready library?</h3>
+          </div>
+          <Search size={18} className="text-cyan-200/55" />
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_.45fr_auto] md:items-end">
+          <input value={selectedNaics} onChange={(event) => setSelectedNaics(event.target.value.replace(/[^0-9]/g, "").slice(0, 6))} placeholder="2–6 digit NAICS" className="min-h-11 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" />
+          <input value={year} onChange={(event) => setYear(event.target.value.replace(/[^0-9]/g, "").slice(0, 4))} placeholder="Year optional" className="min-h-11 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" />
+          <button type="button" onClick={() => void lookup()} disabled={loading || !selectedNaics} className="min-h-11 rounded-xl border border-cyan-200/22 bg-cyan-300/10 px-5 text-sm font-black text-white disabled:opacity-45">{loading ? "Loading…" : "Lookup"}</button>
+        </div>
+        {message && !benchmark ? <p className="mt-3 text-xs text-amber-50/70">{message}</p> : null}
+      </GlassCard>
+    </div>
+  );
 }
 
 function ClassificationCard({ title, items }: { title: string; items: CaseClassification[] }) {
-  const data = items.slice(0, 10).map((item) => ({ name: item.name, count: item.count }));
-  return <GlassCard className="p-5"><div className="flex items-end justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-50/50">OSHA case-detail OIICS</p><h3 className="mt-1 text-lg font-black text-white">{title}</h3></div><span className="text-xs text-cyan-50/45">Top {data.length}</span></div><div className="mt-3 h-[310px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={data} layout="vertical"><CartesianGrid stroke="rgba(165,243,252,.08)" horizontal={false} /><XAxis type="number" tick={{ fill: "rgba(207,250,254,.48)", fontSize: 9 }} axisLine={false} tickLine={false} /><YAxis type="category" dataKey="name" width={135} tick={{ fill: "rgba(207,250,254,.62)", fontSize: 9 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(251,113,133,.2)", borderRadius: 12 }} /><Bar dataKey="count" fill="#fda4af" radius={[0,7,7,0]} /></BarChart></ResponsiveContainer></div></GlassCard>;
+  const chartData = items.slice(0, 10).map((item) => ({ name: item.name, count: item.count }));
+  return (
+    <GlassCard className="p-5">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-50/50">OSHA case-detail OIICS</p>
+          <h3 className="mt-1 text-lg font-black text-white">{title}</h3>
+        </div>
+        <span className="text-xs text-cyan-50/45">Top {chartData.length}</span>
+      </div>
+      <div className="mt-3 h-[310px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} layout="vertical">
+            <CartesianGrid stroke="rgba(165,243,252,.08)" horizontal={false} />
+            <XAxis type="number" tick={{ fill: "rgba(207,250,254,.48)", fontSize: 9 }} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="name" width={135} tick={{ fill: "rgba(207,250,254,.62)", fontSize: 9 }} axisLine={false} tickLine={false} />
+            <Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(251,113,133,.2)", borderRadius: 12 }} />
+            <Bar dataKey="count" fill="#fda4af" radius={[0, 7, 7, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </GlassCard>
+  );
 }
 
-function OshaWorkspace({ overview }: { overview: OshaOverview | null }) {
-  const [caseDetail, setCaseDetail] = useState<CaseOverviewResponse | null>(null); const [company, setCompany] = useState(""); const [state, setState] = useState(""); const [naics, setNaics] = useState(""); const [year, setYear] = useState(""); const [records, setRecords] = useState<OshaEstablishment[]>([]); const [loading, setLoading] = useState(false); const [error, setError] = useState("");
-  useEffect(() => { void fetch("/api/occupational-discovery/osha-case-overview").then((response) => response.json()).then((payload) => { if (payload.ok) setCaseDetail(payload); }).catch(() => undefined); }, []);
-  async function searchRecords() { setLoading(true); setError(""); setRecords([]); try { const params = new URLSearchParams(); if (company) params.set("company", company); if (state) params.set("state", state); if (naics) params.set("naics", naics); if (year) params.set("year", year); const response = await fetch(`/api/osha/establishments?${params}`); const payload = await response.json(); if (!response.ok || !payload.ok) throw new Error(payload.error || "OSHA query failed."); setRecords(payload.records ?? []); } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "OSHA query failed."); } finally { setLoading(false); } }
+function OshaWorkspace({ overview }: { overview: OshaSummaryOverview | null }) {
+  const [caseDetail, setCaseDetail] = useState<CaseOverviewResponse | null>(null);
+  const [company, setCompany] = useState("");
+  const [state, setState] = useState("");
+  const [naics, setNaics] = useState("");
+  const [year, setYear] = useState("");
+  const [records, setRecords] = useState<OshaEstablishment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    void fetch("/api/occupational-discovery/osha-case-overview")
+      .then((response) => response.json())
+      .then((payload) => { if (payload.ok) setCaseDetail(payload); })
+      .catch(() => undefined);
+  }, []);
+
+  async function searchRecords() {
+    setLoading(true);
+    setError("");
+    setRecords([]);
+    try {
+      const params = new URLSearchParams();
+      if (company) params.set("company", company);
+      if (state) params.set("state", state);
+      if (naics) params.set("naics", naics);
+      if (year) params.set("year", year);
+      const response = await fetch(`/api/osha/establishments?${params}`);
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.error || "OSHA query failed.");
+      setRecords(payload.records ?? []);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "OSHA query failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (!overview) return <LoadingCard text="Loading OSHA injury intelligence" />;
-  if (!overview.imported) return <GlassCard className="p-8 text-center"><ShieldAlert className="mx-auto h-8 w-8 text-rose-200/60" /><p className="mt-3 text-lg font-black text-white">OSHA source is indexed, but summary data is not currently query-ready.</p><p className="mx-auto mt-2 max-w-3xl text-xs leading-6 text-cyan-50/58">{overview.warning || "No OSHA ITA summary rows are imported into the application database."}</p></GlassCard>;
-  const latestTrend = overview.trend?.[overview.trend.length - 1]; const stateChart = (overview.topStates ?? []).slice(0, 10).map((row) => ({ name: String(row.name), cases: Number(row.total_cases ?? 0) })); const case = caseDetail?.overview;
-  return <div className="space-y-5">
-    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Imported 300A rows" value={fmt(overview.importInfo?.totalRecords, 0)} note="Persisted establishment summaries" icon={Database} /><MetricOrb label="Latest summary year" value={String(overview.latestYear ?? "—")} note="Latest imported 300A year" icon={BookOpenCheck} tone="emerald" /><MetricOrb label="Reported cases" value={fmt(latestTrend?.total_cases, 0)} note="Latest-year aggregate" icon={ShieldAlert} tone="rose" /><MetricOrb label="Case-detail rows" value={caseDetail?.imported ? fmt(caseDetail.importInfo?.totalCases, 0) : "Not imported"} note={caseDetail?.imported ? "Form 300/301 case records" : "Case-detail storage is ready"} icon={Layers3} tone="violet" /></section>
-    <div className="grid gap-5 2xl:grid-cols-[1.15fr_.85fr]"><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-50/55">Prepared employer intelligence</p><h2 className="mt-1 text-xl font-black text-white">Largest reported injury burden — latest imported year</h2><div className="mt-4 overflow-x-auto"><table className="w-full min-w-[720px] text-left text-xs"><thead className="text-[9px] uppercase tracking-[0.14em] text-cyan-50/50"><tr><th className="pb-3">Employer</th><th className="pb-3">Establishments</th><th className="pb-3">Cases</th><th className="pb-3">DART</th><th className="pb-3">TRC</th></tr></thead><tbody>{(overview.topEmployers ?? []).slice(0, 15).map((row) => <tr key={String(row.name)} className="border-t border-white/8"><td className="py-3 pr-4 font-bold text-white">{String(row.name)}</td><td className="py-3 pr-4">{fmt(row.establishments, 0)}</td><td className="py-3 pr-4 text-white">{fmt(row.total_cases, 0)}</td><td className="py-3 pr-4">{fmt(row.dart_cases, 0)}</td><td className="py-3 text-cyan-100">{fmt(row.trc_rate, 2)}</td></tr>)}</tbody></table></div></GlassCard><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Prepared state view</p><h2 className="mt-1 text-xl font-black text-white">Reported cases by state</h2><div className="mt-4 h-[400px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={stateChart} layout="vertical"><CartesianGrid stroke="rgba(165,243,252,.08)" horizontal={false} /><XAxis type="number" tick={{ fill: "rgba(207,250,254,.5)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis type="category" dataKey="name" width={42} tick={{ fill: "rgba(207,250,254,.65)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(251,113,133,.2)", borderRadius: 12 }} /><Bar dataKey="cases" fill="#fda4af" radius={[0,7,7,0]} /></BarChart></ResponsiveContainer></div></GlassCard></div>
-    <div className="grid gap-5 xl:grid-cols-2"><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Multi-year 300A trend</p><h2 className="mt-1 text-xl font-black text-white">Cases and aggregate TRC over time</h2><div className="mt-4 h-[330px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={overview.trend ?? []}><CartesianGrid stroke="rgba(165,243,252,.08)" /><XAxis dataKey="year" tick={{ fill: "rgba(207,250,254,.6)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis yAxisId="cases" tick={{ fill: "rgba(207,250,254,.46)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis yAxisId="rate" orientation="right" tick={{ fill: "rgba(207,250,254,.46)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(103,232,249,.2)", borderRadius: 12 }} /><Line yAxisId="cases" dataKey="total_cases" name="Cases" stroke="#67e8f9" strokeWidth={2.5} dot={false} /><Line yAxisId="rate" dataKey="trc_rate" name="TRC" stroke="#c4b5fd" strokeWidth={2.5} dot={false} /></LineChart></ResponsiveContainer></div></GlassCard><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Highest returned establishment rates</p><h2 className="mt-1 text-xl font-black text-white">Outlier review list</h2><div className="mt-4 max-h-[330px] space-y-2 overflow-auto pr-1">{(overview.highRateEstablishments ?? []).slice(0, 20).map((row, index) => <div key={`${row.name}-${index}`} className="rounded-xl border border-white/9 bg-black/15 p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold text-white">{String(row.name)}</p><p className="mt-1 text-[10px] text-cyan-50/46">{String(row.company_name || "")} · {[row.city, row.state].filter(Boolean).join(", ")} · NAICS {String(row.naics || "—")}</p></div><span className="text-sm font-black text-rose-100">{fmt(row.trc_rate, 2)}</span></div></div>)}</div><p className="mt-3 text-[10px] text-amber-50/55">High reported rates are review signals, not “most dangerous employer” labels.</p></GlassCard></div>
-    {caseDetail === null ? <LoadingCard text="Checking OSHA Form 300/301 case-detail intelligence" /> : caseDetail.imported && case ? <><GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-50/55">Form 300/301 case-detail intelligence</p><h2 className="mt-1 text-xl font-black text-white">Injury composition is query-ready.</h2><p className="mt-2 text-xs leading-5 text-cyan-50/55">OIICS-coded nature, body part, event/exposure, source, secondary source, outcomes, and SOC occupation fields are surfaced from the imported case-detail dataset.</p></div><EvidenceGradeBadge grade="A" /></div><section className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Case-detail records" value={case.totalCases.toLocaleString()} note="All imported case years" icon={Layers3} /><MetricOrb label="Latest case year" value={String(case.latestYear ?? "—")} note="Form 300/301 detail" icon={BookOpenCheck} tone="emerald" /><MetricOrb label="Top injury nature" value={case.natures[0]?.name || "—"} note={case.natures[0] ? `${case.natures[0].count.toLocaleString()} cases` : "No OIICS nature returned"} icon={ShieldAlert} tone="rose" /><MetricOrb label="Top event / exposure" value={case.events[0]?.name || "—"} note={case.events[0] ? `${case.events[0].count.toLocaleString()} cases` : "No OIICS event returned"} icon={Activity} tone="violet" /></section></GlassCard><div className="grid gap-5 xl:grid-cols-2"><ClassificationCard title="Nature of injury / illness" items={case.natures} /><ClassificationCard title="Part of body" items={case.bodyParts} /><ClassificationCard title="Event / exposure" items={case.events} /><ClassificationCard title="Primary source" items={case.sources} /></div><div className="grid gap-5 xl:grid-cols-2"><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-50/55">Case outcomes</p><div className="mt-4 space-y-2">{case.outcomeCounts.map((item) => <div key={item.name} className="rounded-xl border border-white/9 bg-black/15 p-3"><div className="flex items-center justify-between gap-3"><p className="text-xs font-bold text-white">{item.name}</p><span className="text-base font-black text-rose-100">{item.count.toLocaleString()}</span></div><p className="mt-1 text-[9px] text-cyan-50/45">{item.daysAway.toLocaleString()} days away · {item.restrictedDays.toLocaleString()} restricted/transfer days</p></div>)}</div></GlassCard><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-50/55">Occupations in case-detail data</p><div className="mt-4 max-h-[360px] space-y-2 overflow-auto">{case.occupations.slice(0, 20).map((item) => <div key={`${item.code}-${item.name}`} className="flex items-start justify-between gap-3 rounded-xl border border-white/9 bg-black/15 p-3"><div><p className="text-xs font-bold text-white">{item.name}</p><p className="mt-1 text-[9px] text-cyan-50/42">SOC {item.code || "unclassified"}</p></div><span className="text-sm font-black text-violet-100">{item.count.toLocaleString()}</span></div>)}</div></GlassCard></div><p className="rounded-xl border border-amber-200/12 bg-amber-300/[0.04] p-4 text-[10px] leading-5 text-amber-50/58">{caseDetail.limitation}</p></> : <GlassCard className="p-5"><div className="flex items-start gap-3"><Database size={18} className="mt-0.5 text-violet-200/65" /><div><p className="font-black text-white">Case-detail / OIICS analytics are wired and waiting for the official case-detail import.</p><p className="mt-2 text-xs leading-6 text-cyan-50/55">{caseDetail.warning}</p><p className="mt-2 text-[10px] leading-5 text-cyan-50/42">The application now includes the table schema, current 2025 OSHA case-detail field mapping, OIICS/SOC importer, and analytics endpoint. This status card remains visible until the production database has the case-detail rows.</p></div></div></GlassCard>}
-    <GlassCard className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/48">Advanced establishment lookup</p><h3 className="mt-1 text-lg font-black text-white">Search only when you know the employer or filter.</h3></div><FileSearch size={18} className="text-cyan-200/55" /></div><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_.35fr_.42fr_.42fr_auto] xl:items-end"><input value={company} onChange={(event) => setCompany(event.target.value)} placeholder="Employer / establishment" className="min-h-11 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /><input value={state} onChange={(event) => setState(event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2))} placeholder="State" className="min-h-11 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /><input value={naics} onChange={(event) => setNaics(event.target.value.replace(/[^0-9]/g, "").slice(0, 6))} placeholder="NAICS" className="min-h-11 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /><input value={year} onChange={(event) => setYear(event.target.value.replace(/[^0-9]/g, "").slice(0, 4))} placeholder="Year" className="min-h-11 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /><button type="button" onClick={() => void searchRecords()} disabled={loading} className="min-h-11 rounded-xl border border-rose-200/22 bg-rose-300/10 px-4 text-xs font-black text-white disabled:opacity-45">{loading ? "Querying…" : "Query records"}</button></div>{error ? <p className="mt-3 text-xs text-rose-100/80">{error}</p> : null}{records.length ? <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead className="text-[9px] uppercase tracking-[0.14em] text-cyan-50/50"><tr><th className="pb-3">Establishment</th><th className="pb-3">Location</th><th className="pb-3">Year</th><th className="pb-3">Cases</th><th className="pb-3">DART</th><th className="pb-3">TRC</th></tr></thead><tbody>{records.slice(0, 100).map((record, index) => <tr key={`${record.establishmentName}-${index}`} className="border-t border-white/8"><td className="py-3 pr-3 font-bold text-white">{record.establishmentName}</td><td className="py-3 pr-3">{[record.city, record.state].filter(Boolean).join(", ")}</td><td className="py-3 pr-3">{record.year}</td><td className="py-3 pr-3">{fmt(record.totalCases, 0)}</td><td className="py-3 pr-3">{fmt(record.dartCases, 0)}</td><td className="py-3">{fmt(record.trcRate, 2)}</td></tr>)}</tbody></table></div> : null}<p className="mt-4 text-[10px] leading-5 text-amber-50/58">{overview.limitation}</p></GlassCard>
-  </div>;
+  if (!overview.imported) {
+    return (
+      <GlassCard className="p-8 text-center">
+        <ShieldAlert className="mx-auto h-8 w-8 text-rose-200/60" />
+        <p className="mt-3 text-lg font-black text-white">OSHA source is indexed, but summary data is not currently query-ready.</p>
+        <p className="mx-auto mt-2 max-w-3xl text-xs leading-6 text-cyan-50/58">{overview.warning}</p>
+      </GlassCard>
+    );
+  }
+
+  const latestTrend = overview.trend?.[overview.trend.length - 1];
+  const stateData = (overview.topStates ?? []).slice(0, 10).map((row) => ({
+    name: String(row.name),
+    cases: Number(row.total_cases ?? 0),
+  }));
+  const caseOverview = caseDetail?.overview ?? null;
+
+  return (
+    <div className="space-y-5">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricOrb label="Imported 300A rows" value={formatNumber(overview.importInfo?.totalRecords, 0)} note="Persisted establishment summaries" icon={Database} />
+        <MetricOrb label="Latest summary year" value={String(overview.latestYear ?? "—")} note="Latest imported 300A year" icon={BookOpenCheck} tone="emerald" />
+        <MetricOrb label="Reported cases" value={formatNumber(latestTrend?.total_cases, 0)} note="Latest-year aggregate" icon={ShieldAlert} tone="rose" />
+        <MetricOrb label="Case-detail rows" value={caseDetail?.imported ? formatNumber(caseDetail.importInfo?.totalCases, 0) : "Not imported"} note={caseDetail?.imported ? "Form 300/301 case records" : "Case-detail pipeline ready"} icon={Layers3} tone="violet" />
+      </section>
+
+      <div className="grid gap-5 2xl:grid-cols-[1.15fr_.85fr]">
+        <GlassCard className="p-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-50/55">Prepared employer intelligence</p>
+          <h2 className="mt-1 text-xl font-black text-white">Largest reported injury burden — latest imported year</h2>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-xs">
+              <thead className="text-[9px] uppercase tracking-[0.14em] text-cyan-50/50">
+                <tr><th className="pb-3">Employer</th><th className="pb-3">Establishments</th><th className="pb-3">Cases</th><th className="pb-3">DART</th><th className="pb-3">TRC</th></tr>
+              </thead>
+              <tbody>
+                {(overview.topEmployers ?? []).slice(0, 15).map((row) => (
+                  <tr key={String(row.name)} className="border-t border-white/8">
+                    <td className="py-3 pr-4 font-bold text-white">{String(row.name)}</td>
+                    <td className="py-3 pr-4">{formatNumber(row.establishments, 0)}</td>
+                    <td className="py-3 pr-4 text-white">{formatNumber(row.total_cases, 0)}</td>
+                    <td className="py-3 pr-4">{formatNumber(row.dart_cases, 0)}</td>
+                    <td className="py-3 text-cyan-100">{formatNumber(row.trc_rate, 2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Prepared state view</p>
+          <h2 className="mt-1 text-xl font-black text-white">Reported cases by state</h2>
+          <div className="mt-4 h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stateData} layout="vertical">
+                <CartesianGrid stroke="rgba(165,243,252,.08)" horizontal={false} />
+                <XAxis type="number" tick={{ fill: "rgba(207,250,254,.5)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" width={42} tick={{ fill: "rgba(207,250,254,.65)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(251,113,133,.2)", borderRadius: 12 }} />
+                <Bar dataKey="cases" fill="#fda4af" radius={[0, 7, 7, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </GlassCard>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <GlassCard className="p-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Multi-year 300A trend</p>
+          <h2 className="mt-1 text-xl font-black text-white">Cases and aggregate TRC over time</h2>
+          <div className="mt-4 h-[330px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={overview.trend ?? []}>
+                <CartesianGrid stroke="rgba(165,243,252,.08)" />
+                <XAxis dataKey="year" tick={{ fill: "rgba(207,250,254,.6)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis yAxisId="cases" tick={{ fill: "rgba(207,250,254,.46)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis yAxisId="rate" orientation="right" tick={{ fill: "rgba(207,250,254,.46)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(103,232,249,.2)", borderRadius: 12 }} />
+                <Line yAxisId="cases" dataKey="total_cases" name="Cases" stroke="#67e8f9" strokeWidth={2.5} dot={false} />
+                <Line yAxisId="rate" dataKey="trc_rate" name="TRC" stroke="#c4b5fd" strokeWidth={2.5} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/55">Highest returned establishment rates</p>
+          <h2 className="mt-1 text-xl font-black text-white">Outlier review list</h2>
+          <div className="mt-4 max-h-[330px] space-y-2 overflow-auto pr-1">
+            {(overview.highRateEstablishments ?? []).slice(0, 20).map((row, index) => (
+              <div key={`${row.name}-${index}`} className="rounded-xl border border-white/9 bg-black/15 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold text-white">{String(row.name)}</p>
+                    <p className="mt-1 text-[10px] text-cyan-50/46">{String(row.company_name || "")} · {[row.city, row.state].filter(Boolean).join(", ")} · NAICS {String(row.naics || "—")}</p>
+                  </div>
+                  <span className="text-sm font-black text-rose-100">{formatNumber(row.trc_rate, 2)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[10px] text-amber-50/55">High reported rates are review signals, not “most dangerous employer” labels.</p>
+        </GlassCard>
+      </div>
+
+      {caseDetail === null ? <LoadingCard text="Checking OSHA Form 300/301 case-detail intelligence" /> : null}
+      {caseDetail?.imported && caseOverview ? (
+        <>
+          <GlassCard className="p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-50/55">Form 300/301 case-detail intelligence</p>
+                <h2 className="mt-1 text-xl font-black text-white">Injury composition is query-ready.</h2>
+                <p className="mt-2 text-xs leading-5 text-cyan-50/55">OIICS-coded nature, body part, event/exposure, source, outcomes, and SOC occupation fields are surfaced from the imported case-detail dataset.</p>
+              </div>
+              <EvidenceGradeBadge grade="A" />
+            </div>
+            <section className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricOrb label="Case-detail records" value={caseOverview.totalCases.toLocaleString()} note="All imported case years" icon={Layers3} />
+              <MetricOrb label="Latest case year" value={String(caseOverview.latestYear ?? "—")} note="Form 300/301 detail" icon={BookOpenCheck} tone="emerald" />
+              <MetricOrb label="Top injury nature" value={caseOverview.natures[0]?.name || "—"} note={caseOverview.natures[0] ? `${caseOverview.natures[0].count.toLocaleString()} cases` : "No OIICS nature returned"} icon={ShieldAlert} tone="rose" />
+              <MetricOrb label="Top event / exposure" value={caseOverview.events[0]?.name || "—"} note={caseOverview.events[0] ? `${caseOverview.events[0].count.toLocaleString()} cases` : "No OIICS event returned"} icon={Layers3} tone="violet" />
+            </section>
+          </GlassCard>
+          <div className="grid gap-5 xl:grid-cols-2">
+            <ClassificationCard title="Nature of injury / illness" items={caseOverview.natures} />
+            <ClassificationCard title="Part of body" items={caseOverview.bodyParts} />
+            <ClassificationCard title="Event / exposure" items={caseOverview.events} />
+            <ClassificationCard title="Primary source" items={caseOverview.sources} />
+          </div>
+          <div className="grid gap-5 xl:grid-cols-2">
+            <GlassCard className="p-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-50/55">Case outcomes</p>
+              <div className="mt-4 space-y-2">
+                {caseOverview.outcomeCounts.map((item) => (
+                  <div key={item.name} className="rounded-xl border border-white/9 bg-black/15 p-3">
+                    <div className="flex items-center justify-between gap-3"><p className="text-xs font-bold text-white">{item.name}</p><span className="text-base font-black text-rose-100">{item.count.toLocaleString()}</span></div>
+                    <p className="mt-1 text-[9px] text-cyan-50/45">{item.daysAway.toLocaleString()} days away · {item.restrictedDays.toLocaleString()} restricted/transfer days</p>
+                  </div>
+                ))}
+              </div>
+            </GlassCard>
+            <GlassCard className="p-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-50/55">Occupations in case-detail data</p>
+              <div className="mt-4 max-h-[360px] space-y-2 overflow-auto">
+                {caseOverview.occupations.slice(0, 20).map((item) => (
+                  <div key={`${item.code}-${item.name}`} className="flex items-start justify-between gap-3 rounded-xl border border-white/9 bg-black/15 p-3">
+                    <div><p className="text-xs font-bold text-white">{item.name}</p><p className="mt-1 text-[9px] text-cyan-50/42">SOC {item.code || "unclassified"}</p></div>
+                    <span className="text-sm font-black text-violet-100">{item.count.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </GlassCard>
+          </div>
+          {caseDetail.limitation ? <p className="rounded-xl border border-amber-200/12 bg-amber-300/[0.04] p-4 text-[10px] leading-5 text-amber-50/58">{caseDetail.limitation}</p> : null}
+        </>
+      ) : null}
+      {caseDetail && !caseDetail.imported ? (
+        <GlassCard className="p-5">
+          <div className="flex items-start gap-3">
+            <Database size={18} className="mt-0.5 text-violet-200/65" />
+            <div>
+              <p className="font-black text-white">Case-detail / OIICS analytics are wired and waiting for the official case-detail import.</p>
+              <p className="mt-2 text-xs leading-6 text-cyan-50/55">{caseDetail.warning}</p>
+              <p className="mt-2 text-[10px] leading-5 text-cyan-50/42">The application includes the table schema, OSHA case-detail field mapping, OIICS/SOC importer, and analytics endpoint. The composition views activate after the production database is synced.</p>
+            </div>
+          </div>
+        </GlassCard>
+      ) : null}
+
+      <GlassCard className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/48">Advanced establishment lookup</p>
+            <h3 className="mt-1 text-lg font-black text-white">Search only when you know the employer or filter.</h3>
+          </div>
+          <FileSearch size={18} className="text-cyan-200/55" />
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_.35fr_.42fr_.42fr_auto] xl:items-end">
+          <input value={company} onChange={(event) => setCompany(event.target.value)} placeholder="Employer / establishment" className="min-h-11 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" />
+          <input value={state} onChange={(event) => setState(event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2))} placeholder="State" className="min-h-11 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" />
+          <input value={naics} onChange={(event) => setNaics(event.target.value.replace(/[^0-9]/g, "").slice(0, 6))} placeholder="NAICS" className="min-h-11 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" />
+          <input value={year} onChange={(event) => setYear(event.target.value.replace(/[^0-9]/g, "").slice(0, 4))} placeholder="Year" className="min-h-11 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" />
+          <button type="button" onClick={() => void searchRecords()} disabled={loading} className="min-h-11 rounded-xl border border-rose-200/22 bg-rose-300/10 px-4 text-xs font-black text-white disabled:opacity-45">{loading ? "Querying…" : "Query records"}</button>
+        </div>
+        {error ? <p className="mt-3 text-xs text-rose-100/80">{error}</p> : null}
+        {records.length ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[850px] text-left text-xs">
+              <thead className="text-[9px] uppercase tracking-[0.14em] text-cyan-50/50"><tr><th className="pb-3">Establishment</th><th className="pb-3">Location</th><th className="pb-3">Year</th><th className="pb-3">Cases</th><th className="pb-3">DART</th><th className="pb-3">TRC</th></tr></thead>
+              <tbody>{records.slice(0, 100).map((record, index) => <tr key={`${record.establishmentName}-${index}`} className="border-t border-white/8"><td className="py-3 pr-3 font-bold text-white">{record.establishmentName}</td><td className="py-3 pr-3">{[record.city, record.state].filter(Boolean).join(", ")}</td><td className="py-3 pr-3">{record.year}</td><td className="py-3 pr-3">{formatNumber(record.totalCases, 0)}</td><td className="py-3 pr-3">{formatNumber(record.dartCases, 0)}</td><td className="py-3">{formatNumber(record.trcRate, 2)}</td></tr>)}</tbody>
+            </table>
+          </div>
+        ) : null}
+        {overview.limitation ? <p className="mt-4 text-[10px] leading-5 text-amber-50/58">{overview.limitation}</p> : null}
+      </GlassCard>
+    </div>
+  );
 }
 
-function Workbench({ dataset, resource, onClose }: { dataset: DataGovDataset; resource: DataGovResource; onClose: () => void }) {
-  const [preview, setPreview] = useState<WorkbenchPreview | null>(null); const [error, setError] = useState(""); const [loading, setLoading] = useState(true);
-  useEffect(() => { setLoading(true); setError(""); setPreview(null); void fetch(`/api/occupational-discovery/datagov-datastore-preview?resource=${encodeURIComponent(resource.id)}`).then(async (response) => { const payload = await response.json(); if (!response.ok || !payload.ok) throw new Error(payload.error || "Workbench preview unavailable."); setPreview(payload); }).catch((requestError) => setError(requestError instanceof Error ? requestError.message : "Workbench preview unavailable.")).finally(() => setLoading(false)); }, [resource.id]);
-  const columns = preview?.columns ?? [];
-  return <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-50/55">Dataset workbench</p><h2 className="mt-1 text-xl font-black text-white">{dataset.title}</h2><p className="mt-1 text-[10px] text-cyan-50/45">{resource.name} · {resource.format}</p></div><button type="button" onClick={onClose} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-cyan-50/60 hover:text-white">Close workbench</button></div>{loading ? <div className="mt-5"><LoadingCard text="Inspecting Data.gov datastore fields and sample rows" /></div> : error ? <div className="mt-5 rounded-xl border border-amber-200/14 bg-amber-300/[0.04] p-4"><p className="text-sm font-black text-amber-50">This resource is not available through the CKAN datastore preview.</p><p className="mt-2 text-xs leading-5 text-amber-50/65">{error}</p><div className="mt-3"><ExternalLink href={resource.url}>Open the original resource</ExternalLink></div></div> : preview ? <><section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Dataset rows" value={preview.total.toLocaleString()} note="CKAN reported total" icon={Database} /><MetricOrb label="Preview rows" value={preview.displayed.toLocaleString()} note="Bounded workbench sample" icon={Layers3} tone="violet" /><MetricOrb label="Columns profiled" value={columns.length.toString()} note="Type and sample inspection" icon={BookOpenCheck} tone="emerald" /><MetricOrb label="Numeric fields" value={columns.filter((column) => column.inferredType === "numeric").length.toString()} note="Potential aggregation fields" icon={BarChart3} tone="amber" /></section><div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{columns.slice(0, 18).map((column) => <div key={column.name} className="rounded-xl border border-white/9 bg-black/15 p-3"><div className="flex items-start justify-between gap-2"><p className="text-xs font-bold text-white">{column.name}</p><span className="text-[8px] uppercase tracking-[0.12em] text-violet-100/60">{column.inferredType}</span></div><p className="mt-1 text-[9px] text-cyan-50/42">Declared: {column.declaredType} · {column.nonEmpty} non-empty sample rows</p>{column.inferredType === "numeric" ? <p className="mt-1 text-[9px] text-emerald-100/55">Sample range {fmt(column.min, 2)} → {fmt(column.max, 2)}</p> : null}{column.samples.length ? <p className="mt-2 line-clamp-2 text-[9px] leading-4 text-cyan-50/45">{column.samples.join(" · ")}</p> : null}</div>)}</div>{preview.records.length ? <div className="mt-5 overflow-auto rounded-xl border border-white/9"><table className="min-w-full text-left text-[10px]"><thead className="sticky top-0 bg-[#06101d]"><tr>{Object.keys(preview.records[0]).slice(0, 12).map((key) => <th key={key} className="px-3 py-2 font-bold text-cyan-50/55">{key}</th>)}</tr></thead><tbody>{preview.records.slice(0, 25).map((row, rowIndex) => <tr key={rowIndex} className="border-t border-white/7">{Object.keys(preview.records[0]).slice(0, 12).map((key) => <td key={`${rowIndex}-${key}`} className="max-w-[240px] truncate px-3 py-2 text-cyan-50/60">{String(row[key] ?? "")}</td>)}</tr>)}</tbody></table></div> : null}<p className="mt-4 text-[10px] leading-5 text-cyan-50/45">{preview.limitation}</p></> : null}</GlassCard>;
+function DataGovWorkbench({
+  dataset,
+  resource,
+  onClose,
+}: {
+  dataset: DataGovDataset;
+  resource: DataGovResource;
+  onClose: () => void;
+}) {
+  const [preview, setPreview] = useState<WorkbenchPreview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    setPreview(null);
+    setError("");
+    void fetch(`/api/occupational-discovery/datagov-datastore-preview?resource=${encodeURIComponent(resource.id)}`)
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error(payload.error || "Workbench preview unavailable.");
+        setPreview(payload);
+      })
+      .catch((requestError) => setError(requestError instanceof Error ? requestError.message : "Workbench preview unavailable."))
+      .finally(() => setLoading(false));
+  }, [resource.id]);
+
+  return (
+    <GlassCard className="p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-50/55">Dataset workbench</p>
+          <h2 className="mt-1 text-xl font-black text-white">{dataset.title}</h2>
+          <p className="mt-1 text-[10px] text-cyan-50/45">{resource.name} · {resource.format}</p>
+        </div>
+        <button type="button" onClick={onClose} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-cyan-50/60 hover:text-white">Close workbench</button>
+      </div>
+
+      {loading ? <div className="mt-5"><LoadingCard text="Inspecting Data.gov fields and sample rows" /></div> : null}
+      {error ? (
+        <div className="mt-5 rounded-xl border border-amber-200/14 bg-amber-300/[0.04] p-4">
+          <p className="text-sm font-black text-amber-50">This resource is not available through the CKAN datastore preview.</p>
+          <p className="mt-2 text-xs leading-5 text-amber-50/65">{error}</p>
+          <div className="mt-3"><ExternalLink href={resource.url}>Open original resource</ExternalLink></div>
+        </div>
+      ) : null}
+
+      {preview ? (
+        <>
+          <section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricOrb label="Dataset rows" value={preview.total.toLocaleString()} note="CKAN reported total" icon={Database} />
+            <MetricOrb label="Preview rows" value={preview.displayed.toLocaleString()} note="Bounded sample" icon={Layers3} tone="violet" />
+            <MetricOrb label="Columns profiled" value={preview.columns.length.toString()} note="Type and sample inspection" icon={BookOpenCheck} tone="emerald" />
+            <MetricOrb label="Numeric fields" value={preview.columns.filter((column) => column.inferredType === "numeric").length.toString()} note="Potential aggregation fields" icon={BarChart3} tone="amber" />
+          </section>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {preview.columns.slice(0, 18).map((column) => (
+              <div key={column.name} className="rounded-xl border border-white/9 bg-black/15 p-3">
+                <div className="flex items-start justify-between gap-2"><p className="text-xs font-bold text-white">{column.name}</p><span className="text-[8px] uppercase tracking-[0.12em] text-violet-100/60">{column.inferredType}</span></div>
+                <p className="mt-1 text-[9px] text-cyan-50/42">Declared: {column.declaredType} · {column.nonEmpty} non-empty sample rows</p>
+                {column.inferredType === "numeric" ? <p className="mt-1 text-[9px] text-emerald-100/55">Sample range {formatNumber(column.min, 2)} → {formatNumber(column.max, 2)}</p> : null}
+                {column.samples.length ? <p className="mt-2 line-clamp-2 text-[9px] leading-4 text-cyan-50/45">{column.samples.join(" · ")}</p> : null}
+              </div>
+            ))}
+          </div>
+          {preview.records.length ? (
+            <div className="mt-5 overflow-auto rounded-xl border border-white/9">
+              <table className="min-w-full text-left text-[10px]">
+                <thead className="sticky top-0 bg-[#06101d]"><tr>{Object.keys(preview.records[0]).slice(0, 12).map((key) => <th key={key} className="px-3 py-2 font-bold text-cyan-50/55">{key}</th>)}</tr></thead>
+                <tbody>{preview.records.slice(0, 25).map((row, rowIndex) => <tr key={rowIndex} className="border-t border-white/7">{Object.keys(preview.records[0]).slice(0, 12).map((key) => <td key={`${rowIndex}-${key}`} className="max-w-[240px] truncate px-3 py-2 text-cyan-50/60">{String(row[key] ?? "")}</td>)}</tr>)}</tbody>
+              </table>
+            </div>
+          ) : null}
+          <p className="mt-4 text-[10px] leading-5 text-cyan-50/45">{preview.limitation}</p>
+        </>
+      ) : null}
+    </GlassCard>
+  );
 }
 
 function DataGovWorkspace({ overview }: { overview: DataGovOverview | null }) {
-  const [activeId, setActiveId] = useState(""); const [datasets, setDatasets] = useState<DataGovDataset[]>([]); const [loading, setLoading] = useState(false); const [custom, setCustom] = useState(""); const [customResults, setCustomResults] = useState<DataGovDataset[]>([]); const [workbench, setWorkbench] = useState<{ dataset: DataGovDataset; resource: DataGovResource } | null>(null);
-  async function openCollection(id: string) { setActiveId(id); setLoading(true); setDatasets([]); setWorkbench(null); try { const response = await fetch(`/api/occupational-discovery/datagov-collection/${encodeURIComponent(id)}?rows=24`); const payload = await response.json(); if (payload.ok) setDatasets(payload.datasets ?? []); } finally { setLoading(false); } }
-  async function customSearch() { if (!custom.trim()) return; setLoading(true); setCustomResults([]); try { const response = await fetch(`/api/occupational-data/datagov?query=${encodeURIComponent(custom.trim())}&rows=24`); const payload = await response.json(); if (payload.ok) setCustomResults(payload.datasets ?? []); } finally { setLoading(false); } }
+  const [activeId, setActiveId] = useState("");
+  const [datasets, setDatasets] = useState<DataGovDataset[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [customQuery, setCustomQuery] = useState("");
+  const [customResults, setCustomResults] = useState<DataGovDataset[]>([]);
+  const [workbench, setWorkbench] = useState<{ dataset: DataGovDataset; resource: DataGovResource } | null>(null);
+
+  async function openCollection(id: string) {
+    setActiveId(id);
+    setLoading(true);
+    setDatasets([]);
+    setWorkbench(null);
+    try {
+      const response = await fetch(`/api/occupational-discovery/datagov-collection/${encodeURIComponent(id)}?rows=24`);
+      const payload = await response.json();
+      if (response.ok && payload.ok) setDatasets(payload.datasets ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runCustomSearch() {
+    if (!customQuery.trim()) return;
+    setLoading(true);
+    setCustomResults([]);
+    try {
+      const response = await fetch(`/api/occupational-data/datagov?query=${encodeURIComponent(customQuery.trim())}&rows=24`);
+      const payload = await response.json();
+      if (response.ok && payload.ok) setCustomResults(payload.datasets ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (!overview) return <LoadingCard text="Loading curated public-data collections" />;
   const active = overview.collections.find((collection) => collection.id === activeId);
-  return <div className="space-y-5"><GlassCard className="p-5"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-50/55">Curated Occu-Med public-data collections</p><h2 className="mt-1 text-xl font-black text-white">The useful government-data searches are already done.</h2><p className="mt-2 max-w-4xl text-xs leading-6 text-cyan-50/60">Open a collection to see live matching datasets. For CKAN datastore resources, the built-in workbench profiles fields and previews rows without making the user understand CKAN first.</p><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{overview.collections.map((collection) => <button key={collection.id} type="button" onClick={() => void openCollection(collection.id)} className={`rounded-2xl border p-4 text-left transition ${activeId === collection.id ? "border-violet-200/28 bg-violet-300/[0.08]" : "border-white/10 bg-[#071321]/72 hover:border-violet-200/20"}`}><div className="flex items-start justify-between gap-3"><p className="text-sm font-black text-white">{collection.label}</p><span className="text-xs font-black text-violet-100">{collection.count == null ? "—" : collection.count.toLocaleString()}</span></div><p className="mt-2 text-[10px] leading-5 text-cyan-50/52">{collection.why}</p><div className="mt-3 flex flex-wrap gap-1.5">{collection.analyses.slice(0, 4).map((analysis) => <span key={analysis} className="rounded-full border border-white/9 px-2 py-1 text-[8px] text-cyan-50/46">{analysis}</span>)}</div></button>)}</div></GlassCard>
-    {loading && activeId ? <LoadingCard text={`Loading ${active?.label ?? "collection"} datasets`} /> : null}
-    {datasets.length ? <div className="grid gap-4 xl:grid-cols-2">{datasets.map((dataset) => <GlassCard key={dataset.id} className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-bold uppercase tracking-[0.14em] text-violet-50/52">{dataset.agency}</p><h3 className="mt-1 text-base font-black text-white">{dataset.title}</h3></div>{dataset.apiReady ? <span className="rounded-full border border-emerald-200/18 bg-emerald-300/[0.07] px-2 py-1 text-[8px] font-bold text-emerald-50">Data resource</span> : null}</div><p className="mt-3 line-clamp-4 text-[11px] leading-5 text-cyan-50/58">{dataset.description || "No catalog description reported."}</p><div className="mt-3 space-y-1.5">{dataset.resources.slice(0, 4).map((resource) => <div key={`${dataset.id}-${resource.id}`} className="flex items-center justify-between gap-3 rounded-lg border border-white/8 bg-black/15 px-3 py-2"><a href={resource.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-[9px] text-cyan-50/58 hover:text-white">{resource.name}</a><div className="flex shrink-0 items-center gap-2"><span className="text-[8px] text-violet-100/65">{resource.format}</span>{resource.id ? <button type="button" onClick={() => setWorkbench({ dataset, resource })} className="rounded-md border border-violet-200/16 px-2 py-1 text-[8px] font-bold text-violet-50 hover:bg-violet-300/[0.08]">Try workbench</button> : null}</div></div>)}</div><div className="mt-4"><ExternalLink href={dataset.catalogUrl}>Catalog record</ExternalLink></div></GlassCard>)}</div> : null}
-    {workbench ? <Workbench dataset={workbench.dataset} resource={workbench.resource} onClose={() => setWorkbench(null)} /> : null}
-    <GlassCard className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/48">Advanced catalog search</p><h3 className="mt-1 text-lg font-black text-white">Only use this when curated collections do not cover the question.</h3></div><Search size={18} className="text-cyan-200/55" /></div><div className="mt-4 flex flex-col gap-3 md:flex-row"><input value={custom} onChange={(event) => setCustom(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void customSearch(); }} placeholder="Search a specific government-data topic…" className="min-h-11 flex-1 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /><button type="button" onClick={() => void customSearch()} disabled={loading || !custom.trim()} className="min-h-11 rounded-xl border border-cyan-200/22 bg-cyan-300/10 px-5 text-sm font-black text-white disabled:opacity-45">Search catalog</button></div>{customResults.length ? <div className="mt-4 grid gap-2 md:grid-cols-2">{customResults.slice(0, 12).map((dataset) => <a key={dataset.id} href={dataset.catalogUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-white/9 bg-black/15 p-3 hover:border-cyan-200/20"><p className="text-xs font-bold text-white">{dataset.title}</p><p className="mt-1 text-[9px] text-cyan-50/46">{dataset.agency}</p></a>)}</div> : null}</GlassCard>
-  </div>;
+
+  return (
+    <div className="space-y-5">
+      <GlassCard className="p-5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-50/55">Curated Occu-Med public-data collections</p>
+        <h2 className="mt-1 text-xl font-black text-white">The useful government-data searches are already done.</h2>
+        <p className="mt-2 max-w-4xl text-xs leading-6 text-cyan-50/60">Open a collection to see live matching datasets. CKAN datastore resources can be opened in the built-in workbench for field profiling and sample-row inspection.</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {overview.collections.map((collection) => (
+            <button
+              key={collection.id}
+              type="button"
+              onClick={() => void openCollection(collection.id)}
+              className={`rounded-2xl border p-4 text-left transition ${activeId === collection.id ? "border-violet-200/28 bg-violet-300/[0.08]" : "border-white/10 bg-[#071321]/72 hover:border-violet-200/20"}`}
+            >
+              <div className="flex items-start justify-between gap-3"><p className="text-sm font-black text-white">{collection.label}</p><span className="text-xs font-black text-violet-100">{collection.count == null ? "—" : collection.count.toLocaleString()}</span></div>
+              <p className="mt-2 text-[10px] leading-5 text-cyan-50/52">{collection.why}</p>
+              <div className="mt-3 flex flex-wrap gap-1.5">{collection.analyses.slice(0, 4).map((analysis) => <span key={analysis} className="rounded-full border border-white/9 px-2 py-1 text-[8px] text-cyan-50/46">{analysis}</span>)}</div>
+            </button>
+          ))}
+        </div>
+      </GlassCard>
+
+      {loading && activeId ? <LoadingCard text={`Loading ${active?.label ?? "collection"} datasets`} /> : null}
+      {datasets.length ? (
+        <div className="grid gap-4 xl:grid-cols-2">
+          {datasets.map((dataset) => (
+            <GlassCard key={dataset.id} className="p-5">
+              <div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-bold uppercase tracking-[0.14em] text-violet-50/52">{dataset.agency}</p><h3 className="mt-1 text-base font-black text-white">{dataset.title}</h3></div>{dataset.apiReady ? <span className="rounded-full border border-emerald-200/18 bg-emerald-300/[0.07] px-2 py-1 text-[8px] font-bold text-emerald-50">Data resource</span> : null}</div>
+              <p className="mt-3 line-clamp-4 text-[11px] leading-5 text-cyan-50/58">{dataset.description || "No catalog description reported."}</p>
+              <div className="mt-3 space-y-1.5">
+                {dataset.resources.slice(0, 4).map((resource) => (
+                  <div key={`${dataset.id}-${resource.id}`} className="flex items-center justify-between gap-3 rounded-lg border border-white/8 bg-black/15 px-3 py-2">
+                    <a href={resource.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-[9px] text-cyan-50/58 hover:text-white">{resource.name}</a>
+                    <div className="flex shrink-0 items-center gap-2"><span className="text-[8px] text-violet-100/65">{resource.format}</span>{resource.id ? <button type="button" onClick={() => setWorkbench({ dataset, resource })} className="rounded-md border border-violet-200/16 px-2 py-1 text-[8px] font-bold text-violet-50 hover:bg-violet-300/[0.08]">Try workbench</button> : null}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4"><ExternalLink href={dataset.catalogUrl}>Catalog record</ExternalLink></div>
+            </GlassCard>
+          ))}
+        </div>
+      ) : null}
+
+      {workbench ? <DataGovWorkbench dataset={workbench.dataset} resource={workbench.resource} onClose={() => setWorkbench(null)} /> : null}
+
+      <GlassCard className="p-5">
+        <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/48">Advanced catalog search</p><h3 className="mt-1 text-lg font-black text-white">Only use this when curated collections do not cover the question.</h3></div><Search size={18} className="text-cyan-200/55" /></div>
+        <div className="mt-4 flex flex-col gap-3 md:flex-row"><input value={customQuery} onChange={(event) => setCustomQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void runCustomSearch(); }} placeholder="Search a specific government-data topic…" className="min-h-11 flex-1 rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /><button type="button" onClick={() => void runCustomSearch()} disabled={loading || !customQuery.trim()} className="min-h-11 rounded-xl border border-cyan-200/22 bg-cyan-300/10 px-5 text-sm font-black text-white disabled:opacity-45">Search catalog</button></div>
+        {customResults.length ? <div className="mt-4 grid gap-2 md:grid-cols-2">{customResults.slice(0, 12).map((dataset) => <a key={dataset.id} href={dataset.catalogUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-white/9 bg-black/15 p-3 hover:border-cyan-200/20"><p className="text-xs font-bold text-white">{dataset.title}</p><p className="mt-1 text-[9px] text-cyan-50/46">{dataset.agency}</p></a>)}</div> : null}
+      </GlassCard>
+    </div>
+  );
 }
 
 export default function OccupationalDataExplorer() {
-  const [activeTab, setActiveTab] = useState<ExplorerTab>("library"); const [manifest, setManifest] = useState<Manifest | null>(null); const [bls, setBls] = useState<BlsOverview | null>(null); const [osha, setOsha] = useState<OshaOverview | null>(null); const [datagov, setDatagov] = useState<DataGovOverview | null>(null);
-  useEffect(() => { void fetch("/api/occupational-discovery/manifest").then((response) => response.json()).then((payload) => { if (payload.ok) setManifest(payload); }).catch(() => undefined); void fetch("/api/occupational-discovery/bls-overview").then((response) => response.json()).then((payload) => { if (payload.ok) setBls(payload); }).catch(() => undefined); void fetch("/api/occupational-discovery/osha-overview").then((response) => response.json()).then((payload) => { if (payload.ok) setOsha(payload); }).catch(() => undefined); void fetch("/api/occupational-discovery/datagov-overview").then((response) => response.json()).then((payload) => { if (payload.ok) setDatagov(payload); }).catch(() => undefined); }, []);
-  const readySources = useMemo(() => manifest?.sources.filter((source) => !source.status.includes("not-imported") && !source.status.includes("required")).length ?? 0, [manifest]);
-  return <OccupationalToolShell eyebrow="Independent Intelligence Tool · Occupational Data Library" title="Occupational Data Explorer" subtitle="Prepared occupational-health intelligence first; source search only when you actually need it." notice="The source workspaces remain independent. This page is a discovery and navigation layer: it surfaces relevant datasets, prepared analyses, historical trends, and source inventories without transferring results into another tool or client/case record."><ToolHero kicker="Discovery first" title="The database should explain itself before it asks you a question." description="Open business questions, live BLS benchmarks and history, OSHA employer and injury-composition intelligence, or curated public-data collections. Advanced search lives at the bottom of each workspace." accent="violet"><div className="grid grid-cols-3 gap-2"><div className="rounded-xl border border-white/12 bg-black/20 p-3 text-center"><Database className="mx-auto text-cyan-200/65" size={18} /><p className="mt-2 text-lg font-black text-white">{manifest?.sources.length ?? "—"}</p><p className="text-[9px] text-cyan-50/45">Indexed sources</p></div><div className="rounded-xl border border-white/12 bg-black/20 p-3 text-center"><Sparkles className="mx-auto text-violet-200/65" size={18} /><p className="mt-2 text-lg font-black text-white">{manifest?.businessQuestions.length ?? "—"}</p><p className="text-[9px] text-cyan-50/45">Prepared questions</p></div><div className="rounded-xl border border-white/12 bg-black/20 p-3 text-center"><BookOpenCheck className="mx-auto text-emerald-200/65" size={18} /><p className="mt-2 text-lg font-black text-white">{readySources || "—"}</p><p className="text-[9px] text-cyan-50/45">Ready / live sources</p></div></div></ToolHero><SectionTabs tabs={tabs} active={activeTab} onChange={setActiveTab} /><AnimatePresence mode="wait"><motion.div key={activeTab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>{activeTab === "library" ? (manifest ? <DataLibrary manifest={manifest} onOpen={setActiveTab} /> : <LoadingCard text="Loading the Occu-Med data inventory" />) : activeTab === "bls" ? <BlsWorkspace overview={bls} /> : activeTab === "osha" ? <OshaWorkspace overview={osha} /> : <DataGovWorkspace overview={datagov} />}</motion.div></AnimatePresence></OccupationalToolShell>;
+  const [activeTab, setActiveTab] = useState<ExplorerTab>("library");
+  const [manifest, setManifest] = useState<Manifest | null>(null);
+  const [blsOverview, setBlsOverview] = useState<BlsOverview | null>(null);
+  const [oshaOverview, setOshaOverview] = useState<OshaSummaryOverview | null>(null);
+  const [dataGovOverview, setDataGovOverview] = useState<DataGovOverview | null>(null);
+
+  useEffect(() => {
+    void fetch("/api/occupational-discovery/manifest").then((response) => response.json()).then((payload) => { if (payload.ok) setManifest(payload); }).catch(() => undefined);
+    void fetch("/api/occupational-discovery/bls-overview").then((response) => response.json()).then((payload) => { if (payload.ok) setBlsOverview(payload); }).catch(() => undefined);
+    void fetch("/api/occupational-discovery/osha-overview").then((response) => response.json()).then((payload) => { if (payload.ok) setOshaOverview(payload); }).catch(() => undefined);
+    void fetch("/api/occupational-discovery/datagov-overview").then((response) => response.json()).then((payload) => { if (payload.ok) setDataGovOverview(payload); }).catch(() => undefined);
+  }, []);
+
+  const readySources = useMemo(
+    () => manifest?.sources.filter((source) => !source.status.includes("not-imported") && !source.status.includes("required")).length ?? 0,
+    [manifest],
+  );
+
+  return (
+    <OccupationalToolShell
+      eyebrow="Independent Intelligence Tool · Occupational Data Library"
+      title="Occupational Data Explorer"
+      subtitle="Prepared occupational-health intelligence first; source search only when you actually need it."
+      notice="The source workspaces remain independent. This page surfaces relevant datasets, prepared analyses, historical trends, and source inventories without transferring results into another tool or client/case record."
+    >
+      <ToolHero
+        kicker="Discovery first"
+        title="The database should explain itself before it asks you a question."
+        description="Open business questions, live BLS benchmarks and history, OSHA employer and injury-composition intelligence, or curated public-data collections. Advanced search lives at the bottom of each workspace."
+        accent="violet"
+      >
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-xl border border-white/12 bg-black/20 p-3 text-center"><Database className="mx-auto text-cyan-200/65" size={18} /><p className="mt-2 text-lg font-black text-white">{manifest?.sources.length ?? "—"}</p><p className="text-[9px] text-cyan-50/45">Indexed sources</p></div>
+          <div className="rounded-xl border border-white/12 bg-black/20 p-3 text-center"><Sparkles className="mx-auto text-violet-200/65" size={18} /><p className="mt-2 text-lg font-black text-white">{manifest?.businessQuestions.length ?? "—"}</p><p className="text-[9px] text-cyan-50/45">Prepared questions</p></div>
+          <div className="rounded-xl border border-white/12 bg-black/20 p-3 text-center"><BookOpenCheck className="mx-auto text-emerald-200/65" size={18} /><p className="mt-2 text-lg font-black text-white">{readySources || "—"}</p><p className="text-[9px] text-cyan-50/45">Ready / live sources</p></div>
+        </div>
+      </ToolHero>
+      <SectionTabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
+      <AnimatePresence mode="wait">
+        <motion.div key={activeTab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
+          {activeTab === "library" ? (
+            manifest ? <DataLibrary manifest={manifest} onOpen={setActiveTab} /> : <LoadingCard text="Loading the Occu-Med data inventory" />
+          ) : activeTab === "bls" ? (
+            <BlsWorkspace overview={blsOverview} />
+          ) : activeTab === "osha" ? (
+            <OshaWorkspace overview={oshaOverview} />
+          ) : (
+            <DataGovWorkspace overview={dataGovOverview} />
+          )}
+        </motion.div>
+      </AnimatePresence>
+    </OccupationalToolShell>
+  );
 }
