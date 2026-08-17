@@ -8,8 +8,8 @@ type Occupation = { code: string; title: string; datalevel?: boolean; zone?: { c
 type ContentLink = { href?: string; title?: string };
 
 const families = [
-  ["abilities", "Abilities"], ["interests", "Interests"], ["knowledge", "Knowledge"], ["skills_basic", "Basic Skills"],
-  ["skills_cf", "Cross-Functional Skills"], ["work_activities", "Work Activities"], ["work_context", "Work Context"], ["work_styles", "Work Styles"],
+  ["abilities", "Abilities taxonomy"], ["interests", "Interests taxonomy"], ["knowledge", "Knowledge taxonomy"], ["skills_basic", "Basic Skills taxonomy"],
+  ["skills_cf", "Cross-Functional Skills taxonomy"], ["work_activities", "Work Activities taxonomy"], ["work_context", "Work Context taxonomy"], ["work_styles", "Work Styles taxonomy"],
 ] as const;
 
 function text(value: unknown): string {
