@@ -5,12 +5,13 @@ import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { FullSourceBrowser } from "@/components/insight/FullSourceBrowser";
 import { OnetDatabaseBrowser } from "@/components/insight/OnetDatabaseBrowser";
+import { OnetRawDatabaseBrowser } from "@/components/insight/OnetRawDatabaseBrowser";
 import { cn } from "@/lib/utils";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: string | number }>;
 
 export function OccupationalToolShell({ eyebrow, title, subtitle, notice, children }: { eyebrow: string; title: string; subtitle: string; notice: string; children: ReactNode }) {
-  return <main className="aurora-bg min-h-screen pb-20 text-white"><Sidebar /><section className="relative z-10 px-5 py-7 lg:ml-[210px] lg:px-10 2xl:px-14"><HeaderBar eyebrow={eyebrow} title={title} subtitle={subtitle} /><div className="mb-5 rounded-2xl border border-cyan-100/16 bg-[#071321]/92 px-4 py-3 shadow-[0_12px_34px_rgba(0,0,0,.24)]"><div className="flex items-start gap-3 text-xs leading-5 text-cyan-50/72"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-cyan-200/75" /><p>{notice}</p></div></div>{title === "Occupational Data Explorer" ? <FullSourceBrowser /> : null}{title === "O*NET Master Tool" ? <OnetDatabaseBrowser /> : null}{children}</section></main>;
+  return <main className="aurora-bg min-h-screen pb-20 text-white"><Sidebar /><section className="relative z-10 px-5 py-7 lg:ml-[210px] lg:px-10 2xl:px-14"><HeaderBar eyebrow={eyebrow} title={title} subtitle={subtitle} /><div className="mb-5 rounded-2xl border border-cyan-100/16 bg-[#071321]/92 px-4 py-3 shadow-[0_12px_34px_rgba(0,0,0,.24)]"><div className="flex items-start gap-3 text-xs leading-5 text-cyan-50/72"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-cyan-200/75" /><p>{notice}</p></div></div>{title === "Occupational Data Explorer" ? <FullSourceBrowser /> : null}{title === "O*NET Master Tool" ? <><OnetRawDatabaseBrowser /><OnetDatabaseBrowser /></> : null}{children}</section></main>;
 }
 
 export function ToolHero({ kicker, title, description, children, accent = "cyan" }: { kicker: string; title: string; description: string; children?: ReactNode; accent?: "cyan" | "violet" | "emerald" | "rose" }) {
