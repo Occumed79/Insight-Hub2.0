@@ -1,7 +1,7 @@
 {
-  "description": "Post-iframe-source-portal structural ceiling for Insight Hub 2 after browser-CI, dead-code hardening, React 19 state-map compatibility, OSHA database-persistence hardening, and the discovery-first occupational pass. The active application keeps one shell, three global CSS layers, reviewed component-level style blocks, lazy-loaded workspaces, and protected Hub 2 intelligence ownership routes. Occupational source access is now presented through one reachable iframe-style official-source portal component instead of bespoke raw database-browser interfaces. Existing backend occupational source routes remain available for data-backed features, but they are not injected as raw table browsers into the product UI. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
+  "description": "Post-webview-source-portal structural ceiling for Insight Hub 2 after browser-CI, dead-code hardening, React 19 state-map compatibility, OSHA database-persistence hardening, and the discovery-first occupational pass. The active application keeps one shell, three global CSS layers, reviewed component-level style blocks, lazy-loaded workspaces, and protected Hub 2 intelligence ownership routes. Occupational source access is presented through one reachable iframe-style official-source portal component backed by one isolated, whitelist-only server webview route so government sites that block direct framing can still render inside the app. Existing backend occupational source routes remain available for data-backed features, but they are not injected as raw table browsers into the product UI. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
   "maximums": {
-    "totalFiles": 251,
+    "totalFiles": 252,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
@@ -40,6 +40,7 @@
     "artifacts/api-server/src/routes/occupational-datagov-workbench.ts",
     "artifacts/api-server/src/routes/occupational-source-browser.ts",
     "artifacts/api-server/src/routes/occupational-onet-database.ts",
+    "artifacts/api-server/src/routes/official-source-webview.ts",
     "artifacts/api-server/src/services/oshaCaseDataService.ts",
     "artifacts/api-server/scripts/import-osha-case-detail.ts"
   ],
