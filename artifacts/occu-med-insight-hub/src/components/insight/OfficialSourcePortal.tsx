@@ -45,6 +45,7 @@ const ONET_SOURCE: SourcePortal = {
 
 function PortalFrame({ source }: { source: SourcePortal }) {
   const [frameKey, setFrameKey] = useState(0);
+  const proxyUrl = `/api/official-source-webview?source=${encodeURIComponent(source.id)}&url=${encodeURIComponent(source.url)}&reload=${frameKey}`;
 
   return (
     <section className="overflow-hidden rounded-[24px] border border-cyan-100/16 bg-[#020812] shadow-[0_24px_70px_rgba(0,0,0,.42)]">
@@ -84,16 +85,17 @@ function PortalFrame({ source }: { source: SourcePortal }) {
       <div className="relative bg-white">
         <iframe
           key={`${source.id}-${frameKey}`}
-          src={source.url}
+          src={proxyUrl}
           title={`${source.label} official data portal`}
           className="block h-[72vh] min-h-[680px] w-full bg-white"
           loading="eager"
-          referrerPolicy="strict-origin-when-cross-origin"
+          referrerPolicy="no-referrer"
+          sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-scripts allow-downloads"
         />
       </div>
 
       <div className="border-t border-white/10 bg-[#07111d] px-4 py-2.5 text-[10px] leading-5 text-cyan-50/45">
-        This is the official source displayed inside Insight Hub. If the publisher blocks framing in your browser, use <span className="font-bold text-cyan-50/65">Open official</span> without changing the source or search terms.
+        Official public-source content is rendered through Insight Hub's isolated webview so publisher anti-framing rules do not leave the workspace blank. Navigation remains restricted to the selected official domain.
       </div>
     </section>
   );
