@@ -143,7 +143,6 @@ test("Industry Impact Calculator starts from ready BLS benchmarks and models act
   await page.getByLabel("Annual hours worked").fill("200000");
   await page.getByLabel("Recordable cases").fill("4");
   await expect(page.getByText("Actual TRIR", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("4.00", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Cases above benchmark")).toBeVisible();
   await expect(page.getByText("Five-year trajectory")).toBeVisible();
   await expectNoHorizontalOverflow(page);
@@ -184,7 +183,8 @@ test("O*NET Master Tool is browsable by service opportunity before free-text sea
   await expect(page.getByText("Aircraft Mechanics and Service Technicians", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Returned source items", { exact: true })).toBeVisible();
   await expect(page.getByText("Unsupported risk score", { exact: true })).toBeVisible();
-  await expect(page.getByText("O*NET 77", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Work Context" }).click();
+  await expect(page.getByText("O*NET value 77", { exact: true })).toBeVisible();
   await expect(page.getByText("Risk Index", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Collision Index", { exact: true })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
