@@ -79,6 +79,21 @@ async function installOccupationalApi(page: Page) {
     const url = new URL(route.request().url());
     const path = url.pathname;
 
+    if (path.endsWith("/api/official-source-webview")) {
+      const source = url.searchParams.get("source") || "unknown";
+      const labels: Record<string, string> = {
+        bls: "BLS official source",
+        osha: "OSHA official source",
+        datagov: "Data.gov official source",
+        onet: "O*NET official source",
+      };
+      return route.fulfill({
+        status: 200,
+        contentType: "text/html; charset=utf-8",
+        body: `<!doctype html><html><body><main>${labels[source] || "Official source"}</main></body></html>`,
+      });
+    }
+
     if (path.endsWith("/api/occupational-discovery/manifest")) return fulfillJson(route, manifest);
     if (path.endsWith("/api/occupational-discovery/bls-overview")) {
       return fulfillJson(route, {
@@ -116,19 +131,6 @@ async function installOccupationalApi(page: Page) {
 
     return fulfillJson(route, { ok: true, configured: true, records: [], datasets: [], matches: [] });
   });
-
-  const sourcePages = [
-    ["https://www.bls.gov/**", "BLS official source"],
-    ["https://www.osha.gov/**", "OSHA official source"],
-    ["https://catalog.data.gov/**", "Data.gov official source"],
-    ["https://www.onetonline.org/**", "O*NET official source"],
-  ] as const;
-
-  for (const [pattern, label] of sourcePages) {
-    await page.route(pattern, async (route) => {
-      await route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: `<!doctype html><html><body><main>${label}</main></body></html>` });
-    });
-  }
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -140,7 +142,7 @@ test.beforeEach(async ({ page }) => {
   await installOccupationalApi(page);
 });
 
-test("Occupational Data Explorer is an iframe-style official source portal", async ({ page }) => {
+test("Occupational Data Explorer renders official sources through the working webview", async ({ page }) => {
   await page.goto("/occupational-data-explorer");
   await expect(page.getByRole("heading", { name: "Occupational Data Explorer" })).toBeVisible();
   await expect(page.getByText("Official source portal", { exact: true })).toBeVisible();
@@ -148,15 +150,21 @@ test("Occupational Data Explorer is an iframe-style official source portal", asy
   await expect(page.getByRole("button", { name: "OSHA" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Data.gov" })).toBeVisible();
 
-  const frame = page.locator('iframe[title="BLS Injuries, Illnesses & Fatalities official data portal"]');
-  await expect(frame).toHaveAttribute("src", "https://www.bls.gov/iif/data-overview.htm");
-  await expect(page.frames().find((candidate) => candidate.url().includes("bls.gov"))?.locator("body") ?? page.locator("body")).toContainText("BLS official source");
+  const blsFrame = page.locator('iframe[title="BLS Injuries, Illnesses & Fatalities official data portal"]');
+  await expect(blsFrame).toHaveAttribute("src", /\/api\/official-source-webview\?source=bls/);
+  await expect(blsFrame).toHaveAttribute("sandbox", /allow-scripts/);
+  await expect(blsFrame).not.toHaveAttribute("sandbox", /allow-same-origin/);
+  await expect(page.frameLocator('iframe[title="BLS Injuries, Illnesses & Fatalities official data portal"]').getByText("BLS official source")).toBeVisible();
 
   await page.getByRole("button", { name: "OSHA" }).click();
-  await expect(page.locator('iframe[title="OSHA Data official data portal"]')).toHaveAttribute("src", "https://www.osha.gov/data");
+  const oshaFrame = page.locator('iframe[title="OSHA Data official data portal"]');
+  await expect(oshaFrame).toHaveAttribute("src", /\/api\/official-source-webview\?source=osha/);
+  await expect(page.frameLocator('iframe[title="OSHA Data official data portal"]').getByText("OSHA official source")).toBeVisible();
 
   await page.getByRole("button", { name: "Data.gov" }).click();
-  await expect(page.locator('iframe[title="Data.gov Catalog official data portal"]')).toHaveAttribute("src", "https://catalog.data.gov/");
+  const dataGovFrame = page.locator('iframe[title="Data.gov Catalog official data portal"]');
+  await expect(dataGovFrame).toHaveAttribute("src", /\/api\/official-source-webview\?source=datagov/);
+  await expect(page.frameLocator('iframe[title="Data.gov Catalog official data portal"]').getByText("Data.gov official source")).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 
@@ -197,11 +205,13 @@ test("Calculator suite uses live job evidence and operational readiness schedule
   await expectNoHorizontalOverflow(page);
 });
 
-test("O*NET Master Tool is the official O*NET iframe-style page", async ({ page }) => {
+test("O*NET Master Tool renders the official O*NET site through the working webview", async ({ page }) => {
   await page.goto("/onet-master-tool");
   await expect(page.getByRole("heading", { name: "O*NET Master Tool" })).toBeVisible();
   await expect(page.getByText("O*NET OnLine", { exact: true })).toBeVisible();
-  await expect(page.locator('iframe[title="O*NET OnLine official data portal"]')).toHaveAttribute("src", "https://www.onetonline.org/");
+  const frame = page.locator('iframe[title="O*NET OnLine official data portal"]');
+  await expect(frame).toHaveAttribute("src", /\/api\/official-source-webview\?source=onet/);
+  await expect(page.frameLocator('iframe[title="O*NET OnLine official data portal"]').getByText("O*NET official source")).toBeVisible();
   await expect(page.getByText("Browse by Occu-Med service opportunity")).toHaveCount(0);
   await expect(page.getByText("Raw O*NET Database Tables")).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
