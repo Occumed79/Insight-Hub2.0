@@ -30,9 +30,7 @@ async function getDbModule(): Promise<DbModule> {
   return dbModulePromise;
 }
 
-function dbConfigured(): boolean {
-  return Boolean(process.env.DATABASE_URL);
-}
+function dbConfigured(): boolean { return Boolean(process.env.DATABASE_URL); }
 
 export async function ensureOshaCasePersistence(): Promise<void> {
   if (!dbConfigured()) throw new Error("DATABASE_URL is required for OSHA case-detail persistence.");
@@ -124,10 +122,7 @@ export async function ensureOshaCasePersistence(): Promise<void> {
           ON osha_case_details(dataset_name, dataset_year, source_record_id)
           WHERE source_record_id IS NOT NULL AND source_record_id <> '';
       `);
-    })().catch((error) => {
-      ensurePromise = null;
-      throw error;
-    });
+    })().catch((error) => { ensurePromise = null; throw error; });
   }
   await ensurePromise;
 }
@@ -142,12 +137,7 @@ export async function getOshaCaseImportInfo(): Promise<OshaCaseImportInfo> {
     pool.query<{ imported_at: Date | string }>("SELECT imported_at FROM osha_case_import_runs ORDER BY imported_at DESC LIMIT 1"),
   ]);
   const latest = importResult.rows[0]?.imported_at;
-  return {
-    totalCases: Number(countResult.rows[0]?.count ?? 0),
-    years: yearsResult.rows.map((row) => Number(row.year)).filter(Number.isFinite),
-    latestImport: latest ? new Date(latest).toISOString() : undefined,
-    storage: "postgres",
-  };
+  return { totalCases: Number(countResult.rows[0]?.count ?? 0), years: yearsResult.rows.map((row) => Number(row.year)).filter(Number.isFinite), latestImport: latest ? new Date(latest).toISOString() : undefined, storage: "postgres" };
 }
 
 function outcomeLabel(value: number): string {
@@ -157,7 +147,6 @@ function outcomeLabel(value: number): string {
   if (value === 4) return "Other recordable case";
   return `Outcome ${value}`;
 }
-
 function incidentTypeLabel(value: number): string {
   if (value === 1) return "Injury";
   if (value === 2) return "Skin disorder";
@@ -174,10 +163,10 @@ export async function getOshaCaseOverview(year?: number): Promise<OshaCaseOvervi
   const { pool } = await getDbModule();
   const imported = await getOshaCaseImportInfo();
   if (imported.totalCases === 0) return null;
-
   const latestYear = imported.years.length ? imported.years[imported.years.length - 1] : null;
   const selectedYear = year && Number.isFinite(year) ? year : latestYear;
-  const where = selectedYear ? "WHERE year_of_filing = $1" : "";
+  const yearPrefix = selectedYear ? "year_of_filing = $1 AND " : "";
+  const yearOnly = selectedYear ? "WHERE year_of_filing = $1" : "";
   const params = selectedYear ? [selectedYear] : [];
 
   const [outcomes, types, natures, parts, events, sources, secondary, occupations, trend] = await Promise.all([
@@ -185,50 +174,44 @@ export async function getOshaCaseOverview(year?: number): Promise<OshaCaseOvervi
       SELECT incident_outcome::int AS code, COUNT(*)::text AS count,
         COALESCE(SUM(days_away),0)::text AS days_away,
         COALESCE(SUM(restricted_days),0)::text AS restricted_days
-      FROM osha_case_details ${where}
-      WHERE incident_outcome IS NOT NULL ${where ? "AND year_of_filing = $1" : ""}
+      FROM osha_case_details
+      WHERE ${yearPrefix} incident_outcome IS NOT NULL
       GROUP BY incident_outcome ORDER BY COUNT(*) DESC
-    `.replace(`${where}\n      WHERE`, "WHERE"), params),
+    `, params),
     pool.query<{ code: number; count: string }>(`
       SELECT type_of_incident::int AS code, COUNT(*)::text AS count
       FROM osha_case_details
-      ${selectedYear ? "WHERE year_of_filing = $1 AND" : "WHERE"} type_of_incident IS NOT NULL
+      WHERE ${yearPrefix} type_of_incident IS NOT NULL
       GROUP BY type_of_incident ORDER BY COUNT(*) DESC
     `, params),
     pool.query<{ code: string; name: string; count: string }>(`
       SELECT COALESCE(nature_code,'') AS code, COALESCE(NULLIF(nature_title,''),'Unclassified / unavailable') AS name, COUNT(*)::text AS count
-      FROM osha_case_details
-      ${selectedYear ? "WHERE year_of_filing = $1" : ""}
+      FROM osha_case_details ${yearOnly}
       GROUP BY nature_code, nature_title ORDER BY COUNT(*) DESC LIMIT 20
     `, params),
     pool.query<{ code: string; name: string; count: string }>(`
       SELECT COALESCE(body_part_code,'') AS code, COALESCE(NULLIF(body_part_title,''),'Unclassified / unavailable') AS name, COUNT(*)::text AS count
-      FROM osha_case_details
-      ${selectedYear ? "WHERE year_of_filing = $1" : ""}
+      FROM osha_case_details ${yearOnly}
       GROUP BY body_part_code, body_part_title ORDER BY COUNT(*) DESC LIMIT 20
     `, params),
     pool.query<{ code: string; name: string; count: string }>(`
       SELECT COALESCE(event_code,'') AS code, COALESCE(NULLIF(event_title,''),'Unclassified / unavailable') AS name, COUNT(*)::text AS count
-      FROM osha_case_details
-      ${selectedYear ? "WHERE year_of_filing = $1" : ""}
+      FROM osha_case_details ${yearOnly}
       GROUP BY event_code, event_title ORDER BY COUNT(*) DESC LIMIT 20
     `, params),
     pool.query<{ code: string; name: string; count: string }>(`
       SELECT COALESCE(source_code,'') AS code, COALESCE(NULLIF(source_title,''),'Unclassified / unavailable') AS name, COUNT(*)::text AS count
-      FROM osha_case_details
-      ${selectedYear ? "WHERE year_of_filing = $1" : ""}
+      FROM osha_case_details ${yearOnly}
       GROUP BY source_code, source_title ORDER BY COUNT(*) DESC LIMIT 20
     `, params),
     pool.query<{ code: string; name: string; count: string }>(`
       SELECT COALESCE(secondary_source_code,'') AS code, COALESCE(NULLIF(secondary_source_title,''),'Unclassified / unavailable') AS name, COUNT(*)::text AS count
-      FROM osha_case_details
-      ${selectedYear ? "WHERE year_of_filing = $1" : ""}
+      FROM osha_case_details ${yearOnly}
       GROUP BY secondary_source_code, secondary_source_title ORDER BY COUNT(*) DESC LIMIT 20
     `, params),
     pool.query<{ code: string; name: string; count: string }>(`
       SELECT COALESCE(soc_code,'') AS code, COALESCE(NULLIF(soc_description,''), NULLIF(job_description,''), 'Occupation not classified') AS name, COUNT(*)::text AS count
-      FROM osha_case_details
-      ${selectedYear ? "WHERE year_of_filing = $1" : ""}
+      FROM osha_case_details ${yearOnly}
       GROUP BY soc_code, soc_description, job_description ORDER BY COUNT(*) DESC LIMIT 25
     `, params),
     pool.query<{ year: number; cases: string; days_away: string; restricted_days: string }>(`
@@ -240,20 +223,14 @@ export async function getOshaCaseOverview(year?: number): Promise<OshaCaseOvervi
     `),
   ]);
 
-  const mappedClassifications = (rows: Array<{ code: string; name: string; count: string }>) => rows.map((row) => ({ code: row.code, name: row.name, count: Number(row.count) }));
-
+  const mapped = (rows: Array<{ code: string; name: string; count: string }>) => rows.map((row) => ({ code: row.code, name: row.name, count: Number(row.count) }));
   return {
     totalCases: imported.totalCases,
     years: imported.years,
     latestYear,
     outcomeCounts: outcomes.rows.map((row) => ({ name: outcomeLabel(Number(row.code)), count: Number(row.count), daysAway: Number(row.days_away), restrictedDays: Number(row.restricted_days) })),
     incidentTypes: types.rows.map((row) => ({ name: incidentTypeLabel(Number(row.code)), count: Number(row.count) })),
-    natures: mappedClassifications(natures.rows),
-    bodyParts: mappedClassifications(parts.rows),
-    events: mappedClassifications(events.rows),
-    sources: mappedClassifications(sources.rows),
-    secondarySources: mappedClassifications(secondary.rows),
-    occupations: mappedClassifications(occupations.rows),
+    natures: mapped(natures.rows), bodyParts: mapped(parts.rows), events: mapped(events.rows), sources: mapped(sources.rows), secondarySources: mapped(secondary.rows), occupations: mapped(occupations.rows),
     trend: trend.rows.map((row) => ({ year: Number(row.year), cases: Number(row.cases), daysAway: Number(row.days_away), restrictedDays: Number(row.restricted_days) })),
   };
 }
