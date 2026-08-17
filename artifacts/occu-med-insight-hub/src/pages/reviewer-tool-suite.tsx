@@ -69,7 +69,7 @@ function ToolShell({ eyebrow, title, subtitle, children }: { eyebrow: string; ti
   );
 }
 
-function Tabs<T extends string>({ items, active, onChange }: { items: Array<{ id: T; label: string }>; active: T; onChange: (id: T) => void }) {
+function Tabs({ items, active, onChange }: { items: Array<{ id: string; label: string }>; active: string; onChange: (id: any) => void }) {
   return (
     <div className="mb-6 flex gap-2 overflow-x-auto pb-1" role="tablist">
       {items.map((item) => (
