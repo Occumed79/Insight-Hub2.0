@@ -1,7 +1,7 @@
 {
-  "description": "Post-full-source-visibility structural ceiling for Insight Hub 2 after browser-CI, dead-code hardening, React 19 state-map compatibility, OSHA database-persistence hardening, the discovery-first occupational pass, and the deliberate complete-source browser expansion. The active application keeps one shell, three global CSS layers, the reviewed component-level style blocks, lazy-loaded workspaces, and the protected Hub 2 intelligence ownership routes. The occupational intelligence pages add six reachable production files: the general source-browser route, corrected official BLS mapping-catalog route, raw O*NET Database Services route, complete BLS/OSHA/Data.gov browser, O*NET occupation/content browser, and raw O*NET database-table browser. These expose source catalogs, schemas, records, dimensions, and paginated source content without creating another application shell or disconnected frontend. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
+  "description": "Post-full-source-visibility structural ceiling for Insight Hub 2 after browser-CI, dead-code hardening, React 19 state-map compatibility, OSHA database-persistence hardening, the discovery-first occupational pass, and the deliberate complete-source browser expansion. The active application keeps one shell, three global CSS layers, the reviewed component-level style blocks, lazy-loaded workspaces, and the protected Hub 2 intelligence ownership routes. The occupational intelligence pages add five reachable production files: the general BLS/OSHA/Data.gov/O*NET occupation source-browser route, raw O*NET Database Services route, complete BLS/OSHA/Data.gov browser, O*NET occupation/content browser, and raw O*NET database-table browser. These expose source catalogs, schemas, records, dimensions, and paginated source content without creating another application shell or disconnected frontend. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
   "maximums": {
-    "totalFiles": 252,
+    "totalFiles": 251,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
@@ -42,7 +42,6 @@
     "artifacts/api-server/src/routes/occupational-datagov-workbench.ts",
     "artifacts/api-server/src/routes/occupational-source-browser.ts",
     "artifacts/api-server/src/routes/occupational-onet-database.ts",
-    "artifacts/api-server/src/routes/occupational-bls-source-catalog.ts",
     "artifacts/api-server/src/services/oshaCaseDataService.ts",
     "artifacts/api-server/scripts/import-osha-case-detail.ts"
   ],
