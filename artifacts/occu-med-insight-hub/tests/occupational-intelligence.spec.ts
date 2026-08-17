@@ -298,7 +298,7 @@ test("all six transplanted reviewer tools render and retain their core interacti
   await page.getByPlaceholder("Aircraft mechanic, firefighter, HVAC mechanic…").fill("Aircraft mechanic");
   await page.getByRole("button", { name: "Search O*NET" }).click();
   await expect(page.getByText("Aircraft Mechanics and Service Technicians")).toBeVisible();
-  await page.getByRole("button", { name: "Add" }).first().click().catch(() => undefined);
+  await expect(page.getByText("Inspect aircraft for defects and hazardous conditions.")).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/aor-factors");
