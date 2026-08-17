@@ -39,6 +39,7 @@ import occupationalDatagovWorkbenchRouter from "./occupational-datagov-workbench
 import occupationalOnetDatabaseRouter from "./occupational-onet-database";
 import occupationalSourceBrowserRouter from "./occupational-source-browser";
 import officialSourceWebviewRouter from "./official-source-webview";
+import reviewerToolsRouter from "./reviewer-tools";
 
 const router: IRouter = Router();
 
@@ -60,6 +61,7 @@ router.use(companyLiveIntelligenceRouter);
 router.use(courtlistenerRichRouter);
 router.use(crisiswatchRouter);
 router.use(aorRiskIntelligenceRouter);
+router.use(reviewerToolsRouter);
 router.use(workersCompCoverageRouter);
 router.use(dbaIntelligenceRouter);
 router.use("/dba/hub", (_req, res, next) => {
