@@ -25,7 +25,7 @@ const SecFilings = React.lazy(() => import("@/pages/sec-filings"));
 const WorkersCompCoverage = React.lazy(() => import("@/pages/workers-comp-coverage"));
 const DbaIntelligence = React.lazy(() => import("@/pages/dba-intelligence"));
 const SourceGovernance = React.lazy(() => import("@/pages/source-governance"));
-const ReviewerInjuriesMedicalPage = React.lazy(() => import("@/pages/reviewer-tool-suite").then((module) => ({ default: module.ReviewerInjuriesMedicalPage })));
+const ReviewerInjuriesMedicalPage = React.lazy(() => import("@/pages/reviewer-injuries-medical"));
 const ReviewerJobIntelligencePage = React.lazy(() => import("@/pages/reviewer-tool-suite").then((module) => ({ default: module.ReviewerJobIntelligencePage })));
 const ReviewerAorFactorsPage = React.lazy(() => import("@/pages/reviewer-aor-factors"));
 const ReviewerDrugCheckerPage = React.lazy(() => import("@/pages/reviewer-tool-suite").then((module) => ({ default: module.ReviewerDrugCheckerPage })));
