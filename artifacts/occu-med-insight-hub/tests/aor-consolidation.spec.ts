@@ -97,7 +97,7 @@ async function mockAor(page: Page) {
   await page.route("**/api/aor/unified-command?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(aorFixture) }));
   await page.route("**/api/map-config", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: true, apiKey: "test-maptiler-key" }) }));
   await page.route("**/maptiler-sdk.umd.min.js", async (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: mapTilerStub }));
-  await page.route("**/maptiler-sdk.css", async (route) => route.fulfill({ status: 200, contentType: "text/css", body: ".maplibregl-map,.maplibregl-canvas-container,.maplibregl-canvas{width:100%;height:100%}' }));
+  await page.route("**/maptiler-sdk.css", async (route) => route.fulfill({ status: 200, contentType: "text/css", body: ".maplibregl-map,.maplibregl-canvas-container,.maplibregl-canvas{width:100%;height:100%}" }));
   await page.route("https://api.maptiler.com/geocoding/**", async (route) => route.fulfill({
     status: 200,
     contentType: "application/json",
