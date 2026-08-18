@@ -18,6 +18,7 @@ const aorFixture = {
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/reviewer-tools/aor?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(aorFixture) }));
+  await page.route("**/api/map-config", async (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ configured: false, apiKey: "" }) }));
   await page.route("**/api/aor/source-readiness", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, sources: [
     { id: "state", name: "U.S. Department of State", configured: true, live: true, requirement: null },
     { id: "who", name: "WHO Disease Outbreak News", configured: true, live: true, requirement: null },
@@ -26,20 +27,25 @@ test.beforeEach(async ({ page }) => {
   ] }) }));
 });
 
-test("AOR Risk Intelligence resources now live inside AOR Factors", async ({ page }) => {
+test("all AOR intelligence functions share one map-linked screen", async ({ page }) => {
   await page.goto("/aor-factors");
   await expect(page.getByRole("heading", { name: "AOR Factors" })).toBeVisible();
   await expect(page.getByRole("link", { name: "AOR Risk Intelligence" })).toHaveCount(0);
+  await expect(page.getByRole("tab")).toHaveCount(0);
 
-  await page.getByRole("tab", { name: "Country Intelligence" }).click();
-  await expect(page.getByText("U.S. Department of State Travel Advisory")).toBeVisible();
+  await expect(page.getByText("Selected operating picture")).toBeVisible();
+  await expect(page.getByLabel("Interactive MapTiler AOR intelligence map")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "U.S. Department of State Travel Advisory" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "WHO Disease Outbreaks" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "GDACS Natural Hazards" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "USGS Seismic Activity" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "International Crisis Group CrisisWatch" })).toBeVisible();
-  await expect(page.getByText("WHO country outbreak detail")).toBeVisible();
-  await expect(page.getByText("GDACS country disaster detail")).toBeVisible();
+  await expect(page.getByText(/Work conditions for USCENTCOM/)).toBeVisible();
 });
 
-test("legacy AOR Risk URL resolves to the unified AOR Factors page", async ({ page }) => {
+test("legacy AOR Risk URL resolves to the same unified map workspace", async ({ page }) => {
   await page.goto("/aor-risk-intelligence");
   await expect(page.getByRole("heading", { name: "AOR Factors" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Country Intelligence" })).toBeVisible();
+  await expect(page.getByText("Map-linked intelligence inspector")).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(0);
 });

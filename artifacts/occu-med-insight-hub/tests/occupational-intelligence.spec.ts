@@ -139,6 +139,7 @@ async function installOccupationalApi(page: Page) {
       });
     }
 
+    if (path.endsWith("/api/map-config")) return fulfillJson(route, { configured: false, apiKey: "" }, 503);
     if (path.endsWith("/api/occupational-discovery/manifest")) return fulfillJson(route, manifest);
     if (path.endsWith("/api/occupational-discovery/bls-overview")) {
       return fulfillJson(route, {
@@ -305,8 +306,8 @@ test("all six transplanted reviewer tools render and retain their core interacti
   await expect(page.getByRole("heading", { name: "AOR Factors" })).toBeVisible();
   await expect(page.getByText("WHO Disease Outbreaks")).toBeVisible();
   await expect(page.getByText("Test outbreak — Jordan")).toBeVisible();
-  await page.getByRole("tab", { name: "Environmental & Performance Factors" }).click();
-  await expect(page.getByText("Build the work environment")).toBeVisible();
+  await expect(page.getByText(/Work conditions for USCENTCOM/)).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/drug-checker");
