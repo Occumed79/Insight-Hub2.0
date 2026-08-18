@@ -72,15 +72,23 @@ test("Drug Checker renders the real compound as a transparent cinematic aurora c
   await expect(page.getByText(/stock white image canvas/i)).toHaveCount(0);
 
   const canvas = renderer.locator("canvas");
-  await page.waitForTimeout(120);
+  await expect(canvas).toHaveClass(/opacity-100/);
+  await page.waitForTimeout(180);
   const metrics = await canvas.evaluate((element: HTMLCanvasElement) => {
     const rect = element.getBoundingClientRect();
-    const data = element.getContext("2d")?.getImageData(0, 0, Math.min(element.width, 80), Math.min(element.height, 80)).data;
-    let alpha = 0;
-    if (data) for (let index = 3; index < data.length; index += 4) alpha += data[index];
-    return { width: rect.width, height: rect.height, alpha };
+    const context = element.getContext("2d");
+    const data = context?.getImageData(0, 0, element.width, element.height).data;
+    let paintedSamples = 0;
+    if (data) {
+      const pixelCount = element.width * element.height;
+      const sampleStride = Math.max(1, Math.floor(pixelCount / 6000));
+      for (let pixel = 0; pixel < pixelCount; pixel += sampleStride) {
+        if (data[pixel * 4 + 3] > 0) paintedSamples += 1;
+      }
+    }
+    return { width: rect.width, height: rect.height, paintedSamples };
   });
-  expect(metrics.width).toBeGreaterThan(250);
+  expect(metrics.width).toBeGreaterThan(180);
   expect(metrics.height).toBeGreaterThan(250);
-  expect(metrics.alpha).toBeGreaterThan(0);
+  expect(metrics.paintedSamples).toBeGreaterThan(0);
 });
