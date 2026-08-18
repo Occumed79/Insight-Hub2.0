@@ -27,46 +27,14 @@ const ELEMENT_PALETTE: Record<number, { core: string; rim: string; glow: string 
   53: { core: "#ad9cff", rim: "#6447ca", glow: "#7e60e8" },
 };
 
-function asNumber(value: unknown, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function parseCompound(payload: any, source: "3d" | "2d"): Model | null {
-  const compound = payload?.PC_Compounds?.[0];
-  if (!compound) return null;
-  const ids: number[] = Array.isArray(compound?.atoms?.aid) ? compound.atoms.aid.map(Number) : [];
-  const elements: number[] = Array.isArray(compound?.atoms?.element) ? compound.atoms.element.map(Number) : [];
-  const conformer = compound?.coords?.[0]?.conformers?.[0];
-  const xs: number[] = Array.isArray(conformer?.x) ? conformer.x.map(Number) : [];
-  const ys: number[] = Array.isArray(conformer?.y) ? conformer.y.map(Number) : [];
-  const zs: number[] = Array.isArray(conformer?.z) ? conformer.z.map(Number) : [];
-  if (!ids.length || xs.length !== ids.length || ys.length !== ids.length) return null;
-
-  const atoms = ids.map((id, i) => ({
-    id,
-    element: elements[i] || 6,
-    x: asNumber(xs[i]),
-    y: asNumber(ys[i]),
-    z: source === "3d" ? asNumber(zs[i]) : 0,
-  }));
-
-  const a1: number[] = Array.isArray(compound?.bonds?.aid1) ? compound.bonds.aid1.map(Number) : [];
-  const a2: number[] = Array.isArray(compound?.bonds?.aid2) ? compound.bonds.aid2.map(Number) : [];
-  const orders: number[] = Array.isArray(compound?.bonds?.order) ? compound.bonds.order.map(Number) : [];
-  const bonds = a1.map((a, i) => ({ a, b: a2[i], order: Math.max(1, Math.min(3, orders[i] || 1)) })).filter((bond) => Number.isFinite(bond.a) && Number.isFinite(bond.b));
-  return { atoms, bonds, source };
-}
-
 async function loadModel(cid: number | string, signal: AbortSignal): Promise<Model> {
-  const base = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${encodeURIComponent(String(cid))}/record/JSON`;
-  for (const source of ["3d", "2d"] as const) {
-    const response = await fetch(`${base}?record_type=${source}`, { signal, headers: { Accept: "application/json" } });
-    if (!response.ok) continue;
-    const model = parseCompound(await response.json(), source);
-    if (model) return model;
-  }
-  throw new Error("PubChem coordinate record unavailable.");
+  const response = await fetch(`/api/reviewer-tools/pubchem-structure?cid=${encodeURIComponent(String(cid))}`, {
+    signal,
+    headers: { Accept: "application/json" },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.model) throw new Error(payload?.error || "PubChem coordinate record unavailable.");
+  return payload.model as Model;
 }
 
 function useModel(cid: number | string) {
@@ -86,7 +54,7 @@ function useModel(cid: number | string) {
 }
 
 function atomRadius(element: number) {
-  if (element === 1) return 9;
+  if (element === 1) return 8;
   if (element === 6) return 13;
   if (element === 7 || element === 8) return 14;
   return 15;
@@ -96,27 +64,27 @@ export default function AuroraMolecule({ cid, name }: Props) {
   const { model, loading, error } = useModel(cid);
 
   const projection = useMemo(() => {
-    if (!model) return null;
-    const xs = model.atoms.map((a) => a.x);
-    const ys = model.atoms.map((a) => a.y);
-    const zs = model.atoms.map((a) => a.z);
+    if (!model?.atoms?.length) return null;
+    const xs = model.atoms.map((a) => Number(a.x));
+    const ys = model.atoms.map((a) => Number(a.y));
+    const zs = model.atoms.map((a) => Number(a.z));
     const minX = Math.min(...xs), maxX = Math.max(...xs);
     const minY = Math.min(...ys), maxY = Math.max(...ys);
     const minZ = Math.min(...zs), maxZ = Math.max(...zs);
     const dx = Math.max(1, maxX - minX), dy = Math.max(1, maxY - minY), dz = Math.max(1, maxZ - minZ);
-    const width = 820, height = 470, pad = 72;
+    const width = 820, height = 470, pad = 62;
     const scale = Math.min((width - pad * 2) / dx, (height - pad * 2) / dy);
     const byId = new Map<number, Atom & { sx: number; sy: number; depth: number; radius: number }>();
     for (const atom of model.atoms) {
-      const depth = (atom.z - minZ) / dz;
-      const perspective = 0.88 + depth * 0.24;
-      const sx = width / 2 + (atom.x - (minX + maxX) / 2) * scale * perspective;
-      const sy = height / 2 - (atom.y - (minY + maxY) / 2) * scale * perspective;
-      byId.set(atom.id, { ...atom, sx, sy, depth, radius: atomRadius(atom.element) * perspective });
+      const depth = (Number(atom.z) - minZ) / dz;
+      const perspective = 0.86 + depth * 0.30;
+      const sx = width / 2 + (Number(atom.x) - (minX + maxX) / 2) * scale * perspective;
+      const sy = height / 2 - (Number(atom.y) - (minY + maxY) / 2) * scale * perspective;
+      byId.set(Number(atom.id), { ...atom, sx, sy, depth, radius: atomRadius(Number(atom.element)) * perspective });
     }
     const atoms = [...byId.values()].sort((a, b) => a.depth - b.depth);
-    const bonds = model.bonds.flatMap((bond) => {
-      const a = byId.get(bond.a), b = byId.get(bond.b);
+    const bonds = (model.bonds || []).flatMap((bond) => {
+      const a = byId.get(Number(bond.a)), b = byId.get(Number(bond.b));
       return a && b ? [{ ...bond, a, b, depth: (a.depth + b.depth) / 2 }] : [];
     }).sort((a, b) => a.depth - b.depth);
     return { width, height, atoms, bonds, source: model.source };
@@ -130,7 +98,7 @@ export default function AuroraMolecule({ cid, name }: Props) {
     const dx = b.sx - a.sx, dy = b.sy - a.sy;
     const length = Math.max(1, Math.hypot(dx, dy));
     const nx = -dy / length, ny = dx / length;
-    const spacing = order === 1 ? [0] : order === 2 ? [-3.1, 3.1] : [-5, 0, 5];
+    const spacing = Number(order) === 1 ? [0] : Number(order) === 2 ? [-3.1, 3.1] : [-5, 0, 5];
     return spacing.map((offset, lane) => (
       <g key={`${index}-${lane}`} opacity={0.68 + depth * 0.28}>
         <line x1={a.sx + nx * offset} y1={a.sy + ny * offset} x2={b.sx + nx * offset} y2={b.sy + ny * offset} className="aurora-bond-halo" />
@@ -144,7 +112,7 @@ export default function AuroraMolecule({ cid, name }: Props) {
       <div className="aurora-bokeh" aria-hidden="true">
         {Array.from({ length: 22 }, (_, i) => <i key={i} style={{ "--i": i } as CSSProperties} />)}
       </div>
-      <svg viewBox={`0 0 ${projection.width} ${projection.height}`} role="img" aria-label={`PubChem ${projection.source.toUpperCase()} structure for ${name}`}>
+      <svg viewBox={`0 0 ${projection.width} ${projection.height}`} role="img" aria-label={`PubChem ${String(projection.source).toUpperCase()} structure for ${name}`}>
         <defs>
           <filter id="auroraBondGlow" x="-40%" y="-40%" width="180%" height="180%">
             <feGaussianBlur stdDeviation="4.5" result="blur" />
@@ -168,21 +136,21 @@ export default function AuroraMolecule({ cid, name }: Props) {
         <g className="aurora-molecule-rig">
           <g filter="url(#auroraBondGlow)">{bondLines}</g>
           {projection.atoms.map((atom) => {
-            const palette = ELEMENT_PALETTE[atom.element] ?? { glow: "#68c8ff" };
-            const label = ELEMENT_LABELS[atom.element] ?? "";
+            const palette = ELEMENT_PALETTE[Number(atom.element)] ?? { glow: "#68c8ff" };
+            const label = ELEMENT_LABELS[Number(atom.element)] ?? "";
             return (
               <g key={atom.id} transform={`translate(${atom.sx} ${atom.sy})`} opacity={0.78 + atom.depth * 0.22}>
                 <circle r={atom.radius * 1.8} fill={palette.glow} opacity={0.16 + atom.depth * 0.12} filter="url(#auroraAtomGlow)" />
-                <circle r={atom.radius} fill={`url(#atom-${ELEMENT_PALETTE[atom.element] ? atom.element : "default"})`} stroke="#dffcff" strokeOpacity=".26" strokeWidth="1" />
+                <circle r={atom.radius} fill={`url(#atom-${ELEMENT_PALETTE[Number(atom.element)] ? Number(atom.element) : "default"})`} stroke="#dffcff" strokeOpacity=".26" strokeWidth="1" />
                 <ellipse cx={-atom.radius * .26} cy={-atom.radius * .3} rx={atom.radius * .28} ry={atom.radius * .18} fill="#fff" opacity=".66" />
-                {label && atom.element !== 6 && atom.element !== 1 ? <text y="4" textAnchor="middle" className="aurora-atom-label">{label}</text> : null}
+                {label && Number(atom.element) !== 6 && Number(atom.element) !== 1 ? <text y="4" textAnchor="middle" className="aurora-atom-label">{label}</text> : null}
               </g>
             );
           })}
         </g>
       </svg>
       <div className="aurora-molecule-depth-fog" aria-hidden="true" />
-      <span className="aurora-coordinate-badge">PUBCHEM {projection.source.toUpperCase()} COORDINATES</span>
+      <span className="aurora-coordinate-badge">PUBCHEM {String(projection.source).toUpperCase()} COORDINATES</span>
     </div>
   );
 }
