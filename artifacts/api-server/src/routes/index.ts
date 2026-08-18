@@ -41,6 +41,7 @@ import occupationalDatagovWorkbenchRouter from "./occupational-datagov-workbench
 import occupationalOnetDatabaseRouter from "./occupational-onet-database";
 import occupationalSourceBrowserRouter from "./occupational-source-browser";
 import officialSourceWebviewRouter from "./official-source-webview";
+import pubchemStructureRouter from "./pubchem-structure";
 import reviewerToolsRouter from "./reviewer-tools";
 
 const router: IRouter = Router();
@@ -65,6 +66,7 @@ router.use(crisiswatchRouter);
 router.use(aorTravelHealthRouter);
 router.use(aorProductionRepairRouter);
 router.use(aorRiskIntelligenceRouter);
+router.use(pubchemStructureRouter);
 router.use(reviewerToolsRouter);
 router.use(workersCompCoverageRouter);
 router.use(dbaIntelligenceRouter);
