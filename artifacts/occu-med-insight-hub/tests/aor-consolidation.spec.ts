@@ -18,6 +18,7 @@ const aorFixture = {
 
 const cdcFixture = {
   ok: true,
+  available: true,
   country: "Kuwait",
   source: "CDC Travelers' Health",
   sourceUrl: "https://wwwnc.cdc.gov/travel/destinations/traveler/none/Kuwait",
@@ -37,6 +38,27 @@ const cdcFixture = {
   notices: ["Level 1 Practice Usual Precautions"],
 };
 
+const cdcDrcFixture = {
+  ok: true,
+  available: true,
+  country: "Democratic Republic of the Congo",
+  source: "CDC Travelers' Health",
+  sourceUrl: "https://wwwnc.cdc.gov/travel/destinations/traveler/none/democratic-republic-of-congo",
+  vaccines: [
+    { name: "Hepatitis A", recommendation: "Recommended for unvaccinated travelers.", status: "recommended" },
+    { name: "Cholera", recommendation: "Vaccination may be considered for travelers to areas of active transmission.", status: "consider" },
+    { name: "Polio", recommendation: "Travelers should be up to date on polio vaccination.", status: "recommended" },
+  ],
+  malaria: { name: "Malaria", recommendation: "CDC recommends prescription medicine to prevent malaria.", status: "recommended" },
+  yellowFever: { name: "Yellow Fever", recommendation: "Review current CDC recommendation and entry requirements.", status: "review" },
+  diseases: [
+    { name: "Ebola", transmission: "Contact with infected people or animals", advice: "Avoid sick people and animals" },
+    { name: "Plague", transmission: "Flea bite or infected people/animals", advice: "Avoid bug bites and sick animals" },
+    { name: "Leishmaniasis", transmission: "Sand fly bite", advice: "Avoid bug bites" },
+  ],
+  notices: ["Level 3 Reconsider Nonessential Travel", "Level 2 Practice Enhanced Precautions"],
+};
+
 const mapTilerStub = String.raw`
 (() => {
   class NavigationControl {}
@@ -44,6 +66,7 @@ const mapTilerStub = String.raw`
     constructor(options) {
       this.options = options;
       this.host = options.container;
+      this.host.dataset.mapStyle = String(options.style);
       this.sources = {};
       this.layers = {};
       const shell = document.createElement('div');
@@ -108,7 +131,7 @@ const mapTilerStub = String.raw`
   }
   window.maptilersdk = {
     config: {},
-    MapStyle: { BRIGHT: { DARK: 'bright-dark' }, STREETS: { DARK: 'streets-dark' }, DATAVIZ: { DARK: 'dataviz-dark' } },
+    MapStyle: { STREETS: 'streets-color', BRIGHT: { DARK: 'bright-dark' }, DATAVIZ: { DARK: 'dataviz-dark' } },
     Map: FakeMap,
     NavigationControl,
   };
@@ -120,19 +143,42 @@ async function mockAor(page: Page) {
   await page.route("**/api/map-config", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: true, apiKey: "test-maptiler-key" }) }));
   await page.route("**/maptiler-sdk.umd.min.js", async (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: mapTilerStub }));
   await page.route("**/maptiler-sdk.css", async (route) => route.fulfill({ status: 200, contentType: "text/css", body: ".maplibregl-map,.maplibregl-canvas-container,.maplibregl-canvas{width:100%;height:100%}" }));
-  await page.route("https://api.maptiler.com/geocoding/**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ features: [{ id: "country.KW", text: "Kuwait", center: [47.5, 29.3], bbox: [46.5, 28.5, 48.6, 30.1], properties: { country_code: "KW", iso_a2: "KW" } }] }) }));
-  await page.route("**/api/public-data/aor-risk?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, advisory: { level: 1, levelLabel: "Exercise Normal Precautions", summary: "Test Kuwait travel advisory", sourceUrl: "https://travel.state.gov/" } }) }));
-  await page.route("**/api/aor/health-outbreaks?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, country: "Kuwait", outbreaks: [], directMatches: 0, fallbackUsed: false }) }));
-  await page.route("**/api/aor/disaster-alerts?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, country: "Kuwait", events: [] }) }));
-  await page.route("**/api/aor/crisiswatch?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, country: "Kuwait", updates: [] }) }));
-  await page.route("**/api/aor/travel-health?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(cdcFixture) }));
+  await page.route("https://api.maptiler.com/geocoding/**", async (route) => {
+    const decoded = decodeURIComponent(route.request().url());
+    const drc = /democratic republic/i.test(decoded);
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ features: [drc
+      ? { id: "country.CD", text: "Democratic Republic of the Congo", center: [23.65, -2.88], bbox: [12, -14, 31, 5], properties: { country_code: "CD", iso_a2: "CD" } }
+      : { id: "country.KW", text: "Kuwait", center: [47.5, 29.3], bbox: [46.5, 28.5, 48.6, 30.1], properties: { country_code: "KW", iso_a2: "KW" } }] }) });
+  });
+  await page.route("**/api/public-data/aor-risk?**", async (route) => {
+    const drc = /Democratic%20Republic/i.test(route.request().url());
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, advisory: { level: drc ? 3 : 1, levelLabel: drc ? "Reconsider Travel" : "Exercise Normal Precautions", summary: drc ? "Test DRC travel advisory" : "Test Kuwait travel advisory", sourceUrl: "https://travel.state.gov/" } }) });
+  });
+  await page.route("**/api/aor/health-outbreaks?**", async (route) => {
+    const drc = /Democratic%20Republic/i.test(route.request().url());
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(drc
+      ? { ok: true, available: true, country: "Democratic Republic of the Congo", directMatches: 2, fallbackUsed: false, outbreaks: [
+          { id: "recent", title: "Ebola Bundibugyo Virus Disease in the Democratic Republic of the Congo", publicationDate: "2026-07-15T00:00:00.000Z", summary: "Current DRC outbreak context", sourceUrl: "https://www.who.int/" },
+          { id: "older", title: "Historical DRC outbreak", publicationDate: "2007-07-29T00:00:00.000Z", summary: "Historical context", sourceUrl: "https://www.who.int/" },
+        ] }
+      : { ok: true, available: true, country: "Kuwait", outbreaks: [], directMatches: 0, fallbackUsed: false }) });
+  });
+  await page.route("**/api/aor/disaster-alerts?**", async (route) => {
+    const drc = /Democratic%20Republic/i.test(route.request().url());
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, available: true, country: drc ? "Democratic Republic of the Congo" : "Kuwait", events: [], sourceMode: drc ? "global-feed-fallback" : "country-search" }) });
+  });
+  await page.route("**/api/aor/crisiswatch?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, updates: [] }) }));
+  await page.route("**/api/aor/travel-health?**", async (route) => {
+    const drc = /Democratic%20Republic/i.test(route.request().url());
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(drc ? cdcDrcFixture : cdcFixture) });
+  });
 }
 
 test.beforeEach(async ({ page }) => {
   await mockAor(page);
 });
 
-test("AOR Factors defaults to clean country mode on MapTiler vector tiles", async ({ page }) => {
+test("AOR Factors defaults to clean country mode on MapTiler Streets vector tiles", async ({ page }) => {
   await page.goto("/aor-factors");
   await expect(page.getByRole("heading", { name: "AOR Factors" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Country mode/ })).toHaveAttribute("aria-pressed", "true");
@@ -141,7 +187,8 @@ test("AOR Factors defaults to clean country mode on MapTiler vector tiles", asyn
 
   const map = page.getByLabel("Interactive MapTiler AOR intelligence map");
   await expect(map).toBeVisible();
-  await expect(page.getByText("Bright Dark vector tiles rendered")).toBeVisible();
+  await expect(map).toHaveAttribute("data-map-style", "streets-color");
+  await expect(page.getByText("Streets vector tiles rendered")).toBeVisible();
   await expect(page.getByText("Map rendering failed")).toHaveCount(0);
 
   const canvas = map.locator("canvas.maplibregl-canvas");
@@ -156,7 +203,7 @@ test("AOR Factors defaults to clean country mode on MapTiler vector tiles", asyn
 
 test("country mode loads vaccines and travel-relevant infectious disease context without AOR fallback", async ({ page }) => {
   await page.goto("/aor-factors");
-  await expect(page.getByText("Bright Dark vector tiles rendered")).toBeVisible();
+  await expect(page.getByText("Streets vector tiles rendered")).toBeVisible();
 
   const input = page.getByPlaceholder("Search or click a country");
   await input.fill("Kuwait");
@@ -175,6 +222,21 @@ test("country mode loads vaccines and travel-relevant infectious disease context
   await expect(page.getByText("WHO returned no text-matched outbreak item for Kuwait; unrelated outbreaks are not substituted.")).toBeVisible();
 });
 
+test("DR Congo country view loads CDC health context and never surfaces raw upstream parser errors", async ({ page }) => {
+  await page.goto("/aor-factors");
+  const input = page.getByPlaceholder("Search or click a country");
+  await input.fill("Democratic Republic of the Congo");
+  await page.getByRole("button", { name: "Load country" }).click();
+
+  await expect(page.getByText("Country-only intelligence for Democratic Republic of the Congo.")).toBeVisible();
+  await expect(page.getByText("Cholera")).toBeVisible();
+  await expect(page.getByText("Malaria prevention")).toBeVisible();
+  await expect(page.getByText("Ebola")).toBeVisible();
+  await expect(page.getByText("Ebola Bundibugyo Virus Disease in the Democratic Republic of the Congo")).toBeVisible();
+  await expect(page.getByText("Unexpected end of JSON input")).toHaveCount(0);
+  await expect(page.getByText(/CDC Travelers' Health returned HTTP 404/i)).toHaveCount(0);
+});
+
 test("AOR mode is explicit and restores command-wide operational intelligence", async ({ page }) => {
   await page.goto("/aor-factors");
   await page.getByRole("button", { name: /AOR mode/ }).click();
@@ -190,6 +252,6 @@ test("legacy AOR Risk URL resolves to the country-first unified workspace", asyn
   await page.goto("/aor-risk-intelligence");
   await expect(page.getByRole("heading", { name: "AOR Factors" })).toBeVisible();
   await expect(page.getByText("Map-linked intelligence inspector")).toBeVisible();
-  await expect(page.getByText("Bright Dark vector tiles rendered")).toBeVisible();
+  await expect(page.getByText("Streets vector tiles rendered")).toBeVisible();
   await expect(page.getByRole("button", { name: /Country mode/ })).toHaveAttribute("aria-pressed", "true");
 });
