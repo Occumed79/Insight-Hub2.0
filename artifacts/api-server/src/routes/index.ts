@@ -42,6 +42,7 @@ import occupationalOnetDatabaseRouter from "./occupational-onet-database";
 import occupationalSourceBrowserRouter from "./occupational-source-browser";
 import officialSourceWebviewRouter from "./official-source-webview";
 import reviewerToolsRouter from "./reviewer-tools";
+import reviewerMoleculeRouter from "./reviewer-molecule";
 
 const router: IRouter = Router();
 
@@ -65,6 +66,7 @@ router.use(crisiswatchRouter);
 router.use(aorTravelHealthRouter);
 router.use(aorProductionRepairRouter);
 router.use(aorRiskIntelligenceRouter);
+router.use(reviewerMoleculeRouter);
 router.use(reviewerToolsRouter);
 router.use(workersCompCoverageRouter);
 router.use(dbaIntelligenceRouter);
