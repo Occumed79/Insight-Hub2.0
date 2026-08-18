@@ -7,7 +7,6 @@ import {
   HeartPulse,
   Layers3,
   Loader2,
-  MapPinned,
   RadioTower,
   Search,
   ShieldAlert,
@@ -87,7 +86,8 @@ const COMMANDS = [
   },
 ] as const;
 
-type CommandId = (typeof COMMANDS)[number]["id"];
+type CommandDefinition = (typeof COMMANDS)[number];
+type CommandId = CommandDefinition["id"];
 type EnvironmentKey = "heat" | "cold" | "altitude" | "poorAir" | "fatigue" | "ppe" | "night";
 type EnvironmentState = Record<EnvironmentKey, boolean>;
 type SourceReadiness = { id: string; name: string; configured: boolean; live: boolean; requirement: string | null };
@@ -106,8 +106,8 @@ type AorResponse = {
   earthquakes: Array<{ id: string; title: string; place: string; magnitude: number | null; occurredAt: string; url: string; tsunami: boolean; latitude: number | null; longitude: number | null; depthKm: number | null }>;
 };
 
-const COMMAND_BY_COUNTRY = new Map(
-  COMMANDS.flatMap((command) => command.countryIso2.map((iso2) => [iso2, command] as const)),
+const COMMAND_BY_COUNTRY: Map<string, CommandDefinition> = new Map(
+  COMMANDS.flatMap((command) => command.countryIso2.map((iso2): [string, CommandDefinition] => [iso2, command])),
 );
 const ALL_COUNTRIES_FILTER = ["==", ["get", "level"], 0];
 const EMPTY_COUNTRY_FILTER = ["==", ["get", "iso_a2"], "__NONE__"];
@@ -533,10 +533,12 @@ export default function ReviewerAorFactorsPage() {
           if (Array.isArray(feature.center) && feature.center.length >= 2) mapRef.current?.easeTo?.({ center: feature.center, zoom: 4, duration: 650 });
         }
       }
+    } catch {
+      // The country scan still runs by name if MapTiler geocoding is temporarily unavailable.
+    } finally {
       const mappedCommand = COMMAND_BY_COUNTRY.get(iso2);
       if (mappedCommand) setCommand(mappedCommand.id);
       setSelectedCountry({ name, iso2 });
-    } finally {
       setCountrySearchLoading(false);
     }
   }
