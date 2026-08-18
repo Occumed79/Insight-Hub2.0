@@ -231,7 +231,7 @@ test("DR Congo country view loads CDC health context and never surfaces raw upst
   await expect(page.getByText("Country-only intelligence for Democratic Republic of the Congo.")).toBeVisible();
   await expect(page.getByText("Cholera")).toBeVisible();
   await expect(page.getByText("Malaria prevention")).toBeVisible();
-  await expect(page.getByText("Ebola")).toBeVisible();
+  await expect(page.getByText("Ebola", { exact: true })).toBeVisible();
   await expect(page.getByText("Ebola Bundibugyo Virus Disease in the Democratic Republic of the Congo")).toBeVisible();
   await expect(page.getByText("Unexpected end of JSON input")).toHaveCount(0);
   await expect(page.getByText(/CDC Travelers' Health returned HTTP 404/i)).toHaveCount(0);
