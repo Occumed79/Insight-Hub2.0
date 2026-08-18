@@ -9,7 +9,6 @@ import {
   HeartPulse,
   Layers3,
   Loader2,
-  Map,
   MapPinned,
   RadioTower,
   Search,
