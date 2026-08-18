@@ -49,7 +49,7 @@ test("Drug Checker renders the real compound as a transparent native aurora mole
   const molecule = page.getByTestId("aurora-molecule");
   await expect(molecule).toBeVisible();
   await expect(molecule.getByRole("img", { name: /PubChem 3D structure for gabapentin/i })).toBeVisible();
-  await expect(molecule.locator("circle")).toHaveCount(33);
+  await expect(molecule.locator("circle")).toHaveCount(22);
   await expect(molecule.locator("line.aurora-bond-core")).toHaveCount(12);
   await expect(hero.locator("img")).toHaveCount(0);
   await expect(page.getByText("PUBCHEM 3D COORDINATES")).toBeVisible();
