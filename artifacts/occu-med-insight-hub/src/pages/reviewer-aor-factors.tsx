@@ -5,6 +5,7 @@ import { AlertTriangle, ExternalLink, HeartPulse, Layers3, Loader2, MapPinned, R
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
+import AorCountryIntelligence from "@/pages/aor-country-intelligence";
 
 const COMMANDS = [
   { id: "northcom", label: "USNORTHCOM", scope: "United States, Canada, Mexico, Greenland, The Bahamas, and assigned approaches", center: [46, -101] as [number, number], zoom: 2.4, color: "#4f9aaa" },
@@ -16,6 +17,7 @@ const COMMANDS = [
 ] as const;
 
 type CommandId = (typeof COMMANDS)[number]["id"];
+type TabId = "command" | "country" | "environment";
 type AorResponse = {
   ok: boolean;
   command: CommandId;
@@ -81,7 +83,7 @@ const ENVIRONMENT_PROMPTS: Record<keyof EnvironmentState, string> = {
 };
 
 export default function ReviewerAorFactorsPage() {
-  const [tab, setTab] = useState<"command" | "environment">("command");
+  const [tab, setTab] = useState<TabId>("command");
   const [command, setCommand] = useState<CommandId>("centcom");
   const [data, setData] = useState<AorResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,11 +126,12 @@ export default function ReviewerAorFactorsPage() {
         <HeaderBar
           eyebrow="Operational / Environmental Intelligence"
           title="AOR Factors"
-          subtitle="The Exam Reviewer operating-environment workspace transplanted into Insight Hub 2 with command selection, mapped hazards, WHO outbreaks, GDACS disasters, USGS seismic activity, and human-performance factors."
+          subtitle="Unified AOR workspace with command intelligence, country-level travel and conflict context, WHO outbreaks, GDACS disasters, USGS seismic activity, and human-performance factors."
         />
 
         <div className="mb-6 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="AOR Factors domains">
           <button type="button" role="tab" aria-selected={tab === "command"} onClick={() => setTab("command")} className={`min-h-11 rounded-2xl border px-4 text-xs font-black ${tab === "command" ? "border-cyan-100/34 bg-cyan-300/[0.12]" : "border-white/12 bg-white/[0.03] text-cyan-100/55"}`}>AOR & Command Intelligence</button>
+          <button type="button" role="tab" aria-selected={tab === "country"} onClick={() => setTab("country")} className={`min-h-11 rounded-2xl border px-4 text-xs font-black ${tab === "country" ? "border-cyan-100/34 bg-cyan-300/[0.12]" : "border-white/12 bg-white/[0.03] text-cyan-100/55"}`}>Country Intelligence</button>
           <button type="button" role="tab" aria-selected={tab === "environment"} onClick={() => setTab("environment")} className={`min-h-11 rounded-2xl border px-4 text-xs font-black ${tab === "environment" ? "border-cyan-100/34 bg-cyan-300/[0.12]" : "border-white/12 bg-white/[0.03] text-cyan-100/55"}`}>Environmental & Performance Factors</button>
         </div>
 
@@ -183,6 +186,8 @@ export default function ReviewerAorFactorsPage() {
               </div>
             ) : null}
           </div>
+        ) : tab === "country" ? (
+          <AorCountryIntelligence />
         ) : (
           <div className="grid gap-6 xl:grid-cols-[.75fr_1.25fr]">
             <Surface>
