@@ -41,6 +41,18 @@ app.head("/api/health", (_req, res) => {
   res.status(200).end();
 });
 
+// The AOR workspace uses the MapTiler browser SDK. Keep the deployment key in
+// Render and expose it only through this no-store config route, matching the
+// Exam Reviewer implementation the key was transferred from.
+app.get("/api/map-config", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const apiKey = process.env.MAP_TILER_API_KEY?.trim() ?? "";
+  res.status(apiKey ? 200 : 503).json({
+    configured: Boolean(apiKey),
+    apiKey,
+  });
+});
+
 app.use("/api", router);
 
 // Serve the built React frontend for all non-API routes
