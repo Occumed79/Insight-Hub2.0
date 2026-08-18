@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, Atom, CheckCircle2, Loader2, Pill, Search, Trash2, X } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
+import AuroraMoleculeCanvas from "./AuroraMoleculeCanvas";
 import "./reviewer-tool-hierarchy.css";
 
 type Drug = { rxcui: string; name: string; score?: number | null };
@@ -93,9 +94,8 @@ export default function ReviewerDrugCheckerPage() {
   }
 
   const profile = focused ? drugProfile(focused.name) : null;
-  const cid = molecule?.molecule?.CID;
-  const threeDUrl = cid ? `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${encodeURIComponent(String(cid))}/PNG?record_type=3d&image_size=large` : null;
-  const fallback2d = molecule?.structureImageUrl ?? null;
+  const cid = Number(molecule?.molecule?.CID);
+  const hasCid = Number.isInteger(cid) && cid > 0;
   const reviewCount = useMemo(() => selected.filter((drug) => Boolean(drugProfile(drug.name))).length, [selected]);
 
   return (
@@ -141,22 +141,15 @@ export default function ReviewerDrugCheckerPage() {
                 </div>
 
                 <div className="rh-molecule-stage mt-6">
-                  <span className="rh-molecule-tag">Accurate PubChem compound · aurora render</span>
+                  <span className="rh-molecule-tag">Accurate PubChem compound · cinematic aurora conformer</span>
                   {moleculeLoading ? (
-                    <div className="rh-molecule-empty"><Loader2 size={22} className="mx-auto mb-3 animate-spin" />Resolving the compound and 3D conformer…</div>
+                    <div className="rh-molecule-empty"><Loader2 size={22} className="mx-auto mb-3 animate-spin" />Resolving the compound record…</div>
                   ) : molecule?.error ? (
                     <div className="rh-molecule-empty">{molecule.error}</div>
-                  ) : focused && (threeDUrl || fallback2d) ? (
-                    <div className="rh-molecule-image-wrap">
-                      <img
-                        src={threeDUrl || fallback2d || undefined}
-                        onError={(event) => { if (fallback2d && event.currentTarget.src !== fallback2d) event.currentTarget.src = fallback2d; }}
-                        alt={`PubChem molecular structure for ${focused.name}`}
-                        className="rh-molecule-image"
-                      />
-                    </div>
+                  ) : focused && hasCid ? (
+                    <AuroraMoleculeCanvas cid={cid} name={focused.name} />
                   ) : (
-                    <div className="rh-molecule-empty">Search and select a medication. No decorative fake molecule is shown here—the hero uses the actual PubChem compound structure.</div>
+                    <div className="rh-molecule-empty">Search and select a medication. The hero renders the actual PubChem conformer as an aurora ball-and-stick structure—no stock white image canvas.</div>
                   )}
                 </div>
               </div>
