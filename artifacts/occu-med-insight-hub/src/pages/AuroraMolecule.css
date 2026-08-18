@@ -39,10 +39,9 @@
 }
 .aurora-bond-core {
   stroke:url(#auroraBondGradient);
-  stroke:#9cecff;
   stroke-width:4.4;
   stroke-linecap:round;
-  opacity:.92;
+  opacity:.95;
 }
 .aurora-atom-label {
   fill:#f8feff;
