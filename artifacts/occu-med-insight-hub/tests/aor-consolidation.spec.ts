@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const aorFixture = {
   ok: true,
@@ -12,29 +12,126 @@ const aorFixture = {
     { provider: "USGS Earthquake Catalog", ok: true, count: 1 },
   ],
   outbreaks: [{ id: "who-1", title: "Test outbreak — Jordan", publishedAt: new Date().toISOString(), summary: "Test outbreak", matchedArea: "Jordan", url: "https://www.who.int/" }],
-  disasters: [{ id: "gdacs-1", title: "Test flood — Iraq", eventType: "FL", country: "Iraq", alertLevel: "orange", fromDate: new Date().toISOString(), toDate: "", latitude: 33, longitude: 44, url: "https://www.gdacs.org/" }],
-  earthquakes: [{ id: "usgs-1", title: "Test earthquake", place: "Iran", magnitude: 5.1, occurredAt: new Date().toISOString(), url: "https://earthquake.usgs.gov/", tsunami: false, latitude: 32, longitude: 53, depthKm: 10 }],
+  disasters: [{ id: "gdacs-kz", title: "GREEN · Forest fires in Kazakhstan", eventType: "WF", country: "Kazakhstan", alertLevel: "GREEN", fromDate: new Date().toISOString(), toDate: "", latitude: 48, longitude: 68, url: "https://www.gdacs.org/" }],
+  earthquakes: [{ id: "usgs-tj", title: "M4.2 · 24 km ESE of Norak, Tajikistan", place: "24 km ESE of Norak, Tajikistan", magnitude: 4.2, occurredAt: new Date().toISOString(), url: "https://earthquake.usgs.gov/", tsunami: false, latitude: 38.3, longitude: 69.4, depthKm: 10 }],
 };
 
+const mapTilerStub = String.raw`
+(() => {
+  class NavigationControl {}
+  class FakeMap {
+    constructor(options) {
+      this.options = options;
+      this.host = options.container;
+      this.sources = {};
+      this.layers = {};
+      const shell = document.createElement('div');
+      shell.className = 'maplibregl-map';
+      shell.style.position = 'absolute';
+      shell.style.inset = '0';
+      const canvasContainer = document.createElement('div');
+      canvasContainer.className = 'maplibregl-canvas-container';
+      canvasContainer.style.position = 'absolute';
+      canvasContainer.style.inset = '0';
+      const canvas = document.createElement('canvas');
+      canvas.className = 'maplibregl-canvas';
+      canvas.width = 1200;
+      canvas.height = 650;
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvasContainer.appendChild(canvas);
+      shell.appendChild(canvasContainer);
+      const controls = document.createElement('div');
+      controls.className = 'maplibregl-control-container';
+      shell.appendChild(controls);
+      this.host.appendChild(shell);
+      this.canvas = canvas;
+      this.controls = controls;
+    }
+    on(event, layerOrHandler, maybeHandler) {
+      const handler = typeof layerOrHandler === 'function' ? layerOrHandler : maybeHandler;
+      if (typeof handler !== 'function') return this;
+      if (event === 'ready') window.setTimeout(() => handler(), 5);
+      if (event === 'idle') window.setTimeout(() => handler(), 35);
+      return this;
+    }
+    addControl() {
+      const corner = document.createElement('div');
+      corner.className = 'maplibregl-ctrl-bottom-right';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.setAttribute('aria-label', 'Map navigation');
+      corner.appendChild(button);
+      this.controls.appendChild(corner);
+    }
+    addSource(id, definition) {
+      const source = { ...definition, data: definition.data, setData(next) { this.data = next; } };
+      this.sources[id] = source;
+    }
+    getSource(id) { return this.sources[id] || null; }
+    addLayer(layer) { this.layers[layer.id] = layer; }
+    getLayer(id) { return this.layers[id] || null; }
+    setFilter(id, filter) { if (this.layers[id]) this.layers[id].filter = filter; }
+    getStyle() { return { layers: [] }; }
+    getCanvas() { return this.canvas; }
+    areTilesLoaded() { return true; }
+    resize() {
+      const rect = this.host.getBoundingClientRect();
+      this.canvas.width = Math.max(1200, Math.round(rect.width || 0));
+      this.canvas.height = Math.max(650, Math.round(rect.height || 0));
+    }
+    easeTo() {}
+    fitBounds() {}
+    remove() { this.host.replaceChildren(); }
+  }
+  window.maptilersdk = {
+    config: {},
+    MapStyle: { DATAVIZ: { DARK: 'dataviz-dark' } },
+    Map: FakeMap,
+    NavigationControl,
+  };
+})();
+`;
+
+async function mockAor(page: Page) {
+  await page.route("**/api/aor/unified-command?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(aorFixture) }));
+  await page.route("**/api/map-config", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: true, apiKey: "test-maptiler-key" }) }));
+  await page.route("**/maptiler-sdk.umd.min.js", async (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: mapTilerStub }));
+  await page.route("**/maptiler-sdk.css", async (route) => route.fulfill({ status: 200, contentType: "text/css", body: ".maplibregl-map,.maplibregl-canvas-container,.maplibregl-canvas{width:100%;height:100%}" }));
+  await page.route("https://api.maptiler.com/geocoding/**", async (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ features: [{ id: "country.KW", text: "Kuwait", center: [47.5, 29.3], bbox: [46.5, 28.5, 48.6, 30.1], properties: { country_code: "KW", iso_a2: "KW" } }] }),
+  }));
+  await page.route("**/api/public-data/aor-risk?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, advisory: { level: 1, levelLabel: "Exercise Normal Precautions", summary: "Test Kuwait travel advisory", sourceUrl: "https://travel.state.gov/" } }) }));
+  await page.route("**/api/aor/health-outbreaks?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, country: "Kuwait", outbreaks: [], directMatches: 0, fallbackUsed: false }) }));
+  await page.route("**/api/aor/disaster-alerts?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, country: "Kuwait", events: [] }) }));
+  await page.route("**/api/aor/crisiswatch?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, country: "Kuwait", updates: [] }) }));
+}
+
 test.beforeEach(async ({ page }) => {
-  await page.route("**/api/reviewer-tools/aor?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(aorFixture) }));
-  await page.route("**/api/map-config", async (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ configured: false, apiKey: "" }) }));
-  await page.route("**/api/aor/source-readiness", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, sources: [
-    { id: "state", name: "U.S. Department of State", configured: true, live: true, requirement: null },
-    { id: "who", name: "WHO Disease Outbreak News", configured: true, live: true, requirement: null },
-    { id: "gdacs", name: "GDACS", configured: true, live: true, requirement: null },
-    { id: "crisiswatch", name: "International Crisis Group CrisisWatch", configured: true, live: true, requirement: null },
-  ] }) }));
+  await mockAor(page);
 });
 
-test("all AOR intelligence functions share one map-linked screen", async ({ page }) => {
+test("AOR map must render a real canvas before MapTiler is reported live", async ({ page }) => {
   await page.goto("/aor-factors");
   await expect(page.getByRole("heading", { name: "AOR Factors" })).toBeVisible();
   await expect(page.getByRole("link", { name: "AOR Risk Intelligence" })).toHaveCount(0);
   await expect(page.getByRole("tab")).toHaveCount(0);
 
-  await expect(page.getByText("Selected operating picture")).toBeVisible();
-  await expect(page.getByLabel("Interactive MapTiler AOR intelligence map")).toBeVisible();
+  const map = page.getByLabel("Interactive MapTiler AOR intelligence map");
+  await expect(map).toBeVisible();
+  await expect(page.getByText("Basemap + country tiles rendered")).toBeVisible();
+  await expect(page.getByText("Map rendering failed")).toHaveCount(0);
+
+  const canvas = map.locator("canvas.maplibregl-canvas");
+  await expect(canvas).toHaveCount(1);
+  const dimensions = await canvas.evaluate((element: HTMLCanvasElement) => ({ width: element.width, height: element.height, rect: element.getBoundingClientRect().toJSON() }));
+  expect(dimensions.width).toBeGreaterThan(50);
+  expect(dimensions.height).toBeGreaterThan(50);
+  expect(Number(dimensions.rect.width)).toBeGreaterThan(50);
+  expect(Number(dimensions.rect.height)).toBeGreaterThan(50);
+
   await expect(page.getByRole("heading", { name: "U.S. Department of State Travel Advisory" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "WHO Disease Outbreaks" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "GDACS Natural Hazards" })).toBeVisible();
@@ -43,9 +140,30 @@ test("all AOR intelligence functions share one map-linked screen", async ({ page
   await expect(page.getByText(/Work conditions for USCENTCOM/)).toBeVisible();
 });
 
-test("legacy AOR Risk URL resolves to the same unified map workspace", async ({ page }) => {
+test("country scan never falls back to unrelated command-wide hazards", async ({ page }) => {
+  await page.goto("/aor-factors");
+  await expect(page.getByText("Basemap + country tiles rendered")).toBeVisible();
+
+  await expect(page.getByText("GREEN · Forest fires in Kazakhstan")).toBeVisible();
+  await expect(page.getByText("M4.2 · 24 km ESE of Norak, Tajikistan")).toBeVisible();
+
+  const input = page.getByPlaceholder("Search or click a country");
+  await input.fill("Kuwait");
+  await page.getByRole("button", { name: "Scan" }).click();
+
+  await expect(page.getByText("Country-only intelligence for Kuwait.")).toBeVisible();
+  await expect(page.getByText("GREEN · Forest fires in Kazakhstan")).toHaveCount(0);
+  await expect(page.getByText("M4.2 · 24 km ESE of Norak, Tajikistan")).toHaveCount(0);
+  await expect(page.getByText("No GDACS event whose returned country metadata matches Kuwait.")).toBeVisible();
+  await expect(page.getByText("No command-feed earthquake place text matched Kuwait; command-wide earthquakes are not substituted.")).toBeVisible();
+  await expect(page.getByText("WHO returned no text-matched outbreak item for Kuwait; unrelated outbreaks are not substituted.")).toBeVisible();
+  await expect(page.getByText("Level 1 · Exercise Normal Precautions")).toBeVisible();
+});
+
+test("legacy AOR Risk URL resolves to the repaired unified map workspace", async ({ page }) => {
   await page.goto("/aor-risk-intelligence");
   await expect(page.getByRole("heading", { name: "AOR Factors" })).toBeVisible();
   await expect(page.getByText("Map-linked intelligence inspector")).toBeVisible();
+  await expect(page.getByText("Basemap + country tiles rendered")).toBeVisible();
   await expect(page.getByRole("tab")).toHaveCount(0);
 });

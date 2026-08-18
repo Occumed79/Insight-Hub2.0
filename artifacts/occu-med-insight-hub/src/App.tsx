@@ -27,7 +27,7 @@ const DbaIntelligence = React.lazy(() => import("@/pages/dba-intelligence"));
 const SourceGovernance = React.lazy(() => import("@/pages/source-governance"));
 const ReviewerInjuriesMedicalPage = React.lazy(() => import("@/pages/reviewer-injuries-medical"));
 const ReviewerJobIntelligencePage = React.lazy(() => import("@/pages/reviewer-job-intelligence"));
-const ReviewerAorFactorsPage = React.lazy(() => import("@/pages/reviewer-aor-factors"));
+const ReviewerAorFactorsPage = React.lazy(() => import("@/pages/reviewer-aor-factors-live"));
 const ReviewerDrugCheckerPage = React.lazy(() => import("@/pages/reviewer-drug-checker"));
 const ReviewerClinicalCalculatorsPage = React.lazy(() => import("@/pages/reviewer-clinical-calculators"));
 const ReviewerStandardsIntelligencePage = React.lazy(() => import("@/pages/reviewer-standards-intelligence"));

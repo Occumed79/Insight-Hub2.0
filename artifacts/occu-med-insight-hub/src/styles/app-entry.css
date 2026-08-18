@@ -1,3 +1,50 @@
 @import "./application.css";
 @import "./translucent-tools.css";
 @import "./ui-hardening.css";
+
+/* Critical MapTiler/MapLibre layout safeguards for the AOR operating picture.
+   These keep the map canvas and controls correctly sized even if the external
+   SDK stylesheet is delayed or blocked while it is loading. */
+.aor-map-tiler-host,
+.aor-map-tiler-host .maplibregl-map,
+.aor-map-tiler-host .maplibregl-canvas-container,
+.aor-map-tiler-host .maplibregl-canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+.aor-map-tiler-host {
+  position: absolute !important;
+  inset: 0 !important;
+  overflow: hidden !important;
+}
+.aor-map-tiler-host .maplibregl-map {
+  position: relative !important;
+  overflow: hidden !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
+}
+.aor-map-tiler-host .maplibregl-canvas-container,
+.aor-map-tiler-host .maplibregl-canvas {
+  position: absolute !important;
+  inset: 0 !important;
+}
+.aor-map-tiler-host .maplibregl-canvas {
+  display: block !important;
+}
+.aor-map-tiler-host .maplibregl-control-container {
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none;
+}
+.aor-map-tiler-host .maplibregl-ctrl-bottom-right,
+.aor-map-tiler-host .maplibregl-ctrl-bottom-left,
+.aor-map-tiler-host .maplibregl-ctrl-top-right,
+.aor-map-tiler-host .maplibregl-ctrl-top-left {
+  position: absolute !important;
+  z-index: 12 !important;
+  pointer-events: auto;
+}
+.aor-map-tiler-host .maplibregl-ctrl-bottom-right { right: 10px !important; bottom: 10px !important; }
+.aor-map-tiler-host .maplibregl-ctrl-bottom-left { left: 10px !important; bottom: 10px !important; }
+.aor-map-tiler-host .maplibregl-ctrl-top-right { right: 10px !important; top: 10px !important; }
+.aor-map-tiler-host .maplibregl-ctrl-top-left { left: 10px !important; top: 10px !important; }

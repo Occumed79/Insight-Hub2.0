@@ -184,6 +184,7 @@ async function installOccupationalApi(page: Page) {
         highRateEstablishments: [{ establishment_name: "Example Facility", trc: 7.4 }],
       });
     }
+    if (path.endsWith("/api/aor/unified-command")) return fulfillJson(route, reviewerAor);
     if (path.endsWith("/api/reviewer-tools/aor")) return fulfillJson(route, reviewerAor);
     if (path.endsWith("/api/reviewer-tools/rxnorm")) {
       return fulfillJson(route, { ok: true, source: "NLM RxNorm", candidates: [{ rxcui: "25480", name: "gabapentin 300 MG Oral Capsule", score: 100 }] });
