@@ -37,6 +37,14 @@
   box-shadow:0 28px 72px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.09),0 0 34px rgba(78,218,241,.06);
   backdrop-filter:blur(28px);
 }
+.rh-primary-action > .relative { z-index:50; }
+.rh-primary-action > .relative > .absolute {
+  position:static;
+  inset:auto;
+  width:100%;
+  margin-top:8px;
+}
+.rh-primary-action > .relative > .absolute button { scroll-margin-top:96px; }
 .rh-kicker { color:rgba(184,241,248,.54); font-size:10px; font-weight:900; letter-spacing:.20em; text-transform:uppercase; }
 .rh-section-title { margin-top:6px; color:rgba(255,255,255,.96); font-size:clamp(20px,2.4vw,30px); line-height:1.05; font-weight:950; letter-spacing:-.035em; }
 .rh-section-copy { margin-top:8px; max-width:760px; color:rgba(201,237,242,.52); font-size:13px; line-height:1.65; }
