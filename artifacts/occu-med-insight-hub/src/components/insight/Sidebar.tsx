@@ -1,6 +1,8 @@
 import {
+  Activity,
   BarChart3,
   BookOpenCheck,
+  BriefcaseBusiness,
   Building2,
   Calculator,
   CircleDollarSign,
@@ -10,15 +12,31 @@ import {
   Home,
   Landmark,
   Map,
+  Pill,
   Scale,
   ShieldAlert,
   ShieldCheck,
+  Stethoscope,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "Home", icon: Home },
+  {
+    href: "/injuries-medical-conditions",
+    label: "Injuries & Medical Conditions",
+    icon: Activity,
+  },
+  { href: "/job-intelligence", label: "Job Intelligence", icon: BriefcaseBusiness },
+  { href: "/aor-factors", label: "AOR Factors", icon: ShieldAlert },
+  { href: "/drug-checker", label: "Drug Checker", icon: Pill },
+  { href: "/clinical-calculators", label: "Clinical Calculators", icon: Calculator },
+  {
+    href: "/standards-intelligence",
+    label: "Standards Intelligence",
+    icon: Stethoscope,
+  },
   { href: "/entities", label: "Entities", icon: Building2 },
   { href: "/federal-agencies", label: "Federal Agencies", icon: Landmark },
   { href: "/state-agencies", label: "State Agencies", icon: Map },
