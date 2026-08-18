@@ -35,11 +35,11 @@ test("all AOR intelligence functions share one map-linked screen", async ({ page
 
   await expect(page.getByText("Selected operating picture")).toBeVisible();
   await expect(page.getByLabel("Interactive MapTiler AOR intelligence map")).toBeVisible();
-  await expect(page.getByText("U.S. Department of State Travel Advisory")).toBeVisible();
-  await expect(page.getByText("WHO Disease Outbreaks")).toBeVisible();
-  await expect(page.getByText("GDACS Natural Hazards")).toBeVisible();
-  await expect(page.getByText("USGS Seismic Activity")).toBeVisible();
-  await expect(page.getByText("International Crisis Group CrisisWatch")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "U.S. Department of State Travel Advisory" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "WHO Disease Outbreaks" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "GDACS Natural Hazards" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "USGS Seismic Activity" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "International Crisis Group CrisisWatch" })).toBeVisible();
   await expect(page.getByText(/Work conditions for USCENTCOM/)).toBeVisible();
 });
 
