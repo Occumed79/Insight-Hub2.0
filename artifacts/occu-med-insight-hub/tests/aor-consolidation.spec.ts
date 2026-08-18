@@ -33,7 +33,7 @@ test("AOR Risk Intelligence resources now live inside AOR Factors", async ({ pag
 
   await page.getByRole("tab", { name: "Country Intelligence" }).click();
   await expect(page.getByText("U.S. Department of State Travel Advisory")).toBeVisible();
-  await expect(page.getByText("International Crisis Group CrisisWatch")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "International Crisis Group CrisisWatch" })).toBeVisible();
   await expect(page.getByText("WHO country outbreak detail")).toBeVisible();
   await expect(page.getByText("GDACS country disaster detail")).toBeVisible();
 });
