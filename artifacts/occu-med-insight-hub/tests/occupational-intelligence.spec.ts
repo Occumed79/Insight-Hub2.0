@@ -306,6 +306,7 @@ test("all six transplanted reviewer tools render and retain their core interacti
   await page.goto("/aor-factors");
   await expect(page.getByRole("heading", { name: "AOR Factors" })).toBeVisible();
   await expect(page.getByText("WHO Disease Outbreaks")).toBeVisible();
+  await page.getByRole("button", { name: /AOR mode/ }).click();
   await expect(page.getByText("Test outbreak — Jordan")).toBeVisible();
   await expect(page.getByText(/Work conditions for USCENTCOM/)).toBeVisible();
   await expect(page.getByRole("tab")).toHaveCount(0);
