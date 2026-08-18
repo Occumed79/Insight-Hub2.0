@@ -117,8 +117,8 @@ async function fetchJson(url: string, timeoutMs = 12_000) {
 }
 
 async function whoForScope(scope: Scope) {
-  // WHO's live endpoint currently accepts this minimal query reliably. Avoid the
-  // old $select projection that was causing the production HTTP 400 response.
+  // WHO's live endpoint accepts this minimal query. The prior $select projection
+  // was the source of the HTTP 400 visible in production.
   const params = new URLSearchParams({ "$orderby": "PublicationDateAndTime desc", "$top": "250" });
   const payload = record(await fetchJson(`https://www.who.int/api/news/diseaseoutbreaknews?${params}`));
   return array(payload.value).map((raw) => {
@@ -206,7 +206,7 @@ async function usgsForScope(scope: Scope) {
   }).slice(0, 12);
 }
 
-router.get("/aor/unified-command", async (req: Request, res: Response) => {
+async function handleUnifiedCommand(req: Request, res: Response) {
   res.setHeader("Cache-Control", "no-store");
   const command = String(req.query.command || "centcom").toLowerCase() as CommandId;
   if (!(command in SCOPES)) return res.status(400).json({ ok: false, error: "Unknown combatant command." });
@@ -228,6 +228,12 @@ router.get("/aor/unified-command", async (req: Request, res: Response) => {
     disasters: gdacs.status === "fulfilled" ? gdacs.value : [],
     earthquakes: usgs.status === "fulfilled" ? usgs.value : [],
   });
-});
+}
+
+// Keep the explicit new endpoint for diagnostics, and override the old reviewer
+// path before reviewerToolsRouter is registered so the existing frontend call
+// automatically receives the corrected source implementation.
+router.get("/aor/unified-command", handleUnifiedCommand);
+router.get("/reviewer-tools/aor", handleUnifiedCommand);
 
 export default router;
