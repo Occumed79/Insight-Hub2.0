@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import "./AuroraMolecule.css";
 
 type Atom = { id: number; element: number; x: number; y: number; z: number };
 type Bond = { a: number; b: number; order: number };
@@ -141,7 +142,7 @@ export default function AuroraMolecule({ cid, name }: Props) {
   return (
     <div className="aurora-molecule" data-testid="aurora-molecule" aria-label={`Aurora molecular structure for ${name}`}>
       <div className="aurora-bokeh" aria-hidden="true">
-        {Array.from({ length: 22 }, (_, i) => <i key={i} style={{ "--i": i } as React.CSSProperties} />)}
+        {Array.from({ length: 22 }, (_, i) => <i key={i} style={{ "--i": i } as CSSProperties} />)}
       </div>
       <svg viewBox={`0 0 ${projection.width} ${projection.height}`} role="img" aria-label={`PubChem ${projection.source.toUpperCase()} structure for ${name}`}>
         <defs>
@@ -153,6 +154,7 @@ export default function AuroraMolecule({ cid, name }: Props) {
             <feGaussianBlur stdDeviation="7" result="blur" />
             <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
+          <linearGradient id="auroraBondGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#65f0dc" /><stop offset="48%" stopColor="#69c8ff" /><stop offset="100%" stopColor="#9a72ff" /></linearGradient>
           {Object.entries(ELEMENT_PALETTE).map(([element, palette]) => (
             <radialGradient key={element} id={`atom-${element}`} cx="34%" cy="28%" r="72%">
               <stop offset="0%" stopColor="#ffffff" stopOpacity=".98" />
