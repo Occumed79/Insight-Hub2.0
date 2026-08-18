@@ -120,7 +120,7 @@ export default function ReviewerDrugCheckerPage() {
                   {results.map((item) => (
                     <button key={item.rxcui} onClick={() => addDrug(item)} className="flex w-full items-center justify-between gap-4 border-b border-white/8 px-4 py-3 text-left last:border-0 hover:bg-cyan-300/[0.06]">
                       <div><strong className="text-sm">{item.name}</strong><p className="mt-1 text-[10px] text-cyan-100/38">RxCUI {item.rxcui}</p></div>
-                      <span className="rounded-full border border-cyan-100/14 px-2.5 py-1 text-[9px] font-black uppercase tracking-[.12em] text-cyan-100/58">{drugProfile(item.name) ? "Reviewed profile" : "Identity only"}</span>
+                      <span className="rounded-full border border-cyan-100/14 px-2.5 py-1 text-[9px] font-black uppercase tracking-[.12em] text-cyan-100/58">{drugProfile(item.name) ? "Reviewed occupational profile" : "Identity only"}</span>
                     </button>
                   ))}
                 </div>
@@ -192,7 +192,7 @@ export default function ReviewerDrugCheckerPage() {
                 const itemProfile = drugProfile(drug.name);
                 const active = focused?.rxcui === drug.rxcui;
                 return <div key={drug.rxcui} className={`rounded-2xl border p-4 ${active ? "border-cyan-100/24 bg-cyan-300/[0.07]" : "border-white/10 bg-white/[0.02]"}`}>
-                  <div className="flex items-start gap-3"><button onClick={() => void focusDrug(drug)} className="min-w-0 flex-1 text-left"><div className="rh-label">{itemProfile ? "Reviewed profile" : "RxNorm identity"}</div><strong className="mt-1 block text-sm">{drug.name}</strong><p className="mt-1 text-[10px] text-cyan-100/40">{itemProfile?.className || `RxCUI ${drug.rxcui}`}</p></button><button aria-label={`Remove ${drug.name}`} onClick={() => { setSelected((current) => current.filter((item) => item.rxcui !== drug.rxcui)); if (focused?.rxcui === drug.rxcui) { setFocused(null); setMolecule(null); } }} className="rounded-xl border border-white/10 p-2 text-cyan-100/45 hover:text-white"><Trash2 size={14} /></button></div>
+                  <div className="flex items-start gap-3"><button onClick={() => void focusDrug(drug)} className="min-w-0 flex-1 text-left"><div className="rh-label">{itemProfile ? "Reviewed occupational profile" : "RxNorm identity"}</div><strong className="mt-1 block text-sm">{drug.name}</strong><p className="mt-1 text-[10px] text-cyan-100/40">{itemProfile?.className || `RxCUI ${drug.rxcui}`}</p></button><button aria-label={`Remove ${drug.name}`} onClick={() => { setSelected((current) => current.filter((item) => item.rxcui !== drug.rxcui)); if (focused?.rxcui === drug.rxcui) { setFocused(null); setMolecule(null); } }} className="rounded-xl border border-white/10 p-2 text-cyan-100/45 hover:text-white"><Trash2 size={14} /></button></div>
                 </div>;
               })}</div> : <p className="mt-4">Search and add medications above.</p>}
             </div>
