@@ -26,10 +26,10 @@ const WorkersCompCoverage = React.lazy(() => import("@/pages/workers-comp-covera
 const DbaIntelligence = React.lazy(() => import("@/pages/dba-intelligence"));
 const SourceGovernance = React.lazy(() => import("@/pages/source-governance"));
 const ReviewerInjuriesMedicalPage = React.lazy(() => import("@/pages/reviewer-injuries-medical"));
-const ReviewerJobIntelligencePage = React.lazy(() => import("@/pages/reviewer-tool-suite").then((module) => ({ default: module.ReviewerJobIntelligencePage })));
+const ReviewerJobIntelligencePage = React.lazy(() => import("@/pages/reviewer-job-intelligence"));
 const ReviewerAorFactorsPage = React.lazy(() => import("@/pages/reviewer-aor-factors"));
-const ReviewerDrugCheckerPage = React.lazy(() => import("@/pages/reviewer-tool-suite").then((module) => ({ default: module.ReviewerDrugCheckerPage })));
-const ReviewerClinicalCalculatorsPage = React.lazy(() => import("@/pages/reviewer-tool-suite").then((module) => ({ default: module.ReviewerClinicalCalculatorsPage })));
+const ReviewerDrugCheckerPage = React.lazy(() => import("@/pages/reviewer-drug-checker"));
+const ReviewerClinicalCalculatorsPage = React.lazy(() => import("@/pages/reviewer-clinical-calculators"));
 const ReviewerStandardsIntelligencePage = React.lazy(() => import("@/pages/reviewer-standards-intelligence"));
 const EntitiesPage = React.lazy(() => import("@/pages/entities").then((module) => ({ default: module.EntitiesPage })));
 const CompetitorsPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.CompetitorsPage })));
