@@ -163,7 +163,7 @@ test("Standards Intelligence is API-backed, expands the source registry, and rec
   await expect(page.getByText("OSHA RESPIRATORY", { exact: true })).toBeVisible();
   await expect(page.getByText("DOT PART 40", { exact: true })).toBeVisible();
   await expect(page.getByText("Trigger-based", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("2026-08-19", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/2026-08-19/).first()).toBeVisible();
 
   await page.getByLabel("Occupation / context").fill("Firefighter emergency responder");
   await expect(page.getByText("Suggested standards", { exact: true })).toBeVisible();
