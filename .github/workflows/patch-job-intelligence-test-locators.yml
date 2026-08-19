@@ -1,0 +1,52 @@
+name: Patch Job Intelligence Test Locators
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'fix/job-intelligence-persistent-workspace'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Use valid Playwright value assertions
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('artifacts/occu-med-insight-hub/tests/job-intelligence.spec.ts')
+          text = path.read_text()
+          old = '''  await expect(page.getByDisplayValue("Redzikowo Firefighter")).toBeVisible();
+          await expect(page.getByDisplayValue("Respond to fire alarms and emergency calls.")).toBeVisible();
+          await expect(page.getByText("OFFICIAL O*NET")).toBeVisible();'''
+          new = '''  await expect(page.getByLabel("Profile name")).toHaveValue("Redzikowo Firefighter");
+          const restoredDuty = page.locator("article").filter({ hasText: "OFFICIAL O*NET" }).last();
+          await expect(restoredDuty.locator("textarea").first()).toHaveValue("Respond to fire alarms and emergency calls.");
+          await expect(restoredDuty.getByText("OFFICIAL O*NET")).toBeVisible();'''
+          if old not in text:
+              raise SystemExit('Playwright locator target not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Commit browser-test fix
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/occu-med-insight-hub/tests/job-intelligence.spec.ts
+          if git diff --cached --quiet; then
+            echo 'Test locator fix already applied.'
+            exit 0
+          fi
+          git commit -m 'Fix Job Intelligence Playwright value assertions'
+          git push origin HEAD:${GITHUB_HEAD_REF}
