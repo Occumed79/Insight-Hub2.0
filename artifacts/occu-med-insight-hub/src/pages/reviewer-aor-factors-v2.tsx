@@ -20,6 +20,8 @@ import {
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
+import { AorPriorityBrief, buildAorPrioritySignals } from "@/components/insight/AorPriorityBrief";
+import { AOR_REGISTRY_REVIEWED_AT, COMMANDS, COMMAND_BY_COUNTRY, type CommandId } from "@/components/insight/aor-command-registry";
 
 declare global {
   interface Window { maptilersdk?: any; }
@@ -30,21 +32,10 @@ const MAPTILER_SCRIPT = `https://cdn.maptiler.com/maptiler-sdk-js/v${MAPTILER_VE
 const MAPTILER_CSS = `https://cdn.maptiler.com/maptiler-sdk-js/v${MAPTILER_VERSION}/maptiler-sdk.css`;
 const COUNTRY_SOURCE = "https://api.maptiler.com/tiles/countries/tiles.json";
 
-const COMMANDS = [
-  { id: "northcom", label: "USNORTHCOM", scope: "United States, Canada, Mexico, Greenland, The Bahamas, and assigned approaches", center: [-101, 46] as [number, number], zoom: 1.55, color: "#49e1df", countries: ["US", "CA", "MX", "GL", "BS", "PR", "VI"] },
-  { id: "southcom", label: "USSOUTHCOM", scope: "Central America, South America, the Caribbean, and adjacent approaches", center: [-67, -9] as [number, number], zoom: 1.7, color: "#54f0bd", countries: ["AG", "AR", "BB", "BZ", "BO", "BR", "CL", "CO", "CR", "CU", "DM", "DO", "EC", "SV", "GD", "GT", "GY", "HT", "HN", "JM", "NI", "PA", "PY", "PE", "KN", "LC", "VC", "SR", "TT", "UY", "VE"] },
-  { id: "eucom", label: "USEUCOM", scope: "Europe and assigned portions of Eurasia, the Arctic, Atlantic, and adjoining approaches", center: [21, 52] as [number, number], zoom: 2.15, color: "#65b9ff", countries: ["AL", "AD", "AM", "AT", "AZ", "BY", "BE", "BA", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "GE", "DE", "GR", "HU", "IS", "IE", "IT", "XK", "LV", "LI", "LT", "LU", "MT", "MD", "MC", "ME", "NL", "MK", "NO", "PL", "PT", "RO", "RU", "SM", "RS", "SK", "SI", "ES", "SE", "CH", "TR", "UA", "GB", "VA"] },
-  { id: "africom", label: "USAFRICOM", scope: "The African continent, island nations, and surrounding waters, except Egypt", center: [19, 3] as [number, number], zoom: 1.8, color: "#a580ff", countries: ["DZ", "AO", "BJ", "BW", "BF", "BI", "CV", "CM", "CF", "TD", "KM", "CG", "CD", "CI", "DJ", "GQ", "ER", "SZ", "ET", "GA", "GM", "GH", "GN", "GW", "KE", "LS", "LR", "LY", "MG", "MW", "ML", "MR", "MU", "MA", "MZ", "NA", "NE", "NG", "RW", "ST", "SN", "SC", "SL", "SO", "ZA", "SS", "SD", "TZ", "TG", "TN", "UG", "ZM", "ZW"] },
-  { id: "centcom", label: "USCENTCOM", scope: "Twenty-one nations across the Middle East and Central and South Asia, including Egypt", center: [53, 30] as [number, number], zoom: 2.25, color: "#54d8ff", countries: ["AF", "BH", "EG", "IR", "IQ", "IL", "JO", "KZ", "KW", "KG", "LB", "OM", "PK", "QA", "SA", "SY", "TJ", "TM", "AE", "UZ", "YE"] },
-  { id: "indopacom", label: "USINDOPACOM", scope: "The Indo-Pacific from India through East Asia, Australia, and Pacific island nations", center: [142, 13] as [number, number], zoom: 1.45, color: "#7d78ff", countries: ["AU", "BD", "BT", "BN", "KH", "CN", "TW", "FJ", "IN", "ID", "JP", "KI", "LA", "MY", "MV", "MH", "FM", "MN", "MM", "NR", "NP", "NZ", "KP", "PW", "PG", "PH", "WS", "SG", "SB", "KR", "LK", "TH", "TL", "TO", "TV", "VU", "VN"] },
-] as const;
-
-type Command = (typeof COMMANDS)[number];
-type CommandId = Command["id"];
 type MapMode = "country" | "aor";
 type SelectedCountry = { name: string; iso2: string; center?: [number, number]; bbox?: [number, number, number, number] };
 type SourceResult = { data: any; error: string; loading: boolean };
-type CountrySources = { travel: SourceResult; who: SourceResult; gdacs: SourceResult; crisiswatch: SourceResult; health: SourceResult };
+type CountrySources = { travel: SourceResult; who: SourceResult; gdacs: SourceResult; usgs: SourceResult; crisiswatch: SourceResult; health: SourceResult };
 type EnvironmentKey = "heat" | "cold" | "altitude" | "poorAir" | "fatigue" | "ppe" | "night";
 
 type AorResponse = {
@@ -58,7 +49,14 @@ type AorResponse = {
   earthquakes: Array<any>;
 };
 
-const COMMAND_BY_COUNTRY = new Map<string, Command>(COMMANDS.flatMap((command) => command.countries.map((iso2) => [iso2, command] as [string, Command])));
+type GlobalWatchResponse = {
+  ok: boolean;
+  partial: boolean;
+  sourceHealth: Array<{ provider: string; ok: boolean; count: number; error?: string }>;
+  outbreaks: Array<any>;
+  disasters: Array<any>;
+  earthquakes: Array<any>;
+};
 const EMPTY_COUNTRY_FILTER = ["==", "iso_a2", "__NONE__"];
 const countryFilter = (iso2s: readonly string[]) => ["all", ["==", "level", 0], ["in", "iso_a2", ...iso2s]];
 
@@ -82,8 +80,27 @@ const ENVIRONMENT_PROMPTS: Record<EnvironmentKey, string> = {
 };
 
 function emptyResult(): SourceResult { return { data: null, error: "", loading: false }; }
-function emptyCountrySources(): CountrySources { return { travel: emptyResult(), who: emptyResult(), gdacs: emptyResult(), crisiswatch: emptyResult(), health: emptyResult() }; }
+function emptyCountrySources(): CountrySources { return { travel: emptyResult(), who: emptyResult(), gdacs: emptyResult(), usgs: emptyResult(), crisiswatch: emptyResult(), health: emptyResult() }; }
 function normalize(value: string) { return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
+
+function geometryBbox(geometry: any): [number, number, number, number] | undefined {
+  const pairs: Array<[number, number]> = [];
+  const walk = (value: any) => {
+    if (!Array.isArray(value)) return;
+    if (value.length >= 2 && Number.isFinite(Number(value[0])) && Number.isFinite(Number(value[1]))) {
+      const lon = Number(value[0]); const lat = Number(value[1]);
+      if (Math.abs(lon) <= 180 && Math.abs(lat) <= 90) pairs.push([lon, lat]);
+      return;
+    }
+    value.forEach(walk);
+  };
+  walk(geometry?.coordinates);
+  if (!pairs.length) return undefined;
+  const lons = pairs.map(([lon]) => lon); const lats = pairs.map(([, lat]) => lat);
+  const minLon = Math.min(...lons); const maxLon = Math.max(...lons); const minLat = Math.min(...lats); const maxLat = Math.max(...lats);
+  if (minLon >= maxLon || minLat >= maxLat) return undefined;
+  return [minLon, minLat, maxLon, maxLat];
+}
 function formatDate(value?: string | null) {
   if (!value) return "Date not supplied";
   const date = new Date(value);
@@ -176,6 +193,9 @@ export default function ReviewerAorFactorsV2Page() {
   const [countrySearchLoading, setCountrySearchLoading] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<SelectedCountry | null>(null);
   const [countrySources, setCountrySources] = useState<CountrySources>(emptyCountrySources());
+  const [globalWatch, setGlobalWatch] = useState<GlobalWatchResponse | null>(null);
+  const [globalWatchLoading, setGlobalWatchLoading] = useState(true);
+  const [globalWatchError, setGlobalWatchError] = useState("");
   const [environment, setEnvironment] = useState<Record<EnvironmentKey, boolean>>({ heat: false, cold: false, altitude: false, poorAir: false, fatigue: false, ppe: false, night: false });
 
   const mappedCountryCommand = selectedCountry?.iso2 ? COMMAND_BY_COUNTRY.get(selectedCountry.iso2) ?? null : null;
@@ -183,6 +203,18 @@ export default function ReviewerAorFactorsV2Page() {
   const selectedEnvironment = (Object.keys(environment) as EnvironmentKey[]).filter((key) => environment[key]);
 
   useEffect(() => { modeRef.current = mapMode; }, [mapMode]);
+
+
+  useEffect(() => {
+    let active = true;
+    setGlobalWatchLoading(true);
+    setGlobalWatchError("");
+    loadJson("/api/aor/global-watch")
+      .then((payload) => { if (active) setGlobalWatch(payload); })
+      .catch((reason) => { if (active) setGlobalWatchError(errorMessage(reason)); })
+      .finally(() => { if (active) setGlobalWatchLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (mapMode !== "aor" && !selectedCountry) {
@@ -205,12 +237,15 @@ export default function ReviewerAorFactorsV2Page() {
     if (!selectedCountry?.name) { setCountrySources(emptyCountrySources()); return; }
     let active = true;
     const loadingResult = { data: null, error: "", loading: true };
-    setCountrySources({ travel: loadingResult, who: loadingResult, gdacs: loadingResult, crisiswatch: loadingResult, health: loadingResult });
+    setCountrySources({ travel: loadingResult, who: loadingResult, gdacs: loadingResult, usgs: loadingResult, crisiswatch: loadingResult, health: loadingResult });
     const country = encodeURIComponent(selectedCountry.name);
+    const bbox = selectedCountry.bbox;
+    const seismic = bbox ? loadJson(`/api/aor/seismic-activity?minLon=${encodeURIComponent(String(bbox[0]))}&minLat=${encodeURIComponent(String(bbox[1]))}&maxLon=${encodeURIComponent(String(bbox[2]))}&maxLat=${encodeURIComponent(String(bbox[3]))}&days=30`) : Promise.resolve({ ok: true, earthquakes: [], limitation: "No country geometry bounds were available for this selection." });
     const requests: Record<keyof CountrySources, Promise<any>> = {
       travel: loadJson(`/api/public-data/aor-risk?country=${country}`),
       who: loadJson(`/api/aor/health-outbreaks?country=${country}`),
       gdacs: loadJson(`/api/aor/disaster-alerts?country=${country}&days=90`),
+      usgs: seismic,
       crisiswatch: loadJson(`/api/aor/crisiswatch?country=${country}`),
       health: loadJson(`/api/aor/travel-health?country=${country}`),
     };
@@ -220,7 +255,7 @@ export default function ReviewerAorFactorsV2Page() {
       if (active) setCountrySources((current) => ({ ...current, [key]: { data: null, error: errorMessage(reason), loading: false } }));
     }));
     return () => { active = false; };
-  }, [selectedCountry?.name]);
+  }, [selectedCountry?.name, selectedCountry?.bbox]);
 
   useEffect(() => {
     let cancelled = false;
@@ -286,9 +321,11 @@ export default function ReviewerAorFactorsV2Page() {
           map.on("mousemove", "aor-country-hit", () => { map.getCanvas().style.cursor = "pointer"; });
           map.on("mouseleave", "aor-country-hit", () => { map.getCanvas().style.cursor = ""; });
           map.on("click", "aor-country-hit", (event: any) => {
-            const properties = event.features?.[0]?.properties ?? {};
+            const feature = event.features?.[0];
+            const properties = feature?.properties ?? {};
             const iso2 = String(properties.iso_a2 || "").toUpperCase();
             const name = String(properties["name:en"] || properties.name || properties.name_en || iso2 || "Selected country");
+            const featureBbox = geometryBbox(feature?.geometry);
             const mapped = COMMAND_BY_COUNTRY.get(iso2);
             if (modeRef.current === "aor") {
               if (mapped) {
@@ -302,7 +339,7 @@ export default function ReviewerAorFactorsV2Page() {
             }
             if (mapped) setCommand(mapped.id);
             setCountryQuery(name);
-            setSelectedCountry({ name, iso2 });
+            setSelectedCountry({ name, iso2, bbox: featureBbox });
             const lng = Number(event?.lngLat?.lng); const lat = Number(event?.lngLat?.lat);
             if (Number.isFinite(lng) && Number.isFinite(lat)) map.easeTo?.({ center: [lng, lat], zoom: 3.7, duration: 650 });
           });
@@ -374,11 +411,9 @@ export default function ReviewerAorFactorsV2Page() {
   }, [mapMode, selectedCountry]);
 
   const strictQuakes = useMemo(() => {
-    const quakes = data?.earthquakes || [];
-    if (!selectedCountry) return mapMode === "aor" ? quakes.slice(0, 6) : [];
-    const needle = normalize(selectedCountry.name);
-    return quakes.filter((item) => normalize(`${item.place || ""} ${item.title || ""}`).includes(needle)).slice(0, 6);
-  }, [data?.earthquakes, mapMode, selectedCountry]);
+    if (selectedCountry) return (countrySources.usgs.data?.earthquakes || []).slice(0, 6);
+    return mapMode === "aor" ? (data?.earthquakes || []).slice(0, 6) : [];
+  }, [countrySources.usgs.data?.earthquakes, data?.earthquakes, mapMode, selectedCountry]);
   const countryWho = selectedCountry ? (countrySources.who.data?.outbreaks || []).slice(0, 6) : mapMode === "aor" ? (data?.outbreaks || []).slice(0, 6) : [];
   const countryGdacs = selectedCountry ? (countrySources.gdacs.data?.events || []).slice(0, 6) : mapMode === "aor" ? (data?.disasters || []).slice(0, 6) : [];
   const crisisUpdates = selectedCountry ? (countrySources.crisiswatch.data?.updates || []).slice(0, 6) : [];
@@ -386,6 +421,19 @@ export default function ReviewerAorFactorsV2Page() {
   const travelHealth = countrySources.health.data;
   const vaccines = (travelHealth?.vaccines || []).slice(0, 10);
   const infectiousDiseases = (travelHealth?.diseases || []).slice(0, 10);
+
+  const prioritySignals = useMemo(() => buildAorPrioritySignals({
+    advisory: selectedCountry ? advisory : undefined,
+    outbreaks: selectedCountry ? countryWho : mapMode === "aor" ? (data?.outbreaks || []) : (globalWatch?.outbreaks || []),
+    disasters: selectedCountry ? countryGdacs : mapMode === "aor" ? (data?.disasters || []) : (globalWatch?.disasters || []),
+    earthquakes: selectedCountry ? strictQuakes : mapMode === "aor" ? (data?.earthquakes || []) : (globalWatch?.earthquakes || []),
+    crisisUpdates: selectedCountry ? crisisUpdates.filter((item: any) => item.matchedCountry !== false) : [],
+    healthNotices: selectedCountry ? (travelHealth?.notices || []) : [],
+    environmentLabels: selectedEnvironment.map((key) => ENVIRONMENT_LABELS[key]),
+  }), [advisory, countryGdacs, countryWho, crisisUpdates, data?.disasters, data?.earthquakes, data?.outbreaks, globalWatch?.disasters, globalWatch?.earthquakes, globalWatch?.outbreaks, mapMode, selectedCountry, selectedEnvironment, strictQuakes, travelHealth?.notices]);
+  const priorityContext = selectedCountry?.name || (mapMode === "aor" ? selectedCommand.label : "Global watch");
+  const priorityLoading = selectedCountry ? Object.values(countrySources).some((source) => source.loading) : mapMode === "aor" ? loading : globalWatchLoading;
+  const priorityError = selectedCountry ? "" : mapMode === "aor" ? error : globalWatchError;
 
   const eventGeoJson = useMemo(() => {
     const features: any[] = [];
@@ -463,6 +511,9 @@ export default function ReviewerAorFactorsV2Page() {
   const countrySourceStatus = (source: SourceResult | undefined, idleNote = "Select a country") => !selectedCountry ? { status: "loading" as const, note: idleNote } : source?.loading ? { status: "loading" as const, note: "Loading" } : source?.error ? { status: "warn" as const, note: source.error } : { status: "ok" as const, note: "Country feed loaded" };
   const healthStatus = countrySourceStatus(countrySources.health);
   const stateStatus = countrySourceStatus(countrySources.travel);
+  const whoStatus = countrySourceStatus(countrySources.who);
+  const gdacsStatus = countrySourceStatus(countrySources.gdacs);
+  const usgsStatus = countrySourceStatus(countrySources.usgs);
   const crisisStatus = countrySourceStatus(countrySources.crisiswatch);
 
   return (
@@ -485,12 +536,16 @@ export default function ReviewerAorFactorsV2Page() {
               </div>
             </div>
           ) : (
-            <div className="mt-4 rounded-2xl border border-violet-100/12 bg-violet-300/[0.035] p-3 md:p-4"><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-100/45">Combatant command</p><div className="mt-2 flex flex-wrap gap-2">{COMMANDS.map((item) => <button key={item.id} type="button" onClick={() => chooseCommand(item.id)} className={`min-h-9 rounded-xl border px-3 text-[10px] font-black transition ${command === item.id ? "border-violet-100/38 bg-violet-300/[0.13] text-white" : "border-white/11 bg-white/[0.025] text-cyan-100/50 hover:border-white/20 hover:text-white"}`}>{item.label}</button>)}</div><p className="mt-2 text-[9px] text-violet-100/40">You can use these controls or click any country on the map; the map will resolve that country to its assigned AOR.</p></div>
+            <div className="mt-4 rounded-2xl border border-violet-100/12 bg-violet-300/[0.035] p-3 md:p-4"><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-100/45">Combatant command</p><div className="mt-2 flex flex-wrap gap-2">{COMMANDS.map((item) => <button key={item.id} type="button" onClick={() => chooseCommand(item.id)} className={`min-h-9 rounded-xl border px-3 text-[10px] font-black transition ${command === item.id ? "border-violet-100/38 bg-violet-300/[0.13] text-white" : "border-white/11 bg-white/[0.025] text-cyan-100/50 hover:border-white/20 hover:text-white"}`}>{item.label}</button>)}</div><p className="mt-2 text-[9px] text-violet-100/40">You can use these controls or click any country on the map; the map will resolve that country to its assigned AOR. Assignment registry reviewed {AOR_REGISTRY_REVIEWED_AT}.</p></div>
           )}
 
           <div className="mt-4 flex flex-wrap gap-2" aria-label="AOR source status">
             <SourceChip label="MapTiler" status={mapStatus === "ready" ? "ok" : mapStatus === "error" ? "warn" : "loading"} note={mapStatus === "ready" ? "Bright Dark vector tiles rendered" : mapStatus === "error" ? mapError : "Rendering vector tiles"} />
-            {mapMode === "aor" ? ["WHO Disease Outbreak News", "GDACS", "USGS Earthquake Catalog"].map((provider) => { const source = sourceHealth.get(provider); return <SourceChip key={provider} label={provider.replace(" Disease Outbreak News", "").replace(" Earthquake Catalog", "")} status={loading ? "loading" : source?.ok ? "ok" : "warn"} note={loading ? "Refreshing" : source?.ok ? `${source.count} AOR matches` : source?.error || "Unavailable"} />; }) : <><SourceChip label="CDC Travel Health" status={healthStatus.status} note={healthStatus.note} /><SourceChip label="State Travel" status={stateStatus.status} note={stateStatus.note} /><SourceChip label="CrisisWatch" status={crisisStatus.status} note={crisisStatus.note} /></>}
+            {mapMode === "aor" ? ["WHO Disease Outbreak News", "GDACS", "USGS Earthquake Catalog"].map((provider) => { const source = sourceHealth.get(provider); return <SourceChip key={provider} label={provider.replace(" Disease Outbreak News", "").replace(" Earthquake Catalog", "")} status={loading ? "loading" : source?.ok ? "ok" : "warn"} note={loading ? "Refreshing" : source?.ok ? `${source.count} AOR matches` : source?.error || "Unavailable"} />; }) : <><SourceChip label="State Travel" status={stateStatus.status} note={stateStatus.note} /><SourceChip label="CDC Travel Health" status={healthStatus.status} note={healthStatus.note} /><SourceChip label="WHO" status={whoStatus.status} note={whoStatus.note} /><SourceChip label="GDACS" status={gdacsStatus.status} note={gdacsStatus.note} /><SourceChip label="USGS" status={usgsStatus.status} note={usgsStatus.note} /><SourceChip label="CrisisWatch" status={crisisStatus.status} note={crisisStatus.note} /></>}
+          </div>
+
+          <div className="mt-4">
+            <AorPriorityBrief context={priorityContext} signals={prioritySignals} loading={priorityLoading} error={priorityError} />
           </div>
 
           <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.42fr)_minmax(340px,.58fr)]">
@@ -531,7 +586,7 @@ export default function ReviewerAorFactorsV2Page() {
 
               <InspectorSection title="GDACS Natural Hazards" icon={<CloudLightning size={14} className="text-violet-200/64" />}>{selectedCountry && countrySources.gdacs.loading ? <EmptyIntel>Loading GDACS country matches…</EmptyIntel> : selectedCountry && countrySources.gdacs.error ? <EmptyIntel>{countrySources.gdacs.error}</EmptyIntel> : countryGdacs.length ? <div className="space-y-2">{countryGdacs.map((item: any, index: number) => <IntelItem key={`${item.eventType || "event"}-${item.eventId || item.id || index}`} title={item.name || item.title || "GDACS event"} meta={`${item.alertLevel || "Alert level n/a"} · ${formatDate(item.fromDate)}`} summary={item.description || item.country} href={item.sourceUrl || item.url} />)}</div> : <EmptyIntel>{selectedCountry ? `No GDACS event whose returned country metadata matches ${selectedCountry.name}.` : mapMode === "aor" ? "No recent GDACS event matched this command." : "Select a country to load GDACS country matches."}</EmptyIntel>}</InspectorSection>
 
-              <InspectorSection title="USGS Seismic Activity" icon={<Waves size={14} className="text-cyan-200/64" />}>{strictQuakes.length ? <div className="space-y-2">{strictQuakes.map((item: any, index: number) => <IntelItem key={item.id || index} title={item.title || item.place || "USGS earthquake"} meta={`${item.magnitude == null ? "Magnitude n/a" : `M${item.magnitude}`} · ${formatDate(item.occurredAt)}`} summary={item.depthKm == null ? undefined : `${item.depthKm} km depth`} href={item.url} />)}</div> : <EmptyIntel>{selectedCountry ? `No command-feed earthquake place text matched ${selectedCountry.name}; unrelated command earthquakes are not substituted.` : mapMode === "aor" ? "No recent USGS earthquake matched this command." : "Select a country to evaluate seismic matches."}</EmptyIntel>}</InspectorSection>
+              <InspectorSection title="USGS Seismic Activity" icon={<Waves size={14} className="text-cyan-200/64" />}>{strictQuakes.length ? <div className="space-y-2">{strictQuakes.map((item: any, index: number) => <IntelItem key={item.id || index} title={item.title || item.place || "USGS earthquake"} meta={`${item.magnitude == null ? "Magnitude n/a" : `M${item.magnitude}`} · ${formatDate(item.occurredAt)}`} summary={item.depthKm == null ? undefined : `${item.depthKm} km depth`} href={item.url} />)}</div> : <EmptyIntel>{selectedCountry ? `No USGS event fell inside the selected country bounds; command-wide earthquakes are not substituted.` : mapMode === "aor" ? "No recent USGS earthquake matched this command." : "Select a country to evaluate seismic matches."}</EmptyIntel>}</InspectorSection>
 
               <InspectorSection title="International Crisis Group CrisisWatch" icon={<RadioTower size={14} className="text-violet-200/64" />}>{!selectedCountry ? <EmptyIntel>{mapMode === "country" ? "Select a country to load CrisisWatch context." : "CrisisWatch context is country-specific; switch to Country mode."}</EmptyIntel> : countrySources.crisiswatch.loading ? <EmptyIntel>Loading CrisisWatch…</EmptyIntel> : countrySources.crisiswatch.error ? <EmptyIntel>{countrySources.crisiswatch.error}</EmptyIntel> : crisisUpdates.length ? <div className="space-y-2">{crisisUpdates.map((item: any, index: number) => <IntelItem key={item.id || index} title={item.title || item.headline || "CrisisWatch update"} meta={formatDate(item.publishedAt || item.date)} summary={item.summary || item.description} href={item.url || item.sourceUrl} />)}</div> : <EmptyIntel>No readable CrisisWatch item matched this country.</EmptyIntel>}</InspectorSection>
 

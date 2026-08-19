@@ -193,6 +193,82 @@ async function usgsForScope(scope: Scope) {
   }).slice(0, 12);
 }
 
+
+async function whoLatest() {
+  return payloadItems(await whoFeed()).map(whoItem).sort((a, b) => (b.publicationDate || "").localeCompare(a.publicationDate || "")).slice(0, 8).map((item) => ({
+    id: item.id,
+    title: item.title,
+    publicationDate: item.publicationDate,
+    summary: item.summary,
+    sourceUrl: item.sourceUrl,
+  }));
+}
+
+async function gdacsGlobal() {
+  const severity = (value: string) => ({ RED: 3, ORANGE: 2, GREEN: 1 }[String(value || "").toUpperCase()] || 0);
+  const events = payloadItems(await fetchJson("https://www.gdacs.org/contentdata/xml/gdacs_app_feed.json")).map(parseGdacsEvent);
+  return events.sort((a, b) => severity(b.alertLevel) - severity(a.alertLevel) || (b.fromDate || "").localeCompare(a.fromDate || "")).slice(0, 10).map((item) => ({
+    eventType: item.eventType,
+    eventId: item.eventId,
+    name: item.title,
+    description: item.description,
+    alertLevel: item.alertLevel,
+    fromDate: item.fromDate,
+    toDate: item.toDate,
+    country: item.country,
+    affectedCountries: item.affectedCountries,
+    latitude: item.latitude,
+    longitude: item.longitude,
+    sourceUrl: item.url,
+  }));
+}
+
+function parseUsgsFeature(raw: unknown) {
+  const feature = record(raw);
+  const props = record(feature.properties);
+  const geometry = record(feature.geometry);
+  const coord = firstCoordinate(geometry.coordinates);
+  const place = text(props.place);
+  const magnitude = num(props.mag);
+  return {
+    id: text(feature.id) || text(props.code) || `${place}-${text(props.time)}`,
+    title: text(props.title) || (magnitude === null ? `Earthquake near ${place || "unknown location"}` : `M${magnitude.toFixed(1)} · ${place || "earthquake"}`),
+    place,
+    magnitude,
+    occurredAt: Number.isFinite(Number(props.time)) ? new Date(Number(props.time)).toISOString() : "",
+    url: text(props.url) || "https://earthquake.usgs.gov/earthquakes/map/",
+    tsunami: Number(props.tsunami) === 1,
+    latitude: coord?.[1] ?? null,
+    longitude: coord?.[0] ?? null,
+    depthKm: Array.isArray(geometry.coordinates) ? num(geometry.coordinates[2]) : null,
+  };
+}
+
+async function usgsGlobal() {
+  const start = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const params = new URLSearchParams({ format: "geojson", starttime: start, minmagnitude: "5.5", orderby: "time", limit: "100" });
+  const payload = record(await fetchJson(`https://earthquake.usgs.gov/fdsnws/event/1/query?${params}`));
+  return array(payload.features).map(parseUsgsFeature).sort((a, b) => Number(b.tsunami) - Number(a.tsunami) || (b.magnitude ?? 0) - (a.magnitude ?? 0) || (b.occurredAt || "").localeCompare(a.occurredAt || "")).slice(0, 10);
+}
+
+async function usgsForBounds(bounds: [number, number, number, number], days: number) {
+  const [minLon, minLat, maxLon, maxLat] = bounds;
+  const start = new Date(Date.now() - days * 86_400_000).toISOString();
+  const params = new URLSearchParams({
+    format: "geojson",
+    starttime: start,
+    minmagnitude: "4.0",
+    orderby: "time",
+    limit: "200",
+    minlongitude: String(minLon),
+    minlatitude: String(minLat),
+    maxlongitude: String(maxLon),
+    maxlatitude: String(maxLat),
+  });
+  const payload = record(await fetchJson(`https://earthquake.usgs.gov/fdsnws/event/1/query?${params}`));
+  return array(payload.features).map(parseUsgsFeature).slice(0, 20);
+}
+
 async function unifiedCommand(req: Request, res: Response) {
   res.setHeader("Cache-Control", "no-store");
   const command = String(req.query.command || "centcom").toLowerCase() as CommandId;
@@ -231,6 +307,43 @@ router.get("/aor/disaster-alerts", async (req, res) => {
     return res.json({ ok: true, country, days, events, source: "Global Disaster Alert and Coordination System (GDACS)", sourceUrl: "https://www.gdacs.org/", limitation: "Only events whose returned country metadata matches the selected country are shown; unrelated fallback events are never substituted." });
   } catch (error) {
     return res.status(502).json({ ok: false, error: error instanceof Error ? error.message : "GDACS unavailable." });
+  }
+});
+
+
+router.get("/aor/global-watch", async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const [who, gdacs, usgs] = await Promise.allSettled([whoLatest(), gdacsGlobal(), usgsGlobal()]);
+  const sourceHealth = [
+    { provider: "WHO Disease Outbreak News", ok: who.status === "fulfilled", count: who.status === "fulfilled" ? who.value.length : 0, ...(who.status === "rejected" ? { error: who.reason instanceof Error ? who.reason.message : "WHO unavailable." } : {}) },
+    { provider: "GDACS", ok: gdacs.status === "fulfilled", count: gdacs.status === "fulfilled" ? gdacs.value.length : 0, ...(gdacs.status === "rejected" ? { error: gdacs.reason instanceof Error ? gdacs.reason.message : "GDACS unavailable." } : {}) },
+    { provider: "USGS Earthquake Catalog", ok: usgs.status === "fulfilled", count: usgs.status === "fulfilled" ? usgs.value.length : 0, ...(usgs.status === "rejected" ? { error: usgs.reason instanceof Error ? usgs.reason.message : "USGS unavailable." } : {}) },
+  ];
+  return res.json({
+    ok: true,
+    retrievedAt: new Date().toISOString(),
+    partial: sourceHealth.some((item) => !item.ok),
+    sourceHealth,
+    outbreaks: who.status === "fulfilled" ? who.value : [],
+    disasters: gdacs.status === "fulfilled" ? gdacs.value : [],
+    earthquakes: usgs.status === "fulfilled" ? usgs.value : [],
+    limitation: "Global watch is a source-defined starting view. WHO items are recent publication context, GDACS retains its alert levels, and USGS events use magnitude/tsunami fields; no cross-source danger score is calculated.",
+  });
+});
+
+router.get("/aor/seismic-activity", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const values = [req.query.minLon, req.query.minLat, req.query.maxLon, req.query.maxLat].map(Number);
+  if (!values.every(Number.isFinite)) return res.status(400).json({ ok: false, error: "minLon, minLat, maxLon, and maxLat are required numeric bounds" });
+  const [minLon, minLat, maxLon, maxLat] = values;
+  if (minLon < -180 || maxLon > 180 || minLat < -90 || maxLat > 90 || minLon >= maxLon || minLat >= maxLat) return res.status(400).json({ ok: false, error: "invalid geographic bounds" });
+  const rawDays = Number(req.query.days);
+  const days = Number.isFinite(rawDays) ? Math.min(Math.max(Math.trunc(rawDays), 1), 90) : 30;
+  try {
+    const earthquakes = await usgsForBounds([minLon, minLat, maxLon, maxLat], days);
+    return res.json({ ok: true, days, bounds: [minLon, minLat, maxLon, maxLat], earthquakes, source: "USGS Earthquake Catalog", sourceUrl: "https://earthquake.usgs.gov/fdsnws/event/1/", limitation: "Country-mode seismic events are bounded geographically using the selected country geometry/bounding box rather than inferred from command-wide place-name text." });
+  } catch (error) {
+    return res.status(502).json({ ok: false, error: error instanceof Error ? error.message : "USGS unavailable." });
   }
 });
 
