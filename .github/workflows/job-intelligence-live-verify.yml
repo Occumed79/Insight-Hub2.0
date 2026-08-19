@@ -1,0 +1,146 @@
+name: Job Intelligence Live Verify
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.head_ref == 'ops/job-intelligence-live-verify'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify Job Intelligence production CRUD
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, time, urllib.error, urllib.request, uuid
+
+          BASE='https://insight-hub2-0-x45d.onrender.com/api/job-intelligence/profiles'
+          HEADERS={'User-Agent':'Occu-Med Insight Hub 2.0 Job Intelligence verifier','Content-Type':'application/json','Accept':'application/json'}
+
+          def request(method, url, payload=None, timeout=60):
+              data=None if payload is None else json.dumps(payload).encode('utf-8')
+              req=urllib.request.Request(url,data=data,headers=HEADERS,method=method)
+              try:
+                  with urllib.request.urlopen(req,timeout=timeout) as response:
+                      body=response.read().decode('utf-8','replace')
+                      return response.status, json.loads(body) if body else {}
+              except urllib.error.HTTPError as exc:
+                  body=exc.read().decode('utf-8','replace')
+                  try: parsed=json.loads(body)
+                  except Exception: parsed={'raw':body[:500]}
+                  return exc.code, parsed
+
+          # Wait until Render is serving the merged Job Intelligence route.
+          ready=False
+          for attempt in range(1,61):
+              status, payload=request('GET',BASE)
+              if status == 200 and payload.get('ok') is True and isinstance(payload.get('profiles'),list):
+                  ready=True
+                  print(f'Job Intelligence production API ready on attempt {attempt}.', flush=True)
+                  break
+              print(f'attempt {attempt}: waiting for Job Intelligence route; status={status} payload={str(payload)[:300]}', flush=True)
+              time.sleep(10)
+          if not ready:
+              raise RuntimeError('Job Intelligence production API did not become available in time.')
+
+          marker='CI-'+uuid.uuid4().hex[:10]
+          create_body={
+              'profileName': f'Job Intelligence Verify {marker}',
+              'companyName': 'Occu-Med Verification',
+              'jobTitle': 'Firefighter',
+              'location': 'Verification only',
+              'onetCode': '33-2011.00',
+              'onetTitle': 'Firefighters',
+              'onetDescription': 'Temporary production persistence verification record.',
+              'onetMatchScore': 100,
+              'duties': [{
+                  'id': 'verification-duty',
+                  'duty': 'Respond to fire alarms and emergency calls.',
+                  'sourceKind': 'onet-task',
+                  'sourceLabel': 'O*NET 33-2011.00 · Tasks',
+                  'sourceId': 'verification-task',
+                  'sourceValue': 91,
+                  'domains': ['Physical','Safety-sensitive'],
+                  'essentiality': 'essential',
+                  'frequency': 'frequent',
+                  'duration': 'Verification',
+                  'maxLiftLbs': 75,
+                  'postures': ['Standing','Walking'],
+                  'exposures': ['Heat'],
+                  'ppe': ['Protective clothing'],
+                  'driving': True,
+                  'heights': False,
+                  'emergencyResponse': True,
+                  'shiftWork': True,
+                  'heavyEquipment': False,
+                  'firearms': False,
+                  'reviewerNotes': 'Temporary production verification'
+              }],
+              'notes': 'Delete after verification'
+          }
+
+          profile_id=None
+          try:
+              status, created=request('POST',BASE,create_body)
+              assert status == 201, (status, created)
+              assert created.get('ok') is True
+              profile=created.get('profile') or {}
+              profile_id=profile.get('id')
+              assert profile_id
+              assert profile.get('companyName') == 'Occu-Med Verification'
+              assert profile.get('onetCode') == '33-2011.00'
+              assert len(profile.get('duties') or []) == 1
+              duty=(profile.get('duties') or [{}])[0]
+              assert duty.get('maxLiftLbs') == 75
+              assert duty.get('essentiality') == 'essential'
+              assert duty.get('emergencyResponse') is True
+
+              status, fetched=request('GET',f'{BASE}/{profile_id}')
+              assert status == 200, (status, fetched)
+              restored=fetched.get('profile') or {}
+              assert restored.get('id') == profile_id
+              assert restored.get('profileName') == create_body['profileName']
+              assert (restored.get('duties') or [{}])[0].get('maxLiftLbs') == 75
+
+              status, listing=request('GET',BASE)
+              assert status == 200
+              assert any(item.get('id') == profile_id for item in listing.get('profiles') or [])
+
+              status, updated=request('PATCH',f'{BASE}/{profile_id}',{'location':'Verified production persistence','notes':'CRUD verified'})
+              assert status == 200, (status, updated)
+              updated_profile=updated.get('profile') or {}
+              assert updated_profile.get('location') == 'Verified production persistence'
+              assert updated_profile.get('notes') == 'CRUD verified'
+              assert (updated_profile.get('duties') or [{}])[0].get('maxLiftLbs') == 75
+
+              print(json.dumps({
+                  'ok': True,
+                  'profileId': profile_id,
+                  'companyName': updated_profile.get('companyName'),
+                  'profileName': updated_profile.get('profileName'),
+                  'onetCode': updated_profile.get('onetCode'),
+                  'dutyCount': len(updated_profile.get('duties') or []),
+                  'maxLiftLbs': (updated_profile.get('duties') or [{}])[0].get('maxLiftLbs'),
+                  'essentiality': (updated_profile.get('duties') or [{}])[0].get('essentiality'),
+                  'frequency': (updated_profile.get('duties') or [{}])[0].get('frequency'),
+                  'domains': (updated_profile.get('duties') or [{}])[0].get('domains'),
+                  'emergencyResponse': (updated_profile.get('duties') or [{}])[0].get('emergencyResponse'),
+                  'shiftWork': (updated_profile.get('duties') or [{}])[0].get('shiftWork'),
+                  'crud': ['create','read','list','update']
+              },indent=2),flush=True)
+          finally:
+              if profile_id:
+                  status, deleted=request('DELETE',f'{BASE}/{profile_id}')
+                  if status != 200:
+                      raise RuntimeError(f'Cleanup delete failed: {status} {deleted}')
+                  status, missing=request('GET',f'{BASE}/{profile_id}')
+                  assert status == 404, (status, missing)
+                  print(f'deleted verification profile {profile_id}; 404 confirmed after delete', flush=True)
+          PY
