@@ -1,0 +1,62 @@
+name: Patch OSHA Final Cleanup
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'fix/osha-final-cleanup'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Remove temporary OIICS ingest routes and clamp day sentinels
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          service_path = Path('artifacts/api-server/src/services/oshaCaseDataService.ts')
+          route_path = Path('artifacts/api-server/src/routes/occupational-case-detail.ts')
+
+          service = service_path.read_text()
+          day_old = 'COALESCE(SUM(days_away),0)'
+          restricted_old = 'COALESCE(SUM(restricted_days),0)'
+          if day_old not in service or restricted_old not in service:
+              raise SystemExit('Expected OSHA day aggregation expressions were not found.')
+          service = service.replace(day_old, 'COALESCE(SUM(GREATEST(COALESCE(days_away,0),0)),0)')
+          service = service.replace(restricted_old, 'COALESCE(SUM(GREATEST(COALESCE(restricted_days,0),0)),0)')
+          service_path.write_text(service)
+
+          route = route_path.read_text()
+          route = route.replace('const OIICS_2024_SOURCE = "https://www.osha.gov/sites/default/files/ITA_Case_Detail_Data_2024_through_12-31-2025.zip";\n', '')
+          start = route.find('router.post("/occupational-discovery/osha-oiics-profile/batch"')
+          end = route.find('router.get("/occupational-discovery/osha-case-overview"')
+          if start < 0 or end < 0 or end <= start:
+              raise SystemExit('Temporary OIICS route block was not found.')
+          route = route[:start] + route[end:]
+          route_path.write_text(route)
+          PY
+
+      - name: Commit cleanup patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/api-server/src/services/oshaCaseDataService.ts artifacts/api-server/src/routes/occupational-case-detail.ts
+          if git diff --cached --quiet; then
+            echo 'Cleanup patch already applied.'
+            exit 0
+          fi
+          git commit -m 'Finalize OSHA production data layer'
+          git push origin HEAD:${GITHUB_HEAD_REF}
