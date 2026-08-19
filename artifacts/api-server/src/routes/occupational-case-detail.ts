@@ -85,8 +85,6 @@ router.post("/occupational-discovery/osha-case-stage/batch", async (req: Request
     if (!rows.length || rows.length > 2000) return res.status(400).json({ ok: false, error: "Provide 1-2000 OSHA case rows." });
     await ensureOshaCasePersistence();
     const { pool } = await import("@workspace/db");
-    const exists = await pool.query<{ exists: boolean }>("SELECT to_regclass($1) IS NOT NULL AS exists", [`public.${STAGE_TABLE}`]);
-    if (!exists.rows[0]?.exists) return res.status(409).json({ ok: false, error: "OSHA staging table is not initialized." });
     const importedAt = new Date().toISOString();
     const stagedRows = rows.map((row: Record<string, unknown>) => ({
       ...row,
@@ -101,7 +99,7 @@ router.post("/occupational-discovery/osha-case-stage/batch", async (req: Request
       `INSERT INTO ${STAGE_TABLE} SELECT * FROM jsonb_populate_recordset(NULL::${STAGE_TABLE}, $1::jsonb)`,
       [JSON.stringify(stagedRows)],
     );
-    return res.status(202).json({ ok: true, accepted: stagedRows.length, stagedRows: await stageCount() });
+    return res.status(202).json({ ok: true, accepted: stagedRows.length });
   } catch (error) {
     return res.status(500).json({ ok: false, error: error instanceof Error ? error.message.slice(0, 500) : "OSHA staging batch failed." });
   }
