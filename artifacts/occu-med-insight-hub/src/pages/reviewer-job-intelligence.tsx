@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BriefcaseBusiness, Check, ChevronDown, Database, Loader2, Plus, Save, Search, Trash2, X } from "lucide-react";
+import { BriefcaseBusiness, Check, ChevronDown, Database, Loader2, Plus, Save, Search, Trash2 } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import "./reviewer-tool-hierarchy.css";
@@ -135,7 +135,7 @@ function blankDuty(duty: string, sourceKind: SourceKind, sourceLabel: string, ro
 async function api<T>(url: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(url, {
     ...init,
-    headers: { Accept: "application/json", ...(init.body ? { "Content-Type": "application/json" } : {}), ...(init.headers || {}) },
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload?.error || `Request failed (${response.status}).`);
@@ -192,7 +192,7 @@ export default function ReviewerJobIntelligencePage() {
     const domainCounts = Object.fromEntries(DOMAINS.map((domain) => [domain, active.duties.filter((duty) => duty.domains.includes(domain)).length]));
     const essential = active.duties.filter((duty) => duty.essentiality === "essential").length;
     const operational = active.duties.filter((duty) => duty.driving || duty.heights || duty.emergencyResponse || duty.shiftWork || duty.heavyEquipment || duty.firearms).length;
-    const structured = active.duties.filter((duty) => duty.domains.length || duty.essentiality !== "unknown" || duty.frequency !== "unknown" || duty.maxLiftLbs !== null || duty.postures.length || duty.exposures.length || duty.ppe.length || operational).length;
+    const structured = active.duties.filter((duty) => duty.domains.length || duty.essentiality !== "unknown" || duty.frequency !== "unknown" || duty.maxLiftLbs !== null || duty.postures.length || duty.exposures.length || duty.ppe.length || duty.driving || duty.heights || duty.emergencyResponse || duty.shiftWork || duty.heavyEquipment || duty.firearms).length;
     return { domainCounts, essential, operational, structured };
   }, [active.duties]);
 
@@ -213,7 +213,7 @@ export default function ReviewerJobIntelligencePage() {
     mutateDuty(id, { [key]: next } as Partial<JobDuty>);
   }
 
-  async function searchJob(term = query) {
+  async function searchJob(term = query, attachIdentity = true) {
     const clean = term.trim();
     if (!clean) return;
     setQuery(clean);
@@ -223,15 +223,17 @@ export default function ReviewerJobIntelligencePage() {
       const payload = await api<OnetPayload>(`/api/occupational-discovery/onet/profile?keyword=${encodeURIComponent(clean)}`);
       setOnet(payload);
       const occupation = payload.profile?.occupation;
-      if (occupation?.title) {
-        mutateProfile({
-          jobTitle: active.jobTitle || occupation.title,
-          profileName: active.profileName || occupation.title,
+      if (attachIdentity && occupation?.title) {
+        setActive((current) => ({
+          ...current,
+          jobTitle: current.jobTitle || occupation.title || "",
+          profileName: current.profileName || occupation.title || "",
           onetCode: occupation.code || "",
           onetTitle: occupation.title || "",
           onetDescription: occupation.description || "",
           onetMatchScore: payload.matches?.[0]?.score ?? null,
-        });
+        }));
+        setDirty(true);
       }
     } catch (requestError) {
       setOnet(null);
@@ -302,7 +304,7 @@ export default function ReviewerJobIntelligencePage() {
     setActive(found);
     setDirty(false);
     setQuery(found.onetTitle || found.jobTitle);
-    if (found.onetTitle || found.jobTitle) void searchJob(found.onetTitle || found.jobTitle);
+    if (found.onetTitle || found.jobTitle) void searchJob(found.onetTitle || found.jobTitle, false);
   }
 
   return <main className="aurora-bg reviewer-native-page min-h-screen pb-24 text-white"><Sidebar/><section className="relative z-10 px-5 py-8 pt-24 lg:ml-[210px] lg:px-12 lg:pt-8">
