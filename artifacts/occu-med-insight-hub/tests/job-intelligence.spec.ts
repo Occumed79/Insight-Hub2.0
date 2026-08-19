@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Route } from "@playwright/test";
 
 async function fulfillJson(route: Route, body: unknown, status = 200) {
   await route.fulfill({ status, contentType: "application/json; charset=utf-8", body: JSON.stringify(body) });
@@ -101,7 +101,6 @@ test("Job Intelligence persists a structured company/job profile instead of a gl
   await dutyCard.getByLabel("Max lift / carry (lb)").fill("75");
   await dutyCard.getByRole("button", { name: "Physical" }).click();
   await dutyCard.getByRole("button", { name: "Emergency response" }).click();
-  await dutyCard.getByRole("button", { name: "Wear Common Protective or Safety Equipment" }).count().catch(() => 0);
 
   await page.getByRole("button", { name: "Create profile" }).click();
   await expect(page.getByRole("button", { name: "Save changes" })).toBeVisible();
@@ -122,6 +121,6 @@ test("Job Intelligence persists a structured company/job profile instead of a gl
   await expect(savedSelect.locator("option", { hasText: "V2X · Redzikowo Firefighter" })).toHaveCount(1);
   await savedSelect.selectOption("profile-1");
   await expect(page.getByDisplayValue("Redzikowo Firefighter")).toBeVisible();
-  await expect(page.getByText("Respond to fire alarms and emergency calls.", { exact: true })).toBeVisible();
+  await expect(page.getByDisplayValue("Respond to fire alarms and emergency calls.")).toBeVisible();
   await expect(page.getByText("OFFICIAL O*NET")).toBeVisible();
 });
