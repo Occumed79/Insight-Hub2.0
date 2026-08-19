@@ -13,20 +13,27 @@ jobs:
     if: github.head_ref == 'ops/osha-header-inspect'
     runs-on: ubuntu-latest
     steps:
-      - name: Print OSHA CSV headers
+      - name: Print OSHA 2024 OIICS CSV headers
         shell: bash
         run: |
           set -euo pipefail
+          curl -L --fail --retry 5 -A 'Occu-Med Insight Hub 2.0 header inspector' \
+            'https://www.osha.gov/sites/default/files/ITA_Case_Detail_Data_2024_through_12-31-2025.zip' \
+            -o /tmp/osha-2024.zip
+          unzip -l /tmp/osha-2024.zip
           python - <<'PY'
-          import csv, io, urllib.request
-          url='https://www.osha.gov/sites/default/largefiles/ITA_Case_Detail_Data_2025_through_3-15-2026.csv'
-          req=urllib.request.Request(url, headers={'User-Agent':'Occu-Med Insight Hub 2.0 header inspector'})
-          with urllib.request.urlopen(req, timeout=60) as r:
-              text=io.TextIOWrapper(r, encoding='utf-8-sig', newline='')
-              reader=csv.reader(text)
-              header=next(reader)
-              first=next(reader)
-          print('HEADER_COUNT', len(header))
-          for i,(h,v) in enumerate(zip(header, first)):
-              print(f'{i:03d}\t{h}\tFIRST={v[:120]}')
+          import csv, io, zipfile
+          with zipfile.ZipFile('/tmp/osha-2024.zip') as z:
+              names=[n for n in z.namelist() if n.lower().endswith('.csv')]
+              print('CSV_FILES', names)
+              for name in names:
+                  with z.open(name) as raw:
+                      text=io.TextIOWrapper(raw, encoding='utf-8-sig', newline='')
+                      reader=csv.reader(text)
+                      header=next(reader)
+                      first=next(reader)
+                  print('FILE', name, 'HEADER_COUNT', len(header))
+                  for i,(h,v) in enumerate(zip(header, first)):
+                      print(f'{i:03d}\t{h}\tFIRST={v[:120]}')
+                  break
           PY
