@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "export NODE_ENV=development && pnpm run build && node --env-file=.env --enable-source-maps ./dist/index.mjs",
-    "build": "if [ \"$NODE_ENV\" = \"production\" ]; then pnpm run sync:osha-cases; fi && node ./build.mjs",
-    "start": "node --enable-source-maps ./dist/index.mjs",
+    "build": "node ./build.mjs",
+    "start": "pnpm run sync:osha-cases:if-needed && node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test src/services/__tests__/*.test.ts",
     "import:osha": "tsx scripts/import-osha.ts",
-    "sync:osha-cases": "tsx scripts/import-osha-case-detail.ts"
+    "sync:osha-cases": "tsx scripts/import-osha-case-detail.ts",
+    "sync:osha-cases:if-needed": "tsx -e '(async()=>{if(process.env.NODE_ENV!==\"production\"){console.log(\"[osha-case-sync] Non-production environment; startup sync skipped.\");return;}const {spawn}=await import(\"node:child_process\");const {pool}=await import(\"@workspace/db\");const {ensureOshaCasePersistence}=await import(\"./src/services/oshaCaseDataService\");const year=Number(process.env.OSHA_CASE_DETAIL_YEAR||2025);try{if(!process.env.DATABASE_URL){console.warn(\"[osha-case-sync] DATABASE_URL is not configured; skipping startup case-detail sync.\");return;}await ensureOshaCasePersistence();const result=await pool.query(\"SELECT count(*)::text AS case_count FROM osha_case_details WHERE dataset_year = $1\",[year]);const count=Number(result.rows[0]?.case_count||0);await pool.end();if(count>0){console.log(`[osha-case-sync] OSHA ${year} case detail already loaded (${count.toLocaleString()} rows); startup sync skipped.`);return;}console.log(`[osha-case-sync] OSHA ${year} case detail is missing; starting one-time import.`);await new Promise((resolve,reject)=>{const child=spawn(\"pnpm\",[\"exec\",\"tsx\",\"scripts/import-osha-case-detail.ts\",\"--year\",String(year)],{stdio:\"inherit\",env:process.env});child.on(\"error\",reject);child.on(\"exit\",code=>code===0?resolve():reject(new Error(`OSHA case-detail importer exited with code ${code??\"unknown\"}.`)));});}catch(error){console.error(`[osha-case-sync] ${error instanceof Error?error.message:String(error)}`);try{await pool.end();}catch{}console.warn(\"[osha-case-sync] Continuing API startup; import will retry on the next restart while the dataset remains missing.\");}})()'"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
