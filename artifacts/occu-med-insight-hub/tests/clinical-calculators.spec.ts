@@ -81,3 +81,99 @@ test("Clinical Calculators are medical-only and reproduce validated risk referen
   await expect(page.getByText(/Low screening risk/)).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
+
+const standardsSources = [
+  ["centcom-mod18", "CENTCOM MOD 18", "Deployment", "automated-medical"],
+  ["fmcsa", "FMCSA", "Transportation", "automated-medical"],
+  ["faa", "FAA", "Aviation", "automated-medical"],
+  ["nfpa1580", "NFPA 1580", "Emergency Response", "automated-medical"],
+  ["osha-respiratory", "OSHA RESPIRATORY", "OSHA Medical Surveillance", "trigger-based"],
+  ["osha-noise", "OSHA HEARING", "OSHA Medical Surveillance", "trigger-based"],
+  ["osha-hazwoper", "OSHA HAZWOPER", "OSHA Medical Surveillance", "trigger-based"],
+  ["osha-bloodborne", "OSHA BLOODBORNE", "OSHA Medical Surveillance", "trigger-based"],
+  ["osha-lead", "OSHA LEAD", "OSHA Medical Surveillance", "trigger-based"],
+  ["osha-asbestos", "OSHA ASBESTOS", "OSHA Medical Surveillance", "trigger-based"],
+  ["osha-cadmium", "OSHA CADMIUM", "OSHA Medical Surveillance", "trigger-based"],
+  ["dot-part40", "DOT PART 40", "Drug & Alcohol Testing", "trigger-based"],
+].map(([id, shortLabel, category, coverage]) => ({
+  id,
+  shortLabel,
+  title: `${shortLabel} controlling source`,
+  edition: "Current edition",
+  authority: id === "nfpa1580" ? "consensus-standard" : "regulation",
+  category,
+  sourceUrl: "https://example.com/official-standard",
+  description: `${shortLabel} reviewer source`,
+  currentAsOf: "Current",
+  lastVerified: "2026-08-19",
+  coverage,
+  topics: id === "osha-noise" ? ["noise", "audiogram"] : id === "osha-respiratory" ? ["respirator", "medical evaluation"] : [],
+}));
+
+test("Standards Intelligence is API-backed, expands the source registry, and recommends work-context frameworks", async ({ page }) => {
+  await page.route("**/api/standards/catalog", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        architectureVersion: "standards-api-v2",
+        totalSources: standardsSources.length,
+        automatedSources: standardsSources.length,
+        categories: [...new Set(standardsSources.map((source) => source.category))],
+        sources: standardsSources,
+      }),
+    });
+  });
+
+  await page.route("**/api/standards/evaluate", async (route) => {
+    const body = route.request().postDataJSON() as { frameworks?: string[]; occupation?: string; respiratorRequired?: boolean; noiseTwaDba?: number };
+    const frameworks = body.frameworks ?? [];
+    const firefighter = (body.occupation ?? "").toLowerCase().includes("firefighter");
+    const recommendations = firefighter ? [
+      { standardId: "nfpa1580", reason: "Emergency-responder context" },
+      { standardId: "osha-respiratory", reason: "SCBA / respirator use is common in emergency response" },
+      { standardId: "osha-noise", reason: "Emergency-response work commonly includes hazardous-noise exposure" },
+      { standardId: "osha-bloodborne", reason: "EMS / emergency-response bloodborne-exposure potential" },
+    ] : [];
+    const findings = [
+      ...(frameworks.includes("centcom-mod18") ? [{ id: "mod18-core", standardId: "centcom-mod18", level: "info", title: "Deployment functional baseline", summary: "Deployment baseline.", action: "Review duties.", citation: "MOD 18", sourceUrl: "https://example.com/centcom", topics: ["deployment"], matchedBy: ["selected"] }] : []),
+      ...(frameworks.includes("osha-respiratory") && body.respiratorRequired ? [{ id: "resp-core", standardId: "osha-respiratory", level: "review", title: "Respirator medical evaluation precedes required use", summary: "Required respirator use activates the medical-evaluation workflow.", action: "Confirm PLHCP evaluation.", citation: "29 CFR §1910.134(e)", sourceUrl: "https://example.com/respiratory", topics: ["respirator"], matchedBy: ["respirator required"] }] : []),
+      ...(frameworks.includes("osha-noise") && (body.noiseTwaDba ?? 0) >= 85 ? [{ id: "noise-core", standardId: "osha-noise", level: "review", title: "85 dBA TWA hearing-conservation action level met", summary: "Hearing conservation applies.", action: "Review audiometric program.", citation: "29 CFR §1910.95(c)", sourceUrl: "https://example.com/noise", topics: ["noise"], matchedBy: ["noise TWA"] }] : []),
+    ];
+    findings.sort((a, b) => ({ info: 0, review: 1, waiver: 2, strict: 3 }[b.level as "info" | "review" | "waiver" | "strict"] - { info: 0, review: 1, waiver: 2, strict: 3 }[a.level as "info" | "review" | "waiver" | "strict"]));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        architectureVersion: "standards-api-v2",
+        evaluatedAt: "2026-08-19T18:00:00.000Z",
+        selectedSources: standardsSources.filter((source) => frameworks.includes(source.id)),
+        findings,
+        recommendations,
+        coverage: { selected: frameworks.length, matched: new Set(findings.map((finding) => finding.standardId)).size, automatedSelected: frameworks.length, referenceSelected: 0 },
+      }),
+    });
+  });
+
+  await page.goto("/standards-intelligence");
+  await expect(page.getByRole("heading", { name: "Standards Intelligence" })).toBeVisible();
+  await expect(page.getByText("12 sources · standards-api-v2", { exact: true })).toBeVisible();
+  await expect(page.getByText("OSHA RESPIRATORY", { exact: true })).toBeVisible();
+  await expect(page.getByText("DOT PART 40", { exact: true })).toBeVisible();
+  await expect(page.getByText("Trigger-based", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("2026-08-19", { exact: true }).first()).toBeVisible();
+
+  await page.getByLabel("Occupation / context").fill("Firefighter emergency responder");
+  await expect(page.getByText("Suggested standards", { exact: true })).toBeVisible();
+  await expect(page.getByText("Emergency-responder context", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Apply suggested standards" }).click();
+  await page.getByLabel("Required respirator / SCBA").check();
+  await page.getByLabel("Noise TWA dBA").fill("90");
+
+  await expect(page.getByText("Respirator medical evaluation precedes required use", { exact: true })).toBeVisible();
+  await expect(page.getByText("85 dBA TWA hearing-conservation action level met", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Coverage is explicit/)).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
