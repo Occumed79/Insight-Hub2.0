@@ -89,6 +89,28 @@ jobs:
         timeout-minutes: 5
         run: pnpm run test:browser
 
+      - name: One-time production OSHA live trigger
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://insight-hub2-0-x45d.onrender.com/api/occupational-discovery/osha-case-import-once"
+          for attempt in $(seq 1 28); do
+            response="$(curl -sS --max-time 20 -w $'\n%{http_code}' "$url" || true)"
+            status="$(printf '%s\n' "$response" | tail -n1)"
+            body="$(printf '%s\n' "$response" | sed '$d')"
+            echo "Attempt ${attempt}: HTTP ${status} ${body:0:500}"
+            if [[ "$status" == "200" || "$status" == "202" ]]; then
+              if [[ "$body" == *'"started":true'* || "$body" == *'"reason":"already-running"'* || "$body" == *'"reason":"already-imported"'* ]]; then
+                exit 0
+              fi
+            fi
+            sleep 15
+          done
+          echo "Live OSHA import trigger did not become available in time." >&2
+          exit 1
+
       - name: Upload browser failure artifacts
         if: failure()
         uses: actions/upload-artifact@v7
