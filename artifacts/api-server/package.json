@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "export NODE_ENV=development && pnpm run build && node --env-file=.env --enable-source-maps ./dist/index.mjs",
-    "build": "node ./build.mjs",
+    "build": "if [ \"$NODE_ENV\" = \"production\" ]; then pnpm run sync:osha-cases; fi && node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test src/services/__tests__/*.test.ts",
