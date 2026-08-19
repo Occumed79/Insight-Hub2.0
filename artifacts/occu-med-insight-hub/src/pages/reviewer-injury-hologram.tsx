@@ -7,6 +7,7 @@ type AnyRecord = Record<string, any>;
 type OshaBodyPart = { name: string; code?: string; count: number; share: number };
 type OshaCaseProfile = {
   selectedYear?: number | null;
+  oiicsYear?: number | null;
   totalCases?: number;
   codedBodyPartCases?: number;
   bodyParts?: OshaBodyPart[];
@@ -181,7 +182,7 @@ export function ReviewerInjuryHologram({ profile, caseProfile }: { profile: AnyR
         <header className="ih-hologram-head">
           <div>
             <span><Activity size={13} /> Reported injury burden · HOLOGRAPHIC INJURY ANATOMY</span>
-            <h2>{idle ? "Occupation-linked anatomical intelligence projection" : mode === "osha" ? `Reported case anatomy · ${caseProfile?.selectedYear ?? "latest imported year"}` : "Job-demand anatomical attention map"}</h2>
+            <h2>{idle ? "Occupation-linked anatomical intelligence projection" : mode === "osha" ? `Reported case anatomy · OIICS CY${caseProfile?.oiicsYear ?? "—"}` : "Job-demand anatomical attention map"}</h2>
           </div>
           <div className="ih-hologram-controls">
             <div className="ih-view-toggle" aria-label="Hologram orientation">
@@ -197,7 +198,7 @@ export function ReviewerInjuryHologram({ profile, caseProfile }: { profile: AnyR
 
         <div className="ih-hologram-visual" onPointerMove={handlePointerMove} onPointerLeave={() => setTilt({ x: 0, y: 0 })}>
           <div className="ih-telemetry ih-telemetry-left"><span>ANATOMY VECTOR</span><strong>{view === "front" ? "ANTERIOR" : "POSTERIOR"}</strong><small>VOLUMETRIC POINT CLOUD · ACTIVE</small></div>
-          <div className="ih-telemetry ih-telemetry-right"><span>{mode === "osha" ? "CODED CASE SHARE" : "DEMAND EVIDENCE"}</span><strong>{displayValue}</strong><small>{idle ? "AWAITING OCCUPATION" : mode === "osha" ? "OSHA OIICS BODY-PART DATA" : "O*NET JOB-DEMAND SIGNAL"}</small></div>
+          <div className="ih-telemetry ih-telemetry-right"><span>{mode === "osha" ? "CODED CASE SHARE" : "DEMAND EVIDENCE"}</span><strong>{displayValue}</strong><small>{idle ? "AWAITING OCCUPATION" : mode === "osha" ? `OSHA OIICS BODY-PART DATA · CY${caseProfile?.oiicsYear ?? "—"}` : "O*NET JOB-DEMAND SIGNAL"}</small></div>
           <div className="ih-floor-grid" />
           <div className="ih-depth ih-depth-a" /><div className="ih-depth ih-depth-b" /><div className="ih-depth ih-depth-c" />
           <div className="ih-orbit ih-orbit-x" /><div className="ih-orbit ih-orbit-y" />
