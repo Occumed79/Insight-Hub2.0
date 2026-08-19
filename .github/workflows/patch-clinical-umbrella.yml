@@ -1,0 +1,42 @@
+name: Patch Clinical Calculator Umbrella Test
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/patch-clinical-umbrella.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref }}
+      - name: Make BMI selection explicit in legacy umbrella test
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('artifacts/occu-med-insight-hub/tests/occupational-intelligence.spec.ts')
+          text = path.read_text()
+          old = '''  await page.goto("/clinical-calculators");
+          await expect(page.getByRole("heading", { name: "Clinical Calculators" })).toBeVisible();
+          await page.getByLabel("Weight · kg").fill("78");'''
+          new = '''  await page.goto("/clinical-calculators");
+          await expect(page.getByRole("heading", { name: "Clinical Calculators" })).toBeVisible();
+          await page.getByRole("button", { name: "Body & renal" }).click();
+          await page.getByRole("button", { name: "BMI", exact: true }).click();
+          await page.getByLabel("Weight · kg").fill("78");'''
+          if old not in text:
+              raise SystemExit('Expected legacy calculator block not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          git rm .github/workflows/patch-clinical-umbrella.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/occu-med-insight-hub/tests/occupational-intelligence.spec.ts
+          git commit -m "Make legacy BMI browser check explicit"
+          git push origin HEAD:${{ github.head_ref }}
