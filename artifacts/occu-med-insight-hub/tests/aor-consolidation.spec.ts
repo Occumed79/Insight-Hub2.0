@@ -191,8 +191,8 @@ test("country mode loads vaccines and travel-relevant infectious disease context
   await expect(page.getByText("Typhoid")).toBeVisible();
   await expect(page.getByText("Dengue")).toBeVisible();
   await expect(page.getByText("Middle East Respiratory Syndrome (MERS)")).toBeVisible();
-  await expect(page.getByText("Level 1 · Exercise Normal Precautions")).toBeVisible();
-  await expect(page.getByText("M5.1 · Kuwait test earthquake")).toBeVisible();
+  await expect(page.getByText("Level 1 · Exercise Normal Precautions").first()).toBeVisible();
+  await expect(page.getByText("M5.1 · Kuwait test earthquake").first()).toBeVisible();
   await expect(page.getByText("GREEN · Forest fires in Kazakhstan")).toHaveCount(0);
   await expect(page.getByText("M4.2 · 24 km ESE of Norak, Tajikistan")).toHaveCount(0);
   await expect(page.getByText("No GDACS event whose returned country metadata matches Kuwait.")).toBeVisible();
@@ -205,9 +205,9 @@ test("AOR mode is explicit and restores command-wide operational intelligence", 
   await page.getByRole("button", { name: /AOR mode/ }).click();
   await expect(page.getByRole("button", { name: /AOR mode/ })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("USCENTCOM", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Test outbreak — Jordan")).toBeVisible();
-  await expect(page.getByText("GREEN · Forest fires in Kazakhstan")).toBeVisible();
-  await expect(page.getByText("M4.2 · 24 km ESE of Norak, Tajikistan")).toBeVisible();
+  await expect(page.getByText("Test outbreak — Jordan").first()).toBeVisible();
+  await expect(page.getByText("GREEN · Forest fires in Kazakhstan").first()).toBeVisible();
+  await expect(page.getByText("M4.2 · 24 km ESE of Norak, Tajikistan").first()).toBeVisible();
   await expect(page.getByText(/Work conditions for USCENTCOM/)).toBeVisible();
 });
 
