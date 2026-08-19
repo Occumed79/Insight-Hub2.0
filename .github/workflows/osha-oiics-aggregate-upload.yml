@@ -1,4 +1,4 @@
-name: OSHA OIICS Aggregate Upload
+name: Verify Live OSHA OIICS Profile
 
 on:
   pull_request:
@@ -9,160 +9,65 @@ permissions:
   contents: read
 
 jobs:
-  aggregate-upload:
+  verify:
     if: github.head_ref == 'ops/osha-oiics-aggregate-upload'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
     steps:
-      - name: Download official OSHA 2024 OIICS-coded case detail
+      - name: Verify Firefighters current cases and OIICS evidence
         shell: bash
         run: |
           set -euo pipefail
-          curl -L --fail --retry 5 --retry-delay 5 \
-            -A 'Occu-Med Insight Hub 2.0 OIICS reducer' \
-            'https://www.osha.gov/sites/default/files/ITA_Case_Detail_Data_2024_through_12-31-2025.zip' \
-            -o /tmp/osha-2024.zip
-          ls -lh /tmp/osha-2024.zip
-          sha256sum /tmp/osha-2024.zip
-
-      - name: Reduce by SOC and upload compact OIICS profiles
-        shell: bash
-        run: |
           python - <<'PY'
-          import csv, io, json, re, sys, time, urllib.request, zipfile
-          from collections import Counter
-
-          ZIP = '/tmp/osha-2024.zip'
-          BASE = 'https://insight-hub2-0-x45d.onrender.com/api/occupational-discovery/osha-oiics-profile'
-          SOURCE_YEAR = 2024
-          TOP_ITEMS = 30
-          BATCH_SIZE = 25
-          csv.field_size_limit(sys.maxsize)
-
-          DIMENSIONS = {
-              'body_parts': ('part_code_pred', 'part_title_pred', 'coded_body_part_cases'),
-              'natures': ('nature_code_pred', 'nature_title_pred', 'coded_nature_cases'),
-              'events': ('event_code_pred', 'event_title_pred', 'coded_event_cases'),
-              'sources': ('source_code_pred', 'source_title_pred', 'coded_source_cases'),
-              'secondary_sources': ('sec_source_code_pred', 'sec_source_title_pred', 'coded_secondary_source_cases'),
-          }
-
-          def fresh(code):
-              return {
-                  'soc_code': code,
-                  'case_count': 0,
-                  'descriptions': Counter(),
-                  'coded': {meta[2]: 0 for meta in DIMENSIONS.values()},
-                  'counts': {name: Counter() for name in DIMENSIONS},
-              }
-
-          profiles = {'*': fresh('*')}
-          raw_rows = 0
-
-          def normalize_soc(value):
-              match = re.search(r'\d{2}-\d{4}', (value or '').strip())
-              return match.group(0) if match else ''
-
-          with zipfile.ZipFile(ZIP) as archive:
-              csv_names = [name for name in archive.namelist() if name.lower().endswith('.csv')]
-              if len(csv_names) != 1:
-                  raise RuntimeError(f'Expected one CSV in OSHA archive, found {csv_names}')
-              with archive.open(csv_names[0]) as raw:
-                  text = io.TextIOWrapper(raw, encoding='cp1252', errors='replace', newline='')
-                  reader = csv.DictReader(text)
-                  for row in reader:
-                      raw_rows += 1
-                      soc = normalize_soc(row.get('soc_code', ''))
-                      desc = (row.get('soc_description') or '').strip()
-                      targets = [profiles['*']]
-                      if soc:
-                          profile = profiles.setdefault(soc, fresh(soc))
-                          targets.append(profile)
-                      for profile in targets:
-                          profile['case_count'] += 1
-                          if desc and profile['soc_code'] != '*':
-                              profile['descriptions'][desc] += 1
-                          for dim, (code_field, title_field, coded_field) in DIMENSIONS.items():
-                              code = (row.get(code_field) or '').strip()
-                              title = (row.get(title_field) or '').strip()
-                              if not code and not title:
-                                  continue
-                              profile['coded'][coded_field] += 1
-                              profile['counts'][dim][(code, title)] += 1
-                      if raw_rows % 100000 == 0:
-                          print(f'reduced {raw_rows:,} raw OSHA rows; {len(profiles)-1:,} SOC profiles', flush=True)
-
-          payload_rows = []
-          for soc, profile in sorted(profiles.items(), key=lambda item: item[0]):
-              row = {
-                  'dataset_year': SOURCE_YEAR,
-                  'soc_code': soc,
-                  'soc_description': 'All occupations' if soc == '*' else (profile['descriptions'].most_common(1)[0][0] if profile['descriptions'] else ''),
-                  'case_count': profile['case_count'],
-                  **profile['coded'],
-              }
-              for dim in DIMENSIONS:
-                  row[dim] = [
-                      {'code': code, 'name': title or 'Unclassified / unavailable', 'count': count}
-                      for (code, title), count in profile['counts'][dim].most_common(TOP_ITEMS)
-                  ]
-              payload_rows.append(row)
-
-          def request(method, path, payload=None, timeout=120, attempts=8):
-              data = None if payload is None else json.dumps(payload, separators=(',', ':')).encode('utf-8')
-              headers = {'User-Agent': 'Occu-Med Insight Hub 2.0 OIICS reducer'}
-              if data is not None:
-                  headers['Content-Type'] = 'application/json'
-              last = None
-              for attempt in range(1, attempts + 1):
-                  try:
-                      req = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)
-                      with urllib.request.urlopen(req, timeout=timeout) as response:
-                          body = response.read().decode('utf-8', 'replace')
-                          if response.status not in (200, 202):
-                              raise RuntimeError(f'HTTP {response.status}: {body[:500]}')
-                          return json.loads(body) if body else {}
-                  except Exception as exc:
-                      last = exc
-                      print(f'{method} {path} attempt {attempt}/{attempts} failed: {exc}', flush=True)
-                      if attempt < attempts:
-                          time.sleep(min(30, attempt * 3))
-              raise RuntimeError(f'{method} {path} failed after {attempts} attempts: {last}')
-
-          ready = None
-          for attempt in range(1, 91):
+          import json, time, urllib.parse, urllib.request
+          base='https://insight-hub2-0-x45d.onrender.com/api/occupational-discovery'
+          query=urllib.parse.urlencode({'soc':'33-2011','title':'Firefighters'})
+          url=f'{base}/osha-occupation-profile?{query}'
+          payload=None
+          for attempt in range(1,31):
               try:
-                  ready = request('GET', '/status', timeout=30, attempts=1)
-                  print('aggregate endpoint ready:', ready, flush=True)
-                  break
+                  req=urllib.request.Request(url,headers={'User-Agent':'Occu-Med Insight Hub 2.0 live verifier'})
+                  with urllib.request.urlopen(req,timeout=60) as response:
+                      payload=json.loads(response.read().decode('utf-8'))
+                  profile=payload.get('profile') or {}
+                  if profile.get('selectedYear') == 2025 and profile.get('oiicsYear') == 2024 and profile.get('bodyParts'):
+                      break
+                  print(f'attempt {attempt}: waiting for deployed dual-year API: {json.dumps(payload)[:1000]}', flush=True)
               except Exception as exc:
-                  print(f'waiting for Render aggregate endpoint ({attempt}/90): {exc}', flush=True)
-                  time.sleep(10)
-          if ready is None:
-              raise RuntimeError('OIICS aggregate endpoint never became available.')
-
-          uploaded = 0
-          for start in range(0, len(payload_rows), BATCH_SIZE):
-              batch = payload_rows[start:start+BATCH_SIZE]
-              result = request('POST', '/batch', {'rows': batch}, timeout=180)
-              uploaded += len(batch)
-              print(f'uploaded {uploaded:,}/{len(payload_rows):,} OIICS profiles', flush=True)
-
-          status = request('GET', '/status', timeout=60)
-          global_profile = next(row for row in payload_rows if row['soc_code'] == '*')
-          print(json.dumps({
-              'ok': True,
-              'rawRows': raw_rows,
-              'occupationProfiles': len(payload_rows) - 1,
-              'profilesIncludingAll': len(payload_rows),
-              'globalCodedBodyPartCases': global_profile['coded_body_part_cases'],
-              'globalCodedNatureCases': global_profile['coded_nature_cases'],
-              'globalCodedEventCases': global_profile['coded_event_cases'],
-              'globalCodedSourceCases': global_profile['coded_source_cases'],
-              'status': status,
-          }, indent=2), flush=True)
-          if status.get('latestYear') != SOURCE_YEAR:
-              raise RuntimeError(f'Expected latest OIICS year {SOURCE_YEAR}, got {status}')
-          if int(status.get('allCases') or 0) != raw_rows:
-              raise RuntimeError(f'Global OIICS case count {status.get("allCases")} does not match raw rows {raw_rows}.')
+                  print(f'attempt {attempt}: {exc}', flush=True)
+              time.sleep(10)
+          if payload is None:
+              raise RuntimeError('No live profile response received.')
+          profile=payload.get('profile') or {}
+          summary={
+              'ok': payload.get('ok'),
+              'selectedYear': profile.get('selectedYear'),
+              'oiicsYear': profile.get('oiicsYear'),
+              'matchedSocCode': profile.get('matchedSocCode'),
+              'occupationTitle': profile.get('occupationTitle'),
+              'currentReportedCases': profile.get('totalCases'),
+              'daysAway': profile.get('totalDaysAway'),
+              'restrictedDays': profile.get('totalRestrictedDays'),
+              'oiicsCaseCount': profile.get('oiicsCaseCount'),
+              'codedBodyPartCases': profile.get('codedBodyPartCases'),
+              'codedNatureCases': profile.get('codedNatureCases'),
+              'codedEventCases': profile.get('codedEventCases'),
+              'codedSourceCases': profile.get('codedSourceCases'),
+              'topBodyParts': (profile.get('bodyParts') or [])[:5],
+              'topEvents': (profile.get('events') or [])[:5],
+              'topNatures': (profile.get('natures') or [])[:5],
+              'topSources': (profile.get('sources') or [])[:5],
+          }
+          print(json.dumps(summary,indent=2), flush=True)
+          assert payload.get('ok') is True
+          assert profile.get('selectedYear') == 2025
+          assert profile.get('oiicsYear') == 2024
+          assert int(profile.get('totalCases') or 0) > 0
+          assert int(profile.get('codedBodyPartCases') or 0) > 0
+          assert int(profile.get('codedNatureCases') or 0) > 0
+          assert int(profile.get('codedEventCases') or 0) > 0
+          assert int(profile.get('codedSourceCases') or 0) > 0
+          assert profile.get('bodyParts')
+          assert profile.get('events')
+          assert profile.get('natures')
+          assert profile.get('sources')
           PY
