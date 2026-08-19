@@ -123,10 +123,17 @@ export function AuroraMolecule({ src, alt }: AuroraMoleculeProps) {
     };
   }, [src]);
 
+  const wrapStyle = { width: "min(96%, 760px)", height: "min(390px, 64vw)" } as const;
+
   return (
-    <div className="rh-molecule-image-wrap" data-transparent-molecule="true">
+    <div className="rh-molecule-image-wrap" style={wrapStyle} data-transparent-molecule="true">
       {processedSrc ? (
-        <img src={processedSrc} alt={alt} className="rh-molecule-image" />
+        <img
+          src={processedSrc}
+          alt={alt}
+          className="rh-molecule-image"
+          style={{ filter: "drop-shadow(0 0 13px rgba(89,240,231,.52)) drop-shadow(0 0 38px rgba(111,94,255,.32))", mixBlendMode: "normal" }}
+        />
       ) : processingFailed ? (
         <img
           src={src}
@@ -135,7 +142,7 @@ export function AuroraMolecule({ src, alt }: AuroraMoleculeProps) {
           style={{ filter: "invert(1) grayscale(1) contrast(1.7) brightness(1.18) drop-shadow(0 0 14px rgba(95,235,244,.45)) drop-shadow(0 0 36px rgba(125,92,255,.30))", mixBlendMode: "screen" }}
         />
       ) : (
-        <div className="rh-molecule-rendering" aria-label="Rendering transparent molecular structure" />
+        <div className="h-11 w-11 animate-spin rounded-full border-2 border-cyan-100/15 border-t-cyan-100/70" aria-label="Rendering transparent molecular structure" />
       )}
     </div>
   );
