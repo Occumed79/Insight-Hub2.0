@@ -22,17 +22,11 @@ jobs:
           from pathlib import Path
           path = Path('artifacts/occu-med-insight-hub/tests/occupational-intelligence.spec.ts')
           text = path.read_text()
-          old = '''  await page.goto("/clinical-calculators");
-          await expect(page.getByRole("heading", { name: "Clinical Calculators" })).toBeVisible();
-          await page.getByLabel("Weight · kg").fill("78");'''
-          new = '''  await page.goto("/clinical-calculators");
-          await expect(page.getByRole("heading", { name: "Clinical Calculators" })).toBeVisible();
-          await page.getByRole("button", { name: "Body & renal" }).click();
-          await page.getByRole("button", { name: "BMI", exact: true }).click();
-          await page.getByLabel("Weight · kg").fill("78");'''
-          if old not in text:
-              raise SystemExit('Expected legacy calculator block not found')
-          path.write_text(text.replace(old, new, 1))
+          needle = '  await page.getByLabel("Weight · kg").fill("78");'
+          insertion = '  await page.getByRole("button", { name: "Body & renal" }).click();\n  await page.getByRole("button", { name: "BMI", exact: true }).click();\n' + needle
+          if text.count(needle) != 1:
+              raise SystemExit(f'Expected one legacy BMI weight assertion, found {text.count(needle)}')
+          path.write_text(text.replace(needle, insertion, 1))
           PY
           git rm .github/workflows/patch-clinical-umbrella.yml
           git config user.name "github-actions[bot]"
