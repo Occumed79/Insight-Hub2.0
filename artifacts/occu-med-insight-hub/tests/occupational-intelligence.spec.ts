@@ -409,6 +409,8 @@ test("all six transplanted reviewer tools render and retain their core interacti
 
   await page.goto("/clinical-calculators");
   await expect(page.getByRole("heading", { name: "Clinical Calculators" })).toBeVisible();
+  await page.getByRole("button", { name: "Body & renal" }).click();
+  await page.getByRole("button", { name: "BMI", exact: true }).click();
   await page.getByLabel("Weight · kg").fill("78");
   await page.getByLabel("Height · cm").fill("180");
   await page.getByRole("button", { name: "Calculate" }).click();
