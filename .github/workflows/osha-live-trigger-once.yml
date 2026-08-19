@@ -1,0 +1,31 @@
+name: OSHA Live Trigger Once
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    if: github.head_ref == 'ops/fire-osha-trigger-now'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger live OSHA import after Render deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://insight-hub2-0-x45d.onrender.com/api/occupational-discovery/osha-case-import-once'
+          for i in $(seq 1 60); do
+            code=$(curl -sS -o /tmp/osha-trigger.json -w '%{http_code}' --max-time 30 "$url" || true)
+            body=$(cat /tmp/osha-trigger.json 2>/dev/null || true)
+            echo "attempt=$i status=$code body=$body"
+            if [ "$code" = "200" ] || [ "$code" = "202" ]; then
+              exit 0
+            fi
+            sleep 15
+          done
+          echo 'Live OSHA import trigger never became available.' >&2
+          exit 1
