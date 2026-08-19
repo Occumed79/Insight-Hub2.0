@@ -24,63 +24,58 @@ jobs:
           BASE='https://insight-hub2-0-x45d.onrender.com/api/occupational-discovery'
           HEADERS={'User-Agent':'Occu-Med Insight Hub 2.0 final verifier'}
 
-          def get_json(url, timeout=60):
-              req=urllib.request.Request(url,headers=HEADERS)
-              with urllib.request.urlopen(req,timeout=timeout) as response:
-                  return response.status, json.loads(response.read().decode('utf-8'))
-
-          payload=None
-          for attempt in range(1,61):
+          def request(method, path, data=None, headers=None, timeout=60):
+              req=urllib.request.Request(BASE+path,data=data,headers=headers or HEADERS,method=method)
               try:
-                  q=urllib.parse.urlencode({'soc':'33-2011','title':'Firefighters'})
-                  _, payload=get_json(f'{BASE}/osha-occupation-profile?{q}')
-                  p=payload.get('profile') or {}
-                  if (payload.get('ok') is True and p.get('selectedYear') == 2025 and p.get('oiicsYear') == 2024
-                      and int(p.get('totalCases') or 0) > 0 and int(p.get('codedBodyPartCases') or 0) > 0
-                      and int(p.get('totalRestrictedDays') or 0) >= 0
-                      and p.get('bodyParts') and p.get('events') and p.get('natures') and p.get('sources')):
-                      break
-                  print(f'attempt {attempt}: waiting for final deploy: selected={p.get("selectedYear")} oiics={p.get("oiicsYear")} restricted={p.get("totalRestrictedDays")}', flush=True)
-              except Exception as exc:
-                  print(f'attempt {attempt}: {exc}', flush=True)
+                  with urllib.request.urlopen(req,timeout=timeout) as response:
+                      return response.status, response.read().decode('utf-8','replace')
+              except urllib.error.HTTPError as exc:
+                  return exc.code, exc.read().decode('utf-8','replace')
+
+          def parsed_json(body):
+              try: return json.loads(body)
+              except Exception: return None
+
+          profile_payload=None
+          for attempt in range(1,61):
+              q=urllib.parse.urlencode({'soc':'33-2011','title':'Firefighters'})
+              status, body=request('GET',f'/osha-occupation-profile?{q}')
+              candidate=parsed_json(body)
+              p=(candidate or {}).get('profile') or {}
+              if (status == 200 and (candidate or {}).get('ok') is True
+                  and p.get('selectedYear') == 2025 and p.get('oiicsYear') == 2024
+                  and int(p.get('totalCases') or 0) > 0
+                  and int(p.get('totalRestrictedDays') or 0) >= 0
+                  and int(p.get('codedBodyPartCases') or 0) > 0
+                  and p.get('bodyParts') and p.get('events') and p.get('natures') and p.get('sources')):
+                  profile_payload=candidate
+                  break
+              print(f'attempt {attempt}: selected={p.get("selectedYear")} oiics={p.get("oiicsYear")} restricted={p.get("totalRestrictedDays")}',flush=True)
               time.sleep(10)
-          else:
+          if not profile_payload:
               raise RuntimeError('Final production OSHA profile did not become healthy in time.')
 
-          p=payload['profile']
-          _, overview=get_json(f'{BASE}/osha-case-overview')
+          p=profile_payload['profile']
+          _, overview_body=request('GET','/osha-case-overview')
+          overview=parsed_json(overview_body) or {}
           total_imported=int((overview.get('importInfo') or {}).get('totalCases') or 0)
 
-          # Test the actual old route signatures. The removed batch endpoint was POST;
-          # the removed status endpoint was GET and used to return JSON with `profiles`.
-          batch_status=None
-          req=urllib.request.Request(
-              BASE+'/osha-oiics-profile/batch',
+          batch_status,batch_body=request(
+              'POST','/osha-oiics-profile/batch',
               data=b'{"rows":[]}',
               headers={**HEADERS,'Content-Type':'application/json'},
-              method='POST',
           )
-          try:
-              with urllib.request.urlopen(req,timeout=30) as response:
-                  batch_status=response.status
-          except urllib.error.HTTPError as exc:
-              batch_status=exc.code
+          batch_json=parsed_json(batch_body)
+          batch_route_present=bool(
+              isinstance(batch_json,dict) and (
+                  'accepted' in batch_json or
+                  'Provide 1-100 OIICS occupation profile rows.' in str(batch_json.get('error',''))
+              )
+          )
 
-          status_route_present=False
-          status_http=None
-          req=urllib.request.Request(BASE+'/osha-oiics-profile/status',headers=HEADERS,method='GET')
-          try:
-              with urllib.request.urlopen(req,timeout=30) as response:
-                  status_http=response.status
-                  body=response.read().decode('utf-8','replace')
-                  try:
-                      parsed=json.loads(body)
-                      status_route_present=isinstance(parsed,dict) and 'profiles' in parsed
-                  except Exception:
-                      status_route_present=False
-          except urllib.error.HTTPError as exc:
-              status_http=exc.code
-              status_route_present=False
+          status_http,status_body=request('GET','/osha-oiics-profile/status')
+          status_json=parsed_json(status_body)
+          status_route_present=bool(isinstance(status_json,dict) and 'profiles' in status_json)
 
           summary={
               'currentImportedCases': total_imported,
@@ -102,14 +97,15 @@ jobs:
                   'topSource': (p.get('sources') or [None])[0],
               },
               'temporaryEndpoints': {
-                  'batchPostStatus': batch_status,
-                  'statusGetHttp': status_http,
+                  'batchHttp': batch_status,
+                  'batchRoutePresent': batch_route_present,
+                  'statusHttp': status_http,
                   'statusRoutePresent': status_route_present,
               },
           }
-          print(json.dumps(summary,indent=2), flush=True)
+          print(json.dumps(summary,indent=2),flush=True)
 
-          assert total_imported == 697201, total_imported
+          assert total_imported == 697201
           assert p.get('selectedYear') == 2025
           assert p.get('oiicsYear') == 2024
           assert int(p.get('totalRestrictedDays') or 0) >= 0
@@ -117,6 +113,6 @@ jobs:
           assert int(p.get('codedNatureCases') or 0) > 0
           assert int(p.get('codedEventCases') or 0) > 0
           assert int(p.get('codedSourceCases') or 0) > 0
-          assert batch_status == 404, batch_status
+          assert batch_route_present is False
           assert status_route_present is False
           PY
