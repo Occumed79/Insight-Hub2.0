@@ -180,7 +180,7 @@ export function ReviewerInjuryHologram({ profile, caseProfile }: { profile: AnyR
       <div className="ih-hologram-stage">
         <header className="ih-hologram-head">
           <div>
-            <span><Activity size={13} /> HOLOGRAPHIC INJURY ANATOMY</span>
+            <span><Activity size={13} /> Reported injury burden · HOLOGRAPHIC INJURY ANATOMY</span>
             <h2>{idle ? "Occupation-linked anatomical intelligence projection" : mode === "osha" ? `Reported case anatomy · ${caseProfile?.selectedYear ?? "latest imported year"}` : "Job-demand anatomical attention map"}</h2>
           </div>
           <div className="ih-hologram-controls">
