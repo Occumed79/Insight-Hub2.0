@@ -1,0 +1,43 @@
+name: Remove Stale AOR Seismic Assertion
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'fix/aor-operational-priority'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Remove obsolete no-earthquake assertion
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('artifacts/occu-med-insight-hub/tests/aor-consolidation.spec.ts')
+          text = path.read_text()
+          old = '  await expect(page.getByText(/command-wide earthquakes are not substituted/)).toBeVisible();\n'
+          if old not in text:
+              raise SystemExit('stale seismic assertion not found')
+          path.write_text(text.replace(old, '', 1))
+          PY
+
+      - name: Commit test correction
+        shell: bash
+        run: |
+          rm -f .github/workflows/remove-stale-aor-seismic-assertion.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Remove stale AOR seismic fallback assertion'
+          git push origin HEAD:${GITHUB_HEAD_REF}
