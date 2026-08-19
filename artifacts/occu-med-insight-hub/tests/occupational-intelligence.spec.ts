@@ -187,6 +187,8 @@ async function installOccupationalApi(page: Page) {
     if (path.endsWith("/api/aor/unified-command")) return fulfillJson(route, reviewerAor);
     if (path.endsWith("/api/reviewer-tools/aor")) return fulfillJson(route, reviewerAor);
     if (path.endsWith("/api/reviewer-tools/rxnorm")) {
+      const term = (url.searchParams.get("term") || "").toLowerCase();
+      if (term.includes("metoprolol")) return fulfillJson(route, { ok: true, source: "NLM RxNorm", candidates: [{ rxcui: "866924", name: "metoprolol succinate 50 MG Extended Release Oral Tablet", score: 100 }] });
       return fulfillJson(route, { ok: true, source: "NLM RxNorm", candidates: [{ rxcui: "25480", name: "gabapentin 300 MG Oral Capsule", score: 100 }] });
     }
     if (path.endsWith("/api/reviewer-tools/pubchem")) {
@@ -196,6 +198,72 @@ async function installOccupationalApi(page: Page) {
         molecule: { CID: 3446, MolecularFormula: "C9H17NO2", MolecularWeight: "171.24", XLogP: -1.1, TPSA: 63.3 },
         structureImageUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E",
         pubchemUrl: "https://pubchem.ncbi.nlm.nih.gov/compound/3446",
+      });
+    }
+    if (path.endsWith("/api/reviewer-tools/drug-intelligence")) {
+      const rxcui = url.searchParams.get("rxcui") || "25480";
+      const isMetoprolol = rxcui === "866924";
+      const canonicalName = isMetoprolol ? "metoprolol succinate 50 MG Extended Release Oral Tablet" : "gabapentin 300 MG Oral Capsule";
+      return fulfillJson(route, {
+        ok: true,
+        medication: { rxcui, name: canonicalName },
+        identity: { rxcui, canonicalName, termType: "SCD", ingredients: [isMetoprolol ? "metoprolol" : "gabapentin"], source: "NLM RxNorm", sourceUrl: "https://rxnav.nlm.nih.gov/" },
+        classes: [{ classId: isMetoprolol ? "N0000175501" : "N0000175729", className: isMetoprolol ? "Beta-Adrenergic Blocker" : "Anticonvulsant", classType: "MOA", relationship: "has_MoA", relationshipSource: "MEDRT" }],
+        fdaClassNames: [isMetoprolol ? "beta-Adrenergic Blocker" : "Gabapentinoid"],
+        label: {
+          setId: isMetoprolol ? "metoprolol-test" : "gabapentin-test",
+          effectiveTime: "20260715",
+          genericNames: [isMetoprolol ? "metoprolol succinate" : "gabapentin"],
+          brandNames: [],
+          manufacturers: ["Test Labeler"],
+          routes: ["ORAL"],
+          dosageForms: ["TABLET"],
+          pharmClassEpc: [],
+          pharmClassMoa: [],
+          sections: {
+            boxedWarning: "",
+            warningsAndCautions: isMetoprolol ? "Treatment may cause dizziness and bradycardia." : "Gabapentin may cause somnolence and dizziness and may impair the ability to drive or operate complex machinery.",
+            adverseReactions: isMetoprolol ? "Common reactions include fatigue and dizziness." : "Common reactions include dizziness, somnolence, and ataxia.",
+            drugInteractions: isMetoprolol ? "Concomitant use with other agents that slow heart rate should be reviewed." : "CNS depressants may increase sedation. Metoprolol is listed here for regimen-test cross-label matching.",
+            contraindications: "",
+            precautions: "",
+            patientCounseling: "Use caution with safety-sensitive activity until effects are known.",
+            useInSpecificPopulations: "",
+          },
+          source: "FDA Structured Product Labeling via openFDA",
+          sourceUrl: "https://api.fda.gov/drug/label.json",
+          dailyMedUrl: "https://dailymed.nlm.nih.gov/",
+        },
+        signals: [
+          { id: "alertness", label: "Alertness / psychomotor", domain: "Safety-sensitive work", section: "Warnings and Precautions", evidence: isMetoprolol ? "Treatment may cause dizziness and bradycardia." : "Gabapentin may cause somnolence and dizziness and may impair the ability to drive or operate complex machinery.", source: "FDA product labeling" },
+        ],
+        coverage: { rxnorm: true, rxclass: true, fdaLabel: true, signalCount: 1 },
+        limitation: "Label-derived occupational signals are reviewer evidence, not fitness determinations.",
+      });
+    }
+    if (path.endsWith("/api/reviewer-tools/drug-regimen")) {
+      return fulfillJson(route, {
+        ok: true,
+        medications: [],
+        overlaps: [{
+          id: "alertness",
+          label: "Alertness / psychomotor",
+          domain: "Safety-sensitive work",
+          medications: [
+            { rxcui: "25480", name: "gabapentin 300 MG Oral Capsule", evidence: "Somnolence and dizziness.", section: "Warnings and Precautions" },
+            { rxcui: "866924", name: "metoprolol succinate 50 MG Extended Release Oral Tablet", evidence: "Treatment may cause dizziness.", section: "Warnings and Precautions" },
+          ],
+        }],
+        interactionMentions: [{
+          fromRxcui: "25480",
+          fromDrug: "gabapentin 300 MG Oral Capsule",
+          toRxcui: "866924",
+          toDrug: "metoprolol succinate 50 MG Extended Release Oral Tablet",
+          section: "FDA Drug Interactions",
+          evidence: "Metoprolol is listed here for regimen-test cross-label matching.",
+        }],
+        coverage: { selected: 2, fdaLabels: 2, rxClasses: 2, medicationsWithSignals: 2 },
+        limitation: "No fabricated interaction severity score is calculated.",
       });
     }
 
@@ -287,6 +355,22 @@ test("O*NET Master Tool renders the official O*NET site through the working webv
   await expectNoHorizontalOverflow(page);
 });
 
+test("Drug Checker surfaces live FDA label evidence and regimen overlap without a fabricated severity score", async ({ page }) => {
+  await page.goto("/drug-checker");
+  await page.getByPlaceholder("Gabapentin, Eliquis, metoprolol…").fill("gabapentin");
+  await page.getByRole("button", { name: /gabapentin 300 MG Oral Capsule/ }).click();
+  await expect(page.getByText("FDA label intelligence")).toBeVisible();
+  await expect(page.getByText("Alertness / psychomotor").first()).toBeVisible();
+
+  await page.getByPlaceholder("Gabapentin, Eliquis, metoprolol…").fill("metoprolol");
+  await page.getByRole("button", { name: /metoprolol succinate 50 MG Extended Release Oral Tablet/ }).click();
+  await expect(page.getByText("Combined medication burden")).toBeVisible();
+  await expect(page.getByText("gabapentin 300 MG Oral Capsule label mentions metoprolol succinate 50 MG Extended Release Oral Tablet")).toBeVisible();
+  await expect(page.getByText("Alertness / psychomotor").first()).toBeVisible();
+  await expect(page.getByText("No fabricated interaction severity score is calculated.")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
 test("all six transplanted reviewer tools render and retain their core interactions", async ({ page }) => {
   await page.goto("/injuries-medical-conditions");
   await expect(page.getByRole("heading", { name: "Injuries & Medical Conditions" })).toBeVisible();
@@ -317,7 +401,9 @@ test("all six transplanted reviewer tools render and retain their core interacti
   await page.getByPlaceholder("Gabapentin, Eliquis, metoprolol…").fill("gabapentin");
   await expect(page.getByRole("button", { name: /gabapentin 300 MG Oral Capsule/ })).toBeVisible();
   await page.getByRole("button", { name: /gabapentin 300 MG Oral Capsule/ }).click();
-  await expect(page.getByText("Reviewed occupational profile")).toBeVisible();
+  await expect(page.getByText("FDA label intelligence")).toBeVisible();
+  await expect(page.getByText("Alertness / psychomotor").first()).toBeVisible();
+  await expect(page.getByText("Gabapentinoid")).toBeVisible();
   await expect(page.getByText("C9H17NO2")).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
