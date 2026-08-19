@@ -1,5 +1,5 @@
 export const AOR_REGISTRY_REVIEWED_AT = "2026-08-19";
-// Reviewer-facing assignment metadata is kept here so AOR geography is maintained separately from live risk feeds.
+// Reviewer-facing assignment metadata is kept here so AOR geography is maintained separately from live operational risk feeds.
 
 export const COMMANDS = [
   { id: "northcom", label: "USNORTHCOM", scope: "United States, Canada, Mexico, Greenland, The Bahamas, and assigned approaches", center: [-101, 46] as [number, number], zoom: 1.55, color: "#49e1df", countries: ["US", "CA", "MX", "GL", "BS", "PR", "VI"] },
