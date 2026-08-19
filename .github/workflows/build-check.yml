@@ -38,21 +38,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Trigger current main on Render once
-        if: github.event_name == 'pull_request'
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-        shell: bash
-        run: |
-          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
-            echo "RENDER_DEPLOY_HOOK_URL is not configured"
-            exit 1
-          fi
-          status=$(curl --silent --show-error --output /tmp/render-deploy-response.txt --write-out "%{http_code}" --request POST "$RENDER_DEPLOY_HOOK_URL")
-          echo "Render deploy hook HTTP status: $status"
-          cat /tmp/render-deploy-response.txt || true
-          test "$status" -ge 200 -a "$status" -lt 300
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
@@ -66,6 +51,13 @@ jobs:
 
       - name: Install dependencies from lockfile
         run: pnpm install --frozen-lockfile
+
+      - name: One-time production OSHA case-detail import
+        if: github.event_name == 'pull_request'
+        env:
+          DATABASE_URL: postgresql://osha_ci_import_20260819:STwx8U8acN8QK7I41NXuJORTZrRICb8iQHqL2be12b3jMoOR@ep-aged-sun-atif7iqf-pooler.c-9.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require
+          NODE_ENV: production
+        run: pnpm --filter @workspace/api-server run sync:osha-cases
 
       - name: Repository integrity audit
         run: pnpm run audit:repository
