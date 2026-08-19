@@ -1,0 +1,18 @@
+name: OSHA Live Status Once
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  status:
+    if: github.head_ref == 'ops/fire-osha-trigger-now'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read live OSHA import status
+        run: |
+          curl -sS --max-time 30 'https://insight-hub2-0-x45d.onrender.com/api/occupational-discovery/osha-case-import-once'
