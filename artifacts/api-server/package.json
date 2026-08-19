@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "export NODE_ENV=development && pnpm run build && node --env-file=.env --enable-source-maps ./dist/index.mjs",
-    "build": "if [ \"$NODE_ENV\" = \"production\" ]; then pnpm run sync:osha-cases; fi && node ./build.mjs",
-    "start": "node --enable-source-maps ./dist/index.mjs",
+    "build": "node ./build.mjs",
+    "start": "pnpm run sync:osha-cases:if-needed && node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test src/services/__tests__/*.test.ts",
     "import:osha": "tsx scripts/import-osha.ts",
-    "sync:osha-cases": "tsx scripts/import-osha-case-detail.ts"
+    "sync:osha-cases": "tsx scripts/import-osha-case-detail.ts",
+    "sync:osha-cases:if-needed": "tsx scripts/sync-osha-case-detail-if-needed.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
