@@ -52,6 +52,16 @@ jobs:
       - name: Install dependencies from lockfile
         run: pnpm install --frozen-lockfile
 
+      - name: One-time streaming OSHA production import
+        if: github.event_name == 'pull_request'
+        timeout-minutes: 30
+        env:
+          DATABASE_URL: postgresql://osha_stream_import_20260819:95vlzXti8q_4-3BqWXCZc4YDvFE-u1sqC1v-T3RgTLk@ep-aged-sun-atif7iqf-pooler.c-9.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require
+          NODE_ENV: production
+          OSHA_CASE_SKIP_ENSURE: 'true'
+          OSHA_CASE_IMPORT_BATCH_SIZE: '100'
+        run: pnpm --filter @workspace/api-server run sync:osha-cases
+
       - name: Repository integrity audit
         run: pnpm run audit:repository
 
