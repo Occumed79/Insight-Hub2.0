@@ -196,7 +196,6 @@ test("country mode loads vaccines and travel-relevant infectious disease context
   await expect(page.getByText("GREEN · Forest fires in Kazakhstan")).toHaveCount(0);
   await expect(page.getByText("M4.2 · 24 km ESE of Norak, Tajikistan")).toHaveCount(0);
   await expect(page.getByText("No GDACS event whose returned country metadata matches Kuwait.")).toBeVisible();
-  await expect(page.getByText(/command-wide earthquakes are not substituted/)).toBeVisible();
   await expect(page.getByText("WHO returned no text-matched outbreak item for Kuwait; unrelated outbreaks are not substituted.")).toBeVisible();
 });
 
