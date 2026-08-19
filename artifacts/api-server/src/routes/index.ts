@@ -68,6 +68,7 @@ router.use(aorTravelHealthRouter);
 router.use(aorProductionRepairRouter);
 router.use(aorRiskIntelligenceRouter);
 router.use(reviewerToolsRouter);
+// Drug Checker live FDA/RxNorm/RxClass intelligence remains isolated from the generic reviewer-tool routes.
 router.use(drugIntelligenceRouter);
 router.use(workersCompCoverageRouter);
 router.use(dbaIntelligenceRouter);
