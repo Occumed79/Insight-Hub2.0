@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Activity, Brain, Calculator, HeartPulse, MoonStar, RefreshCw, ShieldCheck } from "lucide-react";
+import { Activity, Brain, Calculator, FileDown, HeartPulse, MoonStar, RefreshCw, ShieldCheck } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import "./reviewer-tool-hierarchy.css";
@@ -382,6 +382,211 @@ const groupIcon: Record<CalcGroup, typeof Activity> = {
   "Respiratory & Exposure": MoonStar,
 };
 
+type PdfColor = [number, number, number];
+
+const PDF_PAGE_WIDTH = 612;
+const PDF_PAGE_HEIGHT = 792;
+const PDF_MARGIN = 48;
+const PDF_BODY_WIDTH = PDF_PAGE_WIDTH - PDF_MARGIN * 2;
+
+function pdfAscii(value: string) {
+  return value
+    .replace(/\u00b7/g, " - ")
+    .replace(/\u00d7/g, " x ")
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, "\"")
+    .replace(/\u2265/g, ">=")
+    .replace(/\u2264/g, "<=")
+    .replace(/\u00b2/g, "^2")
+    .replace(/\u221a/g, "sqrt")
+    .replace(/\u221b/g, "cuberoot")
+    .replace(/\u2192/g, "->")
+    .replace(/\u2197/g, "")
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7E\n\r\t]/g, "");
+}
+
+function pdfEscape(value: string) {
+  return pdfAscii(value).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+function pdfText(text: string, x: number, y: number, size: number, bold = false, color: PdfColor = [0.08, 0.12, 0.18]) {
+  const [r, g, b] = color;
+  return `BT /${bold ? "F2" : "F1"} ${size.toFixed(1)} Tf ${r.toFixed(3)} ${g.toFixed(3)} ${b.toFixed(3)} rg ${x.toFixed(1)} ${y.toFixed(1)} Td (${pdfEscape(text)}) Tj ET\n`;
+}
+
+function pdfRect(x: number, y: number, width: number, height: number, color: PdfColor) {
+  const [r, g, b] = color;
+  return `${r.toFixed(3)} ${g.toFixed(3)} ${b.toFixed(3)} rg ${x.toFixed(1)} ${y.toFixed(1)} ${width.toFixed(1)} ${height.toFixed(1)} re f\n`;
+}
+
+function pdfLine(x1: number, y1: number, x2: number, y2: number, color: PdfColor = [0.82, 0.86, 0.9]) {
+  const [r, g, b] = color;
+  return `${r.toFixed(3)} ${g.toFixed(3)} ${b.toFixed(3)} RG 0.7 w ${x1.toFixed(1)} ${y1.toFixed(1)} m ${x2.toFixed(1)} ${y2.toFixed(1)} l S\n`;
+}
+
+function wrapPdfText(text: string, width: number, size: number) {
+  const clean = pdfAscii(text).replace(/\s+/g, " ").trim();
+  if (!clean) return [""];
+  const maxChars = Math.max(16, Math.floor(width / (size * 0.52)));
+  const rawWords = clean.split(" ");
+  const words = rawWords.flatMap((word) => {
+    if (word.length <= maxChars) return [word];
+    const chunks: string[] = [];
+    for (let index = 0; index < word.length; index += maxChars) chunks.push(word.slice(index, index + maxChars));
+    return chunks;
+  });
+  const lines: string[] = [];
+  let line = "";
+  words.forEach((word) => {
+    const candidate = line ? `${line} ${word}` : word;
+    if (candidate.length > maxChars && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  });
+  if (line) lines.push(line);
+  return lines;
+}
+
+function pdfInputValue(field: CalcField, values: Record<string, string>) {
+  const raw = values[field.key] ?? "";
+  if (field.type === "select") return field.options?.find((option) => option.value === raw)?.label ?? raw;
+  return `${raw}${field.unit ? ` ${field.unit}` : ""}`;
+}
+
+function buildClinicalCalculatorPdf(calc: CalcDef, values: Record<string, string>, output: CalcOutput) {
+  const pages: string[][] = [];
+  let commands: string[] = [];
+  let y = 0;
+  let pageNumber = 0;
+  const generatedAt = new Date();
+  const reportId = `CLIN-${calc.id.toUpperCase()}-${generatedAt.toISOString().replace(/[-:TZ.]/g, "").slice(0, 14)}`;
+
+  function beginPage() {
+    pageNumber += 1;
+    commands = [];
+    commands.push(pdfRect(0, PDF_PAGE_HEIGHT - 88, PDF_PAGE_WIDTH, 88, [0.018, 0.055, 0.11]));
+    commands.push(pdfText("OCCU-MED | INSIGHT HUB 2.0", PDF_MARGIN, PDF_PAGE_HEIGHT - 31, 8.5, true, [0.38, 0.87, 0.94]));
+    commands.push(pdfText("Clinical Calculator Report", PDF_MARGIN, PDF_PAGE_HEIGHT - 55, 19, true, [1, 1, 1]));
+    commands.push(pdfText(calc.label, PDF_MARGIN, PDF_PAGE_HEIGHT - 75, 10.5, false, [0.74, 0.86, 0.94]));
+    y = PDF_PAGE_HEIGHT - 120;
+  }
+
+  function finishPage() {
+    commands.push(pdfLine(PDF_MARGIN, 51, PDF_PAGE_WIDTH - PDF_MARGIN, 51, [0.78, 0.83, 0.88]));
+    commands.push(pdfText("Reviewer support only - not a diagnosis or fitness-for-duty clearance.", PDF_MARGIN, 34, 7.5, false, [0.38, 0.43, 0.5]));
+    commands.push(pdfText(`Page ${pageNumber}`, PDF_PAGE_WIDTH - 82, 34, 7.5, true, [0.38, 0.43, 0.5]));
+    pages.push(commands);
+  }
+
+  function ensureSpace(height: number) {
+    if (y - height < 66) {
+      finishPage();
+      beginPage();
+    }
+  }
+
+  function addSection(title: string) {
+    ensureSpace(34);
+    commands.push(pdfText(title.toUpperCase(), PDF_MARGIN, y, 9, true, [0.02, 0.45, 0.58]));
+    y -= 8;
+    commands.push(pdfLine(PDF_MARGIN, y, PDF_PAGE_WIDTH - PDF_MARGIN, y, [0.78, 0.86, 0.9]));
+    y -= 20;
+  }
+
+  function addParagraph(text: string, size = 10, color: PdfColor = [0.11, 0.16, 0.22]) {
+    const lines = wrapPdfText(text, PDF_BODY_WIDTH, size);
+    ensureSpace(lines.length * (size + 4) + 6);
+    lines.forEach((line) => {
+      commands.push(pdfText(line, PDF_MARGIN, y, size, false, color));
+      y -= size + 4;
+    });
+    y -= 5;
+  }
+
+  function addKeyValue(label: string, value: string) {
+    const valueWidth = PDF_BODY_WIDTH - 180;
+    const lines = wrapPdfText(value, valueWidth, 9.5);
+    ensureSpace(Math.max(20, lines.length * 13 + 4));
+    commands.push(pdfText(label, PDF_MARGIN, y, 9, true, [0.24, 0.3, 0.36]));
+    lines.forEach((line, index) => {
+      commands.push(pdfText(line, PDF_MARGIN + 180, y - index * 13, 9.5, false, [0.07, 0.11, 0.16]));
+    });
+    y -= Math.max(20, lines.length * 13 + 4);
+  }
+
+  beginPage();
+
+  commands.push(pdfText(`Generated: ${generatedAt.toLocaleString()}`, PDF_MARGIN, y, 8.5, false, [0.34, 0.4, 0.47]));
+  commands.push(pdfText(`Report ID: ${reportId}`, PDF_MARGIN + 292, y, 8.5, false, [0.34, 0.4, 0.47]));
+  y -= 29;
+
+  addSection("Clinical result");
+  ensureSpace(78);
+  commands.push(pdfRect(PDF_MARGIN, y - 62, PDF_BODY_WIDTH, 72, [0.93, 0.975, 0.99]));
+  commands.push(pdfText(output.value, PDF_MARGIN + 16, y - 25, 25, true, [0.02, 0.18, 0.26]));
+  commands.push(pdfText(calc.label, PDF_MARGIN + 16, y - 48, 9, true, [0.16, 0.43, 0.5]));
+  y -= 82;
+  addParagraph(output.interpretation, 10.5, [0.08, 0.16, 0.21]);
+  output.secondary?.forEach((item) => addKeyValue(item.label, item.value));
+
+  addSection("Inputs used");
+  calc.fields.forEach((field) => addKeyValue(field.label, pdfInputValue(field, values)));
+
+  addSection("Reference and source");
+  addParagraph(output.reference, 9.5);
+  if (calc.sourceUrl) addParagraph(`Source: ${calc.sourceUrl}`, 8.5, [0.1, 0.36, 0.46]);
+
+  if (output.note) {
+    addSection("Model limitations");
+    addParagraph(output.note, 9.5, [0.34, 0.23, 0.08]);
+  }
+
+  addSection("Interpretation boundary");
+  addParagraph(
+    "This report reproduces a calculator result generated by Insight Hub 2.0 from the inputs listed above. It supports medical review; it does not diagnose disease, predict an individual outcome with certainty, or issue fitness-for-duty clearance.",
+    9.5,
+    [0.22, 0.27, 0.33],
+  );
+
+  finishPage();
+
+  const streams = pages.map((page) => page.join(""));
+  const objects: string[] = [""];
+  const pageRefs = streams.map((_, index) => `${5 + index * 2} 0 R`);
+
+  objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+  objects[2] = `<< /Type /Pages /Count ${streams.length} /Kids [${pageRefs.join(" ")}] >>`;
+  objects[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+  objects[4] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
+
+  streams.forEach((stream, index) => {
+    const pageObject = 5 + index * 2;
+    const contentObject = pageObject + 1;
+    objects[pageObject] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PDF_PAGE_WIDTH} ${PDF_PAGE_HEIGHT}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentObject} 0 R >>`;
+    objects[contentObject] = `<< /Length ${stream.length} >>\nstream\n${stream}endstream`;
+  });
+
+  let pdf = "%PDF-1.4\n%Occu-Med\n";
+  const offsets = new Array<number>(objects.length).fill(0);
+  for (let index = 1; index < objects.length; index += 1) {
+    offsets[index] = pdf.length;
+    pdf += `${index} 0 obj\n${objects[index]}\nendobj\n`;
+  }
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length}\n`;
+  pdf += "0000000000 65535 f \n";
+  for (let index = 1; index < objects.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return pdf;
+}
+
 export default function ReviewerClinicalCalculatorsPage() {
   const [group, setGroup] = useState<CalcGroup>("Risk & Prevention");
   const [activeId, setActiveId] = useState("prevent-ascvd");
@@ -432,6 +637,21 @@ export default function ReviewerClinicalCalculatorsPage() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Calculation failed.");
     }
+  }
+
+  function downloadPdfReport() {
+    if (!output) return;
+    const pdf = buildClinicalCalculatorPdf(active, current, output);
+    const blob = new Blob([pdf], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const safeLabel = active.label.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "") || "Clinical-Calculator";
+    anchor.href = url;
+    anchor.download = `Occu-Med_${safeLabel}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   function clear() {
@@ -529,6 +749,9 @@ export default function ReviewerClinicalCalculatorsPage() {
                       <strong className="text-cyan-50/65">Reference:</strong> {output.reference}
                       {active.sourceUrl ? <a className="ml-2 font-black text-cyan-100/66 hover:text-white" href={active.sourceUrl} target="_blank" rel="noreferrer">Open source ↗</a> : null}
                     </div>
+                    <button onClick={downloadPdfReport} className="rh-action mt-5 w-full justify-center">
+                      <FileDown size={15} className="mr-2 inline" />Generate PDF Report
+                    </button>
                   </>
                 ) : (
                   <div className="mt-8">

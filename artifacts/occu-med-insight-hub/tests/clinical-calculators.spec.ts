@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 
 async function expectNoHorizontalOverflow(page: import("@playwright/test").Page) {
@@ -30,6 +31,23 @@ test("Clinical Calculators are medical-only and reproduce validated risk referen
   await expect(page.getByText("9.2%", { exact: true })).toBeVisible();
   await expect(page.getByText("Intermediate", { exact: true })).toBeVisible();
   await expect(page.getByText("35.4%", { exact: true })).toBeVisible();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Generate PDF Report" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^Occu-Med_PREVENT-ASCVD_\d{4}-\d{2}-\d{2}\.pdf$/);
+  const downloadPath = await download.path();
+  expect(downloadPath).not.toBeNull();
+  const pdfBytes = await readFile(downloadPath!);
+  const pdfText = pdfBytes.toString("latin1");
+  expect(pdfText.startsWith("%PDF-1.4")).toBe(true);
+  expect(pdfText).toContain("Clinical Calculator Report");
+  expect(pdfText).toContain("PREVENT-ASCVD");
+  expect(pdfText).toContain("9.2%");
+  expect(pdfText).toContain("Age");
+  expect(pdfText).toContain("50 years");
+  expect(pdfText).toContain("AHA PREVENT");
+  expect(pdfText.endsWith("%%EOF\n")).toBe(true);
 
   await page.getByRole("button", { name: "Seizure Recurrence", exact: true }).click();
   await page.getByLabel("Neurological deficit").selectOption("no");
