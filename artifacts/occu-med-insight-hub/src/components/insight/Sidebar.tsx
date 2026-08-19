@@ -49,6 +49,11 @@ const nav = [
 const CORE_OWNERSHIP_NOTICE =
   "Entities, Federal Agencies, and State Agencies are owned by Insight Hub 2. Global Locations and Location Overlap remain available from their portal cards.";
 
+const DESKTOP_SIDEBAR_BACKGROUND =
+  "linear-gradient(180deg, #020611 0%, #030813 42%, #02050d 100%)";
+const MOBILE_SIDEBAR_BACKGROUND =
+  "linear-gradient(180deg, #020611 0%, #030813 100%)";
+
 function isActivePath(itemHref: string, currentPath: string) {
   if (currentPath === itemHref) return true;
   if (itemHref === "/aor-factors" && currentPath === "/aor-risk-intelligence") return true;
@@ -61,7 +66,10 @@ export function Sidebar() {
 
   return (
     <>
-      <aside className="insight-sidebar fixed left-0 top-0 z-30 hidden h-screen w-[210px] overflow-y-auto overscroll-contain border-r border-cyan-100/16 bg-[#030813]/96 px-4 py-5 shadow-[18px_0_70px_rgba(0,0,0,.46),inset_-1px_0_0_rgba(255,255,255,.07)] backdrop-blur-3xl lg:block">
+      <aside
+        className="insight-sidebar fixed left-0 top-0 z-30 hidden h-screen w-[210px] overflow-y-auto overscroll-contain border-r border-cyan-100/16 px-4 py-5 shadow-[18px_0_70px_rgba(0,0,0,.52),inset_-1px_0_0_rgba(255,255,255,.07)] lg:block"
+        style={{ background: DESKTOP_SIDEBAR_BACKGROUND, backgroundColor: "#020611" }}
+      >
         <Link href="/" className="block py-1 focus-visible:rounded-2xl" aria-label="Insight Hub 2 home">
           <div className="flex h-16 items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-cyan-100/16 bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,.10),0_0_24px_rgba(34,211,238,.06)]">
@@ -97,7 +105,11 @@ export function Sidebar() {
         </div>
       </aside>
 
-      <nav className="insight-mobile-nav fixed inset-x-0 top-0 z-[900] flex gap-2 overflow-x-auto border-b border-cyan-100/14 bg-[#030813]/94 px-3 pb-3 pt-[max(.75rem,env(safe-area-inset-top))] shadow-[0_16px_44px_rgba(0,0,0,.36)] backdrop-blur-2xl lg:hidden" aria-label="Insight Hub intelligence tools">
+      <nav
+        className="insight-mobile-nav fixed inset-x-0 top-0 z-[900] flex gap-2 overflow-x-auto border-b border-cyan-100/14 px-3 pb-3 pt-[max(.75rem,env(safe-area-inset-top))] shadow-[0_16px_44px_rgba(0,0,0,.42)] lg:hidden"
+        style={{ background: MOBILE_SIDEBAR_BACKGROUND, backgroundColor: "#020611" }}
+        aria-label="Insight Hub intelligence tools"
+      >
         {nav.map((item) => {
           const Icon = item.icon;
           const active = isActivePath(item.href, currentPath);
