@@ -42,6 +42,7 @@ import occupationalOnetDatabaseRouter from "./occupational-onet-database";
 import occupationalSourceBrowserRouter from "./occupational-source-browser";
 import officialSourceWebviewRouter from "./official-source-webview";
 import reviewerToolsRouter from "./reviewer-tools";
+import drugIntelligenceRouter from "./drug-intelligence";
 import jobIntelligenceRouter from "./job-intelligence";
 
 const router: IRouter = Router();
@@ -67,6 +68,8 @@ router.use(aorTravelHealthRouter);
 router.use(aorProductionRepairRouter);
 router.use(aorRiskIntelligenceRouter);
 router.use(reviewerToolsRouter);
+// Drug Checker live FDA/RxNorm/RxClass intelligence remains isolated from the generic reviewer-tool routes.
+router.use(drugIntelligenceRouter);
 router.use(workersCompCoverageRouter);
 router.use(dbaIntelligenceRouter);
 router.use("/dba/hub", (_req, res, next) => {
