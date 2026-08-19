@@ -31,7 +31,7 @@ test("Clinical Calculators are medical-only and reproduce validated risk referen
   await expect(page.getByText("Intermediate", { exact: true })).toBeVisible();
   await expect(page.getByText("35.4%", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Seizure Recurrence" }).click();
+  await page.getByRole("button", { name: "Seizure Recurrence", exact: true }).click();
   await page.getByLabel("Neurological deficit").selectOption("no");
   await page.getByLabel("Seizure type").selectOption("generalized");
   await page.getByLabel("EEG result").selectOption("normal");
@@ -41,7 +41,7 @@ test("Clinical Calculators are medical-only and reproduce validated risk referen
   await expect(page.getByText("35.1%", { exact: true })).toBeVisible();
   await expect(page.getByText("46.2%", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Recurrent Stroke · Essen" }).click();
+  await page.getByRole("button", { name: "Recurrent Stroke · Essen", exact: true }).click();
   await page.getByLabel("Age · years").fill("60");
   for (const label of ["Hypertension", "Diabetes", "Previous MI", "Other cardiovascular disease", "Peripheral artery disease", "Current / recent smoking", "Prior TIA / ischemic stroke before qualifying event"]) {
     await page.getByLabel(label).selectOption("no");
@@ -50,7 +50,7 @@ test("Clinical Calculators are medical-only and reproduce validated risk referen
   await expect(page.getByText("0 / 9", { exact: true })).toBeVisible();
   await expect(page.getByText("10.3%", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "STOP-Bang" }).click();
+  await page.getByRole("button", { name: "STOP-Bang", exact: true }).click();
   for (const label of ["Loud snoring", "Daytime tiredness", "Observed apnea", "High blood pressure"]) {
     await page.getByLabel(label).selectOption("no");
   }
