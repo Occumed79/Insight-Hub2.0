@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   getOshaCaseImportInfo,
@@ -9,6 +10,8 @@ const router: IRouter = Router();
 const LIMITATION = "OSHA ITA case-detail data covers establishments subject to electronic submission requirements and is not representative of every employer or worker. OIICS and SOC classifications are source-provided/assigned fields and should be reviewed with the OSHA data dictionary and quality guidance.";
 const SOURCE = "OSHA ITA Form 300/301 Case Detail Data";
 const OFFICIAL_SOURCE = "https://www.osha.gov/itadata";
+let importProcess: ReturnType<typeof spawn> | null = null;
+let lastImportExit: { code: number | null; signal: NodeJS.Signals | null; at: string } | null = null;
 
 async function caseStorageState() {
   const importInfo = await getOshaCaseImportInfo();
@@ -38,6 +41,37 @@ async function caseStorageState() {
   }
   return { importInfo, response: null };
 }
+
+router.get("/occupational-discovery/osha-case-import-once", async (_req: Request, res: Response) => {
+  try {
+    const importInfo = await getOshaCaseImportInfo();
+    if (importInfo.totalCases > 0) {
+      return res.json({ ok: true, started: false, reason: "already-imported", importInfo, lastImportExit });
+    }
+    if (importProcess && importProcess.exitCode === null && !importProcess.killed) {
+      return res.status(202).json({ ok: true, started: false, reason: "already-running", pid: importProcess.pid, importInfo, lastImportExit });
+    }
+
+    const child = spawn("pnpm", ["run", "sync:osha-cases"], {
+      cwd: process.cwd(),
+      env: { ...process.env, OSHA_CASE_IMPORT_BATCH_SIZE: process.env.OSHA_CASE_IMPORT_BATCH_SIZE || "75" },
+      stdio: "inherit",
+    });
+    importProcess = child;
+    lastImportExit = null;
+    child.once("exit", (code, signal) => {
+      lastImportExit = { code, signal, at: new Date().toISOString() };
+      importProcess = null;
+    });
+    child.once("error", (error) => {
+      console.error(`[osha-case-import-once] ${error.message}`);
+    });
+
+    return res.status(202).json({ ok: true, started: true, pid: child.pid, importInfo });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message.slice(0, 400) : "OSHA import trigger failed." });
+  }
+});
 
 router.get("/occupational-discovery/osha-case-overview", async (req: Request, res: Response) => {
   try {
