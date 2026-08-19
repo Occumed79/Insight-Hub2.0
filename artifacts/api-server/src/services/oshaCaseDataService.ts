@@ -3,6 +3,24 @@ type DbModule = typeof import("@workspace/db");
 let dbModulePromise: Promise<DbModule> | null = null;
 let ensurePromise: Promise<void> | null = null;
 
+type OiicsItem = { code: string; name: string; count: number };
+type OiicsProfileRow = {
+  dataset_year: number;
+  soc_code: string;
+  soc_description: string;
+  case_count: number;
+  coded_body_part_cases: number;
+  coded_nature_cases: number;
+  coded_event_cases: number;
+  coded_source_cases: number;
+  coded_secondary_source_cases: number;
+  body_parts: unknown;
+  natures: unknown;
+  events: unknown;
+  sources: unknown;
+  secondary_sources: unknown;
+};
+
 export type OshaCaseImportInfo = {
   totalCases: number;
   years: number[];
@@ -14,6 +32,7 @@ export type OshaCaseOverview = {
   totalCases: number;
   years: number[];
   latestYear: number | null;
+  oiicsYear: number | null;
   outcomeCounts: Array<{ name: string; count: number; daysAway: number; restrictedDays: number }>;
   incidentTypes: Array<{ name: string; count: number }>;
   natures: Array<{ name: string; code: string; count: number }>;
@@ -31,6 +50,8 @@ export type OshaOccupationCaseProfile = {
   matchedSocCode: string;
   occupationTitle: string;
   selectedYear: number | null;
+  oiicsYear: number | null;
+  oiicsCaseCount: number;
   totalCases: number;
   codedBodyPartCases: number;
   codedNatureCases: number;
@@ -130,11 +151,29 @@ export async function ensureOshaCasePersistence(): Promise<void> {
           imported_at timestamp NOT NULL DEFAULT now()
         );
 
+        CREATE TABLE IF NOT EXISTS osha_oiics_occupation_profiles (
+          dataset_year integer NOT NULL,
+          soc_code text NOT NULL,
+          soc_description text NOT NULL DEFAULT '',
+          case_count integer NOT NULL DEFAULT 0,
+          coded_body_part_cases integer NOT NULL DEFAULT 0,
+          coded_nature_cases integer NOT NULL DEFAULT 0,
+          coded_event_cases integer NOT NULL DEFAULT 0,
+          coded_source_cases integer NOT NULL DEFAULT 0,
+          coded_secondary_source_cases integer NOT NULL DEFAULT 0,
+          body_parts jsonb NOT NULL DEFAULT '[]'::jsonb,
+          natures jsonb NOT NULL DEFAULT '[]'::jsonb,
+          events jsonb NOT NULL DEFAULT '[]'::jsonb,
+          sources jsonb NOT NULL DEFAULT '[]'::jsonb,
+          secondary_sources jsonb NOT NULL DEFAULT '[]'::jsonb,
+          source_url text NOT NULL,
+          imported_at timestamp NOT NULL DEFAULT now(),
+          PRIMARY KEY (dataset_year, soc_code)
+        );
+
         CREATE INDEX IF NOT EXISTS osha_case_details_year_idx ON osha_case_details(year_of_filing);
         CREATE INDEX IF NOT EXISTS osha_case_details_state_idx ON osha_case_details(state);
         CREATE INDEX IF NOT EXISTS osha_case_details_naics_idx ON osha_case_details(naics_code);
-        CREATE INDEX IF NOT EXISTS osha_case_details_company_idx ON osha_case_details(company_name);
-        CREATE INDEX IF NOT EXISTS osha_case_details_establishment_idx ON osha_case_details(source_establishment_id);
         CREATE INDEX IF NOT EXISTS osha_case_details_soc_idx ON osha_case_details(soc_code);
         CREATE INDEX IF NOT EXISTS osha_case_details_nature_idx ON osha_case_details(nature_code);
         CREATE INDEX IF NOT EXISTS osha_case_details_part_idx ON osha_case_details(body_part_code);
@@ -185,6 +224,63 @@ function incidentTypeLabel(value: number): string {
   return `Type ${value}`;
 }
 
+function normalizeSocBase(value: string): string {
+  const match = value.trim().match(/\d{2}-\d{4}/);
+  return match?.[0] ?? "";
+}
+
+function normalizeOccupationSearch(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[(),]/g, " ")
+    .replace(/\b(and|the|of|workers|worker)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseOiicsItems(value: unknown): OiicsItem[] {
+  let parsed = value;
+  if (typeof value === "string") {
+    try { parsed = JSON.parse(value); } catch { parsed = []; }
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const row = item as Record<string, unknown>;
+      const code = String(row.code ?? "").trim();
+      const name = String(row.name ?? row.title ?? "").trim();
+      const count = Number(row.count ?? 0);
+      if ((!code && !name) || !Number.isFinite(count) || count <= 0) return null;
+      return { code, name: name || "Unclassified / unavailable", count };
+    })
+    .filter((item): item is OiicsItem => Boolean(item));
+}
+
+function withShares(items: OiicsItem[], denominator: number) {
+  return items.map((item) => ({
+    ...item,
+    share: denominator > 0 ? Number(((item.count / denominator) * 100).toFixed(1)) : 0,
+  }));
+}
+
+async function latestOiicsProfile(socCode: string): Promise<OiicsProfileRow | null> {
+  const { pool } = await getDbModule();
+  const normalized = normalizeSocBase(socCode);
+  if (!normalized) return null;
+  const result = await pool.query<OiicsProfileRow>(`
+    SELECT dataset_year, soc_code, soc_description, case_count,
+      coded_body_part_cases, coded_nature_cases, coded_event_cases,
+      coded_source_cases, coded_secondary_source_cases,
+      body_parts, natures, events, sources, secondary_sources
+    FROM osha_oiics_occupation_profiles
+    WHERE soc_code = $1
+    ORDER BY dataset_year DESC
+    LIMIT 1
+  `, [normalized]);
+  return result.rows[0] ?? null;
+}
+
 export async function getOshaCaseOverview(year?: number): Promise<OshaCaseOverview | null> {
   if (!dbConfigured()) return null;
   await ensureOshaCasePersistence();
@@ -197,7 +293,7 @@ export async function getOshaCaseOverview(year?: number): Promise<OshaCaseOvervi
   const yearOnly = selectedYear ? "WHERE year_of_filing = $1" : "";
   const params = selectedYear ? [selectedYear] : [];
 
-  const [outcomes, types, natures, parts, events, sources, secondary, occupations, trend] = await Promise.all([
+  const [outcomes, types, occupations, trend, oiicsResult] = await Promise.all([
     pool.query<{ code: number; count: string; days_away: string; restricted_days: string }>(`
       SELECT incident_outcome::int AS code, COUNT(*)::text AS count,
         COALESCE(SUM(days_away),0)::text AS days_away,
@@ -213,31 +309,6 @@ export async function getOshaCaseOverview(year?: number): Promise<OshaCaseOvervi
       GROUP BY type_of_incident ORDER BY COUNT(*) DESC
     `, params),
     pool.query<{ code: string; name: string; count: string }>(`
-      SELECT COALESCE(nature_code,'') AS code, COALESCE(NULLIF(nature_title,''),'Unclassified / unavailable') AS name, COUNT(*)::text AS count
-      FROM osha_case_details ${yearOnly}
-      GROUP BY nature_code, nature_title ORDER BY COUNT(*) DESC LIMIT 20
-    `, params),
-    pool.query<{ code: string; name: string; count: string }>(`
-      SELECT COALESCE(body_part_code,'') AS code, COALESCE(NULLIF(body_part_title,''),'Unclassified / unavailable') AS name, COUNT(*)::text AS count
-      FROM osha_case_details ${yearOnly}
-      GROUP BY body_part_code, body_part_title ORDER BY COUNT(*) DESC LIMIT 20
-    `, params),
-    pool.query<{ code: string; name: string; count: string }>(`
-      SELECT COALESCE(event_code,'') AS code, COALESCE(NULLIF(event_title,''),'Unclassified / unavailable') AS name, COUNT(*)::text AS count
-      FROM osha_case_details ${yearOnly}
-      GROUP BY event_code, event_title ORDER BY COUNT(*) DESC LIMIT 20
-    `, params),
-    pool.query<{ code: string; name: string; count: string }>(`
-      SELECT COALESCE(source_code,'') AS code, COALESCE(NULLIF(source_title,''),'Unclassified / unavailable') AS name, COUNT(*)::text AS count
-      FROM osha_case_details ${yearOnly}
-      GROUP BY source_code, source_title ORDER BY COUNT(*) DESC LIMIT 20
-    `, params),
-    pool.query<{ code: string; name: string; count: string }>(`
-      SELECT COALESCE(secondary_source_code,'') AS code, COALESCE(NULLIF(secondary_source_title,''),'Unclassified / unavailable') AS name, COUNT(*)::text AS count
-      FROM osha_case_details ${yearOnly}
-      GROUP BY secondary_source_code, secondary_source_title ORDER BY COUNT(*) DESC LIMIT 20
-    `, params),
-    pool.query<{ code: string; name: string; count: string }>(`
       SELECT COALESCE(soc_code,'') AS code, COALESCE(NULLIF(soc_description,''), NULLIF(job_description,''), 'Occupation not classified') AS name, COUNT(*)::text AS count
       FROM osha_case_details ${yearOnly}
       GROUP BY soc_code, soc_description, job_description ORDER BY COUNT(*) DESC LIMIT 25
@@ -249,37 +320,35 @@ export async function getOshaCaseOverview(year?: number): Promise<OshaCaseOvervi
       FROM osha_case_details WHERE year_of_filing IS NOT NULL
       GROUP BY year_of_filing ORDER BY year_of_filing
     `),
+    pool.query<OiicsProfileRow>(`
+      SELECT dataset_year, soc_code, soc_description, case_count,
+        coded_body_part_cases, coded_nature_cases, coded_event_cases,
+        coded_source_cases, coded_secondary_source_cases,
+        body_parts, natures, events, sources, secondary_sources
+      FROM osha_oiics_occupation_profiles
+      WHERE soc_code = '*'
+      ORDER BY dataset_year DESC
+      LIMIT 1
+    `),
   ]);
 
-  const mapped = (rows: Array<{ code: string; name: string; count: string }>) => rows.map((row) => ({ code: row.code, name: row.name, count: Number(row.count) }));
+  const oiics = oiicsResult.rows[0] ?? null;
+  const mappedOccupations = occupations.rows.map((row) => ({ code: row.code, name: row.name, count: Number(row.count) }));
   return {
     totalCases: imported.totalCases,
     years: imported.years,
     latestYear,
+    oiicsYear: oiics ? Number(oiics.dataset_year) : null,
     outcomeCounts: outcomes.rows.map((row) => ({ name: outcomeLabel(Number(row.code)), count: Number(row.count), daysAway: Number(row.days_away), restrictedDays: Number(row.restricted_days) })),
     incidentTypes: types.rows.map((row) => ({ name: incidentTypeLabel(Number(row.code)), count: Number(row.count) })),
-    natures: mapped(natures.rows),
-    bodyParts: mapped(parts.rows),
-    events: mapped(events.rows),
-    sources: mapped(sources.rows),
-    secondarySources: mapped(secondary.rows),
-    occupations: mapped(occupations.rows),
+    natures: oiics ? parseOiicsItems(oiics.natures) : [],
+    bodyParts: oiics ? parseOiicsItems(oiics.body_parts) : [],
+    events: oiics ? parseOiicsItems(oiics.events) : [],
+    sources: oiics ? parseOiicsItems(oiics.sources) : [],
+    secondarySources: oiics ? parseOiicsItems(oiics.secondary_sources) : [],
+    occupations: mappedOccupations,
     trend: trend.rows.map((row) => ({ year: Number(row.year), cases: Number(row.cases), daysAway: Number(row.days_away), restrictedDays: Number(row.restricted_days) })),
   };
-}
-
-function normalizeSocBase(value: string): string {
-  const match = value.trim().match(/\d{2}-\d{4}/);
-  return match?.[0] ?? "";
-}
-
-function normalizeOccupationSearch(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[(),]/g, " ")
-    .replace(/\b(and|the|of|workers|worker)\b/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 export async function getOshaOccupationCaseProfile(input: {
@@ -335,20 +404,12 @@ export async function getOshaOccupationCaseProfile(input: {
 
   const summary = await pool.query<{
     total_cases: string;
-    coded_body: string;
-    coded_nature: string;
-    coded_event: string;
-    coded_source: string;
     days_away: string;
     restricted_days: string;
     matched_soc: string | null;
     occupation_name: string | null;
   }>(`
     SELECT COUNT(*)::text AS total_cases,
-      COUNT(*) FILTER (WHERE NULLIF(body_part_title,'') IS NOT NULL)::text AS coded_body,
-      COUNT(*) FILTER (WHERE NULLIF(nature_title,'') IS NOT NULL)::text AS coded_nature,
-      COUNT(*) FILTER (WHERE NULLIF(event_title,'') IS NOT NULL)::text AS coded_event,
-      COUNT(*) FILTER (WHERE NULLIF(source_title,'') IS NOT NULL)::text AS coded_source,
       COALESCE(SUM(days_away),0)::text AS days_away,
       COALESCE(SUM(restricted_days),0)::text AS restricted_days,
       MODE() WITHIN GROUP (ORDER BY NULLIF(soc_code,'')) AS matched_soc,
@@ -359,39 +420,39 @@ export async function getOshaOccupationCaseProfile(input: {
 
   const totalCases = Number(summary.rows[0]?.total_cases ?? 0);
   if (totalCases === 0) return null;
-  const codedBodyPartCases = Number(summary.rows[0]?.coded_body ?? 0);
-  const codedNatureCases = Number(summary.rows[0]?.coded_nature ?? 0);
-  const codedEventCases = Number(summary.rows[0]?.coded_event ?? 0);
-  const codedSourceCases = Number(summary.rows[0]?.coded_source ?? 0);
 
-  const grouped = async (codeColumn: string, titleColumn: string, denominator: number) => {
-    const result = await pool.query<{ code: string; name: string; count: string }>(`
-      SELECT COALESCE(${codeColumn},'') AS code,
-        COALESCE(NULLIF(${titleColumn},''),'Unclassified / unavailable') AS name,
-        COUNT(*)::text AS count
-      FROM osha_case_details
-      WHERE ${selectedWhere} AND NULLIF(${titleColumn},'') IS NOT NULL
-      GROUP BY ${codeColumn}, ${titleColumn}
-      ORDER BY COUNT(*) DESC
-      LIMIT 12
-    `, selectedParams);
-    return result.rows.map((row) => {
-      const count = Number(row.count);
-      return { code: row.code, name: row.name, count, share: denominator > 0 ? Number(((count / denominator) * 100).toFixed(1)) : 0 };
-    });
-  };
+  const resolvedSoc = normalizeSocBase(summary.rows[0]?.matched_soc ?? socBase);
+  let oiics = resolvedSoc ? await latestOiicsProfile(resolvedSoc) : null;
+  if (!oiics && occupationTitle) {
+    const normalized = normalizeOccupationSearch(occupationTitle);
+    const strongest = normalized.split(" ").filter((token) => token.length >= 4).sort((a, b) => b.length - a.length)[0];
+    if (strongest) {
+      const fallback = await pool.query<OiicsProfileRow>(`
+        SELECT dataset_year, soc_code, soc_description, case_count,
+          coded_body_part_cases, coded_nature_cases, coded_event_cases,
+          coded_source_cases, coded_secondary_source_cases,
+          body_parts, natures, events, sources, secondary_sources
+        FROM osha_oiics_occupation_profiles
+        WHERE LOWER(soc_description) LIKE $1
+        ORDER BY dataset_year DESC, case_count DESC
+        LIMIT 1
+      `, [`%${strongest}%`]);
+      oiics = fallback.rows[0] ?? null;
+    }
+  }
 
-  const [outcomes, bodyParts, natures, events, sources, industries, trend] = await Promise.all([
+  const codedBodyPartCases = Number(oiics?.coded_body_part_cases ?? 0);
+  const codedNatureCases = Number(oiics?.coded_nature_cases ?? 0);
+  const codedEventCases = Number(oiics?.coded_event_cases ?? 0);
+  const codedSourceCases = Number(oiics?.coded_source_cases ?? 0);
+
+  const [outcomes, industries, trend] = await Promise.all([
     pool.query<{ code: number; count: string }>(`
       SELECT incident_outcome::int AS code, COUNT(*)::text AS count
       FROM osha_case_details
       WHERE ${selectedWhere} AND incident_outcome IS NOT NULL
       GROUP BY incident_outcome ORDER BY COUNT(*) DESC
     `, selectedParams),
-    grouped("body_part_code", "body_part_title", codedBodyPartCases),
-    grouped("nature_code", "nature_title", codedNatureCases),
-    grouped("event_code", "event_title", codedEventCases),
-    grouped("source_code", "source_title", codedSourceCases),
     pool.query<{ name: string; naics: string; count: string }>(`
       SELECT COALESCE(NULLIF(industry_description,''),'Industry not reported') AS name,
         COALESCE(naics_code,'') AS naics,
@@ -418,6 +479,8 @@ export async function getOshaOccupationCaseProfile(input: {
     matchedSocCode: summary.rows[0]?.matched_soc ?? socBase,
     occupationTitle: summary.rows[0]?.occupation_name ?? occupationTitle,
     selectedYear,
+    oiicsYear: oiics ? Number(oiics.dataset_year) : null,
+    oiicsCaseCount: Number(oiics?.case_count ?? 0),
     totalCases,
     codedBodyPartCases,
     codedNatureCases,
@@ -426,10 +489,10 @@ export async function getOshaOccupationCaseProfile(input: {
     totalDaysAway: Number(summary.rows[0]?.days_away ?? 0),
     totalRestrictedDays: Number(summary.rows[0]?.restricted_days ?? 0),
     outcomes: outcomes.rows.map((row) => ({ name: outcomeLabel(Number(row.code)), count: Number(row.count) })),
-    bodyParts,
-    natures,
-    events,
-    sources,
+    bodyParts: oiics ? withShares(parseOiicsItems(oiics.body_parts), codedBodyPartCases) : [],
+    natures: oiics ? withShares(parseOiicsItems(oiics.natures), codedNatureCases) : [],
+    events: oiics ? withShares(parseOiicsItems(oiics.events), codedEventCases) : [],
+    sources: oiics ? withShares(parseOiicsItems(oiics.sources), codedSourceCases) : [],
     industries: industries.rows.map((row) => ({ name: row.name, naics: row.naics, count: Number(row.count) })),
     trend: trend.rows.map((row) => ({ year: Number(row.year), cases: Number(row.cases), daysAway: Number(row.days_away), restrictedDays: Number(row.restricted_days) })),
   };
