@@ -296,8 +296,8 @@ export async function getOshaCaseOverview(year?: number): Promise<OshaCaseOvervi
   const [outcomes, types, occupations, trend, oiicsResult] = await Promise.all([
     pool.query<{ code: number; count: string; days_away: string; restricted_days: string }>(`
       SELECT incident_outcome::int AS code, COUNT(*)::text AS count,
-        COALESCE(SUM(days_away),0)::text AS days_away,
-        COALESCE(SUM(restricted_days),0)::text AS restricted_days
+        COALESCE(SUM(GREATEST(COALESCE(days_away,0),0)),0)::text AS days_away,
+        COALESCE(SUM(GREATEST(COALESCE(restricted_days,0),0)),0)::text AS restricted_days
       FROM osha_case_details
       WHERE ${yearPrefix} incident_outcome IS NOT NULL
       GROUP BY incident_outcome ORDER BY COUNT(*) DESC
@@ -315,8 +315,8 @@ export async function getOshaCaseOverview(year?: number): Promise<OshaCaseOvervi
     `, params),
     pool.query<{ year: number; cases: string; days_away: string; restricted_days: string }>(`
       SELECT year_of_filing::int AS year, COUNT(*)::text AS cases,
-        COALESCE(SUM(days_away),0)::text AS days_away,
-        COALESCE(SUM(restricted_days),0)::text AS restricted_days
+        COALESCE(SUM(GREATEST(COALESCE(days_away,0),0)),0)::text AS days_away,
+        COALESCE(SUM(GREATEST(COALESCE(restricted_days,0),0)),0)::text AS restricted_days
       FROM osha_case_details WHERE year_of_filing IS NOT NULL
       GROUP BY year_of_filing ORDER BY year_of_filing
     `),
@@ -410,8 +410,8 @@ export async function getOshaOccupationCaseProfile(input: {
     occupation_name: string | null;
   }>(`
     SELECT COUNT(*)::text AS total_cases,
-      COALESCE(SUM(days_away),0)::text AS days_away,
-      COALESCE(SUM(restricted_days),0)::text AS restricted_days,
+      COALESCE(SUM(GREATEST(COALESCE(days_away,0),0)),0)::text AS days_away,
+      COALESCE(SUM(GREATEST(COALESCE(restricted_days,0),0)),0)::text AS restricted_days,
       MODE() WITHIN GROUP (ORDER BY NULLIF(soc_code,'')) AS matched_soc,
       MODE() WITHIN GROUP (ORDER BY COALESCE(NULLIF(soc_description,''), NULLIF(job_description,''))) AS occupation_name
     FROM osha_case_details
@@ -465,8 +465,8 @@ export async function getOshaOccupationCaseProfile(input: {
     `, selectedParams),
     pool.query<{ year: number; cases: string; days_away: string; restricted_days: string }>(`
       SELECT year_of_filing::int AS year, COUNT(*)::text AS cases,
-        COALESCE(SUM(days_away),0)::text AS days_away,
-        COALESCE(SUM(restricted_days),0)::text AS restricted_days
+        COALESCE(SUM(GREATEST(COALESCE(days_away,0),0)),0)::text AS days_away,
+        COALESCE(SUM(GREATEST(COALESCE(restricted_days,0),0)),0)::text AS restricted_days
       FROM osha_case_details
       WHERE ${matchSql} AND year_of_filing IS NOT NULL
       GROUP BY year_of_filing ORDER BY year_of_filing
