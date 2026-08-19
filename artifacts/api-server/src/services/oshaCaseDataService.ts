@@ -25,6 +25,28 @@ export type OshaCaseOverview = {
   trend: Array<{ year: number; cases: number; daysAway: number; restrictedDays: number }>;
 };
 
+export type OshaOccupationCaseProfile = {
+  matchedBy: "soc" | "occupation-title";
+  requestedSocCode: string;
+  matchedSocCode: string;
+  occupationTitle: string;
+  selectedYear: number | null;
+  totalCases: number;
+  codedBodyPartCases: number;
+  codedNatureCases: number;
+  codedEventCases: number;
+  codedSourceCases: number;
+  totalDaysAway: number;
+  totalRestrictedDays: number;
+  outcomes: Array<{ name: string; count: number }>;
+  bodyParts: Array<{ name: string; code: string; count: number; share: number }>;
+  natures: Array<{ name: string; code: string; count: number; share: number }>;
+  events: Array<{ name: string; code: string; count: number; share: number }>;
+  sources: Array<{ name: string; code: string; count: number; share: number }>;
+  industries: Array<{ name: string; naics: string; count: number }>;
+  trend: Array<{ year: number; cases: number; daysAway: number; restrictedDays: number }>;
+};
+
 async function getDbModule(): Promise<DbModule> {
   if (!dbModulePromise) dbModulePromise = import("@workspace/db");
   return dbModulePromise;
@@ -137,7 +159,12 @@ export async function getOshaCaseImportInfo(): Promise<OshaCaseImportInfo> {
     pool.query<{ imported_at: Date | string }>("SELECT imported_at FROM osha_case_import_runs ORDER BY imported_at DESC LIMIT 1"),
   ]);
   const latest = importResult.rows[0]?.imported_at;
-  return { totalCases: Number(countResult.rows[0]?.count ?? 0), years: yearsResult.rows.map((row) => Number(row.year)).filter(Number.isFinite), latestImport: latest ? new Date(latest).toISOString() : undefined, storage: "postgres" };
+  return {
+    totalCases: Number(countResult.rows[0]?.count ?? 0),
+    years: yearsResult.rows.map((row) => Number(row.year)).filter(Number.isFinite),
+    latestImport: latest ? new Date(latest).toISOString() : undefined,
+    storage: "postgres",
+  };
 }
 
 function outcomeLabel(value: number): string {
@@ -147,6 +174,7 @@ function outcomeLabel(value: number): string {
   if (value === 4) return "Other recordable case";
   return `Outcome ${value}`;
 }
+
 function incidentTypeLabel(value: number): string {
   if (value === 1) return "Injury";
   if (value === 2) return "Skin disorder";
@@ -230,7 +258,179 @@ export async function getOshaCaseOverview(year?: number): Promise<OshaCaseOvervi
     latestYear,
     outcomeCounts: outcomes.rows.map((row) => ({ name: outcomeLabel(Number(row.code)), count: Number(row.count), daysAway: Number(row.days_away), restrictedDays: Number(row.restricted_days) })),
     incidentTypes: types.rows.map((row) => ({ name: incidentTypeLabel(Number(row.code)), count: Number(row.count) })),
-    natures: mapped(natures.rows), bodyParts: mapped(parts.rows), events: mapped(events.rows), sources: mapped(sources.rows), secondarySources: mapped(secondary.rows), occupations: mapped(occupations.rows),
+    natures: mapped(natures.rows),
+    bodyParts: mapped(parts.rows),
+    events: mapped(events.rows),
+    sources: mapped(sources.rows),
+    secondarySources: mapped(secondary.rows),
+    occupations: mapped(occupations.rows),
+    trend: trend.rows.map((row) => ({ year: Number(row.year), cases: Number(row.cases), daysAway: Number(row.days_away), restrictedDays: Number(row.restricted_days) })),
+  };
+}
+
+function normalizeSocBase(value: string): string {
+  const match = value.trim().match(/\d{2}-\d{4}/);
+  return match?.[0] ?? "";
+}
+
+function normalizeOccupationSearch(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[(),]/g, " ")
+    .replace(/\b(and|the|of|workers|worker)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export async function getOshaOccupationCaseProfile(input: {
+  socCode?: string;
+  occupationTitle?: string;
+  year?: number;
+}): Promise<OshaOccupationCaseProfile | null> {
+  if (!dbConfigured()) return null;
+  await ensureOshaCasePersistence();
+  const { pool } = await getDbModule();
+  const imported = await getOshaCaseImportInfo();
+  if (imported.totalCases === 0) return null;
+
+  const latestYear = imported.years.length ? imported.years[imported.years.length - 1] : null;
+  const selectedYear = input.year && Number.isFinite(input.year) ? input.year : latestYear;
+  const requestedSocCode = input.socCode?.trim() ?? "";
+  const socBase = normalizeSocBase(requestedSocCode);
+  const occupationTitle = input.occupationTitle?.trim() ?? "";
+
+  let matchedBy: OshaOccupationCaseProfile["matchedBy"] = "soc";
+  let matchSql = "";
+  let matchParams: unknown[] = [];
+
+  if (socBase) {
+    const count = await pool.query<{ count: string }>(
+      "SELECT COUNT(*)::text AS count FROM osha_case_details WHERE soc_code LIKE $1",
+      [`${socBase}%`],
+    );
+    if (Number(count.rows[0]?.count ?? 0) > 0) {
+      matchSql = "soc_code LIKE $1";
+      matchParams = [`${socBase}%`];
+    }
+  }
+
+  if (!matchSql && occupationTitle) {
+    matchedBy = "occupation-title";
+    const normalized = normalizeOccupationSearch(occupationTitle);
+    const strongest = normalized.split(" ").filter((token) => token.length >= 4).sort((a, b) => b.length - a.length)[0];
+    if (strongest) {
+      matchSql = "(LOWER(COALESCE(soc_description,'')) LIKE $1 OR LOWER(COALESCE(job_description,'')) LIKE $1)";
+      matchParams = [`%${strongest}%`];
+    }
+  }
+
+  if (!matchSql) return null;
+
+  const selectedParams = [...matchParams];
+  let selectedWhere = matchSql;
+  if (selectedYear) {
+    selectedParams.push(selectedYear);
+    selectedWhere = `(${matchSql}) AND year_of_filing = $${selectedParams.length}`;
+  }
+
+  const summary = await pool.query<{
+    total_cases: string;
+    coded_body: string;
+    coded_nature: string;
+    coded_event: string;
+    coded_source: string;
+    days_away: string;
+    restricted_days: string;
+    matched_soc: string | null;
+    occupation_name: string | null;
+  }>(`
+    SELECT COUNT(*)::text AS total_cases,
+      COUNT(*) FILTER (WHERE NULLIF(body_part_title,'') IS NOT NULL)::text AS coded_body,
+      COUNT(*) FILTER (WHERE NULLIF(nature_title,'') IS NOT NULL)::text AS coded_nature,
+      COUNT(*) FILTER (WHERE NULLIF(event_title,'') IS NOT NULL)::text AS coded_event,
+      COUNT(*) FILTER (WHERE NULLIF(source_title,'') IS NOT NULL)::text AS coded_source,
+      COALESCE(SUM(days_away),0)::text AS days_away,
+      COALESCE(SUM(restricted_days),0)::text AS restricted_days,
+      MODE() WITHIN GROUP (ORDER BY NULLIF(soc_code,'')) AS matched_soc,
+      MODE() WITHIN GROUP (ORDER BY COALESCE(NULLIF(soc_description,''), NULLIF(job_description,''))) AS occupation_name
+    FROM osha_case_details
+    WHERE ${selectedWhere}
+  `, selectedParams);
+
+  const totalCases = Number(summary.rows[0]?.total_cases ?? 0);
+  if (totalCases === 0) return null;
+  const codedBodyPartCases = Number(summary.rows[0]?.coded_body ?? 0);
+  const codedNatureCases = Number(summary.rows[0]?.coded_nature ?? 0);
+  const codedEventCases = Number(summary.rows[0]?.coded_event ?? 0);
+  const codedSourceCases = Number(summary.rows[0]?.coded_source ?? 0);
+
+  const grouped = async (codeColumn: string, titleColumn: string, denominator: number) => {
+    const result = await pool.query<{ code: string; name: string; count: string }>(`
+      SELECT COALESCE(${codeColumn},'') AS code,
+        COALESCE(NULLIF(${titleColumn},''),'Unclassified / unavailable') AS name,
+        COUNT(*)::text AS count
+      FROM osha_case_details
+      WHERE ${selectedWhere} AND NULLIF(${titleColumn},'') IS NOT NULL
+      GROUP BY ${codeColumn}, ${titleColumn}
+      ORDER BY COUNT(*) DESC
+      LIMIT 12
+    `, selectedParams);
+    return result.rows.map((row) => {
+      const count = Number(row.count);
+      return { code: row.code, name: row.name, count, share: denominator > 0 ? Number(((count / denominator) * 100).toFixed(1)) : 0 };
+    });
+  };
+
+  const [outcomes, bodyParts, natures, events, sources, industries, trend] = await Promise.all([
+    pool.query<{ code: number; count: string }>(`
+      SELECT incident_outcome::int AS code, COUNT(*)::text AS count
+      FROM osha_case_details
+      WHERE ${selectedWhere} AND incident_outcome IS NOT NULL
+      GROUP BY incident_outcome ORDER BY COUNT(*) DESC
+    `, selectedParams),
+    grouped("body_part_code", "body_part_title", codedBodyPartCases),
+    grouped("nature_code", "nature_title", codedNatureCases),
+    grouped("event_code", "event_title", codedEventCases),
+    grouped("source_code", "source_title", codedSourceCases),
+    pool.query<{ name: string; naics: string; count: string }>(`
+      SELECT COALESCE(NULLIF(industry_description,''),'Industry not reported') AS name,
+        COALESCE(naics_code,'') AS naics,
+        COUNT(*)::text AS count
+      FROM osha_case_details
+      WHERE ${selectedWhere}
+      GROUP BY industry_description, naics_code
+      ORDER BY COUNT(*) DESC
+      LIMIT 10
+    `, selectedParams),
+    pool.query<{ year: number; cases: string; days_away: string; restricted_days: string }>(`
+      SELECT year_of_filing::int AS year, COUNT(*)::text AS cases,
+        COALESCE(SUM(days_away),0)::text AS days_away,
+        COALESCE(SUM(restricted_days),0)::text AS restricted_days
+      FROM osha_case_details
+      WHERE ${matchSql} AND year_of_filing IS NOT NULL
+      GROUP BY year_of_filing ORDER BY year_of_filing
+    `, matchParams),
+  ]);
+
+  return {
+    matchedBy,
+    requestedSocCode,
+    matchedSocCode: summary.rows[0]?.matched_soc ?? socBase,
+    occupationTitle: summary.rows[0]?.occupation_name ?? occupationTitle,
+    selectedYear,
+    totalCases,
+    codedBodyPartCases,
+    codedNatureCases,
+    codedEventCases,
+    codedSourceCases,
+    totalDaysAway: Number(summary.rows[0]?.days_away ?? 0),
+    totalRestrictedDays: Number(summary.rows[0]?.restricted_days ?? 0),
+    outcomes: outcomes.rows.map((row) => ({ name: outcomeLabel(Number(row.code)), count: Number(row.count) })),
+    bodyParts,
+    natures,
+    events,
+    sources,
+    industries: industries.rows.map((row) => ({ name: row.name, naics: row.naics, count: Number(row.count) })),
     trend: trend.rows.map((row) => ({ year: Number(row.year), cases: Number(row.cases), daysAway: Number(row.days_away), restrictedDays: Number(row.restricted_days) })),
   };
 }
