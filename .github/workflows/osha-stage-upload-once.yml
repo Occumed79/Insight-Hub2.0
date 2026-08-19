@@ -1,0 +1,196 @@
+name: OSHA Stage Upload Once
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    if: github.head_ref == 'ops/osha-stage-upload-once'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Download official OSHA 2025 case-detail CSV
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-delay 5 \
+            -A 'Occu-Med Insight Hub 2.0 OSHA loader' \
+            'https://www.osha.gov/sites/default/largefiles/ITA_Case_Detail_Data_2025_through_3-15-2026.csv' \
+            -o /tmp/osha-case-detail.csv
+          ls -lh /tmp/osha-case-detail.csv
+          sha256sum /tmp/osha-case-detail.csv
+
+      - name: Stream parsed rows to Render staging batches
+        shell: bash
+        run: |
+          python - <<'PY'
+          import csv, hashlib, json, os, re, sys, time, urllib.error, urllib.request
+
+          FILE = '/tmp/osha-case-detail.csv'
+          BASE = 'https://insight-hub2-0-x45d.onrender.com/api/occupational-discovery/osha-case-stage'
+          BATCH_SIZE = 500
+          csv.field_size_limit(sys.maxsize)
+
+          def request(method, path, payload=None, timeout=180, attempts=8):
+              data = None if payload is None else json.dumps(payload, separators=(',', ':')).encode('utf-8')
+              headers = {'User-Agent': 'Occu-Med Insight Hub 2.0 OSHA batch loader'}
+              if data is not None:
+                  headers['Content-Type'] = 'application/json'
+              last = None
+              for attempt in range(1, attempts + 1):
+                  try:
+                      req = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)
+                      with urllib.request.urlopen(req, timeout=timeout) as response:
+                          body = response.read().decode('utf-8', 'replace')
+                          parsed = json.loads(body) if body else {}
+                          if response.status not in (200, 202):
+                              raise RuntimeError(f'HTTP {response.status}: {body[:500]}')
+                          return parsed
+                  except Exception as exc:
+                      last = exc
+                      print(f'request {method} {path} attempt {attempt}/{attempts} failed: {exc}', flush=True)
+                      if attempt < attempts:
+                          time.sleep(min(30, attempt * 3))
+              raise RuntimeError(f'{method} {path} failed after {attempts} attempts: {last}')
+
+          # Render may still be rolling out the merged staging endpoints. Wait for them.
+          initialized = None
+          for attempt in range(1, 91):
+              try:
+                  initialized = request('POST', '/init', {}, timeout=30, attempts=1)
+                  print('init:', initialized, flush=True)
+                  break
+              except Exception as exc:
+                  print(f'waiting for staging endpoint ({attempt}/90): {exc}', flush=True)
+                  time.sleep(10)
+          if initialized is None:
+              raise RuntimeError('Staging endpoint never became available.')
+          if initialized.get('reason') == 'already-imported':
+              print('Dataset is already imported; nothing to upload.', flush=True)
+              sys.exit(0)
+
+          def norm(value):
+              value = re.sub(r'[^a-z0-9]+', '_', (value or '').lower())
+              return re.sub(r'_+', '_', value).strip('_')
+
+          def as_int(value):
+              value = (value or '').strip().replace(',', '')
+              if not value:
+                  return None
+              try:
+                  return int(float(value))
+              except Exception:
+                  return None
+
+          def as_float(value):
+              value = (value or '').strip().replace(',', '')
+              if not value:
+                  return None
+              try:
+                  return float(value)
+              except Exception:
+                  return None
+
+          def map_row(raw):
+              r = {norm(k): (v or '').strip() for k, v in raw.items() if k}
+              def g(*names):
+                  for name in names:
+                      value = r.get(norm(name), '')
+                      if value:
+                          return value
+                  return ''
+              establishment = g('establishment_name')
+              company = g('company_name') or establishment
+              return {
+                  'source_record_id': g('ID', 'record_id') or None,
+                  'source_establishment_id': g('establishment_ID', 'establishment_id') or None,
+                  'establishment_name': establishment,
+                  'company_name': company,
+                  'ein': g('ein') or None,
+                  'street_address': g('street_address') or None,
+                  'city': g('city') or None,
+                  'state': g('state').upper() or None,
+                  'zip_code': g('zip_code', 'zip') or None,
+                  'naics_code': g('naics_code', 'naics') or None,
+                  'naics_year': as_int(g('naics_year')),
+                  'industry_description': g('industry_description') or None,
+                  'establishment_type': as_int(g('establishment_type')),
+                  'establishment_size': as_int(g('size')),
+                  'annual_average_employees': as_int(g('annual_average_employees')),
+                  'total_hours_worked': as_int(g('total_hours_worked')),
+                  'case_number': g('case_number') or None,
+                  'date_of_incident': g('date_of_incident') or None,
+                  'incident_outcome': as_int(g('incident_outcome')),
+                  'days_away': as_int(g('dafw_num_away')),
+                  'restricted_days': as_int(g('djtr_num_tr')),
+                  'type_of_incident': as_int(g('type_of_incident')),
+                  'time_started_work': g('time_started_work') or None,
+                  'time_of_incident': g('time_of_incident') or None,
+                  'time_unknown': as_int(g('time_unknown')),
+                  'date_of_death': g('date_of_death') or None,
+                  'created_timestamp': g('created_timestamp') or None,
+                  'year_of_filing': as_int(g('year_of_filing')) or 2025,
+                  'job_description': g('job_description', 'job_title') or None,
+                  'soc_code': g('SOC_code1', 'SOC_code', 'soc_code1', 'soc_code') or None,
+                  'soc_description': g('SOC_description1', 'SOC_description', 'soc_description1', 'soc_description') or None,
+                  'soc_probability': as_float(g('SOC_probability1', 'SOC_probability', 'soc_probability1', 'soc_probability')),
+                  'soc_reviewed': as_int(g('SOC_reviewed1', 'SOC_reviewed', 'soc_reviewed1', 'soc_reviewed')),
+                  'unexpected_naics_soc_combo': g('Unexpected_NAICS_SOC_Combo1', 'unexpected_naics_soc_combo1') or None,
+                  'incident_location': g('New_incident_location2', 'New_incident_location', 'new_incident_location2', 'new_incident_location') or None,
+                  'incident_description': g('New_incident_description2', 'New_incident_description', 'new_incident_description2', 'new_incident_description') or None,
+                  'narrative_before_incident': g('New_nar_before_incident2', 'New_nar_before_incident', 'new_nar_before_incident2', 'new_nar_before_incident') or None,
+                  'narrative_what_happened': g('New_nar_what_happened2', 'New_nar_what_happened', 'new_nar_what_happened2', 'new_nar_what_happened') or None,
+                  'narrative_injury_illness': g('New_nar_injury_illness2', 'New_nar_injury_illness', 'new_nar_injury_illness2', 'new_nar_injury_illness') or None,
+                  'narrative_object_substance': g('New_nar_object_substance2', 'New_nar_object_substance', 'new_nar_object_substance2', 'new_nar_object_substance') or None,
+                  'nature_code': g('Nature_code_pred3', 'Nature_code_pred', 'nature_code_pred3', 'nature_code_pred') or None,
+                  'nature_title': g('Nature_title_pred3', 'Nature_title_pred', 'nature_title_pred3', 'nature_title_pred') or None,
+                  'body_part_code': g('Part_code_pred3', 'Part_code_pred', 'part_code_pred3', 'part_code_pred') or None,
+                  'body_part_title': g('Part_title_pred3', 'Part_title_pred', 'part_title_pred3', 'part_title_pred') or None,
+                  'event_code': g('Event_code_pred3', 'Event_code_pred', 'event_code_pred3', 'event_code_pred') or None,
+                  'event_title': g('Event_title_pred3', 'Event_title_pred', 'event_title_pred3', 'event_title_pred') or None,
+                  'source_code': g('Source_code_pred3', 'Source_code_pred', 'source_code_pred3', 'source_code_pred') or None,
+                  'source_title': g('Source_title_pred3', 'Source_title_pred', 'source_title_pred3', 'source_title_pred') or None,
+                  'secondary_source_code': g('Sec_source_code_pred3', 'Sec_source_code_pred', 'sec_source_code_pred3', 'sec_source_code_pred') or None,
+                  'secondary_source_title': g('Sec_source_title_pred3', 'Sec_source_title_pred', 'sec_source_title_pred3', 'sec_source_title_pred') or None,
+              }
+
+          total = 0
+          batch = []
+          with open(FILE, 'r', encoding='utf-8-sig', newline='') as handle:
+              reader = csv.DictReader(handle)
+              for raw in reader:
+                  mapped = map_row(raw)
+                  if not mapped['source_record_id'] and not mapped['establishment_name'] and not mapped['company_name']:
+                      continue
+                  batch.append(mapped)
+                  if len(batch) >= BATCH_SIZE:
+                      result = request('POST', '/batch', {'rows': batch}, timeout=240)
+                      total += len(batch)
+                      batch = []
+                      if total % 10000 == 0:
+                          print(f'uploaded {total:,} rows; server staged={result.get("stagedRows")}', flush=True)
+              if batch:
+                  result = request('POST', '/batch', {'rows': batch}, timeout=240)
+                  total += len(batch)
+
+          status = request('GET', '/status', None, timeout=60)
+          size = os.path.getsize(FILE)
+          digest = hashlib.sha256()
+          with open(FILE, 'rb') as source:
+              for chunk in iter(lambda: source.read(8 * 1024 * 1024), b''):
+                  digest.update(chunk)
+          print(json.dumps({
+              'ok': True,
+              'parsedRows': total,
+              'stagedRows': status.get('stagedRows'),
+              'bytes': size,
+              'sha256': digest.hexdigest(),
+          }, indent=2), flush=True)
+          if int(status.get('stagedRows') or 0) != total:
+              raise RuntimeError(f'Staged row count {status.get("stagedRows")} does not match parsed rows {total}.')
+          PY
