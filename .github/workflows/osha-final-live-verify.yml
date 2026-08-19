@@ -1,0 +1,96 @@
+name: OSHA Final Live Verify
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.head_ref == 'ops/osha-final-live-verify'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify final production OSHA data layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, time, urllib.error, urllib.parse, urllib.request
+
+          BASE='https://insight-hub2-0-x45d.onrender.com/api/occupational-discovery'
+
+          def get_json(url, timeout=60):
+              req=urllib.request.Request(url,headers={'User-Agent':'Occu-Med Insight Hub 2.0 final verifier'})
+              with urllib.request.urlopen(req,timeout=timeout) as response:
+                  return response.status, json.loads(response.read().decode('utf-8'))
+
+          payload=None
+          for attempt in range(1,61):
+              try:
+                  q=urllib.parse.urlencode({'soc':'33-2011','title':'Firefighters'})
+                  _, payload=get_json(f'{BASE}/osha-occupation-profile?{q}')
+                  p=payload.get('profile') or {}
+                  restricted=int(p.get('totalRestrictedDays') or 0)
+                  if (payload.get('ok') is True and p.get('selectedYear') == 2025 and p.get('oiicsYear') == 2024
+                      and int(p.get('totalCases') or 0) > 0 and int(p.get('codedBodyPartCases') or 0) > 0
+                      and restricted >= 0 and p.get('bodyParts') and p.get('events') and p.get('natures') and p.get('sources')):
+                      break
+                  print(f'attempt {attempt}: waiting for final deploy: selected={p.get("selectedYear")} oiics={p.get("oiicsYear")} restricted={p.get("totalRestrictedDays")}', flush=True)
+              except Exception as exc:
+                  print(f'attempt {attempt}: {exc}', flush=True)
+              time.sleep(10)
+          else:
+              raise RuntimeError('Final production OSHA profile did not become healthy in time.')
+
+          p=payload['profile']
+          _, overview=get_json(f'{BASE}/osha-case-overview')
+          total_imported=int((overview.get('importInfo') or {}).get('totalCases') or 0)
+
+          # Temporary aggregate ingestion/status endpoints must be gone after cleanup.
+          removed={}
+          for name,path in [('batch','/osha-oiics-profile/batch'),('status','/osha-oiics-profile/status')]:
+              req=urllib.request.Request(BASE+path,headers={'User-Agent':'Occu-Med Insight Hub 2.0 final verifier'},method='GET')
+              try:
+                  with urllib.request.urlopen(req,timeout=30) as response:
+                      removed[name]=response.status
+              except urllib.error.HTTPError as exc:
+                  removed[name]=exc.code
+
+          summary={
+              'currentImportedCases': total_imported,
+              'firefighter': {
+                  'selectedYear': p.get('selectedYear'),
+                  'oiicsYear': p.get('oiicsYear'),
+                  'matchedSocCode': p.get('matchedSocCode'),
+                  'currentReportedCases': p.get('totalCases'),
+                  'daysAway': p.get('totalDaysAway'),
+                  'restrictedDays': p.get('totalRestrictedDays'),
+                  'oiicsCaseCount': p.get('oiicsCaseCount'),
+                  'codedBodyPartCases': p.get('codedBodyPartCases'),
+                  'codedNatureCases': p.get('codedNatureCases'),
+                  'codedEventCases': p.get('codedEventCases'),
+                  'codedSourceCases': p.get('codedSourceCases'),
+                  'topBodyPart': (p.get('bodyParts') or [None])[0],
+                  'topEvent': (p.get('events') or [None])[0],
+                  'topNature': (p.get('natures') or [None])[0],
+                  'topSource': (p.get('sources') or [None])[0],
+              },
+              'temporaryEndpoints': removed,
+          }
+          print(json.dumps(summary,indent=2), flush=True)
+
+          assert total_imported == 697201, total_imported
+          assert p.get('selectedYear') == 2025
+          assert p.get('oiicsYear') == 2024
+          assert int(p.get('totalRestrictedDays') or 0) >= 0
+          assert int(p.get('codedBodyPartCases') or 0) > 0
+          assert int(p.get('codedNatureCases') or 0) > 0
+          assert int(p.get('codedEventCases') or 0) > 0
+          assert int(p.get('codedSourceCases') or 0) > 0
+          assert removed['batch'] == 404, removed
+          assert removed['status'] == 404, removed
+          PY
