@@ -120,7 +120,8 @@ test("Job Intelligence persists a structured company/job profile instead of a gl
   const savedSelect = page.getByLabel("Saved profiles");
   await expect(savedSelect.locator("option", { hasText: "V2X · Redzikowo Firefighter" })).toHaveCount(1);
   await savedSelect.selectOption("profile-1");
-  await expect(page.getByDisplayValue("Redzikowo Firefighter")).toBeVisible();
-  await expect(page.getByDisplayValue("Respond to fire alarms and emergency calls.")).toBeVisible();
-  await expect(page.getByText("OFFICIAL O*NET")).toBeVisible();
+  await expect(page.getByLabel("Profile name")).toHaveValue("Redzikowo Firefighter");
+  const restoredDuty = page.locator("article").filter({ hasText: "OFFICIAL O*NET" }).last();
+  await expect(restoredDuty.locator("textarea").first()).toHaveValue("Respond to fire alarms and emergency calls.");
+  await expect(restoredDuty.getByText("OFFICIAL O*NET")).toBeVisible();
 });
