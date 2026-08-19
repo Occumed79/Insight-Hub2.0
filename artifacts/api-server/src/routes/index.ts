@@ -48,34 +48,32 @@ import standardsIntelligenceRouter from "./standards-intelligence";
 
 const router: IRouter = Router();
 
-[
-  healthRouter,
-  aorSourcePolicyRouter,
-  stateMapGeometryRouter,
-  coreLiveSearchRouter,
-  fmcsaRouter,
-  coreIntelligenceRouter,
-  locationDiscoveryCacheRouter,
-  entityDiscoveryRouter,
-  locationsCerebrasV2Router,
-  locationsAiRouter,
-  bulkManualLocationsRouter,
-  intelligenceRouter,
-  publicApiRepairsRouter,
-  employerIntelligenceRouter,
-  companyLiveIntelligenceRouter,
-  courtlistenerRichRouter,
-  crisiswatchRouter,
-  aorTravelHealthRouter,
-  aorProductionRepairRouter,
-  aorRiskIntelligenceRouter,
-  reviewerToolsRouter,
-  standardsIntelligenceRouter,
-  drugIntelligenceRouter,
-  workersCompCoverageRouter,
-  dbaIntelligenceRouter,
-].forEach((child) => router.use(child));
-
+router.use(healthRouter);
+router.use(aorSourcePolicyRouter);
+router.use(stateMapGeometryRouter);
+router.use(coreLiveSearchRouter);
+router.use(fmcsaRouter);
+router.use(coreIntelligenceRouter);
+router.use(locationDiscoveryCacheRouter);
+router.use(entityDiscoveryRouter);
+router.use(locationsCerebrasV2Router);
+router.use(locationsAiRouter);
+router.use(bulkManualLocationsRouter);
+router.use(intelligenceRouter);
+router.use(publicApiRepairsRouter);
+router.use(employerIntelligenceRouter);
+router.use(companyLiveIntelligenceRouter);
+router.use(courtlistenerRichRouter);
+router.use(crisiswatchRouter);
+router.use(aorTravelHealthRouter);
+router.use(aorProductionRepairRouter);
+router.use(aorRiskIntelligenceRouter);
+router.use(reviewerToolsRouter);
+router.use(standardsIntelligenceRouter);
+// Drug Checker live FDA/RxNorm/RxClass intelligence remains isolated from the generic reviewer-tool routes.
+router.use(drugIntelligenceRouter);
+router.use(workersCompCoverageRouter);
+router.use(dbaIntelligenceRouter);
 router.use("/dba/hub", (_req, res, next) => {
   const originalJson = res.json.bind(res);
   res.json = ((body: unknown) => {
@@ -86,29 +84,26 @@ router.use("/dba/hub", (_req, res, next) => {
   }) as typeof res.json;
   next();
 });
-
-[
-  dbaHubRouter,
-  sourceGovernanceRouter,
-  dataVisualizationRouter,
-  portalLinksRouter,
-  secFilingsRouter,
-  hiringIntelligenceRouter,
-  leadershipMapManualSnapshotsRouter,
-  leadershipMapQualityRouter,
-  leadershipMapCerebrasV2Router,
-  leadershipMapLangSearchRouter,
-  leadershipMapOrchestrationRouter,
-  corporateStructureRouter,
-  occupationalToolsRouter,
-  occupationalDiscoveryRouter,
-  occupationalCaseDetailRouter,
-  occupationalBlsHistoryRouter,
-  occupationalDatagovWorkbenchRouter,
-  occupationalOnetDatabaseRouter,
-  occupationalSourceBrowserRouter,
-  jobIntelligenceRouter,
-  officialSourceWebviewRouter,
-].forEach((child) => router.use(child));
+router.use(dbaHubRouter);
+router.use(sourceGovernanceRouter);
+router.use(dataVisualizationRouter);
+router.use(portalLinksRouter);
+router.use(secFilingsRouter);
+router.use(hiringIntelligenceRouter);
+router.use(leadershipMapManualSnapshotsRouter);
+router.use(leadershipMapQualityRouter);
+router.use(leadershipMapCerebrasV2Router);
+router.use(leadershipMapLangSearchRouter);
+router.use(leadershipMapOrchestrationRouter);
+router.use(corporateStructureRouter);
+router.use(occupationalToolsRouter);
+router.use(occupationalDiscoveryRouter);
+router.use(occupationalCaseDetailRouter);
+router.use(occupationalBlsHistoryRouter);
+router.use(occupationalDatagovWorkbenchRouter);
+router.use(occupationalOnetDatabaseRouter);
+router.use(occupationalSourceBrowserRouter);
+router.use(jobIntelligenceRouter);
+router.use(officialSourceWebviewRouter);
 
 export default router;
