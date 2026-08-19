@@ -38,6 +38,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Trigger current main on Render once
+        if: github.event_name == 'pull_request'
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        shell: bash
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL is not configured"
+            exit 1
+          fi
+          status=$(curl --silent --show-error --output /tmp/render-deploy-response.txt --write-out "%{http_code}" --request POST "$RENDER_DEPLOY_HOOK_URL")
+          echo "Render deploy hook HTTP status: $status"
+          cat /tmp/render-deploy-response.txt || true
+          test "$status" -ge 200 -a "$status" -lt 300
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
