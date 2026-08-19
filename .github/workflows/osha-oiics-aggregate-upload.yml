@@ -68,7 +68,7 @@ jobs:
               if len(csv_names) != 1:
                   raise RuntimeError(f'Expected one CSV in OSHA archive, found {csv_names}')
               with archive.open(csv_names[0]) as raw:
-                  text = io.TextIOWrapper(raw, encoding='utf-8-sig', newline='')
+                  text = io.TextIOWrapper(raw, encoding='cp1252', errors='replace', newline='')
                   reader = csv.DictReader(text)
                   for row in reader:
                       raw_rows += 1
