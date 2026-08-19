@@ -16,6 +16,25 @@ const aorFixture = {
   earthquakes: [{ id: "usgs-tj", title: "M4.2 · 24 km ESE of Norak, Tajikistan", place: "24 km ESE of Norak, Tajikistan", magnitude: 4.2, occurredAt: new Date().toISOString(), url: "https://earthquake.usgs.gov/", tsunami: false, latitude: 38.3, longitude: 69.4, depthKm: 10 }],
 };
 
+
+const globalWatchFixture = {
+  ok: true,
+  partial: false,
+  sourceHealth: [
+    { provider: "WHO Disease Outbreak News", ok: true, count: 1 },
+    { provider: "GDACS", ok: true, count: 1 },
+    { provider: "USGS Earthquake Catalog", ok: true, count: 1 },
+  ],
+  outbreaks: [{ id: "global-who", title: "Global WHO watch item", publicationDate: new Date().toISOString(), summary: "Global outbreak context", sourceUrl: "https://www.who.int/" }],
+  disasters: [{ eventId: "global-red", name: "Test cyclone requiring attention", alertLevel: "RED", fromDate: new Date().toISOString(), country: "Testland", latitude: 12, longitude: 22, sourceUrl: "https://www.gdacs.org/" }],
+  earthquakes: [{ id: "global-usgs", title: "M6.4 · Global test earthquake", place: "Global test location", magnitude: 6.4, occurredAt: new Date().toISOString(), url: "https://earthquake.usgs.gov/", tsunami: false, latitude: 5, longitude: 6, depthKm: 12 }],
+};
+
+const kuwaitSeismicFixture = {
+  ok: true,
+  earthquakes: [{ id: "kw-usgs", title: "M5.1 · Kuwait test earthquake", place: "Kuwait", magnitude: 5.1, occurredAt: new Date().toISOString(), url: "https://earthquake.usgs.gov/", tsunami: false, latitude: 29.2, longitude: 47.4, depthKm: 9 }],
+};
+
 const cdcFixture = {
   ok: true,
   country: "Kuwait",
@@ -117,6 +136,8 @@ const mapTilerStub = String.raw`
 
 async function mockAor(page: Page) {
   await page.route("**/api/aor/unified-command?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(aorFixture) }));
+  await page.route("**/api/aor/global-watch", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(globalWatchFixture) }));
+  await page.route("**/api/aor/seismic-activity?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(kuwaitSeismicFixture) }));
   await page.route("**/api/map-config", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: true, apiKey: "test-maptiler-key" }) }));
   await page.route("**/maptiler-sdk.umd.min.js", async (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: mapTilerStub }));
   await page.route("**/maptiler-sdk.css", async (route) => route.fulfill({ status: 200, contentType: "text/css", body: ".maplibregl-map,.maplibregl-canvas-container,.maplibregl-canvas{width:100%;height:100%}" }));
@@ -152,6 +173,9 @@ test("AOR Factors defaults to clean country mode on MapTiler vector tiles", asyn
   expect(Number(dimensions.rect.width)).toBeGreaterThan(50);
   expect(Number(dimensions.rect.height)).toBeGreaterThan(50);
   await expect(page.getByText("Select a country to load its CDC travel-health profile.")).toBeVisible();
+  await expect(page.getByText("Operational Priority Brief")).toBeVisible();
+  await expect(page.getByText("Global watch")).toBeVisible();
+  await expect(page.getByText("RED · Test cyclone requiring attention")).toBeVisible();
 });
 
 test("country mode loads vaccines and travel-relevant infectious disease context without AOR fallback", async ({ page }) => {
@@ -168,10 +192,11 @@ test("country mode loads vaccines and travel-relevant infectious disease context
   await expect(page.getByText("Dengue")).toBeVisible();
   await expect(page.getByText("Middle East Respiratory Syndrome (MERS)")).toBeVisible();
   await expect(page.getByText("Level 1 · Exercise Normal Precautions")).toBeVisible();
+  await expect(page.getByText("M5.1 · Kuwait test earthquake")).toBeVisible();
   await expect(page.getByText("GREEN · Forest fires in Kazakhstan")).toHaveCount(0);
   await expect(page.getByText("M4.2 · 24 km ESE of Norak, Tajikistan")).toHaveCount(0);
   await expect(page.getByText("No GDACS event whose returned country metadata matches Kuwait.")).toBeVisible();
-  await expect(page.getByText(/unrelated command earthquakes are not substituted/)).toBeVisible();
+  await expect(page.getByText(/command-wide earthquakes are not substituted/)).toBeVisible();
   await expect(page.getByText("WHO returned no text-matched outbreak item for Kuwait; unrelated outbreaks are not substituted.")).toBeVisible();
 });
 

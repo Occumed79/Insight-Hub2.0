@@ -220,14 +220,15 @@ router.get("/aor/crisiswatch", async (req: Request, res: Response) => {
   try {
     const loaded = await loadFeed();
     const directMatches = loaded.items.filter((item) => matchesCountry(country, item));
-    const selected = (directMatches.length > 0 ? directMatches : loaded.items.slice(0, 12)).slice(0, 20);
+    const selected = directMatches.slice(0, 20);
 
     return res.json({
       ok: true,
       configured: true,
       country,
       directMatches: directMatches.length,
-      fallbackUsed: directMatches.length === 0,
+      fallbackUsed: false,
+      unrelatedItemsOmitted: Math.max(0, loaded.items.length - directMatches.length),
       updates: selected.map((item) => ({
         ...item,
         matchedCountry: matchesCountry(country, item),
@@ -236,7 +237,7 @@ router.get("/aor/crisiswatch", async (req: Request, res: Response) => {
       source: "International Crisis Group CrisisWatch",
       sourceUrl: SOURCE_URL,
       feedUrl: FEED_URL,
-      limitation: "CrisisWatch is qualitative early-warning analysis rather than event-level incident data. Country matching is text-based, cross-border conflicts may appear under regional names, and all summaries should be reviewed against the linked source.",
+      limitation: "CrisisWatch is qualitative early-warning analysis rather than event-level incident data. Country matching is text-based; unrelated global feed items are intentionally omitted when the selected country has no direct match, and cross-border conflicts may appear under regional names.",
     });
   } catch (error) {
     return res.status(502).json({ ok: false, configured: true, error: safeError(error) });

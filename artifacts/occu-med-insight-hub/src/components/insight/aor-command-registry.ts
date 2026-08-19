@@ -1,0 +1,14 @@
+export const AOR_REGISTRY_REVIEWED_AT = "2026-08-19";
+
+export const COMMANDS = [
+  { id: "northcom", label: "USNORTHCOM", scope: "United States, Canada, Mexico, Greenland, The Bahamas, and assigned approaches", center: [-101, 46] as [number, number], zoom: 1.55, color: "#49e1df", countries: ["US", "CA", "MX", "GL", "BS", "PR", "VI"] },
+  { id: "southcom", label: "USSOUTHCOM", scope: "Central America, South America, the Caribbean, and adjacent approaches", center: [-67, -9] as [number, number], zoom: 1.7, color: "#54f0bd", countries: ["AG", "AR", "BB", "BZ", "BO", "BR", "CL", "CO", "CR", "CU", "DM", "DO", "EC", "SV", "GD", "GT", "GY", "HT", "HN", "JM", "NI", "PA", "PY", "PE", "KN", "LC", "VC", "SR", "TT", "UY", "VE"] },
+  { id: "eucom", label: "USEUCOM", scope: "Europe and assigned portions of Eurasia, the Arctic, Atlantic, and adjoining approaches", center: [21, 52] as [number, number], zoom: 2.15, color: "#65b9ff", countries: ["AL", "AD", "AM", "AT", "AZ", "BY", "BE", "BA", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "GE", "DE", "GR", "HU", "IS", "IE", "IT", "XK", "LV", "LI", "LT", "LU", "MT", "MD", "MC", "ME", "NL", "MK", "NO", "PL", "PT", "RO", "RU", "SM", "RS", "SK", "SI", "ES", "SE", "CH", "TR", "UA", "GB", "VA"] },
+  { id: "africom", label: "USAFRICOM", scope: "The African continent, island nations, and surrounding waters, except Egypt", center: [19, 3] as [number, number], zoom: 1.8, color: "#a580ff", countries: ["DZ", "AO", "BJ", "BW", "BF", "BI", "CV", "CM", "CF", "TD", "KM", "CG", "CD", "CI", "DJ", "GQ", "ER", "SZ", "ET", "GA", "GM", "GH", "GN", "GW", "KE", "LS", "LR", "LY", "MG", "MW", "ML", "MR", "MU", "MA", "MZ", "NA", "NE", "NG", "RW", "ST", "SN", "SC", "SL", "SO", "ZA", "SS", "SD", "TZ", "TG", "TN", "UG", "ZM", "ZW"] },
+  { id: "centcom", label: "USCENTCOM", scope: "Twenty-one nations across the Middle East and Central and South Asia, including Egypt", center: [53, 30] as [number, number], zoom: 2.25, color: "#54d8ff", countries: ["AF", "BH", "EG", "IR", "IQ", "IL", "JO", "KZ", "KW", "KG", "LB", "OM", "PK", "QA", "SA", "SY", "TJ", "TM", "AE", "UZ", "YE"] },
+  { id: "indopacom", label: "USINDOPACOM", scope: "The Indo-Pacific from India through East Asia, Australia, and Pacific island nations", center: [142, 13] as [number, number], zoom: 1.45, color: "#7d78ff", countries: ["AU", "BD", "BT", "BN", "KH", "CN", "TW", "FJ", "IN", "ID", "JP", "KI", "LA", "MY", "MV", "MH", "FM", "MN", "MM", "NR", "NP", "NZ", "KP", "PW", "PG", "PH", "WS", "SG", "SB", "KR", "LK", "TH", "TL", "TO", "TV", "VU", "VN"] },
+] as const;
+
+export type Command = (typeof COMMANDS)[number];
+export type CommandId = Command["id"];
+export const COMMAND_BY_COUNTRY = new Map<string, Command>(COMMANDS.flatMap((command) => command.countries.map((iso2) => [iso2, command] as [string, Command])));
