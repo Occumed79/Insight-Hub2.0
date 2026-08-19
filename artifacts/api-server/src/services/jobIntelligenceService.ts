@@ -59,6 +59,7 @@ function text(value: unknown, max = 4000): string {
 }
 
 function numberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
