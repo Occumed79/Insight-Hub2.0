@@ -359,7 +359,7 @@ test("Drug Checker surfaces live FDA label evidence and regimen overlap without 
   await page.goto("/drug-checker");
   await page.getByPlaceholder("Gabapentin, Eliquis, metoprolol…").fill("gabapentin");
   await page.getByRole("button", { name: /gabapentin 300 MG Oral Capsule/ }).click();
-  await expect(page.getByText("FDA label intelligence")).toBeVisible();
+  await expect(page.getByText("04 · FDA label intelligence", { exact: true })).toBeVisible();
   await expect(page.getByText("Alertness / psychomotor").first()).toBeVisible();
 
   await page.getByPlaceholder("Gabapentin, Eliquis, metoprolol…").fill("metoprolol");
@@ -401,7 +401,7 @@ test("all six transplanted reviewer tools render and retain their core interacti
   await page.getByPlaceholder("Gabapentin, Eliquis, metoprolol…").fill("gabapentin");
   await expect(page.getByRole("button", { name: /gabapentin 300 MG Oral Capsule/ })).toBeVisible();
   await page.getByRole("button", { name: /gabapentin 300 MG Oral Capsule/ }).click();
-  await expect(page.getByText("FDA label intelligence")).toBeVisible();
+  await expect(page.getByText("04 · FDA label intelligence", { exact: true })).toBeVisible();
   await expect(page.getByText("Alertness / psychomotor").first()).toBeVisible();
   await expect(page.getByText("Gabapentinoid")).toBeVisible();
   await expect(page.getByText("C9H17NO2")).toBeVisible();
