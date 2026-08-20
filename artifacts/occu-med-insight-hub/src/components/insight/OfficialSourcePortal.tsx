@@ -69,7 +69,7 @@ function PortalFrame({ source }: { source: SourcePortal }) {
           <p className="mt-1 text-[10px] text-cyan-50/46">{source.focus}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setFrameKey((value) => value + 1)} aria-label={`Reload ${source.shortLabel}`} className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-3 text-[10px] font-bold text-cyan-50/64 transition hover:border-cyan-200/24 hover:text-white"><RefreshCw size={13} />Reload</button>
+          <button type="button" onClick={() => setFrameKey((value) => value + 1)} aria-label="Reload official source" className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-3 text-[10px] font-bold text-cyan-50/64 transition hover:border-cyan-200/24 hover:text-white"><RefreshCw size={13} />Reload</button>
           <a href={source.url} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-cyan-200/18 bg-cyan-300/[0.07] px-3 text-[10px] font-bold text-cyan-50/78 transition hover:border-cyan-200/35 hover:text-white">Open source<ArrowUpRight size={13} /></a>
         </div>
       </div>
