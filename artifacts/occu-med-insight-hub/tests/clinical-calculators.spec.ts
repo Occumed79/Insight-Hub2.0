@@ -177,3 +177,56 @@ test("Standards Intelligence is API-backed, expands the source registry, and rec
   await expect(page.getByText(/Coverage is explicit/)).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
+
+test("deployed Standards Intelligence exposes the complete registry and live recommendations", async ({ request }) => {
+  test.setTimeout(90_000);
+  const base = "https://insight-hub2-0-x45d.onrender.com";
+  let lastProblem = "deployment not ready";
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    try {
+      const catalogResponse = await request.get(`${base}/api/standards/catalog`, { timeout: 20_000 });
+      if (!catalogResponse.ok()) {
+        lastProblem = `catalog HTTP ${catalogResponse.status()}`;
+      } else {
+        const catalog = await catalogResponse.json();
+        const ids = new Set((catalog.sources ?? []).map((source: { id?: string }) => source.id));
+        const required = ["centcom-mod18", "fmcsa", "faa", "nfpa1580", "osha-respiratory", "osha-noise", "osha-hazwoper", "osha-bloodborne", "osha-lead", "osha-asbestos", "osha-cadmium", "dot-part40"];
+        const catalogReady = catalog.ok === true && catalog.architectureVersion === "standards-api-v2" && catalog.totalSources >= 12 && required.every((id) => ids.has(id));
+        if (catalogReady) {
+          const evaluationResponse = await request.post(`${base}/api/standards/evaluate`, {
+            timeout: 20_000,
+            data: {
+              frameworks: ["centcom-mod18", "nfpa1580", "osha-respiratory"],
+              occupation: "Firefighter / DoD contractor",
+              condition: "Obstructive sleep apnea",
+              medication: "",
+              respiratorRequired: true,
+            },
+          });
+          if (evaluationResponse.ok()) {
+            const evaluation = await evaluationResponse.json();
+            const findingIds = new Set((evaluation.findings ?? []).map((finding: { standardId?: string }) => finding.standardId));
+            const recommendationIds = new Set((evaluation.recommendations ?? []).map((recommendation: { standardId?: string }) => recommendation.standardId));
+            expect(evaluation.ok).toBe(true);
+            expect(evaluation.architectureVersion).toBe("standards-api-v2");
+            expect(findingIds.has("centcom-mod18")).toBe(true);
+            expect(findingIds.has("nfpa1580")).toBe(true);
+            expect(findingIds.has("osha-respiratory")).toBe(true);
+            expect(recommendationIds.has("nfpa1580")).toBe(true);
+            expect(recommendationIds.has("osha-respiratory")).toBe(true);
+            return;
+          }
+          lastProblem = `evaluation HTTP ${evaluationResponse.status()}`;
+        } else {
+          lastProblem = `catalog still old: ${JSON.stringify({ architectureVersion: catalog.architectureVersion, totalSources: catalog.totalSources })}`;
+        }
+      }
+    } catch (error) {
+      lastProblem = error instanceof Error ? error.message : String(error);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5_000));
+  }
+
+  throw new Error(`Standards production verification failed: ${lastProblem}`);
+});
