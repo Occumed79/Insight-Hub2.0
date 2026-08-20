@@ -296,7 +296,7 @@ async function fetchSAMOpportunities(
   aliases: string[],
   companyId: string
 ): Promise<{ facts: FactRow[]; diagnostic: SourceDiagnostic }> {
-  const apiKey = process.env.SAM_GOV_API_KEY;
+  const apiKey = process.env.SAM_API_KEY?.trim() || process.env.SAM_GOV_API_KEY?.trim() || null;
   if (!apiKey) {
     return {
       facts: [],

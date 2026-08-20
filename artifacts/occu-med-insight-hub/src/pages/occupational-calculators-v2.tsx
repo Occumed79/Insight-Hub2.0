@@ -116,7 +116,7 @@ function Waiting({ text }: { text: string }) { return <GlassCard className="p-8 
 
 function Rates({ shared }: { shared: SharedContext }) {
   const spec = tools.find((item) => item.id === "rates")!;
-  const [recordables, setRecordables] = useState(0); const [dartCases, setDartCases] = useState(0); const [awayCases, setAwayCases] = useState(0);
+  const [recordables, setRecordables] = useState(32); const [dartCases, setDartCases] = useState(18); const [awayCases, setAwayCases] = useState(9);
   const hours = shared.annualHours;
   const trir = calculateIncidentRate(recordables, hours); const dart = calculateIncidentRate(dartCases, hours); const away = calculateIncidentRate(awayCases, hours);
   const benchmark = shared.sector?.benchmark || null;
@@ -226,8 +226,8 @@ export default function OccupationalCalculatorsV2() {
   const [activeId, setActiveId] = useState<CalculatorId>("rates");
   const [category, setCategory] = useState<CategoryId>("safety");
   const [employer, setEmployer] = useState((context.legalName || context.employer || "").trim());
-  const [workforce, setWorkforce] = useState(0);
-  const [annualHours, setAnnualHours] = useState(0);
+  const [workforce, setWorkforce] = useState(1000);
+  const [annualHours, setAnnualHours] = useState(2_000_000);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [sector, setSector] = useState<Sector | null>(null);
 
@@ -246,6 +246,7 @@ export default function OccupationalCalculatorsV2() {
       <div className="grid gap-2 sm:grid-cols-2"><div className="rounded-xl border border-cyan-200/12 bg-cyan-300/[0.04] p-3"><p className="text-[9px] text-cyan-50/42">Calculators</p><p className="mt-1 text-2xl font-black">{tools.length}</p></div><div className="rounded-xl border border-violet-200/12 bg-violet-300/[0.04] p-3"><p className="text-[9px] text-cyan-50/42">Categories</p><p className="mt-1 text-2xl font-black">{categories.length}</p></div></div>
     </ToolHero>
 
+    <GlassCard className="mb-5 border-amber-200/20 bg-amber-300/[0.05] p-4"><p className="text-xs font-black uppercase tracking-[.15em] text-amber-100">Sample scenario — replace with employer values</p><p className="mt-2 text-xs text-cyan-50/55">Example workforce, hours, and calculator inputs are demonstration assumptions—not employer facts or official rates.</p></GlassCard>
     <GlassCard className="mb-5 p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-50/42">Shared context</p><h2 className="mt-1 text-lg font-black">Enter once; reuse only where mathematically relevant</h2></div><button type="button" onClick={resetShared} className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-[10px] font-black text-cyan-50/62"><RotateCcw size={13} />Reset shared context</button></div><div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><label><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">Employer / organization</span><input value={employer} onChange={(event) => setEmployer(event.target.value)} placeholder="Optional" className="mt-2 min-h-11 w-full rounded-xl border border-cyan-100/16 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /></label><NumberField label="Workforce size" value={workforce} onChange={setWorkforce} step={10} suffix="workers" /><NumberField label="Annual hours worked" value={annualHours} onChange={setAnnualHours} step={1000} suffix="hours" /><label><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">BLS industry benchmark</span><select value={sector?.id || ""} onChange={(event) => setSector(overview?.sectors?.find((item) => item.id === event.target.value) || null)} className="mt-2 min-h-11 w-full rounded-xl border border-cyan-100/16 bg-[#040c16]/92 px-3 text-sm text-white outline-none"><option value="">None selected</option>{(overview?.sectors || []).map((item) => <option key={item.id} value={item.id}>{item.label} · {item.naics}</option>)}</select></label></div></GlassCard>
 
     <GlassCard className="mb-5 p-4"><div className="flex flex-wrap gap-2">{categories.map((item) => <button key={item.id} type="button" onClick={() => { setCategory(item.id); const first = tools.find((tool) => tool.category === item.id); if (first) setActiveId(first.id); }} className={`rounded-full border px-3 py-2 text-[10px] font-black transition ${category === item.id ? "border-cyan-200/28 bg-cyan-300/[0.09] text-white" : "border-white/10 text-cyan-50/48"}`}>{item.label}</button>)}</div><p className="mt-3 text-[10px] leading-5 text-cyan-50/42">{categories.find((item) => item.id === category)?.description}</p></GlassCard>

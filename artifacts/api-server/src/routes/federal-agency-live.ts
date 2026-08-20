@@ -180,7 +180,7 @@ async function loadDirectory() {
   let pages = 0;
   while (pages < 6) {
     const url = new URL(SAM_HIERARCHY_URL);
-    url.searchParams.set("api_key", key);
+    url.searchParams.set("api_key", key!);
     url.searchParams.set("status", "Active");
     url.searchParams.set("limit", "100");
     url.searchParams.set("offset", String(offset));
@@ -302,20 +302,55 @@ async function loadOpportunities(agency: string, days: number) {
   const cacheKey = `sam-opportunities|${agency.toLowerCase()}|${normalizedDays}`;
   const cached = cacheGet<any>(cacheKey);
   if (cached) return { ...cached, cacheState: "fresh" };
-  if (!key) return { configured: false, opportunities: [], source: "SAM.gov Get Opportunities Public API", cacheState: "unavailable", retrievedAt: new Date().toISOString(), limitation: "SAM_API_KEY is not configured." };
+  if (!key) return { configured: false, opportunities: [], source: "SAM.gov Get Opportunities Public API", cacheState: "unavailable", retrievedAt: new Date().toISOString(), diagnostics: { configured: false, resultStatus: "not-configured", requestedAgency: agency, queryFilterMode: "none", postedFrom: null, postedTo: null, pagesRequested: 0, rawRecordsReturned: 0, normalizedRecordsReturned: 0, totalRecordsReportedBySam: 0, agencyMatchMethod: "none" }, limitation: "SAM_API_KEY is not configured; live solicitation results were not requested." };
 
   const postedTo = new Date();
   const postedFrom = new Date(postedTo.getTime() - normalizedDays * 86_400_000);
-  const url = new URL(SAM_OPPORTUNITIES_URL);
-  url.searchParams.set("api_key", key);
-  url.searchParams.set("postedFrom", mmddyyyy(postedFrom));
-  url.searchParams.set("postedTo", mmddyyyy(postedTo));
-  url.searchParams.set("organizationName", agency);
-  url.searchParams.set("limit", "100");
-  url.searchParams.set("offset", "0");
-
-  const payload = await fetchJson(url);
-  const rows: any[] = Array.isArray(payload?.opportunitiesData) ? payload.opportunitiesData : Array.isArray(payload?.results) ? payload.results : [];
+  const aliases = canonicalAgency(agency) === "Department of Defense" ? [agency, "DEPT OF DEFENSE"] : [agency];
+  let rows: any[] = [];
+  let totalRecords = 0;
+  let pagesRequested = 0;
+  let queryFilterMode = "organizationName";
+  let agencyMatchMethod = "SAM organizationName filter";
+  async function requestPages(organizationName?: string) {
+    const found: any[] = [];
+    const url = new URL(SAM_OPPORTUNITIES_URL);
+    url.searchParams.set("api_key", key!);
+    url.searchParams.set("postedFrom", mmddyyyy(postedFrom));
+    url.searchParams.set("postedTo", mmddyyyy(postedTo));
+    url.searchParams.set("limit", "100");
+    if (organizationName) url.searchParams.set("organizationName", organizationName);
+    let reported = 0;
+    for (let offset = 0; offset < 500; offset += 100) {
+      url.searchParams.set("offset", String(offset));
+      const payload = await fetchJson(url);
+      pagesRequested += 1;
+      const page: any[] = Array.isArray(payload?.opportunitiesData) ? payload.opportunitiesData : Array.isArray(payload?.results) ? payload.results : [];
+      found.push(...page);
+      reported = Number(payload?.totalRecords ?? found.length);
+      if (page.length < 100 || found.length >= reported) break;
+    }
+    return { found, reported };
+  }
+  for (const alias of aliases) {
+    const result = await requestPages(alias);
+    rows = result.found;
+    totalRecords = result.reported;
+    if (rows.length) { if (alias !== agency) { queryFilterMode = "organizationName-alias"; agencyMatchMethod = `SAM alias: ${alias}`; } break; }
+  }
+  let rawRecordsReturned = rows.length;
+  if (!rows.length) {
+    const broader = await requestPages();
+    rawRecordsReturned = broader.found.length;
+    const wanted = canonicalAgency(agency);
+    rows = broader.found.filter((row) => {
+      const parent = clean(row?.fullParentPathName || row?.organizationName, 500);
+      return canonicalAgency(parent) === wanted || tokenScore(parent, wanted) >= 0.5;
+    });
+    totalRecords = broader.reported;
+    queryFilterMode = "broad-retrieval-local-parent-match";
+    agencyMatchMethod = "canonical parent-path/token match";
+  }
   const opportunities = rows.map(normalizeOpportunity).sort((left, right) => String(right.postedDate || "").localeCompare(String(left.postedDate || "")));
   const value = {
     configured: true,
@@ -323,12 +358,25 @@ async function loadOpportunities(agency: string, days: number) {
     days: normalizedDays,
     opportunities,
     returned: opportunities.length,
-    totalRecords: Number(payload?.totalRecords ?? opportunities.length),
+    totalRecords: totalRecords || opportunities.length,
     occuMedRelevant: opportunities.filter((row) => row.occuMedRelevant).length,
+    diagnostics: {
+      configured: true,
+      resultStatus: opportunities.length ? "records-returned" : "zero-after-fallback",
+      requestedAgency: agency,
+      queryFilterMode,
+      postedFrom: mmddyyyy(postedFrom),
+      postedTo: mmddyyyy(postedTo),
+      pagesRequested,
+      rawRecordsReturned,
+      normalizedRecordsReturned: opportunities.length,
+      totalRecordsReportedBySam: totalRecords,
+      agencyMatchMethod,
+    },
     source: "SAM.gov Get Opportunities Public API",
     sourceUrl: "https://sam.gov/content/opportunities",
     retrievedAt: new Date().toISOString(),
-    limitation: "Opportunity notices are live SAM.gov records. Relevance tags are keyword triage for Occu-Med workflow review, not an assertion that a procurement is in scope.",
+    limitation: opportunities.length ? "Opportunity notices are live SAM.gov records. Relevance tags are keyword triage for Occu-Med workflow review, not an assertion that a procurement is in scope." : `SAM.gov returned no ${agency} records after organization-name aliases and broader parent-path matching; inspect diagnostics before concluding there are no live notices.`,
   };
   cacheSet(cacheKey, value);
   return { ...value, cacheState: "refreshed" };

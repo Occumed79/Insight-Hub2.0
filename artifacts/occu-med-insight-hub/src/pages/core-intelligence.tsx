@@ -81,6 +81,12 @@ type FederalItem = {
 
 type FederalBucketResponse = { items: FederalItem[]; bucket: string; total: number };
 
+type Competitor = {
+  id: string; name: string; website: string | null; description: string | null;
+  services: string | null; coverageStates: string | null; tier: string | null;
+  headquarters: string | null; employeeCount: string | null; founded: string | null; notes: string | null;
+};
+
 type StateProfile = {
   stateCode: string;
   stateName: string;
@@ -256,10 +262,27 @@ function SearchResults({ response, loading, error }: { response: LiveSearchRespo
 }
 
 export function CompetitorsPage() {
+  const [competitors, setCompetitors] = useState<Competitor[]>([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>(COMPETITOR_CATEGORIES[0]);
   const search = useLiveSearch("competitors");
-  return <WorkspaceShell eyebrow="Live Market Intelligence" title="Competitors" subtitle="Focused competitor research with public-source verification."><Tabs values={COMPETITOR_CATEGORIES} active={category} onChange={(value) => { setCategory(value); search.reset(); }} /><Panel className="p-4"><form onSubmit={(e) => { e.preventDefault(); void search.run(query, category, "oneYear"); }} className="flex gap-3"><label className="flex min-h-12 flex-1 items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-4"><Search size={16} className="text-cyan-100/50" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search a competitor, service market, contract, or strategic question…" className="w-full bg-transparent text-sm text-white outline-none" /></label><button disabled={query.trim().length < 2 || search.loading} className="rounded-xl border border-cyan-200/20 bg-cyan-300/[0.09] px-5 text-xs font-black">Search</button></form></Panel><SearchResults response={search.response} loading={search.loading} error={search.error} /></WorkspaceShell>;
+  useEffect(() => { let cancelled = false; void getJson<{ competitors: Competitor[] }>("competitors").then(({ competitors: rows }) => { if (cancelled) return; setCompetitors(rows); setSelectedId((current) => current || rows[0]?.id || ""); }).catch((reason) => { if (!cancelled) setError(reason instanceof Error ? reason.message : "Unable to load competitors."); }).finally(() => { if (!cancelled) setLoading(false); }); return () => { cancelled = true; }; }, []);
+  const selected = competitors.find((item) => item.id === selectedId) || competitors[0];
+  const parseList = (value: string | null) => { if (!value) return []; try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed.map(String) : [value]; } catch { return value.split(/[,;|]/).map((item) => item.trim()).filter(Boolean); } };
+  const tiers = competitors.reduce<Record<string, number>>((acc, item) => { const tier = item.tier || "unclassified"; acc[tier] = (acc[tier] || 0) + 1; return acc; }, {});
+  const states = new Set(competitors.flatMap((item) => parseList(item.coverageStates)));
+  const services = competitors.flatMap((item) => parseList(item.services));
+  const topServices = [...new Set(services)].slice(0, 8);
+  return <WorkspaceShell eyebrow="Database-backed market intelligence" title="Competitors" subtitle="The stored competitor roster and its strategic coverage load first. Select a company for an immediate capability brief; public research is secondary.">
+    {loading ? <Panel className="p-8 text-center"><Loader2 className="mx-auto animate-spin" />Loading competitor database…</Panel> : null}{error ? <Panel className="border-rose-200/20 p-5 text-rose-100">{error}</Panel> : null}
+    {!loading && !error ? <><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Panel className="p-4"><p className="text-[9px] uppercase text-cyan-100/45">Stored competitors</p><p className="mt-2 text-3xl font-black">{competitors.length}</p></Panel><Panel className="p-4"><p className="text-[9px] uppercase text-cyan-100/45">Market tiers</p><p className="mt-2 text-lg font-black">{Object.entries(tiers).map(([key,value]) => `${key} ${value}`).join(" · ") || "—"}</p></Panel><Panel className="p-4"><p className="text-[9px] uppercase text-cyan-100/45">Geographic footprint</p><p className="mt-2 text-3xl font-black">{states.size}</p><p className="text-xs text-cyan-50/45">coverage states represented</p></Panel><Panel className="p-4"><p className="text-[9px] uppercase text-cyan-100/45">Service capabilities</p><p className="mt-2 text-3xl font-black">{new Set(services).size}</p><p className="text-xs text-cyan-50/45">distinct stored services</p></Panel></section>
+    <section className="mt-5 grid gap-5 xl:grid-cols-[330px_1fr]"><Panel className="p-4"><h2 className="text-lg font-black">Competitor roster</h2><div className="mt-3 max-h-[680px] space-y-2 overflow-y-auto">{competitors.map((item) => <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={cn("w-full rounded-xl border p-3 text-left", selected?.id === item.id ? "border-cyan-200/30 bg-cyan-300/10" : "border-white/8 bg-white/[.02]")}><p className="font-black">{item.name}</p><p className="mt-1 text-[10px] text-cyan-50/45">{item.tier || "Unclassified"} · {item.headquarters || "HQ not stored"}</p></button>)}</div></Panel>
+    {selected ? <div className="space-y-4"><Panel className="p-5"><div className="flex justify-between gap-4"><div><p className="text-[9px] uppercase text-cyan-100/45">Overview</p><h2 className="mt-1 text-2xl font-black">{selected.name}</h2><p className="mt-2 text-xs leading-6 text-cyan-50/60">{selected.description || selected.notes || "Strategic description has not yet been stored."}</p></div>{selected.website ? <a href={selected.website} target="_blank" rel="noreferrer"><ExternalLink /></a> : null}</div><div className="mt-4 grid gap-3 sm:grid-cols-3"><p><strong>Tier</strong><br/><span className="text-xs text-cyan-50/55">{selected.tier || "—"}</span></p><p><strong>Headquarters</strong><br/><span className="text-xs text-cyan-50/55">{selected.headquarters || "—"}</span></p><p><strong>Size / founded</strong><br/><span className="text-xs text-cyan-50/55">{selected.employeeCount || "—"} · {selected.founded || "—"}</span></p></div></Panel><div className="grid gap-4 md:grid-cols-2"><Panel className="p-5"><h3 className="font-black">Service Capability</h3><div className="mt-3 flex flex-wrap gap-2">{parseList(selected.services).map((value) => <span key={value} className="rounded-full border border-cyan-200/15 px-3 py-1 text-xs">{value}</span>)}</div></Panel><Panel className="p-5"><h3 className="font-black">Geographic Coverage</h3><p className="mt-3 text-xs leading-6 text-cyan-50/60">{parseList(selected.coverageStates).join(" · ") || "Coverage not stored."}</p></Panel><Panel className="p-5"><h3 className="font-black">Federal Awards & Open Opportunities</h3><p className="mt-2 text-xs text-cyan-50/55">Select Federal Awards or Federal Agencies in the sidebar for source-specific USAspending and SAM intelligence for {selected.name}.</p></Panel><Panel className="p-5"><h3 className="font-black">Leadership / Corporate Positioning</h3><p className="mt-2 text-xs leading-6 text-cyan-50/55">{selected.notes || "No positioning notes stored."}</p></Panel></div></div> : <Panel className="p-8">No competitors are stored.</Panel>}</section>
+    <Panel className="mt-5 p-4"><p className="mb-3 text-[9px] font-black uppercase tracking-widest text-cyan-100/45">Research more · public sources</p><Tabs values={COMPETITOR_CATEGORIES} active={category} onChange={(value) => { setCategory(value); search.reset(); }} /><form onSubmit={(e) => { e.preventDefault(); void search.run(query, category, "oneYear"); }} className="mt-3 flex gap-3"><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Research ${selected?.name || "a competitor"} further`} className="min-h-12 flex-1 rounded-xl border border-white/10 bg-black/20 px-4 text-sm"/><button disabled={query.trim().length < 2 || search.loading} className="rounded-xl border border-cyan-200/20 px-5 text-xs font-black">Research more</button></form>{topServices.length ? <p className="mt-3 text-[10px] text-cyan-50/35">Roster service signals: {topServices.join(" · ")}</p> : null}</Panel><SearchResults response={search.response} loading={search.loading} error={search.error} /></> : null}
+  </WorkspaceShell>;
 }
 
 function federalMatches(item: FederalItem, view: string): boolean {
@@ -415,13 +438,14 @@ export function StateAgenciesPage() {
   const [profiles, setProfiles] = useState<StateProfile[]>([]);
   const [selected, setSelected] = useState<{ code: string; name: string } | null>(null);
   const [items, setItems] = useState<StateAgencyItem[]>([]);
+  const [nationalItems, setNationalItems] = useState<StateAgencyItem[]>([]);
   const [crossState, setCrossState] = useState<StateIntelItem[]>([]);
   const [view, setView] = useState<string>(STATE_VIEWS[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const pulse = useLiveSearch("state");
 
-  useEffect(() => { let cancelled = false; Promise.all([getJson<{ states: StateProfile[] }>("state-agencies/states"), getJson<{ items: StateIntelItem[] }>("state-agencies/intel?limit=200")]).then(([statePayload, intelPayload]) => { if (!cancelled) { setProfiles(statePayload.states); setCrossState(intelPayload.items); } }).catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "Unable to load state directory."); }); return () => { cancelled = true; }; }, []);
+  useEffect(() => { let cancelled = false; Promise.all([getJson<{ states: StateProfile[] }>("state-agencies/states"), getJson<{ items: StateIntelItem[] }>("state-agencies/intel?limit=200"), getJson<{ items: StateAgencyItem[] }>("state-agencies/items?limit=500")]).then(([statePayload, intelPayload, itemPayload]) => { if (!cancelled) { setProfiles(statePayload.states); setCrossState(intelPayload.items); setNationalItems(itemPayload.items); } }).catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "Unable to load state directory."); }); return () => { cancelled = true; }; }, []);
 
   useEffect(() => {
     if (!selected) return;
@@ -439,11 +463,16 @@ export function StateAgenciesPage() {
   const visible = items.filter((item) => stateViewMatches(item, view));
   const latestStored = [...items].sort((a, b) => new Date(b.publishedDate || b.fetchedAt || 0).getTime() - new Date(a.publishedDate || a.fetchedAt || 0).getTime())[0];
   const crossForState = selected ? crossState.filter((item) => !item.affectedStates || item.affectedStates.includes(selected.code) || item.affectedStates.toLowerCase().includes(selected.name.toLowerCase())) : [];
+  const nationalOccHealth = nationalItems.filter(occHealthRelevant);
+  const nationalProcurement = nationalItems.filter((item) => stateViewMatches(item, "Procurement"));
+  const statePlanCount = profiles.filter((item) => item.oshaStatePlan === "full").length;
+  const topStates = [...profiles].filter((item) => item.itemCount > 0).sort((a, b) => b.itemCount - a.itemCount).slice(0, 6);
+  const recentNational = [...nationalItems].sort((a, b) => new Date(b.publishedDate || b.fetchedAt || 0).getTime() - new Date(a.publishedDate || a.fetchedAt || 0).getTime()).slice(0, 6);
 
   return (
     <WorkspaceShell eyebrow="State compliance intelligence" title="State Agencies" subtitle="Select a state and the app immediately loads its official-source directory, stored regulatory/procurement intelligence, occupational-health signals, cross-state alerts, and a current compliance scan.">
       <StateMap selected={selected?.code || null} onSelect={(state) => { setSelected(state); setView("Compliance pulse"); }} />
-      {!selected ? <Panel className="mt-5 grid min-h-48 place-items-center p-8 text-center"><div><MapPin className="mx-auto text-cyan-200/50" /><p className="mt-3 text-base font-black">Choose a state to open its intelligence workspace</p><p className="mt-2 text-xs text-cyan-50/46">The map is the selector. You do not need to invent a search query.</p></div></Panel> : null}
+      {!selected ? <section className="mt-5 space-y-5" aria-label="National state-agency intelligence"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{[["States with intelligence", profiles.filter((item) => item.itemCount > 0).length, "stored state coverage"],["Stored state records", nationalItems.length, "loaded automatically"],["Occupational-health signals", nationalOccHealth.length, "medical / workforce evidence"],["Procurement signals", nationalProcurement.length, "bids, RFPs, contracts"],["OSHA state plans", statePlanCount, `${profiles.length - statePlanCount} federal / other`]].map(([label,value,note]) => <Panel key={String(label)} className="p-4"><p className="text-[9px] font-black uppercase tracking-[.14em] text-cyan-100/38">{label}</p><p className="mt-2 text-2xl font-black">{value}</p><p className="mt-1 text-[10px] text-cyan-50/42">{note}</p></Panel>)}</div><div className="grid gap-5 xl:grid-cols-2"><Panel className="p-5"><p className="text-[9px] font-black uppercase tracking-[.16em] text-cyan-100/40">Top states by stored activity</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{topStates.map((state) => <button key={state.stateCode} type="button" onClick={() => setSelected({ code: state.stateCode, name: state.stateName })} className="rounded-xl border border-white/8 bg-white/[.025] p-3 text-left"><span className="font-black">{state.stateName}</span><span className="float-right text-cyan-100/55">{state.itemCount}</span></button>)}</div></Panel><Panel className="p-5"><p className="text-[9px] font-black uppercase tracking-[.16em] text-violet-100/45">Latest national state signals</p><div className="mt-3 space-y-2">{recentNational.map((item) => <div key={item.id} className="rounded-xl border border-white/8 p-3"><p className="text-[9px] text-cyan-100/42">{item.stateCode} · {item.bucket} · {formatDate(item.publishedDate || item.fetchedAt)}</p><p className="mt-1 text-xs font-black">{item.title}</p></div>)}</div></Panel></div></section> : null}
       {selected ? <section className="mt-5">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {[
