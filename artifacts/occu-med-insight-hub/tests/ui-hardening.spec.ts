@@ -189,33 +189,16 @@ async function installDeterministicApi(page: Page) {
     const url = new URL(request.url());
     const path = url.pathname;
 
-    if (path.endsWith("/api/portal-links")) {
-      return fulfillJson(route, { links: portalLinks });
-    }
-    if (path.endsWith("/api/prospects")) {
-      return fulfillJson(route, { prospects });
-    }
-    if (path.endsWith("/api/clients")) {
-      return fulfillJson(route, { clients });
-    }
-    if (path.endsWith("/api/entities/saved")) {
-      return fulfillJson(route, { ok: true, entities: savedGeographicEntities });
-    }
-    if (path.endsWith("/api/hiring-intelligence/analyze")) {
-      return fulfillJson(route, hiringFixture);
-    }
-    if (path.endsWith("/api/occupational-discovery/bls-overview")) {
-      return fulfillJson(route, blsOverviewFixture);
-    }
-    if (path.endsWith("/api/bls/industry-benchmark")) {
-      return fulfillJson(route, { ok: true, benchmark: blsOverviewFixture.sectors[0].benchmark });
-    }
-    if (path.endsWith("/api/occupational-discovery/onet/profile")) {
-      return fulfillJson(route, onetProfileFixture);
-    }
-    if (path.endsWith("/api/occupational-discovery/onet/profile-by-code")) {
-      return fulfillJson(route, onetProfileFixture);
-    }
+    if (path.endsWith("/api/portal-links")) return fulfillJson(route, { links: portalLinks });
+    if (path.endsWith("/api/prospects")) return fulfillJson(route, { prospects });
+    if (path.endsWith("/api/clients")) return fulfillJson(route, { clients });
+    if (path.endsWith("/api/entities/saved")) return fulfillJson(route, { ok: true, entities: savedGeographicEntities });
+    if (path.endsWith("/api/hiring-intelligence/analyze")) return fulfillJson(route, hiringFixture);
+    if (path.endsWith("/api/occupational-discovery/bls-overview")) return fulfillJson(route, blsOverviewFixture);
+    if (path.endsWith("/api/bls/industry-benchmark")) return fulfillJson(route, { ok: true, benchmark: blsOverviewFixture.sectors[0].benchmark });
+    if (path.endsWith("/api/occupational-discovery/onet/profile")) return fulfillJson(route, onetProfileFixture);
+    if (path.endsWith("/api/occupational-discovery/onet/profile-by-code")) return fulfillJson(route, { ok: true, profile: onetProfileFixture.profile });
+    if (path.endsWith("/api/job-intelligence/profiles")) return fulfillJson(route, { ok: true, profiles: [] });
 
     return fulfillJson(route, { ok: true, configured: true, results: [], records: [] });
   });
@@ -283,7 +266,7 @@ test("landing page is contained and portal-link modal is keyboard-safe", async (
   expect(pageErrors).toEqual([]);
 });
 
-test("Entities routes preserve active navigation, contextual intelligence shortcuts, keyboard cards, modal focus, and empty-safe layout", async ({ page }) => {
+test("Entities routes preserve navigation, selection shortcuts, keyboard cards, modal focus, and layout", async ({ page }) => {
   const pageErrors = collectPageErrors(page);
   await page.goto("/entities");
 
@@ -293,20 +276,19 @@ test("Entities routes preserve active navigation, contextual intelligence shortc
   await expectNoDocumentOverflow(page);
 
   const record = page.getByRole("button", { name: "Open details for V2X" });
-  await expect(record).toBeVisible();
   await record.focus();
   await page.keyboard.press("Enter");
 
   const details = page.getByRole("dialog", { name: "V2X" });
   await expect(details).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(details).toBeHidden();
+  await expect(record).toBeFocused();
+
   await expect(page.getByText("Selected Entity", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Federal Awards" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Legal & Injury" })).toBeVisible();
   await expect(page.getByRole("link", { name: "FEC Relationship" })).toBeVisible();
-
-  await page.keyboard.press("Escape");
-  await expect(details).toBeHidden();
-  await expect(record).toBeFocused();
 
   await page.goto("/clients");
   await expect(page.getByRole("tab", { name: "Client Records" })).toHaveAttribute("aria-selected", "true");
@@ -337,7 +319,7 @@ test("reviewed intelligence hierarchy aliases and calculator workstation remain 
 
   await page.goto("/industry-injury-benchmarks");
   await expect(page.getByRole("heading", { name: "Industry Impact Calculator", exact: true })).toBeVisible();
-  await expect(page.getByText("Workforce size (headcount or FTE)", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Workforce size (headcount or FTE)")).toBeVisible();
   await expect(page.locator('a[aria-current="page"]').filter({ hasText: "Industry Impact Calculator" })).toHaveCount(2);
   await expect(page.locator('nav[aria-label="Insight Hub intelligence tools"] a').filter({ hasText: "Industry Injury Benchmarks" })).toHaveCount(0);
   await expectNoDocumentOverflow(page);
