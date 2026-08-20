@@ -35,12 +35,10 @@ const onetProfile = {
     abilities: [{ id: "ability-1", name: "Static Strength", value: 72 }],
     workActivities: [{ id: "activity-1", name: "Assisting and Caring for Others", value: 81 }],
     detailedWorkActivities: [{ id: "dwa-1", name: "Operate firefighting equipment." }],
-    counts: { tasks: 2, workContext: 1, abilities: 1, workActivities: 1, detailedWorkActivities: 1 },
-    partialErrors: [],
   },
 };
 
-test("Job Intelligence persists a structured company/job profile instead of a global browser duty bucket", async ({ page }) => {
+test("Job Intelligence persists a structured company/job profile and reviewed O*NET duty evidence", async ({ page }) => {
   let profiles: any[] = [];
 
   await page.route("**/api/**", async (route) => {
@@ -73,37 +71,44 @@ test("Job Intelligence persists a structured company/job profile instead of a gl
       return fulfillJson(route, { ok: true });
     }
     if (path.endsWith("/api/occupational-discovery/onet/profile")) return fulfillJson(route, onetProfile);
+    if (path.endsWith("/api/occupational-discovery/onet/profile-by-code")) {
+      return fulfillJson(route, { ok: true, profile: onetProfile.profile });
+    }
     if (path.endsWith("/api/map-config")) return fulfillJson(route, { configured: false, apiKey: "" }, 503);
     return fulfillJson(route, { ok: true, records: [], matches: [] });
   });
 
   await page.goto("/job-intelligence");
   await expect(page.getByRole("heading", { name: "Job Intelligence" })).toBeVisible();
-  await expect(page.getByText("NEON-BACKED")).toBeVisible();
+  await expect(page.getByText("Saved profile library", { exact: true })).toBeVisible();
 
-  await page.getByLabel("Company / employer").fill("V2X");
+  await page.getByLabel("Company").fill("V2X");
   await page.getByLabel("Profile name").fill("Redzikowo Firefighter");
-  await page.getByLabel("Work location").fill("Redzikowo, Poland");
-  await page.getByLabel("Internal / client job title").fill("Firefighter");
+  await page.getByLabel("Location").fill("Redzikowo, Poland");
+  await page.getByLabel("Job title").fill("Firefighter");
 
-  const search = page.getByPlaceholder("Aircraft mechanic, firefighter, HVAC mechanic…");
+  const search = page.getByPlaceholder("Search occupation title");
   await search.fill("Firefighter");
-  await page.getByRole("button", { name: "Search O*NET" }).click();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
 
-  await expect(page.getByRole("heading", { name: "Firefighters", exact: true })).toBeVisible();
-  await expect(page.getByText("O*NET 33-2011.00")).toBeVisible();
-  await page.getByRole("button", { name: "Add Respond to fire alarms and emergency calls." }).click();
+  const firefighterCandidate = page.getByRole("button", { name: /Firefighters/ }).first();
+  await expect(firefighterCandidate).toBeVisible();
+  await firefighterCandidate.click();
 
-  const dutyCard = page.locator("article").filter({ hasText: "Respond to fire alarms and emergency calls." }).last();
-  await expect(dutyCard.getByText("OFFICIAL O*NET")).toBeVisible();
+  await expect(page.getByText("Selected: Firefighters", { exact: true })).toBeVisible();
+  await expect(page.getByText("33-2011.00", { exact: true }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Add Respond to fire alarms and emergency calls. to duty workspace" }).click();
+  const dutyCard = page.locator("details").filter({ hasText: "Respond to fire alarms and emergency calls." }).first();
+  await expect(dutyCard).toBeVisible();
+  await dutyCard.locator("summary").click();
   await dutyCard.getByLabel("Essentiality").selectOption("essential");
   await dutyCard.getByLabel("Frequency").selectOption("frequent");
-  await dutyCard.getByLabel("Max lift / carry (lb)").fill("75");
+  await dutyCard.getByLabel("Max lift lbs").fill("75");
   await dutyCard.getByRole("button", { name: "Physical" }).click();
   await dutyCard.getByRole("button", { name: "Emergency response" }).click();
 
-  await page.getByRole("button", { name: "Create profile" }).click();
-  await expect(page.getByRole("button", { name: "Save changes" })).toBeVisible();
+  await page.getByRole("button", { name: "Save profile" }).click();
 
   expect(profiles).toHaveLength(1);
   expect(profiles[0].companyName).toBe("V2X");
@@ -117,11 +122,9 @@ test("Job Intelligence persists a structured company/job profile instead of a gl
   expect(profiles[0].duties[0].emergencyResponse).toBe(true);
 
   await page.reload();
-  const savedSelect = page.getByLabel("Saved profiles");
-  await expect(savedSelect.locator("option", { hasText: "V2X · Redzikowo Firefighter" })).toHaveCount(1);
-  await savedSelect.selectOption("profile-1");
+  const savedProfile = page.getByRole("button", { name: /Redzikowo Firefighter/ }).first();
+  await expect(savedProfile).toBeVisible();
+  await savedProfile.click();
   await expect(page.getByLabel("Profile name")).toHaveValue("Redzikowo Firefighter");
-  const restoredDuty = page.locator("article").filter({ hasText: "OFFICIAL O*NET" }).last();
-  await expect(restoredDuty.locator("textarea").first()).toHaveValue("Respond to fire alarms and emergency calls.");
-  await expect(restoredDuty.getByText("OFFICIAL O*NET")).toBeVisible();
+  await expect(page.locator("details").filter({ hasText: "Respond to fire alarms and emergency calls." }).first()).toBeVisible();
 });
