@@ -10,10 +10,10 @@ const SOURCE_HOSTS: Record<string, string[]> = {
 };
 
 const SOURCE_START_URLS: Record<string, string> = {
-  bls: "https://www.bls.gov/iif/data-overview.htm",
+  bls: "https://www.bls.gov/iif/nonfatal-injuries-and-illnesses-tables/soii-summary-historical.htm",
   osha: "https://www.osha.gov/data",
-  datagov: "https://catalog.data.gov/",
-  onet: "https://www.onetonline.org/",
+  datagov: "https://catalog.data.gov/?q=occupational+safety+and+health",
+  onet: "https://www.onetonline.org/find/quick",
 };
 
 function sourceId(value: unknown): string {
@@ -32,11 +32,14 @@ function allowedUrl(source: string, raw: string): URL | null {
     const url = new URL(raw);
     if (url.protocol !== "https:" || url.username || url.password) return null;
     if (!allowedHost(source, url.hostname)) return null;
-    url.hash = "";
     return url;
   } catch {
     return null;
   }
+}
+
+function proxiedPath(source: string, url: URL): string {
+  return `/api/official-source-webview?source=${encodeURIComponent(source)}&url=${encodeURIComponent(url.toString())}`;
 }
 
 async function fetchOfficial(source: string, initialUrl: URL): Promise<{ response: globalThis.Response; finalUrl: URL }> {
@@ -82,6 +85,20 @@ function escapeAttribute(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
+function rewriteAnchors(source: string, finalUrl: URL, html: string): string {
+  return html.replace(/(<a\b[^>]*?\bhref\s*=\s*)(["'])([^"']*)(\2)/gi, (match, prefix: string, quote: string, raw: string) => {
+    const trimmed = String(raw || "").trim();
+    if (!trimmed || trimmed.startsWith("#") || /^(?:mailto:|tel:|javascript:|data:)/i.test(trimmed)) return match;
+    try {
+      const target = allowedUrl(source, new URL(trimmed, finalUrl).toString());
+      if (!target) return match;
+      return `${prefix}${quote}${escapeAttribute(proxiedPath(source, target))}${quote}`;
+    } catch {
+      return match;
+    }
+  });
+}
+
 function transformHtml(source: string, finalUrl: URL, html: string): string {
   const sourceJson = JSON.stringify(source).replace(/</g, "\\u003c");
   const rootsJson = JSON.stringify(SOURCE_HOSTS[source] ?? []).replace(/</g, "\\u003c");
@@ -92,6 +109,8 @@ function transformHtml(source: string, finalUrl: URL, html: string): string {
     .replace(/<meta\b[^>]*http-equiv\s*=\s*["']?Content-Security-Policy["']?[^>]*>/gi, "")
     .replace(/<meta\b[^>]*http-equiv\s*=\s*["']?X-Frame-Options["']?[^>]*>/gi, "");
 
+  output = rewriteAnchors(source, finalUrl, output);
+
   const bridge = `<script>(function(){
     const source=${sourceJson};
     const roots=${rootsJson};
@@ -101,12 +120,35 @@ function transformHtml(source: string, finalUrl: URL, html: string): string {
       return url.protocol==='https:' && roots.some(function(root){return host===root || host.endsWith('.'+root);});
     };
     const proxied=function(url){return endpoint+'?source='+encodeURIComponent(source)+'&url='+encodeURIComponent(url.toString());};
+    const targetFor=function(value){
+      try { const url=new URL(String(value||''),document.baseURI); return allowed(url)?url:null; }
+      catch(_){ return null; }
+    };
+    const rewriteAnchor=function(anchor){
+      const raw=anchor.getAttribute('href');
+      if(!raw || raw.charAt(0)==='#' || /^(mailto:|tel:|javascript:|data:)/i.test(raw)) return;
+      const target=targetFor(raw);
+      if(target) anchor.setAttribute('href',proxied(target));
+    };
+    document.querySelectorAll('a[href]').forEach(rewriteAnchor);
+    const observer=new MutationObserver(function(records){
+      records.forEach(function(record){
+        record.addedNodes.forEach(function(node){
+          if(!(node instanceof Element)) return;
+          if(node.matches && node.matches('a[href]')) rewriteAnchor(node);
+          node.querySelectorAll && node.querySelectorAll('a[href]').forEach(rewriteAnchor);
+        });
+      });
+    });
+    observer.observe(document.documentElement,{childList:true,subtree:true});
     document.addEventListener('click',function(event){
-      if(event.defaultPrevented || event.button!==0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if(event.defaultPrevented || (typeof event.button==='number' && event.button!==0) || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const anchor=event.target && event.target.closest ? event.target.closest('a[href]') : null;
       if(!anchor) return;
       try {
-        const url=new URL(anchor.href,document.baseURI);
+        const href=anchor.getAttribute('href') || '';
+        if(href.startsWith(endpoint)) return;
+        const url=new URL(href,document.baseURI);
         if(!/^https?:$/.test(url.protocol)) return;
         if(allowed(url)) {
           event.preventDefault();
@@ -128,6 +170,21 @@ function transformHtml(source: string, finalUrl: URL, html: string): string {
         window.location.assign(proxied(url));
       } catch (_) {}
     },true);
+    const originalOpen=window.open.bind(window);
+    window.open=function(url,target,features){
+      const official=targetFor(url);
+      return originalOpen(official?proxied(official):url,target,features);
+    };
+    ['pushState','replaceState'].forEach(function(method){
+      const original=history[method].bind(history);
+      history[method]=function(state,title,url){
+        if(url){
+          const official=targetFor(url);
+          if(official){ window.location.assign(proxied(official)); return; }
+        }
+        return original(state,title,url);
+      };
+    });
   })();</script>`;
 
   if (/<head\b[^>]*>/i.test(output)) output = output.replace(/<head\b([^>]*)>/i, `<head$1>${baseTag}`);
