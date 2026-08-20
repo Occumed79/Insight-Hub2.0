@@ -3,7 +3,6 @@ import {
   BarChart3,
   BookOpenCheck,
   BriefcaseBusiness,
-  Building2,
   Calculator,
   CircleDollarSign,
   Database,
@@ -29,7 +28,6 @@ const nav = [
   { href: "/drug-checker", label: "Drug Checker", icon: Pill },
   { href: "/clinical-calculators", label: "Clinical Calculators", icon: Calculator },
   { href: "/standards-intelligence", label: "Standards Intelligence", icon: Stethoscope },
-  { href: "/entities", label: "Entities", icon: Building2 },
   { href: "/federal-agencies", label: "Federal Agencies", icon: Landmark },
   { href: "/state-agencies", label: "State Agencies", icon: Map },
   { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
@@ -44,7 +42,7 @@ const nav = [
 ];
 
 const CORE_OWNERSHIP_NOTICE =
-  "Industry Injury Benchmarks are folded into Industry Impact. Occupational Demands are folded into Job Intelligence. FEC intelligence remains entity-linked rather than a primary navigation destination.";
+  "Entities remains a compatibility workspace but is no longer a primary tab. Industry Injury Benchmarks are folded into Industry Impact. Occupational Demands are folded into Job Intelligence. FEC intelligence remains entity-linked rather than a primary navigation destination.";
 
 const DESKTOP_SIDEBAR_BACKGROUND =
   "linear-gradient(180deg, #020611 0%, #030813 42%, #02050d 100%)";
@@ -56,7 +54,7 @@ function isActivePath(itemHref: string, currentPath: string) {
   if (itemHref === "/aor-factors" && currentPath === "/aor-risk-intelligence") return true;
   if (itemHref === "/industry-impact-calculator" && currentPath === "/industry-injury-benchmarks") return true;
   if (itemHref === "/job-intelligence" && currentPath === "/occupational-demands") return true;
-  return itemHref === "/entities" && ["/prospects", "/clients"].includes(currentPath);
+  return false;
 }
 
 export function Sidebar() {
