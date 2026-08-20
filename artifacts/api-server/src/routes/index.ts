@@ -101,8 +101,9 @@ router.use(leadershipMapLangSearchRouter);
 router.use(leadershipMapOrchestrationRouter);
 router.use(corporateStructureRouter);
 router.use(occupationalToolsRouter);
-router.use(occupationalDiscoveryRouter);
+// Exact O*NET-SOC codes must bypass keyword ambiguity before the broader discovery router handles text searches.
 router.use(onetResolverRouter);
+router.use(occupationalDiscoveryRouter);
 router.use(occupationalCaseDetailRouter);
 router.use(occupationalBlsHistoryRouter);
 router.use(occupationalDatagovWorkbenchRouter);
