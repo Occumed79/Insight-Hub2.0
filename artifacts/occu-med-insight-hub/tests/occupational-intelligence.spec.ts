@@ -177,7 +177,6 @@ async function installOccupationalApi(page: Page) {
     if (path.endsWith("/api/occupational-discovery/osha-overview")) {
       return fulfillJson(route, {
         ok: true,
-        imported: true,
         latestYear: 2025,
         topEmployers: [{ establishment_name: "Example Employer", total_cases: 41 }],
         topStates: [{ state: "TX", total_cases: 310 }],
@@ -264,6 +263,86 @@ async function installOccupationalApi(page: Page) {
         }],
         coverage: { selected: 2, fdaLabels: 2, rxClasses: 2, medicationsWithSignals: 2 },
         limitation: "No fabricated interaction severity score is calculated.",
+      });
+    }
+    if (path.endsWith("/api/standards/catalog")) {
+      const source = {
+        id: "centcom-mod18",
+        shortLabel: "CENTCOM MOD 18",
+        title: "USCENTCOM MOD EIGHTEEN + TAB A",
+        edition: "201214Z AUG 25",
+        authority: "official-policy",
+        category: "Deployment",
+        sourceUrl: "https://www.centcom.mil/CONTACT/THEATRE-MEDICAL-REQUIREMENTS/",
+        description: "USCENTCOM deployment medical fitness standards.",
+        currentAsOf: "20 Aug 2025",
+        lastVerified: "2026-08-19",
+        coverage: "automated-medical",
+        topics: ["deployment", "fitness", "waiver"],
+      };
+      return fulfillJson(route, {
+        ok: true,
+        architectureVersion: "standards-api-v2",
+        generatedAt: "2026-08-19T18:00:00.000Z",
+        totalSources: 1,
+        automatedSources: 1,
+        categories: ["Deployment"],
+        sources: [source],
+      });
+    }
+    if (path.endsWith("/api/standards/evaluate")) {
+      const body = route.request().postDataJSON() as { frameworks?: string[]; condition?: string };
+      const frameworks = body.frameworks ?? [];
+      const condition = (body.condition ?? "").toLowerCase();
+      const source = {
+        id: "centcom-mod18",
+        shortLabel: "CENTCOM MOD 18",
+        title: "USCENTCOM MOD EIGHTEEN + TAB A",
+        edition: "201214Z AUG 25",
+        authority: "official-policy",
+        category: "Deployment",
+        sourceUrl: "https://www.centcom.mil/CONTACT/THEATRE-MEDICAL-REQUIREMENTS/",
+        description: "USCENTCOM deployment medical fitness standards.",
+        currentAsOf: "20 Aug 2025",
+        lastVerified: "2026-08-19",
+        coverage: "automated-medical",
+        topics: ["deployment", "fitness", "waiver"],
+      };
+      const findings = frameworks.includes("centcom-mod18") ? [
+        {
+          id: "mod18-functional-baseline",
+          standardId: "centcom-mod18",
+          level: "info",
+          title: "Deployment functional baseline",
+          summary: "Deployment functional baseline.",
+          action: "Confirm duty-specific functional capacity.",
+          citation: "MOD 18 paras 4–5",
+          sourceUrl: source.sourceUrl,
+          topics: ["deployment"],
+          matchedBy: ["CENTCOM selected"],
+        },
+        ...(condition.includes("sleep apnea") || condition.includes("osa") ? [{
+          id: "mod18-osa",
+          standardId: "centcom-mod18",
+          level: "review",
+          title: "Obstructive sleep apnea deployment criteria",
+          summary: "Review OSA severity and PAP compliance.",
+          action: "Review diagnostic AHI and PAP compliance.",
+          citation: "MOD 18 Tab A §7.A.15",
+          sourceUrl: source.sourceUrl,
+          topics: ["OSA"],
+          matchedBy: ["condition"],
+        }] : []),
+      ] : [];
+      findings.sort((a, b) => ({ info: 0, review: 1, waiver: 2, strict: 3 }[b.level as "info" | "review" | "waiver" | "strict"] - { info: 0, review: 1, waiver: 2, strict: 3 }[a.level as "info" | "review" | "waiver" | "strict"]));
+      return fulfillJson(route, {
+        ok: true,
+        architectureVersion: "standards-api-v2",
+        evaluatedAt: "2026-08-19T18:00:00.000Z",
+        selectedSources: frameworks.includes("centcom-mod18") ? [source] : [],
+        findings,
+        recommendations: [],
+        coverage: { selected: frameworks.length, matched: findings.length ? 1 : 0, automatedSelected: frameworks.length, referenceSelected: 0 },
       });
     }
 
@@ -419,8 +498,8 @@ test("all six transplanted reviewer tools render and retain their core interacti
 
   await page.goto("/standards-intelligence");
   await expect(page.getByRole("heading", { name: "Standards Intelligence" })).toBeVisible();
-  await expect(page.getByText("Deployment functional baseline")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Deployment functional baseline", exact: true })).toBeVisible();
   await page.getByLabel("Condition").fill("Obstructive sleep apnea");
-  await expect(page.getByText("Obstructive sleep apnea deployment criteria")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Obstructive sleep apnea deployment criteria", exact: true })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
