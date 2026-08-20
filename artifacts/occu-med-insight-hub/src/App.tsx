@@ -26,7 +26,7 @@ const WorkersCompCoverage = React.lazy(() => import("@/pages/workers-comp-covera
 const DbaIntelligence = React.lazy(() => import("@/pages/dba-intelligence"));
 const SourceGovernance = React.lazy(() => import("@/pages/source-governance"));
 const ReviewerInjuriesMedicalPage = React.lazy(() => import("@/pages/reviewer-injuries-medical"));
-const ReviewerJobIntelligencePage = React.lazy(() => import("@/pages/reviewer-job-intelligence"));
+const ReviewerJobIntelligencePage = React.lazy(() => import("@/pages/job-intelligence-v2"));
 const ReviewerAorFactorsPage = React.lazy(() => import("@/pages/reviewer-aor-factors-live"));
 const ReviewerDrugCheckerPage = React.lazy(() => import("@/pages/reviewer-drug-checker"));
 const ReviewerClinicalCalculatorsPage = React.lazy(() => import("@/pages/reviewer-clinical-calculators"));
