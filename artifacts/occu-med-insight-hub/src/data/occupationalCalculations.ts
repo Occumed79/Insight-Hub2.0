@@ -183,10 +183,15 @@ export function calculateReturnToWork(input: {
     1 - clamp(input.modifiedProductivityPercent, 0, 100) / 100;
   const withModifiedDuty =
     workers * Math.max(input.modifiedDutyDays, 0) * daily * modifiedProductivityLoss;
+  const potentialDifference = Math.max(withoutModifiedDuty - withModifiedDuty, 0);
   return {
     withoutModifiedDuty,
     withModifiedDuty,
-    potentialDifference: Math.max(withoutModifiedDuty - withModifiedDuty, 0),
+    potentialDifference,
+    // Descriptive aliases used by the calculator UI. The original fields remain for existing callers.
+    fullDutyCost: withoutModifiedDuty,
+    modifiedDutyCost: withModifiedDuty,
+    savings: potentialDifference,
     daysRecovered: Math.max((input.fullDutyDays - input.modifiedDutyDays) * workers, 0),
     modifiedProductivityLoss,
   };
