@@ -35,15 +35,13 @@ const EntitiesPage = React.lazy(() => import("@/pages/entities").then((module) =
 const CompetitorsPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.CompetitorsPage })));
 const FederalAgenciesPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.FederalAgenciesPage })));
 const StateAgenciesPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.StateAgenciesPage })));
-const FecFilingsPage = React.lazy(() => import("@/pages/standalone-public-tools").then((module) => ({ default: module.FecFilingsPage })));
-const FederalAwardsPage = React.lazy(() => import("@/pages/standalone-public-tools").then((module) => ({ default: module.FederalAwardsPage })));
-const IndustryBenchmarksPage = React.lazy(() => import("@/pages/standalone-public-tools").then((module) => ({ default: module.IndustryBenchmarksPage })));
-const LegalReferencesPage = React.lazy(() => import("@/pages/standalone-public-tools").then((module) => ({ default: module.LegalReferencesPage })));
-const OccupationalDemandsPage = React.lazy(() => import("@/pages/standalone-public-tools").then((module) => ({ default: module.OccupationalDemandsPage })));
+const FecFilingsPage = React.lazy(() => import("@/pages/entity-public-intelligence").then((module) => ({ default: module.EntityFecFilingsPage })));
+const FederalAwardsPage = React.lazy(() => import("@/pages/entity-public-intelligence").then((module) => ({ default: module.EntityFederalAwardsPage })));
+const LegalReferencesPage = React.lazy(() => import("@/pages/entity-public-intelligence").then((module) => ({ default: module.EntityLegalReferencesPage })));
 const OnetMasterTool = React.lazy(() => import("@/pages/onet-master-tool"));
 const OccupationalDataExplorer = React.lazy(() => import("@/pages/occupational-data-explorer"));
-const IndustryImpactCalculator = React.lazy(() => import("@/pages/industry-impact-calculator"));
-const OccupationalCalculators = React.lazy(() => import("@/pages/occupational-calculators"));
+const IndustryImpactCalculator = React.lazy(() => import("@/pages/industry-impact-calculator-v2"));
+const OccupationalCalculators = React.lazy(() => import("@/pages/occupational-calculators-v2"));
 
 const queryClient = new QueryClient();
 
@@ -71,8 +69,6 @@ function DbaRoute() { return <div className="dba-hub-route"><DbaIntelligence /><
 function SecFilingsRoute() { return <TranslucentToolPage page="sec"><SecFilings /></TranslucentToolPage>; }
 function LeadershipMapRoute() { return <TranslucentToolPage page="organizational-chart"><LeadershipMap /></TranslucentToolPage>; }
 function FecFilingsRoute() { return <TranslucentToolPage page="fec"><FecFilingsPage /></TranslucentToolPage>; }
-function IndustryBenchmarksRoute() { return <TranslucentToolPage page="bls"><IndustryBenchmarksPage /></TranslucentToolPage>; }
-function OccupationalDemandsRoute() { return <TranslucentToolPage page="onet"><OccupationalDemandsPage /></TranslucentToolPage>; }
 function OnetMasterToolRoute() { return <TranslucentToolPage page="onet-master"><OnetMasterTool /></TranslucentToolPage>; }
 function OccupationalDataExplorerRoute() { return <TranslucentToolPage page="occupational-data-explorer"><OccupationalDataExplorer /></TranslucentToolPage>; }
 function IndustryImpactCalculatorRoute() { return <TranslucentToolPage page="industry-impact-calculator"><IndustryImpactCalculator /></TranslucentToolPage>; }
@@ -118,8 +114,8 @@ function Router() {
         <Route path="/clinical-calculators" component={ReviewerClinicalCalculatorsPage} />
         <Route path="/standards-intelligence" component={ReviewerStandardsIntelligencePage} />
 
-        <Route path="/industry-injury-benchmarks" component={IndustryBenchmarksRoute} />
-        <Route path="/occupational-demands" component={OccupationalDemandsRoute} />
+        <Route path="/industry-injury-benchmarks" component={IndustryImpactCalculatorRoute} />
+        <Route path="/occupational-demands" component={ReviewerJobIntelligencePage} />
         <Route path="/onet-master-tool" component={OnetMasterToolRoute} />
         <Route path="/occupational-data-explorer" component={OccupationalDataExplorerRoute} />
         <Route path="/industry-impact-calculator" component={IndustryImpactCalculatorRoute} />
