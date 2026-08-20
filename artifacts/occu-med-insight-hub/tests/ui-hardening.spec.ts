@@ -83,6 +83,39 @@ const savedGeographicEntities = [
   },
 ];
 
+const blsOverviewFixture = {
+  ok: true,
+  sectors: [
+    {
+      id: "manufacturing",
+      naics: "31",
+      label: "Manufacturing",
+      description: "Production and industrial operations.",
+      benchmark: { naics: "31", year: 2025, trcRate: 2.8, dartRate: 1.6, daysAwayRate: 1.1 },
+    },
+  ],
+  ranked: [],
+  limitation: "Deterministic BLS browser fixture.",
+};
+
+const onetProfileFixture = {
+  ok: true,
+  matches: [{ code: "49-3011.00", title: "Aircraft Mechanics and Service Technicians", score: 100 }],
+  profile: {
+    occupation: {
+      code: "49-3011.00",
+      title: "Aircraft Mechanics and Service Technicians",
+      description: "Diagnose, adjust, repair, or overhaul aircraft engines and assemblies.",
+    },
+    tasks: [{ name: "Inspect aircraft components", description: "Inspect completed work for conformance." }],
+    workContext: [{ name: "Wear Common Protective or Safety Equipment" }],
+    abilities: [{ name: "Manual Dexterity" }],
+    workActivities: [{ name: "Inspecting Equipment, Structures, or Material" }],
+    detailedWorkActivities: [{ name: "Inspect aircraft equipment" }],
+  },
+  source: "O*NET Web Services",
+};
+
 const hiringFixture = {
   startedAt: "2026-08-07T20:00:00.000Z",
   completedAt: "2026-08-07T20:00:01.000Z",
@@ -156,21 +189,16 @@ async function installDeterministicApi(page: Page) {
     const url = new URL(request.url());
     const path = url.pathname;
 
-    if (path.endsWith("/api/portal-links")) {
-      return fulfillJson(route, { links: portalLinks });
-    }
-    if (path.endsWith("/api/prospects")) {
-      return fulfillJson(route, { prospects });
-    }
-    if (path.endsWith("/api/clients")) {
-      return fulfillJson(route, { clients });
-    }
-    if (path.endsWith("/api/entities/saved")) {
-      return fulfillJson(route, { ok: true, entities: savedGeographicEntities });
-    }
-    if (path.endsWith("/api/hiring-intelligence/analyze")) {
-      return fulfillJson(route, hiringFixture);
-    }
+    if (path.endsWith("/api/portal-links")) return fulfillJson(route, { links: portalLinks });
+    if (path.endsWith("/api/prospects")) return fulfillJson(route, { prospects });
+    if (path.endsWith("/api/clients")) return fulfillJson(route, { clients });
+    if (path.endsWith("/api/entities/saved")) return fulfillJson(route, { ok: true, entities: savedGeographicEntities });
+    if (path.endsWith("/api/hiring-intelligence/analyze")) return fulfillJson(route, hiringFixture);
+    if (path.endsWith("/api/occupational-discovery/bls-overview")) return fulfillJson(route, blsOverviewFixture);
+    if (path.endsWith("/api/bls/industry-benchmark")) return fulfillJson(route, { ok: true, benchmark: blsOverviewFixture.sectors[0].benchmark });
+    if (path.endsWith("/api/occupational-discovery/onet/profile")) return fulfillJson(route, onetProfileFixture);
+    if (path.endsWith("/api/occupational-discovery/onet/profile-by-code")) return fulfillJson(route, { ok: true, profile: onetProfileFixture.profile });
+    if (path.endsWith("/api/job-intelligence/profiles")) return fulfillJson(route, { ok: true, profiles: [] });
 
     return fulfillJson(route, { ok: true, configured: true, results: [], records: [] });
   });
@@ -238,7 +266,7 @@ test("landing page is contained and portal-link modal is keyboard-safe", async (
   expect(pageErrors).toEqual([]);
 });
 
-test("Entities routes preserve active navigation, keyboard cards, modal focus, and empty-safe layout", async ({ page }) => {
+test("Entities routes preserve navigation, selection shortcuts, keyboard cards, modal focus, and layout", async ({ page }) => {
   const pageErrors = collectPageErrors(page);
   await page.goto("/entities");
 
@@ -248,7 +276,6 @@ test("Entities routes preserve active navigation, keyboard cards, modal focus, a
   await expectNoDocumentOverflow(page);
 
   const record = page.getByRole("button", { name: "Open details for V2X" });
-  await expect(record).toBeVisible();
   await record.focus();
   await page.keyboard.press("Enter");
 
@@ -257,6 +284,11 @@ test("Entities routes preserve active navigation, keyboard cards, modal focus, a
   await page.keyboard.press("Escape");
   await expect(details).toBeHidden();
   await expect(record).toBeFocused();
+
+  await expect(page.getByText("Selected Entity", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Federal Awards", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Legal & Injury", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "FEC Relationship", exact: true })).toBeVisible();
 
   await page.goto("/clients");
   await expect(page.getByRole("tab", { name: "Client Records" })).toHaveAttribute("aria-selected", "true");
@@ -279,6 +311,46 @@ test("core intelligence routes load through lazy boundaries without browser erro
   await expect(page.locator('a[aria-current="page"]').filter({ hasText: "Federal Agencies" })).toHaveCount(2);
   await expectNoDocumentOverflow(page);
 
+  expect(pageErrors).toEqual([]);
+});
+
+test("reviewed intelligence hierarchy aliases and calculator workstation remain enforced", async ({ page }) => {
+  const pageErrors = collectPageErrors(page);
+
+  await page.goto("/industry-injury-benchmarks");
+  await expect(page.getByRole("heading", { name: "Industry Impact Calculator", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Workforce size (headcount or FTE)")).toBeVisible();
+  await expect(page.locator('a[aria-current="page"]').filter({ hasText: "Industry Impact Calculator" })).toHaveCount(2);
+  await expect(page.locator('nav[aria-label="Insight Hub intelligence tools"] a').filter({ hasText: "Industry Injury Benchmarks" })).toHaveCount(0);
+  await expectNoDocumentOverflow(page);
+
+  await page.goto("/occupational-demands");
+  await expect(page.getByRole("heading", { name: "Job Intelligence", exact: true })).toBeVisible();
+  await expect(page.locator('a[aria-current="page"]').filter({ hasText: "Job Intelligence" })).toHaveCount(2);
+  await expect(page.locator('nav[aria-label="Insight Hub intelligence tools"] a').filter({ hasText: "Occupational Demands" })).toHaveCount(0);
+  await expectNoDocumentOverflow(page);
+
+  await page.goto("/occupational-calculators");
+  await expect(page.getByRole("heading", { name: "Occupational Calculators", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Workforce Health" }).click();
+  await expect(page.getByText("Age-Based Chronic Conditions", { exact: true })).toBeVisible();
+  await expect(page.getByText("Aggravation & Comorbidity Overlap", { exact: true })).toBeVisible();
+  await expectNoDocumentOverflow(page);
+
+  expect(pageErrors).toEqual([]);
+});
+
+test("exact O*NET code can be reviewed from Job Intelligence without title ambiguity", async ({ page }) => {
+  const pageErrors = collectPageErrors(page);
+  await page.goto("/job-intelligence");
+
+  const search = page.getByPlaceholder("Search occupation title");
+  await search.fill("49-3011.00");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+
+  await expect(page.getByText("Aircraft Mechanics and Service Technicians", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("49-3011.00", { exact: true }).first()).toBeVisible();
+  await expectNoDocumentOverflow(page);
   expect(pageErrors).toEqual([]);
 });
 

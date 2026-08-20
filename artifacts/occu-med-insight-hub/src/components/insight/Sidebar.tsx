@@ -35,19 +35,16 @@ const nav = [
   { href: "/sec-filings", label: "SEC Filings", icon: FileSearch },
   { href: "/leadership-map", label: "Organizational Chart", icon: GitBranch },
   { href: "/dba-intelligence", label: "DBA Data Hub", icon: ShieldCheck },
-  { href: "/fec-filings", label: "FEC Filings", icon: Landmark },
   { href: "/onet-master-tool", label: "O*NET Master Tool", icon: BookOpenCheck },
   { href: "/occupational-data-explorer", label: "Occupational Data Explorer", icon: Database },
   { href: "/industry-impact-calculator", label: "Industry Impact Calculator", icon: BarChart3 },
   { href: "/occupational-calculators", label: "Occupational Calculators", icon: Calculator },
-  { href: "/industry-injury-benchmarks", label: "Industry Injury Benchmarks", icon: BarChart3 },
-  { href: "/occupational-demands", label: "Occupational Demands", icon: BookOpenCheck },
-  { href: "/federal-awards", label: "Federal Awards", icon: CircleDollarSign },
-  { href: "/public-legal-references", label: "Public Legal References", icon: Scale },
+  { href: "/federal-awards", label: "Federal Awards Intelligence", icon: CircleDollarSign },
+  { href: "/public-legal-references", label: "Legal & Injury Intelligence", icon: Scale },
 ];
 
 const CORE_OWNERSHIP_NOTICE =
-  "Entities, Federal Agencies, and State Agencies are owned by Insight Hub 2. Global Locations and Location Overlap remain available from their portal cards.";
+  "Industry Injury Benchmarks are folded into Industry Impact. Occupational Demands are folded into Job Intelligence. FEC intelligence remains entity-linked rather than a primary navigation destination.";
 
 const DESKTOP_SIDEBAR_BACKGROUND =
   "linear-gradient(180deg, #020611 0%, #030813 42%, #02050d 100%)";
@@ -57,6 +54,8 @@ const MOBILE_SIDEBAR_BACKGROUND =
 function isActivePath(itemHref: string, currentPath: string) {
   if (currentPath === itemHref) return true;
   if (itemHref === "/aor-factors" && currentPath === "/aor-risk-intelligence") return true;
+  if (itemHref === "/industry-impact-calculator" && currentPath === "/industry-injury-benchmarks") return true;
+  if (itemHref === "/job-intelligence" && currentPath === "/occupational-demands") return true;
   return itemHref === "/entities" && ["/prospects", "/clients"].includes(currentPath);
 }
 

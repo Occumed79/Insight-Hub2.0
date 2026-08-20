@@ -46,6 +46,7 @@ import reviewerToolsRouter from "./reviewer-tools";
 import drugIntelligenceRouter from "./drug-intelligence";
 import jobIntelligenceRouter from "./job-intelligence";
 import standardsIntelligenceRouter from "./standards-intelligence";
+import onetResolverRouter from "./onet-resolver";
 
 const router: IRouter = Router();
 
@@ -100,6 +101,8 @@ router.use(leadershipMapLangSearchRouter);
 router.use(leadershipMapOrchestrationRouter);
 router.use(corporateStructureRouter);
 router.use(occupationalToolsRouter);
+// Exact O*NET-SOC codes must bypass keyword ambiguity before the broader discovery router handles text searches.
+router.use(onetResolverRouter);
 router.use(occupationalDiscoveryRouter);
 router.use(occupationalCaseDetailRouter);
 router.use(occupationalBlsHistoryRouter);
