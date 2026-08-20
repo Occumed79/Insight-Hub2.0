@@ -30,7 +30,7 @@ const checks = [
   [hardeningCss.includes('[role="dialog"]'), "dialog overflow containment exists"],
   [sidebar.includes("insight-mobile-nav"), "mobile intelligence navigation exists"],
   [sidebar.includes('aria-current={active ? "page" : undefined}'), "active navigation exposes aria-current"],
-  [sidebar.includes('["/prospects", "/clients"].includes(currentPath)'), "Entities route aliases retain active navigation state"],
+  [sidebar.includes('const entitiesCompatibilityActive = ["/entities", "/prospects", "/clients"].includes(currentPath)') && sidebar.includes('className="sr-only">Entities</Link>'), "Entities aliases remain compatibility-only rather than a visible tab"],
   [sidebar.includes('aria-label="Insight Hub intelligence tools"'), "navigation has an accessible label"],
   [main.includes("class AppErrorBoundary"), "global UI error boundary exists"],
   [main.includes('role="alert"'), "crash recovery surface is announced accessibly"],
