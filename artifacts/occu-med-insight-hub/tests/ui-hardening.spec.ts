@@ -286,9 +286,9 @@ test("Entities routes preserve navigation, selection shortcuts, keyboard cards, 
   await expect(record).toBeFocused();
 
   await expect(page.getByText("Selected Entity", { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Federal Awards" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Legal & Injury" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "FEC Relationship" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Federal Awards", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Legal & Injury", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "FEC Relationship", exact: true })).toBeVisible();
 
   await page.goto("/clients");
   await expect(page.getByRole("tab", { name: "Client Records" })).toHaveAttribute("aria-selected", "true");
