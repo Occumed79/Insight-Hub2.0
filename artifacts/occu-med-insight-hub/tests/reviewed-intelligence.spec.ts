@@ -75,5 +75,5 @@ test("Industry Impact preserves workforce basis and provenance labels", async ({
 
   await expect(metric(page, "Baseline provenance").getByText("Estimated baseline", { exact: true })).toBeVisible();
   await expect(metric(page, "Baseline provenance")).toContainText("250 FTE");
-  await expect(page.getByText("Annual hours per FTE", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Annual hours per FTE")).toBeVisible();
 });
