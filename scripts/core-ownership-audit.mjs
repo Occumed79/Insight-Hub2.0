@@ -3,10 +3,11 @@ import { readFile } from "node:fs/promises";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-const [app, sidebar, entities, apiRoute, apiIndex] = await Promise.all([
+const [app, sidebar, entities, contextualEntities, apiRoute, apiIndex] = await Promise.all([
   read("artifacts/occu-med-insight-hub/src/App.tsx"),
   read("artifacts/occu-med-insight-hub/src/components/insight/Sidebar.tsx"),
   read("artifacts/occu-med-insight-hub/src/pages/entities.tsx"),
+  read("artifacts/occu-med-insight-hub/src/pages/entities-contextual.tsx"),
   read("artifacts/api-server/src/routes/core-intelligence.ts"),
   read("artifacts/api-server/src/routes/index.ts"),
 ]);
@@ -22,15 +23,19 @@ for (const route of [
   assert.ok(app.includes(`path=\"${route}\"`), `Hub 2 is missing route ${route}`);
 }
 
-const hasStaticEntitiesImport = app.includes(
-  'import { EntitiesPage } from "@/pages/entities"',
-);
-const hasLazyEntitiesImport =
-  app.includes('import("@/pages/entities")') &&
-  app.includes("default: module.EntitiesPage");
+const hasDirectEntitiesImport =
+  app.includes('import { EntitiesPage } from "@/pages/entities"') ||
+  (app.includes('import("@/pages/entities")') && app.includes("default: module.EntitiesPage"));
+const hasContextualEntitiesImport =
+  app.includes('import("@/pages/entities-contextual")') &&
+  app.includes("default: module.ContextualEntitiesPage");
+const contextualWrapperOwnsEntities =
+  contextualEntities.includes('import { EntitiesPage } from "@/pages/entities"') &&
+  contextualEntities.includes("<EntitiesPage");
+
 assert.ok(
-  hasStaticEntitiesImport || hasLazyEntitiesImport,
-  "Hub 2 App must own and load the transferred Entities workspace",
+  hasDirectEntitiesImport || (hasContextualEntitiesImport && contextualWrapperOwnsEntities),
+  "Hub 2 App must own and load the transferred Entities workspace directly or through the reviewed contextual wrapper",
 );
 assert.ok(
   sidebar.includes('{ href: "/entities", label: "Entities"'),
@@ -41,8 +46,16 @@ assert.ok(
   "Competitors must remain outside the Intelligence Tools sidebar",
 );
 assert.ok(
-  sidebar.includes("Entities, Federal Agencies, and State Agencies are owned by Insight Hub 2"),
-  "Hub 2 sidebar must state the current visible core intelligence ownership",
+  sidebar.includes('{ href: "/federal-agencies", label: "Federal Agencies"'),
+  "Hub 2 sidebar must expose Federal Agencies",
+);
+assert.ok(
+  sidebar.includes('{ href: "/state-agencies", label: "State Agencies"'),
+  "Hub 2 sidebar must expose State Agencies",
+);
+assert.ok(
+  !sidebar.includes('{ href: "/fec-filings", label: "FEC Filings"'),
+  "FEC relationship intelligence must remain entity-linked rather than a primary navigation destination",
 );
 
 for (const expected of [
@@ -53,6 +66,17 @@ for (const expected of [
   'Client Records',
 ]) {
   assert.ok(entities.includes(expected), `Entities workspace is missing ${expected}`);
+}
+
+if (hasContextualEntitiesImport) {
+  for (const expected of [
+    "useEmployerWorkflow",
+    'href="/federal-awards"',
+    'href="/public-legal-references"',
+    'href="/fec-filings"',
+  ]) {
+    assert.ok(contextualEntities.includes(expected), `Contextual Entities wrapper is missing ${expected}`);
+  }
 }
 
 for (const endpoint of [
@@ -76,7 +100,7 @@ console.log(
     owner: "Insight-Hub2.0",
     frontendRoutes: 6,
     visibleSidebarDomains: ["entities", "federal", "state"],
-    retainedNonSidebarRoutes: ["competitors"],
-    routeLoading: hasLazyEntitiesImport ? "lazy" : "static",
+    retainedNonSidebarRoutes: ["competitors", "fec-filings"],
+    routeLoading: hasContextualEntitiesImport ? "contextual-wrapper" : hasDirectEntitiesImport ? "direct" : "unknown",
   }),
 );
