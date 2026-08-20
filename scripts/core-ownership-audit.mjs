@@ -42,11 +42,10 @@ const contextualWrapperOwnsEntities =
 
 assert.ok(
   hasDirectEntitiesImport || (hasContextualEntitiesImport && contextualWrapperOwnsEntities),
-  "Hub 2 App must own and load the transferred Entities workspace directly or through the reviewed contextual wrapper",
+  "Hub 2 App must retain the Entities compatibility workspace directly or through the reviewed contextual wrapper",
 );
 
 for (const expected of [
-  '{ href: "/entities", label: "Entities"',
   '{ href: "/federal-agencies", label: "Federal Agencies"',
   '{ href: "/state-agencies", label: "State Agencies"',
   '{ href: "/industry-impact-calculator", label: "Industry Impact Calculator"',
@@ -56,12 +55,13 @@ for (const expected of [
 }
 
 for (const forbidden of [
+  '{ href: "/entities", label: "Entities"',
   '{ href: "/competitors", label: "Competitors"',
   '{ href: "/fec-filings", label: "FEC Filings"',
   '{ href: "/industry-injury-benchmarks", label: "Industry Injury Benchmarks"',
   '{ href: "/occupational-demands", label: "Occupational Demands"',
 ]) {
-  assert.ok(!sidebar.includes(forbidden), `Reviewed hierarchy forbids duplicate primary navigation entry ${forbidden}`);
+  assert.ok(!sidebar.includes(forbidden), `Reviewed hierarchy forbids primary navigation entry ${forbidden}`);
 }
 
 assert.ok(
@@ -80,7 +80,7 @@ for (const expected of [
   'Prospect Profiles',
   'Client Records',
 ]) {
-  assert.ok(entities.includes(expected), `Entities workspace is missing ${expected}`);
+  assert.ok(entities.includes(expected), `Entities compatibility workspace is missing ${expected}`);
 }
 
 if (hasContextualEntitiesImport) {
@@ -114,8 +114,8 @@ console.log(
     event: "core_intelligence_ownership_audit_passed",
     owner: "Insight-Hub2.0",
     frontendRoutes: 13,
-    visibleSidebarDomains: ["entities", "federal", "state", "industry-impact", "job-intelligence"],
-    retainedNonSidebarRoutes: ["competitors", "fec-filings", "industry-injury-benchmarks", "occupational-demands"],
+    visibleSidebarDomains: ["federal", "state", "industry-impact", "job-intelligence"],
+    retainedNonSidebarRoutes: ["entities", "competitors", "fec-filings", "industry-injury-benchmarks", "occupational-demands"],
     routeLoading: hasContextualEntitiesImport ? "contextual-wrapper" : hasDirectEntitiesImport ? "direct" : "unknown",
   }),
 );
