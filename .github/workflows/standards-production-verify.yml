@@ -5,11 +5,15 @@ on:
     branches:
       - verify/standards-production-20260819
 
+permissions:
+  contents: write
+
 jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
+      - uses: actions/checkout@v4
       - name: Verify deployed Standards Intelligence
         shell: bash
         run: |
@@ -24,6 +28,7 @@ jobs:
                 "$base/api/standards/evaluate" -o /tmp/evaluate.json; then
                 if python - <<'PY'
 import json
+from pathlib import Path
 catalog=json.load(open('/tmp/catalog.json'))
 evaluation=json.load(open('/tmp/evaluate.json'))
 ids={s.get('id') for s in catalog.get('sources',[])}
@@ -41,14 +46,24 @@ assert any(f.get('standardId') == 'osha-respiratory' for f in findings), finding
 recs={r.get('standardId') for r in evaluation.get('recommendations',[])}
 assert 'nfpa1580' in recs, recs
 assert 'osha-respiratory' in recs, recs
-print(json.dumps({
+result={
+  'ok': True,
   'totalSources': catalog.get('totalSources'),
   'automatedSources': catalog.get('automatedSources'),
   'findingCount': len(findings),
   'recommendations': sorted(recs),
-}, indent=2))
+  'verifiedFrameworks': sorted(required),
+}
+Path('.verification').mkdir(exist_ok=True)
+Path('.verification/standards-production.json').write_text(json.dumps(result, indent=2)+"\n")
+print(json.dumps(result, indent=2))
 PY
                 then
+                  git config user.name 'github-actions[bot]'
+                  git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+                  git add .verification/standards-production.json
+                  git commit -m 'Record Standards production verification'
+                  git push
                   echo 'Standards production verification passed.'
                   exit 0
                 fi
