@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Activity,
   BarChart3,
-  BookOpenCheck,
   BriefcaseBusiness,
+  CalendarDays,
   CircleDollarSign,
   Gauge,
   Loader2,
@@ -31,12 +31,13 @@ import {
   OccupationalToolShell,
   ToolHero,
 } from "@/components/insight/OccupationalToolPrimitives";
-import { calculateIncidentRate, expectedCasesFromHours } from "@/data/occupationalCalculations";
 import type { BlsBenchmark } from "@/data/employerIntelligenceApi";
 
 type Sector = { id: string; naics: string; label: string; description: string; benchmark: BlsBenchmark | null; message?: string };
 type Overview = { sectors: Sector[]; ranked: Sector[]; limitation?: string };
 type EvidenceKind = "observed" | "benchmark" | "assumption" | "modeled";
+type WorkforceBasis = "headcount" | "fte";
+type WorkforceSource = "reported" | "estimated" | "user";
 
 const evidenceStyle: Record<EvidenceKind, string> = {
   observed: "border-cyan-200/20 bg-cyan-300/[0.07] text-cyan-50",
@@ -58,6 +59,10 @@ function number(value: number, digits = 1): string {
   return (Number.isFinite(value) ? value : 0).toLocaleString("en-US", { maximumFractionDigits: digits });
 }
 
+function SelectField({ label, value, onChange, children, hint }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode; hint?: string }) {
+  return <label className="block"><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-cyan-100/16 bg-[#040c16]/92 px-3 text-sm text-white outline-none focus:border-cyan-200/42">{children}</select>{hint ? <p className="mt-1.5 text-[9px] leading-4 text-cyan-50/38">{hint}</p> : null}</label>;
+}
+
 export default function IndustryImpactCalculatorV2() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [benchmark, setBenchmark] = useState<BlsBenchmark | null>(null);
@@ -67,11 +72,13 @@ export default function IndustryImpactCalculatorV2() {
   const [message, setMessage] = useState("");
 
   const [workforce, setWorkforce] = useState(0);
-  const [annualHours, setAnnualHours] = useState(0);
-  const [recordables, setRecordables] = useState(0);
-  const [dartCases, setDartCases] = useState(0);
-  const [daysAwayCases, setDaysAwayCases] = useState(0);
+  const [workforceBasis, setWorkforceBasis] = useState<WorkforceBasis>("headcount");
+  const [workforceSource, setWorkforceSource] = useState<WorkforceSource>("user");
+  const [hoursPerWorker, setHoursPerWorker] = useState(2000);
+  const [observedTrir, setObservedTrir] = useState(0);
+  const [observedDart, setObservedDart] = useState(0);
   const [targetTrir, setTargetTrir] = useState(0);
+  const [lostDaysPerRecordable, setLostDaysPerRecordable] = useState(0);
   const [lowCost, setLowCost] = useState(0);
   const [baseCost, setBaseCost] = useState(0);
   const [highCost, setHighCost] = useState(0);
@@ -110,79 +117,126 @@ export default function IndustryImpactCalculatorV2() {
   }
 
   const model = useMemo(() => {
-    const observedTrir = calculateIncidentRate(recordables, annualHours);
-    const observedDart = calculateIncidentRate(dartCases, annualHours);
-    const observedAway = calculateIncidentRate(daysAwayCases, annualHours);
-    const benchmarkTrir = benchmark?.trcRate ?? 0;
-    const benchmarkCases = expectedCasesFromHours(benchmarkTrir, annualHours);
-    const targetRate = targetTrir > 0 ? targetTrir : benchmarkTrir;
-    const targetCases = expectedCasesFromHours(targetRate, annualHours);
-    const avoidedCases = Math.max(recordables - targetCases, 0);
-    const excessVsBenchmark = Math.max(recordables - benchmarkCases, 0);
-    const gapPercent = benchmarkTrir > 0 ? ((observedTrir / benchmarkTrir) - 1) * 100 : null;
-    const direct = {
-      low: avoidedCases * Math.max(lowCost, 0),
-      base: avoidedCases * Math.max(baseCost, 0),
-      high: avoidedCases * Math.max(highCost, 0),
+    const workers = Math.max(workforce, 0);
+    const hoursEach = Math.max(hoursPerWorker, 0);
+    const modeledAnnualHours = workers * hoursEach;
+    const currentRate = Math.max(observedTrir, 0);
+    const currentDartRate = Math.max(observedDart, 0);
+    const benchmarkRate = Math.max(benchmark?.trcRate ?? 0, 0);
+    const benchmarkDartRate = Math.max(benchmark?.dartRate ?? 0, 0);
+    const targetRate = Math.max(targetTrir > 0 ? targetTrir : benchmarkRate, 0);
+
+    const casesAt = (rate: number) => modeledAnnualHours > 0 ? rate * modeledAnnualHours / 200_000 : 0;
+    const currentCases = casesAt(currentRate);
+    const currentDartCases = casesAt(currentDartRate);
+    const benchmarkCases = casesAt(benchmarkRate);
+    const benchmarkDartCases = casesAt(benchmarkDartRate);
+    const targetCases = casesAt(targetRate);
+    const avoidedCases = Math.max(currentCases - targetCases, 0);
+    const excessVsBenchmark = Math.max(currentCases - benchmarkCases, 0);
+    const gapPercent = benchmarkRate > 0 ? ((currentRate / benchmarkRate) - 1) * 100 : null;
+
+    const lostDaysCurrent = currentCases * Math.max(lostDaysPerRecordable, 0);
+    const lostDaysTarget = targetCases * Math.max(lostDaysPerRecordable, 0);
+    const avoidedLostDays = Math.max(lostDaysCurrent - lostDaysTarget, 0);
+
+    const multiplier = 1 + Math.max(indirectMultiplier, 0);
+    const currentCost = {
+      low: currentCases * Math.max(lowCost, 0) * multiplier,
+      base: currentCases * Math.max(baseCost, 0) * multiplier,
+      high: currentCases * Math.max(highCost, 0) * multiplier,
     };
-    const multiplier = Math.max(indirectMultiplier, 0);
-    const total = { low: direct.low * (1 + multiplier), base: direct.base * (1 + multiplier), high: direct.high * (1 + multiplier) };
+    const targetCost = {
+      low: targetCases * Math.max(lowCost, 0) * multiplier,
+      base: targetCases * Math.max(baseCost, 0) * multiplier,
+      high: targetCases * Math.max(highCost, 0) * multiplier,
+    };
+    const savings = {
+      low: Math.max(currentCost.low - targetCost.low, 0),
+      base: Math.max(currentCost.base - targetCost.base, 0),
+      high: Math.max(currentCost.high - targetCost.high, 0),
+    };
     const margin = Math.max(profitMargin, 0) / 100;
-    const salesRecovery = margin > 0 ? total.base / margin : 0;
-    const casesPer100Workers = workforce > 0 ? recordables / workforce * 100 : 0;
-    const dartPer100Workers = workforce > 0 ? dartCases / workforce * 100 : 0;
-    const hoursPerWorker = workforce > 0 ? annualHours / workforce : 0;
-    const avoidedPer100Workers = workforce > 0 ? avoidedCases / workforce * 100 : 0;
-    const baseCostPerWorker = workforce > 0 ? total.base / workforce : 0;
+    const salesRecovery = margin > 0 ? savings.base / margin : 0;
+
     const trajectory = Array.from({ length: 6 }, (_, index) => {
       const fraction = index / 5;
-      const rate = observedTrir + (targetRate - observedTrir) * fraction;
-      const cases = expectedCasesFromHours(rate, annualHours);
-      return { year: index === 0 ? "Now" : `Year ${index}`, rate, cases };
+      const rate = currentRate + (targetRate - currentRate) * fraction;
+      const cases = casesAt(rate);
+      const lostDays = cases * Math.max(lostDaysPerRecordable, 0);
+      const cost = cases * Math.max(baseCost, 0) * multiplier;
+      return { year: index === 0 ? "Now" : `Year ${index}`, rate, cases, lostDays, cost };
     });
-    return { observedTrir, observedDart, observedAway, benchmarkTrir, benchmarkCases, targetRate, targetCases, avoidedCases, excessVsBenchmark, gapPercent, total, salesRecovery, casesPer100Workers, dartPer100Workers, hoursPerWorker, avoidedPer100Workers, baseCostPerWorker, trajectory };
-  }, [workforce, annualHours, recordables, dartCases, daysAwayCases, benchmark, targetTrir, lowCost, baseCost, highCost, indirectMultiplier, profitMargin]);
 
-  const hasObserved = annualHours > 0;
-  const hasBenchmark = Boolean(benchmark?.trcRate != null);
-  const comparison = hasObserved && hasBenchmark ? [
-    { metric: "TRIR", actual: model.observedTrir, benchmark: benchmark?.trcRate ?? 0 },
-    { metric: "DART", actual: model.observedDart, benchmark: benchmark?.dartRate ?? 0 },
-    { metric: "Days Away", actual: model.observedAway, benchmark: benchmark?.daysAwayRate ?? 0 },
-  ] : [];
+    return {
+      modeledAnnualHours,
+      currentRate,
+      currentDartRate,
+      benchmarkRate,
+      benchmarkDartRate,
+      targetRate,
+      currentCases,
+      currentDartCases,
+      benchmarkCases,
+      benchmarkDartCases,
+      targetCases,
+      avoidedCases,
+      excessVsBenchmark,
+      gapPercent,
+      lostDaysCurrent,
+      lostDaysTarget,
+      avoidedLostDays,
+      currentCost,
+      targetCost,
+      savings,
+      salesRecovery,
+      trajectory,
+    };
+  }, [workforce, hoursPerWorker, observedTrir, observedDart, benchmark, targetTrir, lostDaysPerRecordable, lowCost, baseCost, highCost, indirectMultiplier, profitMargin]);
 
-  return <OccupationalToolShell eyebrow="Independent Intelligence Tool · Scenario Laboratory" title="Industry Impact Calculator" subtitle="A benchmark-first scenario model where observed facts, official BLS values, user assumptions, and calculated outputs are visually separated instead of blended together." notice="OSHA incidence rates require hours worked; workforce size is not silently converted into hours. Workforce size is used only for workforce-normalized outputs such as cases per 100 workers and modeled cost per worker. The five-year line is an explicit linear scenario path, not a forecast.">
-    <ToolHero kicker="Evidence-separated scenario lab" title="You should always be able to tell what came from where." description="Choose a prepared BLS industry, enter employer facts, then add assumptions only when you want a scenario. Every major panel is labeled as observed data, official benchmark, user assumption, or modeled output." accent="emerald">
+  const ready = workforce > 0 && hoursPerWorker > 0 && observedTrir >= 0;
+  const provenanceLabel = workforceSource === "reported" ? "Official reported baseline" : workforceSource === "estimated" ? "Estimated baseline" : "User-entered baseline";
+
+  return <OccupationalToolShell eyebrow="Independent Intelligence Tool · Scenario Laboratory" title="Industry Impact Calculator" subtitle="A workforce-driven benchmark and impact model where workforce size changes every downstream case, lost-workday, cost, and trajectory output." notice="Workforce size is modeled as either headcount or FTE and is never decorative. The model uses workforce × annual hours per worker/FTE to translate incidence rates into expected cases. BLS values are official industry benchmarks; workforce provenance, cost assumptions, lost-day assumptions, targets, and the five-year linear path are labeled separately and are not forecasts.">
+    <ToolHero kicker="Workforce-driven scenario lab" title="Change workforce size and the entire model changes with it." description="Set the workforce basis and provenance, choose a BLS industry benchmark, enter the employer incidence-rate baseline, and then test an improvement scenario. A reported workforce count stays visibly reported; an estimate stays visibly estimated." accent="emerald">
       <div className="grid grid-cols-2 gap-2"><Kind kind="observed" /><Kind kind="benchmark" /><Kind kind="assumption" /><Kind kind="modeled" /></div>
     </ToolHero>
 
     <GlassCard className="mb-5 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><Kind kind="benchmark" /><EvidenceGradeBadge grade={overview ? "A" : "Unavailable"} /></div><h2 className="mt-2 text-xl font-black text-white">Prepared BLS industry library</h2><p className="mt-2 text-xs leading-5 text-cyan-50/52">Choose by industry name. NAICS is displayed for traceability rather than required knowledge.</p></div><BriefcaseBusiness size={19} className="text-emerald-200/55" /></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><Kind kind="observed" /><EvidenceGradeBadge grade={workforceSource === "reported" ? "A" : workforceSource === "estimated" ? "C" : "D"} /></div><h2 className="mt-2 text-xl font-black text-white">Workforce baseline</h2><p className="mt-2 text-xs leading-5 text-cyan-50/52">This is the primary scaling driver for affected workers, recordable cases, lost workdays, costs, and every point on the scenario path.</p></div><Users size={19} className="text-cyan-200/55" /></div>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <NumberField label="Workforce size (headcount or FTE)" value={workforce} onChange={setWorkforce} step={10} suffix={workforceBasis === "fte" ? "FTE" : "people"} hint="The selected basis is carried into all modeled outputs." />
+        <SelectField label="Workforce basis" value={workforceBasis} onChange={(value) => setWorkforceBasis(value as WorkforceBasis)}><option value="headcount">Headcount</option><option value="fte">FTE</option></SelectField>
+        <SelectField label="Workforce source" value={workforceSource} onChange={(value) => setWorkforceSource(value as WorkforceSource)} hint="Preserves whether the count is reported or estimated."><option value="reported">Official reported count</option><option value="estimated">Estimate</option><option value="user">User-entered / unknown provenance</option></SelectField>
+        <NumberField label={`Annual hours per ${workforceBasis === "fte" ? "FTE" : "worker"}`} value={hoursPerWorker} onChange={setHoursPerWorker} step={40} suffix="hours" hint="Used with workforce size to calculate the modeled annual exposure-hours denominator." />
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3"><MetricOrb label="Baseline provenance" value={provenanceLabel} note={`${number(workforce, 0)} ${workforceBasis === "fte" ? "FTE" : "headcount"}`} icon={BriefcaseBusiness} /><MetricOrb label="Modeled annual hours" value={ready ? number(model.modeledAnnualHours, 0) : "—"} note="Workforce × annual hours per worker/FTE" icon={Gauge} tone="violet" /><MetricOrb label="Hours basis" value={hoursPerWorker > 0 ? number(hoursPerWorker, 0) : "—"} note={`per ${workforceBasis === "fte" ? "FTE" : "worker"} per year`} icon={CalendarDays} tone="amber" /></div>
+    </GlassCard>
+
+    <GlassCard className="mb-5 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><Kind kind="benchmark" /><EvidenceGradeBadge grade={overview ? "A" : "Unavailable"} /></div><h2 className="mt-2 text-xl font-black text-white">Prepared BLS industry library</h2><p className="mt-2 text-xs leading-5 text-cyan-50/52">Choose by industry name. NAICS stays visible for traceability.</p></div><BarChart3 size={19} className="text-emerald-200/55" /></div>
       {!overview ? <div className="mt-4 flex items-center gap-2 text-xs text-cyan-50/55"><Loader2 size={15} className="animate-spin" />Loading live BLS benchmarks…</div> : <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{overview.sectors.map((sector) => <button key={sector.id} type="button" onClick={() => selectPrepared(sector)} className={`rounded-2xl border p-4 text-left transition ${selectedNaics === sector.naics && benchmark ? "border-emerald-200/30 bg-emerald-300/[0.09]" : "border-white/10 bg-[#071321]/72 hover:border-emerald-200/20"}`}><div className="flex items-start justify-between gap-3"><p className="text-xs font-black text-white">{sector.label}</p><span className="text-[8px] text-cyan-50/38">{sector.naics}</span></div><p className="mt-2 line-clamp-2 text-[9px] leading-4 text-cyan-50/48">{sector.description}</p><div className="mt-3 flex items-center gap-3"><span className="text-lg font-black text-emerald-100">{sector.benchmark?.trcRate != null ? number(sector.benchmark.trcRate, 1) : "—"}</span><span className="text-[9px] text-cyan-50/42">TRC · {sector.benchmark?.year ?? "not returned"}</span></div></button>)}</div>}
+      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_.45fr_auto] sm:items-end"><label><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">NAICS</span><input value={selectedNaics} onChange={(event) => setSelectedNaics(event.target.value.replace(/[^0-9]/g, ""))} placeholder="336411" className="mt-2 min-h-11 w-full rounded-xl border border-cyan-100/16 bg-[#040c16]/92 px-3 text-sm text-white outline-none focus:border-cyan-200/42" /></label><label><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">Year optional</span><input value={year} onChange={(event) => setYear(event.target.value.replace(/[^0-9]/g, "").slice(0, 4))} placeholder="Latest" className="mt-2 min-h-11 w-full rounded-xl border border-cyan-100/16 bg-[#040c16]/92 px-3 text-sm text-white outline-none focus:border-cyan-200/42" /></label><button type="button" onClick={() => void lookup()} disabled={loading || !selectedNaics.trim()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-cyan-200/22 bg-cyan-300/10 px-4 text-xs font-black text-white disabled:opacity-40">{loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}Load BLS benchmark</button></div>
+      {message ? <p className="mt-3 text-[10px] leading-5 text-amber-100/60">{message}</p> : null}
     </GlassCard>
 
     <div className="grid gap-5 2xl:grid-cols-[.72fr_1.28fr]">
       <div className="space-y-5">
-        <GlassCard className="p-5"><div className="flex items-center justify-between gap-3"><div><Kind kind="observed" /><h2 className="mt-2 text-lg font-black text-white">Employer facts</h2></div><Users size={18} className="text-cyan-200/55" /></div><div className="mt-4 grid gap-4 sm:grid-cols-2"><NumberField label="Workforce size" value={workforce} onChange={setWorkforce} suffix="workers" hint="Used for per-worker and per-100-worker outputs; never silently converted into hours." /><NumberField label="Annual hours worked" value={annualHours} onChange={setAnnualHours} step={10_000} suffix="hours" hint="Required for OSHA TRIR/DART math." /><NumberField label="Recordable cases" value={recordables} onChange={setRecordables} /><NumberField label="DART cases" value={dartCases} onChange={setDartCases} /><NumberField label="Days-away cases" value={daysAwayCases} onChange={setDaysAwayCases} /></div>{workforce > 0 ? <div className="mt-4 grid gap-2 sm:grid-cols-3"><div className="rounded-xl border border-cyan-200/12 bg-cyan-300/[0.04] p-3"><p className="text-[9px] text-cyan-50/45">Recordables / 100 workers</p><p className="mt-1 text-lg font-black">{number(model.casesPer100Workers, 2)}</p></div><div className="rounded-xl border border-cyan-200/12 bg-cyan-300/[0.04] p-3"><p className="text-[9px] text-cyan-50/45">DART / 100 workers</p><p className="mt-1 text-lg font-black">{number(model.dartPer100Workers, 2)}</p></div><div className="rounded-xl border border-cyan-200/12 bg-cyan-300/[0.04] p-3"><p className="text-[9px] text-cyan-50/45">Observed hours / worker</p><p className="mt-1 text-lg font-black">{annualHours > 0 ? number(model.hoursPerWorker, 0) : "—"}</p></div></div> : null}</GlassCard>
+        <GlassCard className="p-5"><Kind kind="observed" /><h2 className="mt-2 text-lg font-black text-white">Employer incidence baseline</h2><p className="mt-2 text-[10px] leading-5 text-cyan-50/48">Enter the employer’s observed or otherwise selected incidence-rate baseline. Workforce size converts these rates into modeled affected-worker/case counts.</p><div className="mt-4 grid gap-4 sm:grid-cols-2"><NumberField label="Observed employer TRIR" value={observedTrir} onChange={setObservedTrir} step={0.1} /><NumberField label="Observed employer DART rate" value={observedDart} onChange={setObservedDart} step={0.1} /></div></GlassCard>
 
-        <GlassCard className="p-5"><Kind kind="assumption" /><h2 className="mt-2 text-lg font-black text-white">Improvement target</h2><p className="mt-2 text-[10px] leading-5 text-cyan-50/48">Selecting an industry seeds this field with the BLS benchmark, but once you change it the target is your scenario assumption.</p><div className="mt-4"><NumberField label="Target TRIR" value={targetTrir} onChange={setTargetTrir} step={0.1} /></div></GlassCard>
+        <GlassCard className="p-5"><Kind kind="assumption" /><h2 className="mt-2 text-lg font-black text-white">Improvement + lost-workday assumptions</h2><div className="mt-4 grid gap-4 sm:grid-cols-2"><NumberField label="Target TRIR" value={targetTrir} onChange={setTargetTrir} step={0.1} hint="Selecting a BLS industry seeds this value, but you can change it for the scenario." /><NumberField label="Lost workdays per recordable" value={lostDaysPerRecordable} onChange={setLostDaysPerRecordable} step={0.5} suffix="days" hint="User assumption used only for lost-workday outputs." /></div></GlassCard>
 
-        <GlassCard className="p-5"><div className="flex items-start justify-between gap-3"><div><Kind kind="assumption" /><h2 className="mt-2 text-lg font-black text-white">Financial sensitivity</h2><p className="mt-2 text-[10px] leading-5 text-cyan-50/48">Low/base/high cost values and multipliers are assumptions. They are never presented as source data.</p></div><EvidenceGradeBadge grade="D" /></div><div className="mt-4 grid gap-4 sm:grid-cols-2"><NumberField label="Low cost per avoided case" value={lowCost} onChange={setLowCost} step={1_000} suffix="USD" /><NumberField label="Base cost per avoided case" value={baseCost} onChange={setBaseCost} step={1_000} suffix="USD" /><NumberField label="High cost per avoided case" value={highCost} onChange={setHighCost} step={1_000} suffix="USD" /><NumberField label="Indirect cost multiplier" value={indirectMultiplier} onChange={setIndirectMultiplier} step={0.1} suffix="× direct" /><NumberField label="Profit margin" value={profitMargin} onChange={setProfitMargin} step={0.5} suffix="%" /></div></GlassCard>
-
-        <GlassCard className="p-5"><div className="flex items-start justify-between gap-3"><div><Kind kind="benchmark" /><h2 className="mt-2 text-lg font-black text-white">Advanced NAICS lookup</h2></div><Search size={17} className="text-cyan-200/55" /></div><div className="mt-4 grid gap-3 sm:grid-cols-[1fr_.55fr_auto] sm:items-end"><label><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">NAICS</span><input value={selectedNaics} onChange={(event) => setSelectedNaics(event.target.value.replace(/[^0-9]/g, "").slice(0, 6))} placeholder="2–6 digits" className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /></label><label><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">Year</span><input value={year} onChange={(event) => setYear(event.target.value.replace(/[^0-9]/g, "").slice(0, 4))} placeholder="Latest" className="mt-2 min-h-11 w-full rounded-xl border border-white/12 bg-[#040c16]/92 px-3 text-sm text-white outline-none" /></label><button type="button" onClick={() => void lookup()} disabled={loading || !selectedNaics} className="min-h-11 rounded-xl border border-cyan-200/22 bg-cyan-300/10 px-4 text-xs font-black text-white disabled:opacity-45">{loading ? "Loading…" : "Lookup"}</button></div>{message ? <p className="mt-3 text-[10px] leading-5 text-amber-50/65">{message}</p> : null}</GlassCard>
+        <GlassCard className="p-5"><div className="flex items-start justify-between gap-3"><div><Kind kind="assumption" /><h2 className="mt-2 text-lg font-black text-white">Financial sensitivity</h2><p className="mt-2 text-[10px] leading-5 text-cyan-50/48">All dollar values below are scenario assumptions, not BLS or OSHA source data.</p></div><EvidenceGradeBadge grade="D" /></div><div className="mt-4 grid gap-4 sm:grid-cols-2"><NumberField label="Low cost per recordable" value={lowCost} onChange={setLowCost} step={1000} suffix="USD" /><NumberField label="Base cost per recordable" value={baseCost} onChange={setBaseCost} step={1000} suffix="USD" /><NumberField label="High cost per recordable" value={highCost} onChange={setHighCost} step={1000} suffix="USD" /><NumberField label="Indirect cost multiplier" value={indirectMultiplier} onChange={setIndirectMultiplier} step={0.1} suffix="× direct" /><NumberField label="Profit margin" value={profitMargin} onChange={setProfitMargin} step={0.5} suffix="%" /></div></GlassCard>
       </div>
 
       <div className="space-y-5">
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><div><Kind kind="observed" /><div className="mt-2"><MetricOrb label="Actual TRIR" value={hasObserved ? number(model.observedTrir, 2) : "—"} note="Recordables × 200,000 ÷ entered hours" icon={Gauge} /></div></div><div><Kind kind="benchmark" /><div className="mt-2"><MetricOrb label="Industry benchmark" value={hasBenchmark ? number(model.benchmarkTrir, 2) : "—"} note={benchmark?.industryTitle || "Choose an industry"} icon={BookOpenCheck} tone="emerald" /></div></div><div><Kind kind="modeled" /><div className="mt-2"><MetricOrb label="Gap vs benchmark" value={hasObserved && hasBenchmark && model.gapPercent != null ? `${model.gapPercent >= 0 ? "+" : ""}${number(model.gapPercent, 1)}%` : "—"} note="Arithmetic comparison of observed and BLS rates" icon={TrendingUp} tone={model.gapPercent != null && model.gapPercent > 0 ? "rose" : "emerald"} /></div></div><div><Kind kind="modeled" /><div className="mt-2"><MetricOrb label="Excess cases vs benchmark" value={hasObserved && hasBenchmark ? number(model.excessVsBenchmark, 1) : "—"} note="Benchmark-implied cases at entered hours" icon={Activity} tone="violet" /></div></div></section>
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Affected workers / recordables" value={ready ? number(model.currentCases, 1) : "—"} note={`${number(workforce, 0)} ${workforceBasis === "fte" ? "FTE" : "workers"} × ${number(model.currentRate, 2)} TRIR`} icon={Users} /><MetricOrb label="Target recordables" value={ready ? number(model.targetCases, 1) : "—"} note={`${number(model.avoidedCases, 1)} modeled cases avoided`} icon={TrendingDown} tone="emerald" /><MetricOrb label="Current lost workdays" value={ready && lostDaysPerRecordable > 0 ? number(model.lostDaysCurrent, 0) : "—"} note={lostDaysPerRecordable > 0 ? `${number(model.avoidedLostDays, 0)} modeled days avoided` : "Enter lost days per recordable"} icon={CalendarDays} tone="rose" /><MetricOrb label="Base annual savings" value={ready && baseCost > 0 ? money(model.savings.base) : "—"} note="Current workforce-scaled cost − target cost" icon={CircleDollarSign} tone="violet" /></section>
 
-        {comparison.length ? <GlassCard className="p-5"><div className="flex flex-wrap items-center gap-2"><Kind kind="observed" /><Kind kind="benchmark" /></div><h2 className="mt-2 text-lg font-black text-white">Observed rates vs official BLS benchmark</h2><div className="mt-4 h-[310px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={comparison}><CartesianGrid stroke="rgba(165,243,252,.09)" vertical={false} /><XAxis dataKey="metric" tick={{ fill: "rgba(207,250,254,.65)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(103,232,249,.2)", borderRadius: 12 }} /><Bar dataKey="actual" name="Observed" fill="#67e8f9" radius={[7, 7, 2, 2]} /><Bar dataKey="benchmark" name="BLS benchmark" fill="#6ee7b7" radius={[7, 7, 2, 2]} /></BarChart></ResponsiveContainer></div></GlassCard> : <GlassCard className="p-8 text-center"><BarChart3 className="mx-auto h-8 w-8 text-cyan-200/40" /><p className="mt-3 font-black text-white">Waiting for comparable observed data</p><p className="mt-2 text-xs leading-5 text-cyan-50/48">Choose an industry and enter annual hours. Workforce size by itself is intentionally not used to manufacture an OSHA rate.</p></GlassCard>}
+        <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><Kind kind="benchmark" /><h2 className="mt-2 text-lg font-black text-white">Employer vs official BLS benchmark</h2></div><Activity size={18} className="text-emerald-200/55" /></div><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricOrb label="Employer TRIR" value={ready ? number(model.currentRate, 2) : "—"} note="Entered employer baseline" icon={Gauge} /><MetricOrb label="BLS TRC" value={benchmark?.trcRate != null ? number(model.benchmarkRate, 2) : "—"} note={benchmark?.year ? `Official BLS · ${benchmark.year}` : "Choose an industry benchmark"} icon={BarChart3} tone="emerald" /><MetricOrb label="Benchmark-implied cases" value={ready && benchmark?.trcRate != null ? number(model.benchmarkCases, 1) : "—"} note="BLS rate scaled to this workforce" icon={BriefcaseBusiness} tone="emerald" /><MetricOrb label="Rate gap" value={model.gapPercent == null ? "—" : `${model.gapPercent >= 0 ? "+" : ""}${number(model.gapPercent, 1)}%`} note={benchmark ? `${number(model.excessVsBenchmark, 1)} cases above benchmark-implied level` : "No official benchmark selected"} icon={TrendingUp} tone={model.gapPercent != null && model.gapPercent > 0 ? "rose" : "emerald"} /></div></GlassCard>
 
-        {hasObserved && model.targetRate > 0 ? <>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><div><Kind kind="assumption" /><div className="mt-2"><MetricOrb label="Target TRIR" value={number(model.targetRate, 2)} note="Scenario target" icon={TrendingDown} tone="amber" /></div></div><div><Kind kind="modeled" /><div className="mt-2"><MetricOrb label="Cases at target" value={number(model.targetCases, 1)} note="Target rate × entered hours" icon={Users} tone="violet" /></div></div><div><Kind kind="modeled" /><div className="mt-2"><MetricOrb label="Modeled cases avoided" value={number(model.avoidedCases, 1)} note={workforce > 0 ? `${number(model.avoidedPer100Workers, 2)} per 100 entered workers` : "Observed minus target-implied cases"} icon={Activity} tone="emerald" /></div></div><div><Kind kind="modeled" /><div className="mt-2"><MetricOrb label="Base modeled cost" value={baseCost > 0 ? money(model.total.base) : "—"} note={baseCost > 0 && workforce > 0 ? `${money(model.baseCostPerWorker)} per entered worker` : baseCost > 0 ? `Includes ${indirectMultiplier}× indirect multiplier` : "Enter a base cost assumption"} icon={CircleDollarSign} tone="violet" /></div></div></section>
-          <GlassCard className="p-5"><div className="flex flex-wrap items-end justify-between gap-3"><div><Kind kind="modeled" /><h2 className="mt-2 text-lg font-black text-white">Five-year linear scenario path</h2></div><span className="rounded-full border border-violet-200/16 bg-violet-300/[0.05] px-3 py-1.5 text-[10px] font-black text-violet-50">Scenario · not forecast</span></div><p className="mt-2 text-xs leading-5 text-cyan-50/48">This line is deliberately just a straight interpolation from the observed rate to the user-selected target. No probability, trend model, or forecast claim is implied.</p><div className="mt-4 h-[330px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={model.trajectory}><CartesianGrid stroke="rgba(165,243,252,.08)" /><XAxis dataKey="year" tick={{ fill: "rgba(207,250,254,.62)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis yAxisId="rate" tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis yAxisId="cases" orientation="right" tick={{ fill: "rgba(207,250,254,.48)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(196,181,253,.2)", borderRadius: 12 }} /><Line yAxisId="rate" dataKey="rate" name="Scenario TRIR" stroke="#c4b5fd" strokeWidth={3} dot={false} /><Line yAxisId="cases" dataKey="cases" name="Scenario cases" stroke="#6ee7b7" strokeWidth={2.5} dot={false} /></LineChart></ResponsiveContainer></div></GlassCard>
-        </> : null}
+        <GlassCard className="p-5"><Kind kind="modeled" /><h2 className="mt-2 text-lg font-black text-white">Workforce-scaled cost range</h2><div className="mt-4 grid gap-3 sm:grid-cols-3"><MetricOrb label="Low savings" value={lowCost > 0 ? money(model.savings.low) : "—"} note="Low entered cost assumption" icon={CircleDollarSign} tone="emerald" /><MetricOrb label="Base savings" value={baseCost > 0 ? money(model.savings.base) : "—"} note="Base entered cost assumption" icon={CircleDollarSign} tone="violet" /><MetricOrb label="High savings" value={highCost > 0 ? money(model.savings.high) : "—"} note="High entered cost assumption" icon={CircleDollarSign} tone="amber" /></div>{profitMargin > 0 && baseCost > 0 ? <div className="mt-4 rounded-xl border border-white/10 bg-black/15 p-4"><p className="text-[9px] uppercase tracking-[0.14em] text-cyan-50/42">Equivalent sales needed to recover modeled base cost</p><p className="mt-1 text-2xl font-black">{money(model.salesRecovery)}</p><p className="mt-1 text-[10px] text-cyan-50/42">Uses the entered {number(profitMargin, 1)}% profit-margin assumption.</p></div> : null}</GlassCard>
 
-        {model.avoidedCases > 0 && (lowCost > 0 || baseCost > 0 || highCost > 0) ? <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap gap-2"><Kind kind="assumption" /><Kind kind="modeled" /></div><h2 className="mt-2 text-lg font-black text-white">Low / base / high sensitivity</h2></div><EvidenceGradeBadge grade="D" /></div><div className="mt-4 grid gap-3 sm:grid-cols-3">{[{ label: "Low", input: lowCost, total: model.total.low }, { label: "Base", input: baseCost, total: model.total.base }, { label: "High", input: highCost, total: model.total.high }].map((item) => <div key={item.label} className="rounded-2xl border border-violet-200/12 bg-violet-300/[0.04] p-4"><p className="text-[9px] uppercase tracking-[0.14em] text-violet-50/55">{item.label}</p><p className="mt-2 text-2xl font-black text-white">{money(item.total)}</p><p className="mt-1 text-[10px] text-cyan-50/45">{money(item.input)} assumed per modeled avoided case</p></div>)}</div>{profitMargin > 0 && baseCost > 0 ? <div className="mt-4 rounded-xl border border-violet-200/16 bg-violet-300/[0.05] p-4"><p className="text-[9px] font-bold uppercase tracking-[0.14em] text-violet-50/55">Modeled sales-equivalent recovery</p><p className="mt-1 text-xl font-black text-white">{money(model.salesRecovery)}</p><p className="mt-1 text-[10px] leading-5 text-cyan-50/48">Revenue at the entered {profitMargin}% margin that would produce profit equal to the base modeled amount.</p></div> : null}</GlassCard> : null}
+        <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><Kind kind="modeled" /><h2 className="mt-2 text-lg font-black text-white">Five-year linear scenario path</h2><p className="mt-2 text-[10px] leading-5 text-cyan-50/48">This is not a forecast. It simply interpolates the entered employer TRIR toward the target while holding the selected workforce size and annual hours basis constant.</p></div><TrendingDown size={18} className="text-violet-200/55" /></div><div className="mt-4 h-[300px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={model.trajectory}><CartesianGrid stroke="rgba(165,243,252,.08)" vertical={false} /><XAxis dataKey="year" tick={{ fill: "rgba(207,250,254,.62)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis yAxisId="rate" tick={{ fill: "rgba(207,250,254,.45)", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis yAxisId="cases" orientation="right" tick={{ fill: "rgba(221,214,254,.45)", fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#06101d", border: "1px solid rgba(196,181,253,.2)", borderRadius: 12 }} formatter={(value, name) => name === "Modeled cost" ? money(Number(value)) : number(Number(value), 1)} /><Line yAxisId="rate" type="monotone" dataKey="rate" name="TRIR" stroke="#67e8f9" strokeWidth={2.2} dot={{ r: 3 }} /><Line yAxisId="cases" type="monotone" dataKey="cases" name="Affected workers / cases" stroke="#c4b5fd" strokeWidth={2.2} dot={{ r: 3 }} /></LineChart></ResponsiveContainer></div><div className="mt-4 grid gap-2 sm:grid-cols-3">{model.trajectory.map((point) => <div key={point.year} className="rounded-xl border border-white/9 bg-black/15 p-3"><p className="text-[9px] font-black text-cyan-50/45">{point.year}</p><p className="mt-1 text-sm font-black">{number(point.cases, 1)} cases</p><p className="text-[9px] text-cyan-50/40">{number(point.lostDays, 0)} lost days · {baseCost > 0 ? money(point.cost) : "cost not modeled"}</p></div>)}</div></GlassCard>
       </div>
     </div>
   </OccupationalToolShell>;
