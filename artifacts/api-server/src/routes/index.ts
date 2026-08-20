@@ -46,6 +46,7 @@ import reviewerToolsRouter from "./reviewer-tools";
 import drugIntelligenceRouter from "./drug-intelligence";
 import jobIntelligenceRouter from "./job-intelligence";
 import standardsIntelligenceRouter from "./standards-intelligence";
+import onetResolverRouter from "./onet-resolver";
 
 const router: IRouter = Router();
 
@@ -101,6 +102,7 @@ router.use(leadershipMapOrchestrationRouter);
 router.use(corporateStructureRouter);
 router.use(occupationalToolsRouter);
 router.use(occupationalDiscoveryRouter);
+router.use(onetResolverRouter);
 router.use(occupationalCaseDetailRouter);
 router.use(occupationalBlsHistoryRouter);
 router.use(occupationalDatagovWorkbenchRouter);
