@@ -362,9 +362,9 @@ test("exact O*NET code can be reviewed from Job Intelligence without title ambig
   const pageErrors = collectPageErrors(page);
   await page.goto("/job-intelligence");
 
-  const search = page.getByPlaceholder(/aircraft mechanic/i);
+  const search = page.getByPlaceholder("Search occupation title");
   await search.fill("49-3011.00");
-  await page.getByRole("button", { name: /search/i }).click();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
 
   await expect(page.getByText("Aircraft Mechanics and Service Technicians", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("49-3011.00", { exact: true }).first()).toBeVisible();
