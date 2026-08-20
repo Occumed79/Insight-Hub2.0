@@ -19,6 +19,13 @@ for (const route of [
   "/competitors",
   "/federal-agencies",
   "/state-agencies",
+  "/fec-filings",
+  "/federal-awards",
+  "/public-legal-references",
+  "/industry-impact-calculator",
+  "/industry-injury-benchmarks",
+  "/job-intelligence",
+  "/occupational-demands",
 ]) {
   assert.ok(app.includes(`path=\"${route}\"`), `Hub 2 is missing route ${route}`);
 }
@@ -37,25 +44,33 @@ assert.ok(
   hasDirectEntitiesImport || (hasContextualEntitiesImport && contextualWrapperOwnsEntities),
   "Hub 2 App must own and load the transferred Entities workspace directly or through the reviewed contextual wrapper",
 );
+
+for (const expected of [
+  '{ href: "/entities", label: "Entities"',
+  '{ href: "/federal-agencies", label: "Federal Agencies"',
+  '{ href: "/state-agencies", label: "State Agencies"',
+  '{ href: "/industry-impact-calculator", label: "Industry Impact Calculator"',
+  '{ href: "/job-intelligence", label: "Job Intelligence"',
+]) {
+  assert.ok(sidebar.includes(expected), `Hub 2 sidebar is missing reviewed destination ${expected}`);
+}
+
+for (const forbidden of [
+  '{ href: "/competitors", label: "Competitors"',
+  '{ href: "/fec-filings", label: "FEC Filings"',
+  '{ href: "/industry-injury-benchmarks", label: "Industry Injury Benchmarks"',
+  '{ href: "/occupational-demands", label: "Occupational Demands"',
+]) {
+  assert.ok(!sidebar.includes(forbidden), `Reviewed hierarchy forbids duplicate primary navigation entry ${forbidden}`);
+}
+
 assert.ok(
-  sidebar.includes('{ href: "/entities", label: "Entities"'),
-  "Hub 2 sidebar must expose Entities",
+  app.includes('<Route path="/industry-injury-benchmarks" component={IndustryImpactCalculatorRoute} />'),
+  "Legacy Industry Injury Benchmarks URL must resolve to Industry Impact",
 );
 assert.ok(
-  !sidebar.includes('{ href: "/competitors", label: "Competitors"'),
-  "Competitors must remain outside the Intelligence Tools sidebar",
-);
-assert.ok(
-  sidebar.includes('{ href: "/federal-agencies", label: "Federal Agencies"'),
-  "Hub 2 sidebar must expose Federal Agencies",
-);
-assert.ok(
-  sidebar.includes('{ href: "/state-agencies", label: "State Agencies"'),
-  "Hub 2 sidebar must expose State Agencies",
-);
-assert.ok(
-  !sidebar.includes('{ href: "/fec-filings", label: "FEC Filings"'),
-  "FEC relationship intelligence must remain entity-linked rather than a primary navigation destination",
+  app.includes('<Route path="/occupational-demands" component={ReviewerJobIntelligencePage} />'),
+  "Legacy Occupational Demands URL must resolve to Job Intelligence",
 );
 
 for (const expected of [
@@ -98,9 +113,9 @@ console.log(
   JSON.stringify({
     event: "core_intelligence_ownership_audit_passed",
     owner: "Insight-Hub2.0",
-    frontendRoutes: 6,
-    visibleSidebarDomains: ["entities", "federal", "state"],
-    retainedNonSidebarRoutes: ["competitors", "fec-filings"],
+    frontendRoutes: 13,
+    visibleSidebarDomains: ["entities", "federal", "state", "industry-impact", "job-intelligence"],
+    retainedNonSidebarRoutes: ["competitors", "fec-filings", "industry-injury-benchmarks", "occupational-demands"],
     routeLoading: hasContextualEntitiesImport ? "contextual-wrapper" : hasDirectEntitiesImport ? "direct" : "unknown",
   }),
 );
