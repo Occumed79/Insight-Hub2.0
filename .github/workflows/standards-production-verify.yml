@@ -1,0 +1,60 @@
+name: Standards Production Verify
+
+on:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify deployed Standards Intelligence
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://insight-hub2-0-x45d.onrender.com'
+          for attempt in $(seq 1 24); do
+            echo "Attempt ${attempt}/24"
+            if curl --fail --silent --show-error --max-time 30 "$base/api/standards/catalog" -o /tmp/catalog.json; then
+              if curl --fail --silent --show-error --max-time 30 \
+                -H 'Content-Type: application/json' \
+                -d '{"frameworks":["centcom-mod18","nfpa1580","osha-respiratory"],"occupation":"Firefighter / DoD contractor","condition":"Obstructive sleep apnea","medication":"","respiratorRequired":true}' \
+                "$base/api/standards/evaluate" -o /tmp/evaluate.json; then
+                if python - <<'PY'
+import json
+catalog=json.load(open('/tmp/catalog.json'))
+evaluation=json.load(open('/tmp/evaluate.json'))
+ids={s.get('id') for s in catalog.get('sources',[])}
+required={'centcom-mod18','fmcsa','faa','nfpa1580','osha-respiratory','osha-noise','osha-hazwoper','osha-bloodborne','osha-lead','osha-asbestos','osha-cadmium','dot-part40'}
+assert catalog.get('ok') is True, catalog
+assert catalog.get('architectureVersion') == 'standards-api-v2', catalog
+assert catalog.get('totalSources',0) >= 12, catalog
+assert required <= ids, (required-ids)
+assert evaluation.get('ok') is True, evaluation
+assert evaluation.get('architectureVersion') == 'standards-api-v2', evaluation
+findings=evaluation.get('findings',[])
+assert any(f.get('standardId') == 'centcom-mod18' for f in findings), findings
+assert any(f.get('standardId') == 'nfpa1580' for f in findings), findings
+assert any(f.get('standardId') == 'osha-respiratory' for f in findings), findings
+recs={r.get('standardId') for r in evaluation.get('recommendations',[])}
+assert 'nfpa1580' in recs, recs
+assert 'osha-respiratory' in recs, recs
+print(json.dumps({
+  'totalSources': catalog.get('totalSources'),
+  'automatedSources': catalog.get('automatedSources'),
+  'findingCount': len(findings),
+  'recommendations': sorted(recs),
+}, indent=2))
+PY
+                then
+                  echo 'Standards production verification passed.'
+                  exit 0
+                fi
+              fi
+            fi
+            sleep 15
+          done
+          echo 'Standards production verification did not pass within retry window.' >&2
+          cat /tmp/catalog.json 2>/dev/null || true
+          cat /tmp/evaluate.json 2>/dev/null || true
+          exit 1
