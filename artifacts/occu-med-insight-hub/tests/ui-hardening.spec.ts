@@ -199,6 +199,7 @@ async function installDeterministicApi(page: Page) {
     if (path.endsWith("/api/occupational-discovery/onet/profile")) return fulfillJson(route, onetProfileFixture);
     if (path.endsWith("/api/occupational-discovery/onet/profile-by-code")) return fulfillJson(route, { ok: true, profile: onetProfileFixture.profile });
     if (path.endsWith("/api/job-intelligence/profiles")) return fulfillJson(route, { ok: true, profiles: [] });
+    if (path.includes("/api/federal-intel/")) return fulfillJson(route, { items: [], bucket: "fixture", total: 0, page: 1, limit: 200, pages: 0 });
 
     return fulfillJson(route, { ok: true, configured: true, results: [], records: [] });
   });
