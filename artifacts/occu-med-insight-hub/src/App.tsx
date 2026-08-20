@@ -31,7 +31,7 @@ const ReviewerAorFactorsPage = React.lazy(() => import("@/pages/reviewer-aor-fac
 const ReviewerDrugCheckerPage = React.lazy(() => import("@/pages/reviewer-drug-checker"));
 const ReviewerClinicalCalculatorsPage = React.lazy(() => import("@/pages/reviewer-clinical-calculators"));
 const ReviewerStandardsIntelligencePage = React.lazy(() => import("@/pages/reviewer-standards-intelligence"));
-const EntitiesPage = React.lazy(() => import("@/pages/entities").then((module) => ({ default: module.EntitiesPage })));
+const EntitiesPage = React.lazy(() => import("@/pages/entities-contextual").then((module) => ({ default: module.ContextualEntitiesPage })));
 const CompetitorsPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.CompetitorsPage })));
 const FederalAgenciesPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.FederalAgenciesPage })));
 const StateAgenciesPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.StateAgenciesPage })));
