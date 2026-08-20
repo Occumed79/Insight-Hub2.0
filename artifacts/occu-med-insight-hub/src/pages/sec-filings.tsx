@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Building2,
@@ -26,12 +26,17 @@ import {
 
 const SESSION_KEY = "insight-hub:tracked-sec-issuers:v1";
 const DEFAULT_FORMS = ["8-K", "10-Q", "10-K", "6-K", "20-F", "40-F", "DEF 14A", "S-1", "S-3"];
+const KNOWN_PUBLIC_ISSUERS: SecTrackedIssuer[] = [
+  { cik: "0001601548", name: "V2X, Inc.", ticker: "VVX", exchange: "NYSE" },
+  { cik: "0001792580", name: "Amentum Holdings, Inc.", ticker: "AMTM", exchange: "NYSE" },
+  { cik: "0000885725", name: "Jacobs Solutions Inc.", ticker: "J", exchange: "NYSE" },
+];
 
 function readTrackedIssuers(): SecTrackedIssuer[] {
   if (typeof window === "undefined") return [];
   try {
     const parsed = JSON.parse(window.sessionStorage.getItem(SESSION_KEY) ?? "[]") as unknown;
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed) || parsed.length === 0) return KNOWN_PUBLIC_ISSUERS;
     return parsed.flatMap((value): SecTrackedIssuer[] => {
       if (!value || typeof value !== "object" || Array.isArray(value)) return [];
       const record = value as Record<string, unknown>;
@@ -46,7 +51,7 @@ function readTrackedIssuers(): SecTrackedIssuer[] {
       }];
     });
   } catch {
-    return [];
+    return KNOWN_PUBLIC_ISSUERS;
   }
 }
 
@@ -68,6 +73,7 @@ export default function SecFilings() {
   const [error, setError] = useState<string | null>(null);
   const [formFilter, setFormFilter] = useState("all");
   const [selectedFiling, setSelectedFiling] = useState<SecFiling | null>(null);
+  const autoLoaded = useRef(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -138,6 +144,12 @@ export default function SecFilings() {
     }
   }
 
+  useEffect(() => {
+    if (autoLoaded.current || trackedIssuers.length === 0) return;
+    autoLoaded.current = true;
+    void refreshFeed();
+  }, [trackedIssuers]);
+
   return (
     <main className="aurora-bg min-h-screen text-white">
       <Sidebar />
@@ -145,14 +157,14 @@ export default function SecFilings() {
         <HeaderBar
           eyebrow="Employer Intelligence"
           title="SEC Filings"
-          subtitle="Track publicly traded issuers in this browser tab and manually retrieve their current EDGAR filings through the official SEC submissions API."
+          subtitle="Known public Insight Hub entities load automatically with recent official EDGAR filings; SEC search is a secondary add-company control."
         />
 
         <GlassCard className="mb-6 border-cyan-100/14 p-4">
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-cyan-200" />
             <p className="text-xs leading-6 text-cyan-100/62">
-              The tracked issuer list is stored only in sessionStorage for this browser tab. It is not committed to GitHub or saved by the API. SEC data is requested only when you press Refresh SEC filings.
+              Known public-company mappings are preloaded for V2X, Amentum, and Jacobs. Filing data is retrieved from the official SEC submissions API and may be refreshed manually.
             </p>
           </div>
         </GlassCard>
@@ -161,8 +173,8 @@ export default function SecFilings() {
           <GlassCard className="p-5 md:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-100/42">Browser-only issuer roster</p>
-                <h2 className="mt-2 text-2xl font-black tracking-[-0.03em] text-white">Track public companies</h2>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-100/42">Known public entity roster</p>
+                <h2 className="mt-2 text-2xl font-black tracking-[-0.03em] text-white">Tracked public companies</h2>
               </div>
               <Building2 className="h-5 w-5 text-cyan-200/45" />
             </div>

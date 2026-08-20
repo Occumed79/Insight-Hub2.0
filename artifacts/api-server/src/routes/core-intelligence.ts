@@ -178,6 +178,31 @@ router.get("/competitors", async (_req, res) => {
   }
 });
 
+router.get("/entities/roster", async (_req, res) => {
+  try {
+    const [clients, prospects, competitors] = await Promise.all([
+      db.select({ id: clientsTable.id, name: clientsTable.name }).from(clientsTable).orderBy(asc(clientsTable.name)),
+      db.select({ id: prospectsTable.id, name: prospectsTable.name }).from(prospectsTable).orderBy(asc(prospectsTable.name)),
+      db.select({ id: competitorsTable.id, name: competitorsTable.name }).from(competitorsTable).orderBy(asc(competitorsTable.name)),
+    ]);
+    const seen = new Set<string>();
+    const entities = [
+      ...clients.map((entity) => ({ ...entity, source: "client" as const })),
+      ...prospects.map((entity) => ({ ...entity, source: "prospect" as const })),
+      ...competitors.map((entity) => ({ ...entity, source: "competitor" as const })),
+    ].filter((entity) => {
+      const key = entity.name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ entities, counts: { clients: clients.length, prospects: prospects.length, competitors: competitors.length } });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Failed to load entity roster" });
+  }
+});
+
 router.post("/competitors", async (req, res) => {
   try {
     const now = new Date();

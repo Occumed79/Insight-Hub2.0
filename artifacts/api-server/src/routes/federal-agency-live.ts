@@ -312,10 +312,16 @@ async function loadOpportunities(agency: string, days: number) {
   url.searchParams.set("postedTo", mmddyyyy(postedTo));
   url.searchParams.set("organizationName", agency);
   url.searchParams.set("limit", "100");
-  url.searchParams.set("offset", "0");
-
-  const payload = await fetchJson(url);
-  const rows: any[] = Array.isArray(payload?.opportunitiesData) ? payload.opportunitiesData : Array.isArray(payload?.results) ? payload.results : [];
+  const rows: any[] = [];
+  let totalRecords = 0;
+  for (let offset = 0; offset < 500; offset += 100) {
+    url.searchParams.set("offset", String(offset));
+    const payload = await fetchJson(url);
+    const page: any[] = Array.isArray(payload?.opportunitiesData) ? payload.opportunitiesData : Array.isArray(payload?.results) ? payload.results : [];
+    rows.push(...page);
+    totalRecords = Number(payload?.totalRecords ?? rows.length);
+    if (page.length < 100 || rows.length >= totalRecords) break;
+  }
   const opportunities = rows.map(normalizeOpportunity).sort((left, right) => String(right.postedDate || "").localeCompare(String(left.postedDate || "")));
   const value = {
     configured: true,
@@ -323,7 +329,7 @@ async function loadOpportunities(agency: string, days: number) {
     days: normalizedDays,
     opportunities,
     returned: opportunities.length,
-    totalRecords: Number(payload?.totalRecords ?? opportunities.length),
+    totalRecords: totalRecords || opportunities.length,
     occuMedRelevant: opportunities.filter((row) => row.occuMedRelevant).length,
     source: "SAM.gov Get Opportunities Public API",
     sourceUrl: "https://sam.gov/content/opportunities",

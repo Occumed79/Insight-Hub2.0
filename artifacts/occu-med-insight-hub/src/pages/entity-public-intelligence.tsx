@@ -95,13 +95,22 @@ function SourceLink({ href, children }: { href: string; children: ReactNode }) {
 }
 
 function EntitySearch({ entityName, query, setQuery, loading, onRun, children }: { entityName: string; query: string; setQuery: (value: string) => void; loading: boolean; onRun: () => void; children?: ReactNode }) {
-  return <Surface className="mb-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/48">Entity context</p><h2 className="mt-1 text-lg font-black text-white">{entityName || "No employer selected"}</h2><p className="mt-1 text-xs text-cyan-50/46">{entityName ? "Loaded from the shared employer workflow. This source will automatically follow the selected entity." : "Select an Entity first or search directly below."}</p></div>{entityName ? <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/20 bg-emerald-300/[0.07] px-3 py-1.5 text-[10px] font-black text-emerald-50"><Link2 size={12} />Entity-linked</span> : null}</div><div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end"><label><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">Organization</span><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onRun(); }} placeholder="Company or organization name" className={`mt-2 ${inputClass}`} /></label><button type="button" onClick={onRun} disabled={loading || !query.trim()} className={buttonClass}>{loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}Refresh intelligence</button></div>{children}</Surface>;
+  return <Surface className="mb-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/48">Insight Hub entity roster</p><h2 className="mt-1 text-lg font-black text-white">{entityName || query || "Loading known entities…"}</h2><p className="mt-1 text-xs text-cyan-50/46">Clients, prospects, and competitors are deduplicated and the first available entity loads automatically. Manual organization research remains available below.</p></div>{entityName ? <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/20 bg-emerald-300/[0.07] px-3 py-1.5 text-[10px] font-black text-emerald-50"><Link2 size={12} />Entity-linked</span> : null}</div><div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end"><label><span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-50/55">Add / search another organization</span><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onRun(); }} placeholder="Company or organization name" className={`mt-2 ${inputClass}`} /></label><button type="button" onClick={onRun} disabled={loading || !query.trim()} className={buttonClass}>{loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}Refresh intelligence</button></div>{children}</Surface>;
 }
 
 function useEntitySeed(run: (value: string) => void) {
   const { context } = useEmployerWorkflow();
-  const entityName = (context.legalName || context.employer || "").trim();
+  const workflowName = (context.legalName || context.employer || "").trim();
+  const [entityName, setEntityName] = useState(workflowName);
   const seeded = useRef("");
+  useEffect(() => {
+    if (workflowName) setEntityName(workflowName);
+  }, [workflowName]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!workflowName) void fetch("/api/entities/roster", { cache: "no-store" }).then((response) => response.json()).then((payload) => { const first = payload?.entities?.[0]?.name; if (!cancelled && typeof first === "string") setEntityName(first); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [workflowName]);
   useEffect(() => {
     if (!entityName || seeded.current === entityName) return;
     seeded.current = entityName;
