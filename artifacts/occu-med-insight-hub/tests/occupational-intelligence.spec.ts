@@ -177,7 +177,6 @@ async function installOccupationalApi(page: Page) {
     if (path.endsWith("/api/occupational-discovery/osha-overview")) {
       return fulfillJson(route, {
         ok: true,
-        imported: true,
         latestYear: 2025,
         topEmployers: [{ establishment_name: "Example Employer", total_cases: 41 }],
         topStates: [{ state: "TX", total_cases: 310 }],
@@ -499,8 +498,8 @@ test("all six transplanted reviewer tools render and retain their core interacti
 
   await page.goto("/standards-intelligence");
   await expect(page.getByRole("heading", { name: "Standards Intelligence" })).toBeVisible();
-  await expect(page.getByText("Deployment functional baseline")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Deployment functional baseline", exact: true })).toBeVisible();
   await page.getByLabel("Condition").fill("Obstructive sleep apnea");
-  await expect(page.getByText("Obstructive sleep apnea deployment criteria")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Obstructive sleep apnea deployment criteria", exact: true })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
