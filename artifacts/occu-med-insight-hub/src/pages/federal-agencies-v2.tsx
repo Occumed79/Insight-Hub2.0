@@ -24,6 +24,8 @@ const api = (path: string) => `${BASE}/api/${path.replace(/^\//, "")}`;
 
 const PERSISTED_BUCKETS = ["forecast", "recompete-watch", "incumbent-tracker", "deployment-medical"] as const;
 const OCCU_MED_EVIDENCE = /occupational\s+(medicine|health)|employee\s+health|medical\s+(examination|exam|surveillance)|physical\s+exam|pre[- ]?(employment|placement)|post[- ]?offer|fitness[- ]?for[- ]?duty|health\s+surveillance|respiratory\s+protection|respirator\s+fit|fit\s+testing|audiometr|hearing\s+conservation|drug\s+testing|alcohol\s+testing|dot\s+testing|specimen\s+collection|vaccin|immuniz|travel\s+medicine|deployment\s+medicine|return\s+to\s+work|workers.?\s*comp|ergonomic|clinical\s+services.*workforce\s+readiness/i;
+const RECOMPETE_EVIDENCE = /recompete|re-compete|renewal|follow[- ]?on|expir(?:e|es|ing|ation)|option\s+year|bridge\s+contract/i;
+const FORECAST_EVIDENCE = /procurement\s+forecast|acquisition\s+forecast|forecast(?:ed)?|planned\s+(acquisition|procurement|solicitation)|anticipated\s+(award|solicitation|procurement)/i;
 const VIEWS = [
   "Overview",
   "Solicitations",
@@ -140,6 +142,7 @@ type OpportunitiesResponse = {
   retrievedAt?: string;
   limitation?: string;
   error?: string;
+  diagnostics?: { configured: boolean; resultStatus: string; requestedAgency: string; queryFilterMode: string; postedFrom: string | null; postedTo: string | null; pagesRequested: number; rawRecordsReturned: number; normalizedRecordsReturned: number; totalRecordsReportedBySam: number; agencyMatchMethod: string };
 };
 
 type LeadershipResponse = {
@@ -446,8 +449,9 @@ export default function FederalAgenciesV2Page() {
   const knownSpend = incumbentItems.reduce((sum, item) => sum + moneyValue(item.budgetSignal), 0);
   const activeContracts = incumbentItems.filter((item) => /active/i.test(item.status || "")).length;
   const hasMedicalEvidence = (item: PersistedItem) => OCCU_MED_EVIDENCE.test(`${item.title} ${item.summary || ""} ${item.medicalTravelRelevance || ""}`);
-  const recompetes = agencyPersisted.filter((item) => item.bucket === "recompete-watch" && hasMedicalEvidence(item));
-  const forecasts = agencyPersisted.filter((item) => item.bucket === "forecast" && hasMedicalEvidence(item));
+  const hasTypeEvidence = (item: PersistedItem, type: "recompete" | "forecast") => (type === "recompete" ? RECOMPETE_EVIDENCE : FORECAST_EVIDENCE).test(`${item.title} ${item.summary || ""} ${item.status || ""} ${item.actionTag || ""}`);
+  const recompetes = agencyPersisted.filter((item) => item.bucket === "recompete-watch" && hasMedicalEvidence(item) && hasTypeEvidence(item, "recompete"));
+  const forecasts = agencyPersisted.filter((item) => item.bucket === "forecast" && hasMedicalEvidence(item) && hasTypeEvidence(item, "forecast"));
   const medicalPersisted = agencyPersisted.filter((item) => item.bucket === "deployment-medical");
   const relevantOpps = agencyOpportunities.filter((item) => item.occuMedRelevant);
   const incumbentGroups = useMemo(() => {
@@ -527,6 +531,7 @@ export default function FederalAgenciesV2Page() {
               </div>
               {baseError ? <p className="mt-4 text-xs text-amber-100/64">Directory note: {baseError}</p> : null}
               {leadership?.diagnostic ? <p className="mt-3 text-[10px] leading-5 text-cyan-50/38">Leadership source note: {leadership.diagnostic}</p> : null}
+              {opportunities?.diagnostics ? <div className="mt-4 rounded-xl border border-cyan-100/10 bg-black/15 p-3 text-[10px] leading-5 text-cyan-50/48" data-testid="sam-diagnostics"><strong className="text-white">SAM diagnostic:</strong> {opportunities.diagnostics.resultStatus} · {opportunities.diagnostics.queryFilterMode} · {opportunities.diagnostics.pagesRequested} page(s) · {opportunities.diagnostics.rawRecordsReturned} raw / {opportunities.diagnostics.normalizedRecordsReturned} matched · agency match: {opportunities.diagnostics.agencyMatchMethod}. {opportunities.limitation}</div> : null}
             </Panel>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
@@ -556,9 +561,9 @@ export default function FederalAgenciesV2Page() {
 
             {view === "Contracts & Spending" ? <div className="space-y-3">{filteredPersisted.filter((item) => item.bucket === "incumbent-tracker").length ? filteredPersisted.filter((item) => item.bucket === "incumbent-tracker").map((item) => <PersistedCard key={item.id} item={item} />) : <EmptyState label="No loaded contract/spending rows match" />}</div> : null}
 
-            {view === "Recompetes" ? <div className="space-y-3">{filteredPersisted.filter((item) => item.bucket === "recompete-watch" && hasMedicalEvidence(item)).length ? filteredPersisted.filter((item) => item.bucket === "recompete-watch" && hasMedicalEvidence(item)).map((item) => <PersistedCard key={item.id} item={item} />) : <EmptyState label="No occupational-health recompete records match" />}</div> : null}
+            {view === "Recompetes" ? <div className="space-y-3">{filteredPersisted.filter((item) => item.bucket === "recompete-watch" && hasMedicalEvidence(item) && hasTypeEvidence(item, "recompete")).length ? filteredPersisted.filter((item) => item.bucket === "recompete-watch" && hasMedicalEvidence(item) && hasTypeEvidence(item, "recompete")).map((item) => <PersistedCard key={item.id} item={item} />) : <EmptyState label="No occupational-health recompete records match" />}</div> : null}
 
-            {view === "Forecasts" ? <div className="space-y-3">{filteredPersisted.filter((item) => item.bucket === "forecast" && hasMedicalEvidence(item)).length ? filteredPersisted.filter((item) => item.bucket === "forecast" && hasMedicalEvidence(item)).map((item) => <PersistedCard key={item.id} item={item} />) : <EmptyState label="No occupational-health forecast records match" />}</div> : null}
+            {view === "Forecasts" ? <div className="space-y-3">{filteredPersisted.filter((item) => item.bucket === "forecast" && hasMedicalEvidence(item) && hasTypeEvidence(item, "forecast")).length ? filteredPersisted.filter((item) => item.bucket === "forecast" && hasMedicalEvidence(item) && hasTypeEvidence(item, "forecast")).map((item) => <PersistedCard key={item.id} item={item} />) : <EmptyState label="No occupational-health forecast records match" />}</div> : null}
 
             {view === "Incumbents" ? <div className="grid gap-3 lg:grid-cols-2">{incumbentGroups.filter((row) => textMatches([row.name])).map((row) => <Panel key={row.name} className="p-5"><div className="flex items-start justify-between gap-3"><div><SourceBadge tone="emerald">incumbent intelligence</SourceBadge><h3 className="mt-3 text-lg font-black text-white">{row.name}</h3></div><Building2 size={20} className="text-cyan-100/42" /></div><div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/8 pt-4 text-center"><div><p className="text-lg font-black text-white">{row.count}</p><p className="text-[9px] uppercase tracking-[.13em] text-cyan-50/36">records</p></div><div><p className="text-lg font-black text-white">{row.active}</p><p className="text-[9px] uppercase tracking-[.13em] text-cyan-50/36">active</p></div><div><p className="text-lg font-black text-white">{compactMoney(row.tracked)}</p><p className="text-[9px] uppercase tracking-[.13em] text-cyan-50/36">tracked</p></div></div></Panel>)}{!incumbentGroups.length ? <EmptyState label="No incumbent names loaded for this agency" /> : null}</div> : null}
 

@@ -26,7 +26,7 @@ import {
 
 const SESSION_KEY = "insight-hub:tracked-sec-issuers:v1";
 const DEFAULT_FORMS = ["8-K", "10-Q", "10-K", "6-K", "20-F", "40-F", "DEF 14A", "S-1", "S-3"];
-const KNOWN_PUBLIC_ISSUERS: SecTrackedIssuer[] = [
+const KNOWN_ISSUER_MAPPINGS: SecTrackedIssuer[] = [
   { cik: "0001601548", name: "V2X, Inc.", ticker: "VVX", exchange: "NYSE" },
   { cik: "0001792580", name: "Amentum Holdings, Inc.", ticker: "AMTM", exchange: "NYSE" },
   { cik: "0000885725", name: "Jacobs Solutions Inc.", ticker: "J", exchange: "NYSE" },
@@ -36,7 +36,7 @@ function readTrackedIssuers(): SecTrackedIssuer[] {
   if (typeof window === "undefined") return [];
   try {
     const parsed = JSON.parse(window.sessionStorage.getItem(SESSION_KEY) ?? "[]") as unknown;
-    if (!Array.isArray(parsed) || parsed.length === 0) return KNOWN_PUBLIC_ISSUERS;
+    if (!Array.isArray(parsed) || parsed.length === 0) return KNOWN_ISSUER_MAPPINGS;
     return parsed.flatMap((value): SecTrackedIssuer[] => {
       if (!value || typeof value !== "object" || Array.isArray(value)) return [];
       const record = value as Record<string, unknown>;
@@ -51,7 +51,7 @@ function readTrackedIssuers(): SecTrackedIssuer[] {
       }];
     });
   } catch {
-    return KNOWN_PUBLIC_ISSUERS;
+    return KNOWN_ISSUER_MAPPINGS;
   }
 }
 
@@ -74,6 +74,27 @@ export default function SecFilings() {
   const [formFilter, setFormFilter] = useState("all");
   const [selectedFiling, setSelectedFiling] = useState<SecFiling | null>(null);
   const autoLoaded = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/entities/roster", { cache: "no-store" }).then((response) => response.json()).then(async (payload) => {
+      const names = Array.isArray(payload?.entities) ? payload.entities.map((entity: { name?: unknown }) => typeof entity.name === "string" ? entity.name : "").filter(Boolean).slice(0, 20) : [];
+      const resolved: SecTrackedIssuer[] = [];
+      for (const name of names) {
+        const known = KNOWN_ISSUER_MAPPINGS.find((issuer) => issuer.name.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(issuer.name.replace(/,?\s+(inc\.?|holdings|solutions).*$/i, "").toLowerCase()));
+        if (known) { resolved.push(known); continue; }
+        try {
+          const result = await searchSecIssuers(name);
+          const exact = result.issuers.find((issuer) => issuer.name.toLowerCase() === name.toLowerCase());
+          if (exact) resolved.push(exact);
+        } catch { /* One unresolved private entity must not block the roster. */ }
+      }
+      if (cancelled || !resolved.length) return;
+      autoLoaded.current = false;
+      setTrackedIssuers((current) => [...current, ...resolved].filter((issuer, index, all) => all.findIndex((candidate) => candidate.cik === issuer.cik) === index));
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {

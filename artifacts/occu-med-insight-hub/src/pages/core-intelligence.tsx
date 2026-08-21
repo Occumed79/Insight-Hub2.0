@@ -438,13 +438,14 @@ export function StateAgenciesPage() {
   const [profiles, setProfiles] = useState<StateProfile[]>([]);
   const [selected, setSelected] = useState<{ code: string; name: string } | null>(null);
   const [items, setItems] = useState<StateAgencyItem[]>([]);
+  const [nationalItems, setNationalItems] = useState<StateAgencyItem[]>([]);
   const [crossState, setCrossState] = useState<StateIntelItem[]>([]);
   const [view, setView] = useState<string>(STATE_VIEWS[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const pulse = useLiveSearch("state");
 
-  useEffect(() => { let cancelled = false; Promise.all([getJson<{ states: StateProfile[] }>("state-agencies/states"), getJson<{ items: StateIntelItem[] }>("state-agencies/intel?limit=200")]).then(([statePayload, intelPayload]) => { if (!cancelled) { setProfiles(statePayload.states); setCrossState(intelPayload.items); } }).catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "Unable to load state directory."); }); return () => { cancelled = true; }; }, []);
+  useEffect(() => { let cancelled = false; Promise.all([getJson<{ states: StateProfile[] }>("state-agencies/states"), getJson<{ items: StateIntelItem[] }>("state-agencies/intel?limit=200"), getJson<{ items: StateAgencyItem[] }>("state-agencies/items?limit=500")]).then(([statePayload, intelPayload, itemPayload]) => { if (!cancelled) { setProfiles(statePayload.states); setCrossState(intelPayload.items); setNationalItems(itemPayload.items); } }).catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "Unable to load state directory."); }); return () => { cancelled = true; }; }, []);
 
   useEffect(() => {
     if (!selected) return;
@@ -462,11 +463,16 @@ export function StateAgenciesPage() {
   const visible = items.filter((item) => stateViewMatches(item, view));
   const latestStored = [...items].sort((a, b) => new Date(b.publishedDate || b.fetchedAt || 0).getTime() - new Date(a.publishedDate || a.fetchedAt || 0).getTime())[0];
   const crossForState = selected ? crossState.filter((item) => !item.affectedStates || item.affectedStates.includes(selected.code) || item.affectedStates.toLowerCase().includes(selected.name.toLowerCase())) : [];
+  const nationalOccHealth = nationalItems.filter(occHealthRelevant);
+  const nationalProcurement = nationalItems.filter((item) => stateViewMatches(item, "Procurement"));
+  const statePlanCount = profiles.filter((item) => item.oshaStatePlan === "full").length;
+  const topStates = [...profiles].filter((item) => item.itemCount > 0).sort((a, b) => b.itemCount - a.itemCount).slice(0, 6);
+  const recentNational = [...nationalItems].sort((a, b) => new Date(b.publishedDate || b.fetchedAt || 0).getTime() - new Date(a.publishedDate || a.fetchedAt || 0).getTime()).slice(0, 6);
 
   return (
     <WorkspaceShell eyebrow="State compliance intelligence" title="State Agencies" subtitle="Select a state and the app immediately loads its official-source directory, stored regulatory/procurement intelligence, occupational-health signals, cross-state alerts, and a current compliance scan.">
       <StateMap selected={selected?.code || null} onSelect={(state) => { setSelected(state); setView("Compliance pulse"); }} />
-      {!selected ? <Panel className="mt-5 grid min-h-48 place-items-center p-8 text-center"><div><MapPin className="mx-auto text-cyan-200/50" /><p className="mt-3 text-base font-black">Choose a state to open its intelligence workspace</p><p className="mt-2 text-xs text-cyan-50/46">The map is the selector. You do not need to invent a search query.</p></div></Panel> : null}
+      {!selected ? <section className="mt-5 space-y-5" aria-label="National state-agency intelligence"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{[["States with intelligence", profiles.filter((item) => item.itemCount > 0).length, "stored state coverage"],["Stored state records", nationalItems.length, "loaded automatically"],["Occupational-health signals", nationalOccHealth.length, "medical / workforce evidence"],["Procurement signals", nationalProcurement.length, "bids, RFPs, contracts"],["OSHA state plans", statePlanCount, `${profiles.length - statePlanCount} federal / other`]].map(([label,value,note]) => <Panel key={String(label)} className="p-4"><p className="text-[9px] font-black uppercase tracking-[.14em] text-cyan-100/38">{label}</p><p className="mt-2 text-2xl font-black">{value}</p><p className="mt-1 text-[10px] text-cyan-50/42">{note}</p></Panel>)}</div><div className="grid gap-5 xl:grid-cols-2"><Panel className="p-5"><p className="text-[9px] font-black uppercase tracking-[.16em] text-cyan-100/40">Top states by stored activity</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{topStates.map((state) => <button key={state.stateCode} type="button" onClick={() => setSelected({ code: state.stateCode, name: state.stateName })} className="rounded-xl border border-white/8 bg-white/[.025] p-3 text-left"><span className="font-black">{state.stateName}</span><span className="float-right text-cyan-100/55">{state.itemCount}</span></button>)}</div></Panel><Panel className="p-5"><p className="text-[9px] font-black uppercase tracking-[.16em] text-violet-100/45">Latest national state signals</p><div className="mt-3 space-y-2">{recentNational.map((item) => <div key={item.id} className="rounded-xl border border-white/8 p-3"><p className="text-[9px] text-cyan-100/42">{item.stateCode} · {item.bucket} · {formatDate(item.publishedDate || item.fetchedAt)}</p><p className="mt-1 text-xs font-black">{item.title}</p></div>)}</div></Panel></div></section> : null}
       {selected ? <section className="mt-5">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {[

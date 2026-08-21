@@ -116,6 +116,12 @@ export default function IndustryImpactCalculatorV2() {
     } finally { setLoading(false); }
   }
 
+  function clearSample() {
+    setWorkforce(0); setObservedTrir(0); setObservedDart(0); setTargetTrir(0); setLostDaysPerRecordable(0);
+    setLowCost(0); setBaseCost(0); setHighCost(0); setIndirectMultiplier(0); setProfitMargin(0);
+    setBenchmark(null); setSelectedNaics(""); setYear(""); setMessage("");
+  }
+
   const model = useMemo(() => {
     const workers = Math.max(workforce, 0);
     const hoursEach = Math.max(hoursPerWorker, 0);
@@ -198,7 +204,7 @@ export default function IndustryImpactCalculatorV2() {
   const provenanceLabel = workforceSource === "reported" ? "Official reported baseline" : workforceSource === "estimated" ? "Estimated baseline" : "User-entered baseline";
 
   return <OccupationalToolShell eyebrow="Independent Intelligence Tool · Scenario Laboratory" title="Industry Impact Calculator" subtitle="A workforce-driven benchmark and impact model where workforce size changes every downstream case, lost-workday, cost, and trajectory output." notice="Workforce size is modeled as either headcount or FTE and is never decorative. The model uses workforce × annual hours per worker/FTE to translate incidence rates into expected cases. BLS values are official industry benchmarks; workforce provenance, cost assumptions, lost-day assumptions, targets, and the five-year linear path are labeled separately and are not forecasts.">
-    <GlassCard className="mb-5 border-amber-200/20 bg-amber-300/[0.06] p-4"><p className="text-xs font-black uppercase tracking-[.15em] text-amber-100">Demo / sample scenario — replace with employer values</p><p className="mt-2 text-xs text-cyan-50/55">The populated assumptions demonstrate the model immediately. Official BLS rates remain separately labeled.</p></GlassCard>
+    <GlassCard className="mb-5 border-amber-200/20 bg-amber-300/[0.06] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.15em] text-amber-100">Demo / sample scenario — replace with employer values</p><p className="mt-2 text-xs text-cyan-50/55">The populated assumptions demonstrate the model immediately. Official BLS rates remain separately labeled.</p></div><button type="button" onClick={clearSample} className="rounded-xl border border-amber-100/20 px-3 py-2 text-[10px] font-black text-amber-50">Clear sample scenario</button></div></GlassCard>
     <ToolHero kicker="Workforce-driven scenario lab" title="Change workforce size and the entire model changes with it." description="Set the workforce basis and provenance, choose a BLS industry benchmark, enter the employer incidence-rate baseline, and then test an improvement scenario. A reported workforce count stays visibly reported; an estimate stays visibly estimated." accent="emerald">
       <div className="grid grid-cols-2 gap-2"><Kind kind="observed" /><Kind kind="benchmark" /><Kind kind="assumption" /><Kind kind="modeled" /></div>
     </ToolHero>

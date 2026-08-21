@@ -381,3 +381,91 @@ test("populated Hiring Intelligence Recharts render safely", async ({ page }) =>
   await expectNoDocumentOverflow(page);
   expect(pageErrors).toEqual([]);
 });
+
+async function roster(page: Page) {
+  await page.route("**/api/entities/roster", (route) => fulfillJson(route, { entities: [{ id: "v2x", name: "V2X", source: "prospect" }], counts: { clients: 0, prospects: 1, competitors: 0 } }));
+}
+
+for (const viewport of [{ width: 1440, height: 900 }, { width: 760, height: 900 }]) {
+  test(`competitor database is useful before search at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.route("**/api/competitors", (route) => fulfillJson(route, { competitors: [{ id: "c1", name: "Concentra", tier: "national", headquarters: "Addison, TX", services: JSON.stringify(["Occupational medicine", "Drug testing"]), coverageStates: JSON.stringify(["TX", "VA"]), employeeCount: "10,000+", founded: "1979", description: "National occupational-health network", notes: "Broad clinic footprint", website: "https://www.concentra.com" }] }));
+    await page.goto("/competitors");
+    await expect(page.getByText("Concentra", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Service Capability")).toBeVisible();
+    await expect(page.getByRole("textbox")).toHaveValue("");
+  });
+}
+
+test("known entity automatically loads federal awards", async ({ page }) => {
+  await roster(page);
+  await page.route("**/api/public-data/usaspending", (route) => fulfillJson(route, { ok: true, companyName: "V2X", fromDate: "2020-01-01", toDate: "2026-01-01", awards: [], totalAwardAmount: 0, sourceUrl: "https://usaspending.gov" }));
+  await page.goto("/federal-awards");
+  await expect(page.getByText("V2X", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("No employer selected")).toHaveCount(0);
+});
+
+test("calculators open with clearly labeled non-zero sample", async ({ page }) => {
+  await page.route("**/api/occupational-discovery/bls-overview", (route) => fulfillJson(route, { ok: true, sectors: [] }));
+  await page.goto("/occupational-calculators");
+  await expect(page.getByText(/Sample scenario — replace with employer values/i)).toBeVisible();
+  await expect(page.getByText("3.2", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /Reset shared context/i }).click();
+  await expect(page.getByText("Waiting for inputs")).toBeVisible();
+});
+
+test("legal intelligence auto-loads a known entity and excludes generic litigation", async ({ page }) => {
+  await page.route("**/api/entities/roster", (route) => fulfillJson(route, { entities: [{ id: "v2x", name: "V2X", source: "prospect" }] }));
+  await page.route("**/api/public-data/courtlistener?**", (route) => fulfillJson(route, { ok: true, query: "V2X", sourceUrl: "https://courtlistener.com", references: [
+    { caseName: "Worker v. V2X", court: "D. Va.", dateFiled: "2025-02-03", snippet: "Employee workers compensation claim under the Defense Base Act after workplace injury.", contentSource: "CourtListener", recordType: "opinion", sourceUrl: "https://courtlistener.com/injury" },
+    { caseName: "Vendor v. V2X", court: "D. Del.", dateFiled: "2025-01-01", snippet: "Generic commercial invoice dispute.", contentSource: "CourtListener", recordType: "opinion", sourceUrl: "https://courtlistener.com/invoice" },
+  ] }));
+  await page.goto("/public-legal-references");
+  await expect(page.getByText("V2X", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Workers’ compensation", { exact: true })).toBeVisible();
+  await expect(page.getByText("DBA / overseas contractor", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Why it may matter to Occu-Med/)).toBeVisible();
+  await expect(page.getByText("Vendor v. V2X", { exact: true })).toHaveCount(0);
+});
+
+test("SEC resolves the Insight Hub roster and automatically requests EDGAR filings", async ({ page }) => {
+  let feedRequests = 0;
+  await page.addInitScript(() => sessionStorage.clear());
+  await page.route("**/api/entities/roster", (route) => fulfillJson(route, { entities: [{ id: "v2x", name: "V2X", source: "prospect" }, { id: "dynamic", name: "Dynamic Public Corp", source: "client" }] }));
+  await page.route("**/api/sec-filings/search?**", (route) => fulfillJson(route, { query: "Dynamic Public Corp", issuers: [{ cik: "0000123456", name: "Dynamic Public Corp", ticker: "DPC", exchange: "NYSE" }], source: "SEC", fetchedAt: "2026-08-20" }));
+  await page.route("**/api/sec-filings/feed", (route) => { feedRequests += 1; return fulfillJson(route, { startedAt: "2026-08-20", completedAt: "2026-08-20", source: "SEC EDGAR", freshness: "live", issuerCount: 2, filingCount: 1, forms: ["10-K"], errors: [], filings: [{ id: "f1", cik: "0001601548", companyName: "V2X, Inc.", ticker: "VVX", accessionNumber: "1", form: "10-K", filingDate: "2026-08-01", isXbrl: true, isInlineXbrl: true, filingUrl: "https://sec.gov/f1" }] }); });
+  await page.goto("/sec-filings");
+  await expect(page.getByText("V2X, Inc.", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Dynamic Public Corp", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("10-K", { exact: true }).first()).toBeVisible();
+  expect(feedRequests).toBeGreaterThan(0);
+});
+
+test("Federal pipeline keeps hardware out, validates type evidence, and exposes SAM zero diagnostics", async ({ page }) => {
+  const row = (id: string, bucket: string, title: string, summary: string) => ({ id, bucket, title, summary, agency: "Department of Defense", sourceType: "fixture", status: "planned", fetchedAt: "2026-08-20", datePosted: "2026-08-19" });
+  await page.route("**/api/federal-intel/forecast?**", (route) => fulfillJson(route, { items: [row("bad", "forecast", "Gantry crane roof painting", "Forecast for valves, clamps and drums"), row("forecast", "forecast", "Occupational health procurement forecast", "Planned acquisition for physical exams and respirator fit testing")], total: 2 }));
+  await page.route("**/api/federal-intel/recompete-watch?**", (route) => fulfillJson(route, { items: [row("recompete", "recompete-watch", "Occupational medicine contract recompete", "Expiring contract renewal for medical surveillance and drug testing"), row("wrong", "recompete-watch", "Occupational health market note", "No renewal or expiration evidence")], total: 2 }));
+  await page.route("**/api/federal-intel/incumbent-tracker?**", (route) => fulfillJson(route, { items: [], total: 0 }));
+  await page.route("**/api/federal-intel/deployment-medical?**", (route) => fulfillJson(route, { items: [], total: 0 }));
+  await page.route("**/api/core-intelligence/federal-live/directory", (route) => fulfillJson(route, { configured: true, organizations: [{ id: "dod", name: "Department of Defense" }] }));
+  await page.route("**/api/core-intelligence/federal-live/opportunities?**", (route) => fulfillJson(route, { configured: true, opportunities: [], returned: 0, limitation: "No records after official fallback", diagnostics: { configured: true, resultStatus: "zero-after-fallback", requestedAgency: "Department of Defense", queryFilterMode: "broad-retrieval-local-parent-match", postedFrom: "08/20/2025", postedTo: "08/20/2026", pagesRequested: 2, rawRecordsReturned: 100, normalizedRecordsReturned: 0, totalRecordsReportedBySam: 100, agencyMatchMethod: "canonical parent-path/token match" } }));
+  await page.route("**/api/core-intelligence/federal-live/leadership?**", (route) => fulfillJson(route, { leaders: [], source: "OPM" }));
+  await page.route("**/api/core-intelligence/federal-live/structure?**", (route) => fulfillJson(route, { organizations: [], configured: true }));
+  await page.goto("/federal-agencies");
+  await expect(page.getByTestId("sam-diagnostics")).toContainText("zero-after-fallback");
+  await expect(page.getByTestId("sam-diagnostics")).toContainText("100 raw / 0 matched");
+  await page.getByRole("button", { name: "Recompetes", exact: true }).last().click();
+  await expect(page.getByText("Occupational medicine contract recompete", { exact: true })).toBeVisible();
+  await expect(page.getByText("Occupational health market note", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Forecasts", exact: true }).last().click();
+  await expect(page.getByText("Occupational health procurement forecast", { exact: true })).toBeVisible();
+  await expect(page.getByText("Gantry crane roof painting", { exact: true })).toHaveCount(0);
+});
+
+test("industry impact sample is non-zero, labeled, and clearable", async ({ page }) => {
+  await page.goto("/industry-impact-calculator");
+  await expect(page.getByText(/Demo \/ sample scenario — replace with employer values/i)).toBeVisible();
+  await expect(page.getByText("16.0", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Clear sample scenario" }).click();
+  await expect(page.getByText("16.0", { exact: true })).toHaveCount(0);
+});

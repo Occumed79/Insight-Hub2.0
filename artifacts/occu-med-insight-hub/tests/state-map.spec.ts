@@ -40,6 +40,9 @@ test("State Agencies map opens a preloaded occupational-health compliance worksp
   await page.goto("/state-agencies");
   await expect(page.getByRole("heading", { name: "State Agencies", exact: true })).toBeVisible();
   await expect(page.locator('svg[aria-label="Clickable map of United States state agencies"]')).toBeVisible();
+  await expect(page.getByRole("region", { name: "National state-agency intelligence" })).toBeVisible();
+  await expect(page.getByText("States with intelligence", { exact: true })).toBeVisible();
+  await expect(page.getByText("Occupational-health signals", { exact: true })).toBeVisible();
 
   const california = page.getByRole("button", { name: "California", exact: true });
   await california.focus();
