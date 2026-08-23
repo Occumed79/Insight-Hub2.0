@@ -1,4 +1,4 @@
-export type SharedSearchProvider = "keenable" | "langsearch" | "exa" | "tavily";
+export type SharedSearchProvider = "keenable" | "tinyfish" | "langsearch" | "exa" | "tavily";
 
 export type SharedSearchItem = {
   id: string;
@@ -27,7 +27,7 @@ export type SharedSearchResponse = {
 };
 
 const MAX_RESPONSE_BYTES = 2_500_000;
-const APP_PROVIDERS: SharedSearchProvider[] = ["keenable", "langsearch"];
+const APP_PROVIDERS: SharedSearchProvider[] = ["keenable", "tinyfish", "langsearch"];
 const LOCATION_ONLY_PROVIDERS: SharedSearchProvider[] = ["exa", "tavily"];
 
 let nextExaKeyIndex = 0;
@@ -146,6 +146,7 @@ function tavilyKeys(): string[] {
 
 function appConfigured(provider: SharedSearchProvider): boolean {
   if (provider === "keenable") return Boolean(process.env.KEENABLE_API_KEY?.trim());
+  if (provider === "tinyfish") return Boolean(process.env.TINYFISH_API_KEY?.trim());
   if (provider === "langsearch") return langSearchKeys().length > 0;
   return false;
 }
@@ -180,6 +181,65 @@ async function searchKeenable(query: string, limit: number): Promise<SharedSearc
   return (Array.isArray(payload?.results) ? payload.results : [])
     .map((row: any) => toItem("keenable", row))
     .filter((item: SharedSearchItem | null): item is SharedSearchItem => Boolean(item));
+}
+
+async function searchTinyFish(query: string, limit: number): Promise<SharedSearchItem[]> {
+  const key = process.env.TINYFISH_API_KEY?.trim();
+  if (!key) return [];
+
+  const searchUrl = new URL("https://api.search.tinyfish.ai");
+  searchUrl.searchParams.set("query", query);
+  const searchResponse = await fetch(searchUrl, {
+    headers: { "X-API-Key": key, Accept: "application/json" },
+  });
+  const searchPayload = await readJson(searchResponse);
+  if (!searchResponse.ok) {
+    throw new Error(clean(searchPayload?.message || searchPayload?.error || searchPayload?.detail, 240) || `Search HTTP ${searchResponse.status}`);
+  }
+
+  const searchRows = (Array.isArray(searchPayload?.results) ? searchPayload.results : [])
+    .slice(0, Math.max(1, Math.min(10, limit)));
+  const baseItems = searchRows
+    .map((row: any) => toItem("tinyfish", row))
+    .filter((item: SharedSearchItem | null): item is SharedSearchItem => Boolean(item));
+  if (!baseItems.length) return [];
+
+  const fetchLimit = Math.max(1, Math.min(10, Number(process.env.TINYFISH_FETCH_MAX_URLS || 8)));
+  const urls = baseItems.slice(0, fetchLimit).map((item) => item.url);
+  try {
+    const fetchResponse = await fetch("https://api.fetch.tinyfish.ai", {
+      method: "POST",
+      headers: {
+        "X-API-Key": key,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ urls, format: "markdown" }),
+    });
+    const fetchPayload = await readJson(fetchResponse);
+    if (!fetchResponse.ok) return baseItems;
+
+    const fetchedRows = Array.isArray(fetchPayload?.results) ? fetchPayload.results : [];
+    const fetchedByUrl = new Map<string, any>();
+    for (const row of fetchedRows) {
+      const url = safeUrl(row?.url);
+      if (url) fetchedByUrl.set(url.replace(/\/$/, "").toLowerCase(), row);
+    }
+
+    return baseItems.map((item) => {
+      const fetched = fetchedByUrl.get(item.url.replace(/\/$/, "").toLowerCase());
+      if (!fetched) return item;
+      const text = clean(fetched?.text || fetched?.markdown || fetched?.content, 3_000);
+      return {
+        ...item,
+        title: clean(fetched?.title, 500) || item.title,
+        snippet: text ? text.slice(0, 2_000) : item.snippet,
+        summary: text || item.summary,
+      };
+    });
+  } catch {
+    return baseItems;
+  }
 }
 
 async function searchLangSearch(query: string, limit: number): Promise<SharedSearchItem[]> {
@@ -278,6 +338,7 @@ async function searchTavily(query: string, limit: number): Promise<SharedSearchI
 
 async function runProvider(provider: SharedSearchProvider, query: string, limit: number): Promise<SharedSearchItem[]> {
   if (provider === "keenable") return searchKeenable(query, limit);
+  if (provider === "tinyfish") return searchTinyFish(query, limit);
   if (provider === "langsearch") return searchLangSearch(query, limit);
   if (provider === "exa") return searchExa(query, limit);
   return searchTavily(query, limit);
@@ -286,6 +347,7 @@ async function runProvider(provider: SharedSearchProvider, query: string, limit:
 export function sharedSearchConfiguration(): Record<SharedSearchProvider, boolean> {
   return {
     keenable: appConfigured("keenable"),
+    tinyfish: appConfigured("tinyfish"),
     langsearch: appConfigured("langsearch"),
     exa: false,
     tavily: false,
@@ -294,6 +356,7 @@ export function sharedSearchConfiguration(): Record<SharedSearchProvider, boolea
 
 export function sharedSearchKeyCounts(): Partial<Record<SharedSearchProvider, number>> {
   return {
+    tinyfish: process.env.TINYFISH_API_KEY?.trim() ? 1 : 0,
     langsearch: langSearchKeys().length,
     exa: exaKeys().length,
     tavily: tavilyKeys().length,
@@ -337,7 +400,9 @@ export async function searchSharedWeb(
           configured: true,
           status: results.length ? "success" as const : "no-results" as const,
           resultsFound: results.length,
-          message: `${provider} returned ${results.length} result(s).`,
+          message: provider === "tinyfish"
+            ? `tinyfish returned ${results.length} search result(s) with Fetch enrichment when available.`
+            : `${provider} returned ${results.length} result(s).`,
         },
       };
     } catch (error) {
