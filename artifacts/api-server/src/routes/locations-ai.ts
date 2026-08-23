@@ -10,6 +10,10 @@ import {
   enrichCompanyLocationsWithAi,
   type LocationAiDiagnostic,
 } from "../lib/locationAiOrchestration";
+import {
+  discoverFoursquareLocations,
+  type FoursquareDiagnostic,
+} from "../lib/foursquareLocationDiscovery";
 
 const router = Router();
 const MAPPABLE_CONFIDENCE = new Set(["exact", "place", "city"]);
@@ -55,9 +59,13 @@ function mergeCandidates(candidates: CompanyLocationCandidate[]): CompanyLocatio
     const existingIsAiOfficial = existing.sourceClass === "official-site-ai";
     const candidateIsOfficial = candidate.discoveredBy === "official-site";
     const existingIsOfficial = existing.discoveredBy === "official-site";
+    const candidateIsFoursquare = candidate.sourceClass === "foursquare-places";
+    const existingIsFoursquare = existing.sourceClass === "foursquare-places";
     const preferCandidate = candidateIsAiOfficial && !existingIsAiOfficial
       ? true
-      : candidateIsOfficial && !existingIsOfficial;
+      : candidateIsOfficial && !existingIsOfficial
+        ? true
+        : candidateIsFoursquare && !existingIsFoursquare && !existingIsOfficial && !existingIsAiOfficial;
     const primary = preferCandidate ? candidate : existing;
     const secondary = preferCandidate ? existing : candidate;
     merged.set(key, {
@@ -125,8 +133,11 @@ async function persistLocations(entityId: number, candidates: CompanyLocationCan
     const existing = existingByKey.get(key);
     if (existing) {
       const metadata = objectMetadata(existing.metadata);
+      const candidateIsFoursquare = candidate.sourceClass === "foursquare-places";
+      const existingIsOfficial = existing.sourceClass === "official-site" || existing.sourceClass === "official-site-ai";
       const candidateHasStrongerEvidence = candidate.discoveredBy === "official-site"
-        && (!metadata.sourceUrl || candidate.sourceClass === "official-site-ai");
+        && (!metadata.sourceUrl || candidate.sourceClass === "official-site-ai")
+        || candidateIsFoursquare && !existingIsOfficial && existing.sourceClass !== "foursquare-places";
       if (candidateHasStrongerEvidence) {
         await db.update(locationsTable).set({
           placeName: candidate.placeName || existing.placeName,
@@ -211,10 +222,27 @@ router.post("/locations/discover", async (req, res) => {
 
   try {
     const baseline = await discoverCompanyLocations(enteredName);
-    const ai = await enrichCompanyLocationsWithAi(baseline.canonicalName, baseline.officialWebsite);
-    const candidates = mergeCandidates([...baseline.locations, ...ai.locations]);
-    const diagnostics: Array<DiscoveryDiagnostic | LocationAiDiagnostic> = [...baseline.diagnostics, ...ai.diagnostics];
-    const warnings = Array.from(new Set([...baseline.warnings, ...ai.warnings]));
+    const foursquareHints = baseline.locations
+      .filter((location) => Array.isArray(location.coordinates) && location.coordinates.length === 2)
+      .map((location) => ({
+        label: [location.city, location.state, location.country].filter(Boolean).join(", "),
+        latitude: Number(location.coordinates[1]),
+        longitude: Number(location.coordinates[0]),
+      }))
+      .filter((hint) => Number.isFinite(hint.latitude) && Number.isFinite(hint.longitude));
+
+    const [foursquare, ai] = await Promise.all([
+      discoverFoursquareLocations(baseline.canonicalName, foursquareHints),
+      enrichCompanyLocationsWithAi(baseline.canonicalName, baseline.officialWebsite),
+    ]);
+    const foursquareLocations = foursquare.locations as unknown as CompanyLocationCandidate[];
+    const candidates = mergeCandidates([...baseline.locations, ...foursquareLocations, ...ai.locations]);
+    const diagnostics: Array<DiscoveryDiagnostic | LocationAiDiagnostic | FoursquareDiagnostic> = [
+      ...baseline.diagnostics,
+      foursquare.diagnostic,
+      ...ai.diagnostics,
+    ];
+    const warnings = Array.from(new Set([...baseline.warnings, ...foursquare.warnings, ...ai.warnings]));
     const metadata = {
       enteredName,
       canonicalName: baseline.canonicalName,
@@ -227,6 +255,12 @@ router.post("/locations/discover", async (req, res) => {
       lastDiscoveryAt: new Date().toISOString(),
       officialPagesScanned: baseline.officialPagesScanned,
       officialAddressesExtracted: baseline.officialAddressesExtracted,
+      foursquare: {
+        locationsDiscovered: foursquare.locations.length,
+        requestsMade: foursquare.requestsMade,
+        keysConfigured: foursquare.keysConfigured,
+        chainIds: foursquare.chainIds,
+      },
       aiPagesConsidered: ai.pagesConsidered,
       aiPagesRead: ai.pagesRead,
       aiAddressesExtracted: ai.addressesExtracted,
@@ -258,12 +292,16 @@ router.post("/locations/discover", async (req, res) => {
         savedToDatabase: true,
         status: entity.status,
       },
-      source: "Official website + Groq browser search + Cloudflare semantic reranking + Gemini Flash-Lite + Cerebras + Wikidata + OpenStreetMap + Photon",
+      source: "Official website + Foursquare Places + Groq browser search + Cloudflare semantic reranking + Gemini Flash-Lite + Cerebras + Wikidata + OpenStreetMap + Photon",
       sourceDiagnostics: diagnostics,
       coverage: {
         officialPagesScanned: baseline.officialPagesScanned + ai.pagesRead,
         officialAddressesExtracted: baseline.officialAddressesExtracted + ai.addressesExtracted,
         officialLocationsGeocoded: candidates.filter((location) => location.discoveredBy === "official-site").length,
+        foursquareLocationsDiscovered: foursquare.locations.length,
+        foursquareRequestsMade: foursquare.requestsMade,
+        foursquareKeysConfigured: foursquare.keysConfigured,
+        foursquareChainIds: foursquare.chainIds,
         aiPagesConsidered: ai.pagesConsidered,
         aiPagesRead: ai.pagesRead,
         aiAddressesExtracted: ai.addressesExtracted,
@@ -274,6 +312,7 @@ router.post("/locations/discover", async (req, res) => {
         candidates: activeLocations.length,
         mappable: mapped,
         needsReview: activeLocations.filter((location) => location.reviewStatus === "needs-review" || !MAPPABLE_CONFIDENCE.has(String(location.geocodeConfidence))).length,
+        foursquare: foursquare.locations.length,
         newCandidates: persisted.insertedCount,
         duplicatesSkipped: persisted.duplicatesSkipped,
         enrichedExisting: persisted.enrichedExisting,
