@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import {
   searchSharedWeb,
   sharedSearchConfiguration,
+  sharedSearchKeyCounts,
   type SharedSearchDiagnostic,
   type SharedSearchProvider,
 } from "../lib/sharedWebSearch";
@@ -146,12 +147,13 @@ async function loadSearch(
 router.get("/core-intelligence/live-search/status", (_req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-store");
   const providers = sharedSearchConfiguration();
+  const keyCounts = sharedSearchKeyCounts();
   return res.json({
     ok: true,
     configured: Object.values(providers).some(Boolean),
     providers,
-    primaryProviders: ["Keenable", "Algolia", "LangSearch"],
-    fallbackProviders: ["Exa", "Tavily"],
+    activeProviders: ["Keenable", "Algolia", "LangSearch", "Exa", "Tavily"],
+    keyCounts,
     environmentVariables: [
       "KEENABLE_API_KEY",
       "ALGOLIA_API_KEY",
@@ -162,7 +164,13 @@ router.get("/core-intelligence/live-search/status", (_req: Request, res: Respons
       "LANGSEARCH_API_KEY_3",
       "LANGSEARCH_API_KEY_4",
       "EXA_API_KEY",
+      "EXA_API_KEY_2",
+      "EXA_API_KEY_3",
+      "EXA_API_KEY_4",
       "TAVILY_API_KEY",
+      "TAVILY_API_KEY_2",
+      "TAVILY_API_KEY_3",
+      "TAVILY_API_KEY_4",
     ],
   });
 });
@@ -204,8 +212,8 @@ router.get("/core-intelligence/live-search", async (req: Request, res: Response)
       cacheState: loaded.cacheState,
       providersUsed: loaded.providersUsed,
       providerDiagnostics: loaded.diagnostics,
-      fallbackUsed: loaded.fallbackUsed,
-      source: "Keenable + Algolia + LangSearch, with Exa/Tavily fallback",
+      fallbackUsed: false,
+      source: "Keenable + Algolia + LangSearch + Exa + Tavily",
       searchedAt: new Date().toISOString(),
       limitation: "Results are live search leads. Algolia searches configured Insight Hub indexes; web-provider results should be verified against linked primary sources before operational use.",
     });
