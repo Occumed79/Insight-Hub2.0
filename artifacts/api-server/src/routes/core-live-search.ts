@@ -150,12 +150,10 @@ router.get("/core-intelligence/live-search/status", (_req: Request, res: Respons
     ok: true,
     configured: Object.values(providers).some(Boolean),
     providers,
-    activeProviders: ["Keenable", "Algolia", "LangSearch"],
+    activeProviders: ["Keenable", "LangSearch"],
+    internalDataLayer: "Neon Postgres",
     environmentVariables: [
       "KEENABLE_API_KEY",
-      "ALGOLIA_API_KEY",
-      "ALGOLIA_APP_ID",
-      "ALGOLIA_INDEXES",
       "LANGSEARCH_API_KEY",
       "LANGSEARCH_API_KEY_2",
       "LANGSEARCH_API_KEY_3",
@@ -202,9 +200,10 @@ router.get("/core-intelligence/live-search", async (req: Request, res: Response)
       providersUsed: loaded.providersUsed,
       providerDiagnostics: loaded.diagnostics,
       fallbackUsed: false,
-      source: "Keenable + Algolia + LangSearch",
+      source: "Keenable + LangSearch",
+      internalDataLayer: "Neon Postgres",
       searchedAt: new Date().toISOString(),
-      limitation: "Results are live search leads. Algolia searches configured Insight Hub indexes; web-provider results should be verified against linked primary sources before operational use.",
+      limitation: "Results are live public-web search leads. Verify material claims against linked primary sources before operational use.",
     });
   } catch (error) {
     return res.status(502).json({ ok: false, configured: true, error: safeError(error) });
