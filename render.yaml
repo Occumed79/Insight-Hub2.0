@@ -34,7 +34,7 @@ services:
         sync: false
       - key: LANGSEARCH_API_KEY_4
         sync: false
-      # Shared web-search sources used by both intelligence and company-location workflows.
+      # Shared app-wide search sources; company-location workflows can use them too.
       - key: KEENABLE_API_KEY
         sync: false
       - key: ALGOLIA_API_KEY
@@ -64,7 +64,7 @@ services:
       # Ask has separate PAYG pricing/rate limits; it is disabled unless explicitly set to true.
       - key: FOURSQUARE_ASK_ENABLED
         sync: false
-      # TomTom Places Search multi-key location pool.
+      # TomTom Places Search is company-location-only and rotates across four configured keys.
       - key: TOMTOM_API_KEY
         sync: false
       - key: TOMTOM_API_KEY_2
@@ -77,7 +77,7 @@ services:
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false
-      # Exa is an active shared-search provider with four-key rotation/failover.
+      # Exa is company-location-only with four-key rotation/failover.
       - key: EXA_API_KEY
         sync: false
       - key: EXA_API_KEY_2
@@ -86,7 +86,7 @@ services:
         sync: false
       - key: EXA_API_KEY_4
         sync: false
-      # Tavily is an active shared-search provider with four-key rotation/failover.
+      # Tavily is company-location-only with four-key rotation/failover.
       - key: TAVILY_API_KEY
         sync: false
       - key: TAVILY_API_KEY_2
