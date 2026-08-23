@@ -2,7 +2,6 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import {
   searchSharedWeb,
   sharedSearchConfiguration,
-  sharedSearchKeyCounts,
   type SharedSearchDiagnostic,
   type SharedSearchProvider,
 } from "../lib/sharedWebSearch";
@@ -84,7 +83,7 @@ function isConfigured(): boolean {
 }
 
 async function runSearch(queryUsed: string): Promise<SearchPayload> {
-  const response = await searchSharedWeb(queryUsed, { limit: 12 });
+  const response = await searchSharedWeb(queryUsed, { limit: 12, scope: "app" });
   const results: SearchItem[] = response.results.map((item) => {
     const parsed = new URL(item.url);
     return {
@@ -105,7 +104,7 @@ async function runSearch(queryUsed: string): Promise<SearchPayload> {
     queryUsed,
     diagnostics: response.diagnostics,
     providersUsed: response.providersUsed,
-    fallbackUsed: response.fallbackUsed,
+    fallbackUsed: false,
   };
 }
 
@@ -147,13 +146,11 @@ async function loadSearch(
 router.get("/core-intelligence/live-search/status", (_req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-store");
   const providers = sharedSearchConfiguration();
-  const keyCounts = sharedSearchKeyCounts();
   return res.json({
     ok: true,
     configured: Object.values(providers).some(Boolean),
     providers,
-    activeProviders: ["Keenable", "Algolia", "LangSearch", "Exa", "Tavily"],
-    keyCounts,
+    activeProviders: ["Keenable", "Algolia", "LangSearch"],
     environmentVariables: [
       "KEENABLE_API_KEY",
       "ALGOLIA_API_KEY",
@@ -163,14 +160,6 @@ router.get("/core-intelligence/live-search/status", (_req: Request, res: Respons
       "LANGSEARCH_API_KEY_2",
       "LANGSEARCH_API_KEY_3",
       "LANGSEARCH_API_KEY_4",
-      "EXA_API_KEY",
-      "EXA_API_KEY_2",
-      "EXA_API_KEY_3",
-      "EXA_API_KEY_4",
-      "TAVILY_API_KEY",
-      "TAVILY_API_KEY_2",
-      "TAVILY_API_KEY_3",
-      "TAVILY_API_KEY_4",
     ],
   });
 });
@@ -213,7 +202,7 @@ router.get("/core-intelligence/live-search", async (req: Request, res: Response)
       providersUsed: loaded.providersUsed,
       providerDiagnostics: loaded.diagnostics,
       fallbackUsed: false,
-      source: "Keenable + Algolia + LangSearch + Exa + Tavily",
+      source: "Keenable + Algolia + LangSearch",
       searchedAt: new Date().toISOString(),
       limitation: "Results are live search leads. Algolia searches configured Insight Hub indexes; web-provider results should be verified against linked primary sources before operational use.",
     });
