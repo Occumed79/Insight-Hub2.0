@@ -1,4 +1,4 @@
-export type CommercialPlaceProvider = "here" | "tomtom";
+export type CommercialPlaceProvider = "tomtom";
 
 export type CommercialPlaceSearchHint = {
   label?: string;
@@ -20,7 +20,7 @@ export type CommercialPlaceCandidate = {
   activity?: string;
   notes?: string;
   coordinates: [number, number];
-  geocodeSource: "here" | "tomtom";
+  geocodeSource: "tomtom";
   geocodeConfidence: "exact" | "place" | "city" | "unknown";
   sourceType: string;
   sourceClass: string;
@@ -29,7 +29,7 @@ export type CommercialPlaceCandidate = {
   sourceUrl?: string;
   sourceTitle?: string;
   evidenceSnippet?: string;
-  discoveredBy: "here" | "tomtom";
+  discoveredBy: "tomtom";
 };
 
 export type CommercialPlaceDiagnostic = {
@@ -44,9 +44,7 @@ export type CommercialPlaceDiscoveryResult = {
   locations: CommercialPlaceCandidate[];
   diagnostics: CommercialPlaceDiagnostic[];
   warnings: string[];
-  hereRequestsMade: number;
   tomtomRequestsMade: number;
-  hereKeysConfigured: number;
   tomtomKeysConfigured: number;
 };
 
@@ -74,7 +72,6 @@ const FALLBACK_AREAS: SearchArea[] = [
   { label: "Sydney, Australia", latitude: -33.8688, longitude: 151.2093 },
 ];
 
-let nextHereKeyIndex = 0;
 let nextTomTomKeyIndex = 0;
 
 function normalize(value: unknown): string {
@@ -103,20 +100,20 @@ function scoreName(companyName: string, candidateName: string, brandNames: strin
   return score;
 }
 
-function hereKeys(): string[] {
-  return [process.env.HERE_API_KEY, process.env.HERE_API_KEY_2, process.env.HERE_API_KEY_3]
-    .map((value) => value?.trim()).filter((value): value is string => Boolean(value))
-    .filter((value, index, all) => all.indexOf(value) === index);
-}
-
 function tomtomKeys(): string[] {
-  return [process.env.TOMTOM_API_KEY, process.env.TOMTOM_API_KEY_2, process.env.TOMTOM_API_KEY_3]
-    .map((value) => value?.trim()).filter((value): value is string => Boolean(value))
+  return [
+    process.env.TOMTOM_API_KEY,
+    process.env.TOMTOM_API_KEY_2,
+    process.env.TOMTOM_API_KEY_3,
+    process.env.TOMTOM_API_KEY_4,
+  ]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
     .filter((value, index, all) => all.indexOf(value) === index);
 }
 
-function requestBudget(name: "HERE_LOCATION_MAX_QUERIES" | "TOMTOM_LOCATION_MAX_QUERIES", fallback = 24): number {
-  const parsed = Number(process.env[name] || fallback);
+function requestBudget(fallback = 24): number {
+  const parsed = Number(process.env.TOMTOM_LOCATION_MAX_QUERIES || fallback);
   return Number.isFinite(parsed) ? Math.max(3, Math.min(80, Math.floor(parsed))) : fallback;
 }
 
@@ -130,19 +127,19 @@ function dedupeAreas(hints: CommercialPlaceSearchHint[]): SearchArea[] {
     seen.add(key);
     output.push(area);
   };
-  hints.forEach((hint) => add({ label: hint.label || `${hint.latitude.toFixed(3)},${hint.longitude.toFixed(3)}`, latitude: hint.latitude, longitude: hint.longitude }));
+  hints.forEach((hint) => add({
+    label: hint.label || `${hint.latitude.toFixed(3)},${hint.longitude.toFixed(3)}`,
+    latitude: hint.latitude,
+    longitude: hint.longitude,
+  }));
   FALLBACK_AREAS.forEach(add);
   return output;
 }
 
-async function withKeyPool(
-  provider: CommercialPlaceProvider,
-  buildUrl: (key: string) => URL,
-): Promise<{ payload: any; attempts: number }> {
-  const keys = provider === "here" ? hereKeys() : tomtomKeys();
-  if (!keys.length) throw new Error(`${provider} is not configured`);
-  const current = provider === "here" ? nextHereKeyIndex : nextTomTomKeyIndex;
-  const start = current % keys.length;
+async function withKeyPool(buildUrl: (key: string) => URL): Promise<{ payload: any; attempts: number }> {
+  const keys = tomtomKeys();
+  if (!keys.length) throw new Error("tomtom is not configured");
+  const start = nextTomTomKeyIndex % keys.length;
   const errors: string[] = [];
   let attempts = 0;
 
@@ -152,11 +149,13 @@ async function withKeyPool(
     const timer = setTimeout(() => controller.abort(), 9_000);
     attempts += 1;
     try {
-      const response = await fetch(buildUrl(keys[index]), { signal: controller.signal, headers: { Accept: "application/json" } });
+      const response = await fetch(buildUrl(keys[index]), {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
+      });
       const payload = await response.json().catch(() => ({}));
       if (response.ok) {
-        if (provider === "here") nextHereKeyIndex = (index + 1) % keys.length;
-        else nextTomTomKeyIndex = (index + 1) % keys.length;
+        nextTomTomKeyIndex = (index + 1) % keys.length;
         return { payload, attempts };
       }
       const detail = String(payload?.title || payload?.error || payload?.message || `HTTP ${response.status}`).slice(0, 180);
@@ -168,46 +167,8 @@ async function withKeyPool(
       clearTimeout(timer);
     }
   }
-  throw new Error(errors.join("; ") || `${provider} request failed`);
-}
 
-function hereCandidate(companyName: string, item: any): CommercialPlaceCandidate | null {
-  const id = String(item?.id || "").trim();
-  const latitude = Number(item?.position?.lat);
-  const longitude = Number(item?.position?.lng);
-  const title = String(item?.title || item?.address?.label || companyName);
-  const brands = (Array.isArray(item?.chains) ? item.chains : []).map((chain: any) => String(chain?.name || "")).filter(Boolean);
-  const score = scoreName(companyName, title, brands);
-  if (!id || !Number.isFinite(latitude) || !Number.isFinite(longitude) || score < 45) return null;
-  const address = item?.address || {};
-  const formattedAddress = String(address?.label || title).trim();
-  const category = Array.isArray(item?.categories) ? item.categories[0]?.name : undefined;
-  const exact = Boolean(address?.houseNumber || (address?.street && address?.postalCode));
-  return {
-    id: `here-${id}`,
-    companyName,
-    placeName: title,
-    formattedAddress,
-    city: address?.city || address?.district,
-    state: address?.state || address?.county,
-    postalCode: address?.postalCode,
-    country: address?.countryName || address?.countryCode || "Unknown",
-    region: address?.state || address?.countryName || address?.countryCode || "Unknown",
-    facilityType: category || item?.resultType || "HERE place",
-    activity: "Physical company location identified by HERE Discover",
-    notes: brands.length ? `HERE chain association: ${brands.join(", ")}` : "Company-name place match from HERE Geocoding & Search.",
-    coordinates: [longitude, latitude],
-    geocodeSource: "here",
-    geocodeConfidence: exact ? "exact" : address?.city ? "place" : "unknown",
-    sourceType: String(item?.resultType || "place"),
-    sourceClass: "here-discover",
-    sourceId: id,
-    reviewStatus: score >= 80 ? "candidate" : "needs-review",
-    sourceUrl: Array.isArray(item?.contacts?.www) ? item.contacts.www[0]?.value : undefined,
-    sourceTitle: "HERE Discover",
-    evidenceSnippet: `${title} — ${formattedAddress}`,
-    discoveredBy: "here",
-  };
+  throw new Error(errors.join("; ") || "TomTom request failed");
 }
 
 function tomtomCandidate(companyName: string, item: any): CommercialPlaceCandidate | null {
@@ -215,13 +176,22 @@ function tomtomCandidate(companyName: string, item: any): CommercialPlaceCandida
   const latitude = Number(item?.position?.lat);
   const longitude = Number(item?.position?.lon);
   const title = String(item?.poi?.name || item?.address?.freeformAddress || companyName);
-  const brands = (Array.isArray(item?.poi?.brands) ? item.poi.brands : []).map((brand: any) => String(brand?.name || brand || "")).filter(Boolean);
+  const brands = (Array.isArray(item?.poi?.brands) ? item.poi.brands : [])
+    .map((brand: any) => String(brand?.name || brand || ""))
+    .filter(Boolean);
   const score = scoreName(companyName, title, brands);
   if (!id || !Number.isFinite(latitude) || !Number.isFinite(longitude) || score < 45) return null;
   const address = item?.address || {};
-  const formattedAddress = String(address?.freeformAddress || [address?.streetNumber, address?.streetName, address?.municipality, address?.countrySubdivision, address?.postalCode, address?.country].filter(Boolean).join(", ") || title).trim();
+  const formattedAddress = String(
+    address?.freeformAddress
+      || [address?.streetNumber, address?.streetName, address?.municipality, address?.countrySubdivision, address?.postalCode, address?.country]
+        .filter(Boolean)
+        .join(", ")
+      || title,
+  ).trim();
   const classification = Array.isArray(item?.poi?.classifications) ? item.poi.classifications[0] : undefined;
   const exact = Boolean(address?.streetNumber || address?.postalCode);
+
   return {
     id: `tomtom-${id}`,
     companyName,
@@ -249,24 +219,8 @@ function tomtomCandidate(companyName: string, item: any): CommercialPlaceCandida
   };
 }
 
-async function searchHere(companyName: string, area: SearchArea): Promise<{ candidates: CommercialPlaceCandidate[]; attempts: number }> {
-  const result = await withKeyPool("here", (key) => {
-    const url = new URL("https://discover.search.hereapi.com/v1/discover");
-    url.searchParams.set("at", `${area.latitude},${area.longitude}`);
-    url.searchParams.set("q", companyName);
-    url.searchParams.set("limit", "100");
-    url.searchParams.set("apiKey", key);
-    return url;
-  });
-  const rows = Array.isArray(result.payload?.items) ? result.payload.items : [];
-  return {
-    candidates: rows.map((row: any) => hereCandidate(companyName, row)).filter((item: CommercialPlaceCandidate | null): item is CommercialPlaceCandidate => Boolean(item)),
-    attempts: result.attempts,
-  };
-}
-
 async function searchTomTom(companyName: string, area: SearchArea): Promise<{ candidates: CommercialPlaceCandidate[]; attempts: number }> {
-  const result = await withKeyPool("tomtom", (key) => {
+  const result = await withKeyPool((key) => {
     const query = encodeURIComponent(companyName);
     const url = new URL(`https://api.tomtom.com/search/2/poiSearch/${query}.json`);
     url.searchParams.set("lat", String(area.latitude));
@@ -278,7 +232,9 @@ async function searchTomTom(companyName: string, area: SearchArea): Promise<{ ca
   });
   const rows = Array.isArray(result.payload?.results) ? result.payload.results : [];
   return {
-    candidates: rows.map((row: any) => tomtomCandidate(companyName, row)).filter((item: CommercialPlaceCandidate | null): item is CommercialPlaceCandidate => Boolean(item)),
+    candidates: rows
+      .map((row: any) => tomtomCandidate(companyName, row))
+      .filter((item: CommercialPlaceCandidate | null): item is CommercialPlaceCandidate => Boolean(item)),
     attempts: result.attempts,
   };
 }
@@ -288,39 +244,12 @@ export async function discoverCommercialPlaces(
   hints: CommercialPlaceSearchHint[] = [],
 ): Promise<CommercialPlaceDiscoveryResult> {
   const areas = dedupeAreas(hints);
-  const hereLimit = requestBudget("HERE_LOCATION_MAX_QUERIES");
-  const tomtomLimit = requestBudget("TOMTOM_LOCATION_MAX_QUERIES");
+  const tomtomLimit = requestBudget();
   const byId = new Map<string, CommercialPlaceCandidate>();
   const diagnostics: CommercialPlaceDiagnostic[] = [];
   const warnings: string[] = [];
-  const hereErrors: string[] = [];
   const tomtomErrors: string[] = [];
-  let hereRequestsMade = 0;
   let tomtomRequestsMade = 0;
-
-  if (hereKeys().length) {
-    for (const area of areas) {
-      if (hereRequestsMade >= hereLimit) break;
-      try {
-        const result = await searchHere(companyName, area);
-        hereRequestsMade += result.attempts;
-        result.candidates.forEach((candidate) => byId.set(candidate.id, candidate));
-      } catch (error) {
-        hereRequestsMade += 1;
-        hereErrors.push(`${area.label}: ${error instanceof Error ? error.message : "search failed"}`);
-      }
-    }
-    const count = Array.from(byId.values()).filter((candidate) => candidate.discoveredBy === "here").length;
-    diagnostics.push({
-      source: "here",
-      status: count ? hereErrors.length ? "partial" : "success" : hereErrors.length ? "error" : "no-results",
-      resultsFound: count,
-      message: `HERE Discover identified ${count} candidate(s) using ${hereRequestsMade} request attempt(s) across ${hereKeys().length} configured key(s).`,
-      error: !count && hereErrors.length ? hereErrors.slice(0, 3).join("; ") : undefined,
-    });
-  } else {
-    diagnostics.push({ source: "here", status: "not-configured", resultsFound: 0, message: "No HERE API key is configured." });
-  }
 
   if (tomtomKeys().length) {
     for (const area of areas) {
@@ -334,7 +263,8 @@ export async function discoverCommercialPlaces(
         tomtomErrors.push(`${area.label}: ${error instanceof Error ? error.message : "search failed"}`);
       }
     }
-    const count = Array.from(byId.values()).filter((candidate) => candidate.discoveredBy === "tomtom").length;
+
+    const count = byId.size;
     diagnostics.push({
       source: "tomtom",
       status: count ? tomtomErrors.length ? "partial" : "success" : tomtomErrors.length ? "error" : "no-results",
@@ -343,21 +273,26 @@ export async function discoverCommercialPlaces(
       error: !count && tomtomErrors.length ? tomtomErrors.slice(0, 3).join("; ") : undefined,
     });
   } else {
-    diagnostics.push({ source: "tomtom", status: "not-configured", resultsFound: 0, message: "No TomTom API key is configured." });
+    diagnostics.push({
+      source: "tomtom",
+      status: "not-configured",
+      resultsFound: 0,
+      message: "No TomTom API key is configured.",
+    });
   }
 
-  if (hereRequestsMade >= hereLimit) warnings.push(`HERE discovery reached its per-company request budget (${hereLimit}).`);
-  if (tomtomRequestsMade >= tomtomLimit) warnings.push(`TomTom discovery reached its per-company request budget (${tomtomLimit}).`);
-  if (hereErrors.length && byId.size) warnings.push(`HERE returned partial coverage; ${hereErrors.length} geographic request(s) failed.`);
-  if (tomtomErrors.length && byId.size) warnings.push(`TomTom returned partial coverage; ${tomtomErrors.length} geographic request(s) failed.`);
+  if (tomtomRequestsMade >= tomtomLimit) {
+    warnings.push(`TomTom discovery reached its per-company request budget (${tomtomLimit}).`);
+  }
+  if (tomtomErrors.length && byId.size) {
+    warnings.push(`TomTom returned partial coverage; ${tomtomErrors.length} geographic request(s) failed.`);
+  }
 
   return {
     locations: Array.from(byId.values()).slice(0, 400),
     diagnostics,
     warnings,
-    hereRequestsMade,
     tomtomRequestsMade,
-    hereKeysConfigured: hereKeys().length,
     tomtomKeysConfigured: tomtomKeys().length,
   };
 }
