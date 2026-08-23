@@ -19,6 +19,10 @@ import {
   type CommercialPlaceDiagnostic,
 } from "../lib/commercialPlaceDiscovery";
 import {
+  discoverGeoPlaces,
+  type GeoPlaceDiagnostic,
+} from "../lib/geoPlaceDiscovery";
+import {
   searchSharedWeb,
   sharedSearchKeyCounts,
   type SharedSearchDiagnostic,
@@ -26,7 +30,12 @@ import {
 
 const router = Router();
 const MAPPABLE_CONFIDENCE = new Set(["exact", "place", "city"]);
-const STRUCTURED_PLACE_CLASSES = new Set(["foursquare-places", "tomtom-poi"]);
+const STRUCTURED_PLACE_CLASSES = new Set([
+  "foursquare-places",
+  "tomtom-poi",
+  "geoapify-geocoder",
+  "locationiq-geocoder",
+]);
 
 function normalizeEntityName(value: unknown): string {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, 160);
@@ -260,28 +269,37 @@ router.post("/locations/discover", async (req, res) => {
       .filter((hint) => Number.isFinite(hint.latitude) && Number.isFinite(hint.longitude));
 
     const locationWebQuery = `"${baseline.canonicalName}" locations offices branches facilities plants warehouses campuses service centers operating sites`;
-    const [foursquare, commercial, ai, webSearch] = await Promise.all([
+    const [foursquare, commercial, geoPlaces, ai, webSearch] = await Promise.all([
       discoverFoursquareLocations(baseline.canonicalName, locationHints),
       discoverCommercialPlaces(baseline.canonicalName, locationHints),
+      discoverGeoPlaces(baseline.canonicalName, locationHints),
       enrichCompanyLocationsWithAi(baseline.canonicalName, baseline.officialWebsite),
       searchSharedWeb(locationWebQuery, { limit: 16 }),
     ]);
 
     const foursquareLocations = foursquare.locations as unknown as CompanyLocationCandidate[];
     const commercialLocations = commercial.locations as unknown as CompanyLocationCandidate[];
+    const geoLocations = geoPlaces.locations as unknown as CompanyLocationCandidate[];
     const candidates = mergeCandidates([
       ...baseline.locations,
       ...foursquareLocations,
       ...commercialLocations,
+      ...geoLocations,
       ...ai.locations,
     ]);
 
     const diagnostics: Array<
-      DiscoveryDiagnostic | LocationAiDiagnostic | FoursquareDiagnostic | CommercialPlaceDiagnostic | SharedSearchDiagnostic
+      DiscoveryDiagnostic
+      | LocationAiDiagnostic
+      | FoursquareDiagnostic
+      | CommercialPlaceDiagnostic
+      | GeoPlaceDiagnostic
+      | SharedSearchDiagnostic
     > = [
       ...baseline.diagnostics,
       foursquare.diagnostic,
       ...commercial.diagnostics,
+      ...geoPlaces.diagnostics,
       ...ai.diagnostics,
       ...webSearch.diagnostics,
     ];
@@ -289,9 +307,12 @@ router.post("/locations/discover", async (req, res) => {
       ...baseline.warnings,
       ...foursquare.warnings,
       ...commercial.warnings,
+      ...geoPlaces.warnings,
       ...ai.warnings,
     ]));
     const searchKeyCounts = sharedSearchKeyCounts();
+    const geoapifyLocations = geoPlaces.locations.filter((location) => location.discoveredBy === "geoapify").length;
+    const locationiqLocations = geoPlaces.locations.filter((location) => location.discoveredBy === "locationiq").length;
 
     const metadata = {
       enteredName,
@@ -315,6 +336,16 @@ router.post("/locations/discover", async (req, res) => {
         locationsDiscovered: commercial.locations.length,
         requestsMade: commercial.tomtomRequestsMade,
         keysConfigured: commercial.tomtomKeysConfigured,
+      },
+      geoapify: {
+        locationsDiscovered: geoapifyLocations,
+        requestsMade: geoPlaces.geoapifyRequestsMade,
+        keysConfigured: geoPlaces.geoapifyKeysConfigured,
+      },
+      locationiq: {
+        locationsDiscovered: locationiqLocations,
+        requestsMade: geoPlaces.locationiqRequestsMade,
+        keysConfigured: geoPlaces.locationiqKeysConfigured,
       },
       sharedSearch: {
         providersUsed: webSearch.providersUsed,
@@ -353,7 +384,7 @@ router.post("/locations/discover", async (req, res) => {
         savedToDatabase: true,
         status: entity.status,
       },
-      source: "Official website + Foursquare Places + TomTom Places + Keenable/Algolia/LangSearch/Exa/Tavily + Groq/Gemini/Cerebras + Wikidata + OpenStreetMap + Photon",
+      source: "Official website + Foursquare Places + TomTom Places + Geoapify + LocationIQ + Keenable/Algolia/LangSearch/Exa/Tavily + Groq/Gemini/Cerebras + Wikidata + OpenStreetMap + Photon",
       sourceDiagnostics: diagnostics,
       coverage: {
         officialPagesScanned: baseline.officialPagesScanned + ai.pagesRead,
@@ -366,6 +397,12 @@ router.post("/locations/discover", async (req, res) => {
         tomtomLocationsDiscovered: tomtomLocations,
         tomtomRequestsMade: commercial.tomtomRequestsMade,
         tomtomKeysConfigured: commercial.tomtomKeysConfigured,
+        geoapifyLocationsDiscovered: geoapifyLocations,
+        geoapifyRequestsMade: geoPlaces.geoapifyRequestsMade,
+        geoapifyKeysConfigured: geoPlaces.geoapifyKeysConfigured,
+        locationiqLocationsDiscovered: locationiqLocations,
+        locationiqRequestsMade: geoPlaces.locationiqRequestsMade,
+        locationiqKeysConfigured: geoPlaces.locationiqKeysConfigured,
         sharedSearchResults: webSearch.results.length,
         sharedSearchProvidersUsed: webSearch.providersUsed,
         sharedSearchKeyCounts: searchKeyCounts,
@@ -385,6 +422,8 @@ router.post("/locations/discover", async (req, res) => {
         needsReview: activeLocations.filter((location) => location.reviewStatus === "needs-review" || !MAPPABLE_CONFIDENCE.has(String(location.geocodeConfidence))).length,
         foursquare: foursquare.locations.length,
         tomtom: tomtomLocations,
+        geoapify: geoapifyLocations,
+        locationiq: locationiqLocations,
         newCandidates: persisted.insertedCount,
         duplicatesSkipped: persisted.duplicatesSkipped,
         enrichedExisting: persisted.enrichedExisting,
