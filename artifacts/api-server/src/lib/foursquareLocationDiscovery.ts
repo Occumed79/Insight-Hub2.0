@@ -90,7 +90,6 @@ type SearchArea = {
 
 const API_BASE = "https://places-api.foursquare.com";
 const API_VERSION = "2025-06-17";
-const SEARCH_FIELDS = "fsq_place_id,name,latitude,longitude,location,categories,chains,website,tel,placemaker_url,date_closed";
 const MAX_RESULTS_PER_QUERY = 50;
 
 // Wide geographic seed coverage for companies whose existing public-source results are sparse.
@@ -159,6 +158,10 @@ function maxRequests(): number {
   const configured = Number(process.env.FOURSQUARE_LOCATION_MAX_QUERIES || 30);
   if (!Number.isFinite(configured)) return 30;
   return Math.max(4, Math.min(80, Math.floor(configured)));
+}
+
+function askEnabled(): boolean {
+  return String(process.env.FOURSQUARE_ASK_ENABLED || "").trim().toLowerCase() === "true";
 }
 
 function dedupeAreas(hints: FoursquareSearchHint[]): SearchArea[] {
@@ -316,7 +319,7 @@ async function placeSearch(params: {
   url.searchParams.set("ll", `${params.area.latitude},${params.area.longitude}`);
   url.searchParams.set("radius", "100000");
   url.searchParams.set("limit", String(MAX_RESULTS_PER_QUERY));
-  url.searchParams.set("fields", SEARCH_FIELDS);
+  // Omitting fields intentionally keeps Place Search on its default Pro field set.
   const result = await requestWithKeyPool(url);
   return { places: placeArray(result.payload), attempts: result.attempts };
 }
@@ -326,7 +329,7 @@ async function askSearch(companyName: string, area: SearchArea): Promise<{ place
   url.searchParams.set("query", `physical offices, branches, facilities, stores, plants, campuses, and operating sites for ${companyName}`);
   url.searchParams.set("ll", `${area.latitude},${area.longitude}`);
   url.searchParams.set("context", "Return locations that belong to the named company or its branded chain; exclude unrelated nearby businesses.");
-  url.searchParams.set("fields", SEARCH_FIELDS);
+  // Ask is opt-in because it has separate pricing and rate limits from standard Places API Pro calls.
   const result = await requestWithKeyPool(url);
   return { places: placeArray(result.payload), attempts: result.attempts };
 }
@@ -403,8 +406,8 @@ export async function discoverFoursquareLocations(
     }
   }
 
-  // Ask is deliberately a small fallback because Foursquare prices/rate-limits it separately.
-  if (allPlaces.size < 3) {
+  // Ask remains available, but is disabled by default because it has separate PAYG pricing/rate limits.
+  if (askEnabled() && allPlaces.size < 3) {
     for (const area of areas.slice(0, 2)) {
       if (requestsMade >= requestBudget) break;
       try {
