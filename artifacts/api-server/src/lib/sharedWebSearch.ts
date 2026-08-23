@@ -27,7 +27,8 @@ export type SharedSearchResponse = {
 };
 
 const MAX_RESPONSE_BYTES = 2_500_000;
-const ACTIVE_PROVIDERS: SharedSearchProvider[] = ["keenable", "algolia", "langsearch", "exa", "tavily"];
+const APP_PROVIDERS: SharedSearchProvider[] = ["keenable", "algolia", "langsearch"];
+const LOCATION_ONLY_PROVIDERS: SharedSearchProvider[] = ["exa", "tavily"];
 
 let nextExaKeyIndex = 0;
 let nextTavilyKeyIndex = 0;
@@ -130,19 +131,19 @@ function langSearchKeys(): string[] {
 
 function exaKeys(): string[] {
   return uniqueKeys([
-    process.env.EXA_API_KEY,
-    process.env.EXA_API_KEY_2,
-    process.env.EXA_API_KEY_3,
-    process.env.EXA_API_KEY_4,
+    process.env.LOCATION_EXA_API_KEY,
+    process.env.LOCATION_EXA_API_KEY_2,
+    process.env.LOCATION_EXA_API_KEY_3,
+    process.env.LOCATION_EXA_API_KEY_4,
   ]);
 }
 
 function tavilyKeys(): string[] {
   return uniqueKeys([
-    process.env.TAVILY_API_KEY,
-    process.env.TAVILY_API_KEY_2,
-    process.env.TAVILY_API_KEY_3,
-    process.env.TAVILY_API_KEY_4,
+    process.env.LOCATION_TAVILY_API_KEY,
+    process.env.LOCATION_TAVILY_API_KEY_2,
+    process.env.LOCATION_TAVILY_API_KEY_3,
+    process.env.LOCATION_TAVILY_API_KEY_4,
   ]);
 }
 
@@ -151,19 +152,23 @@ function algoliaIndexes(): string[] {
   return raw.split(",").map((value) => value.trim()).filter(Boolean).slice(0, 12);
 }
 
-function configured(provider: SharedSearchProvider): boolean {
+function appConfigured(provider: SharedSearchProvider): boolean {
   if (provider === "keenable") return Boolean(process.env.KEENABLE_API_KEY?.trim());
   if (provider === "algolia") return Boolean(process.env.ALGOLIA_API_KEY?.trim() && process.env.ALGOLIA_APP_ID?.trim() && algoliaIndexes().length);
   if (provider === "langsearch") return langSearchKeys().length > 0;
-  if (provider === "exa") return exaKeys().length > 0;
-  return tavilyKeys().length > 0;
+  return false;
 }
 
-function providerKeyCount(provider: SharedSearchProvider): number | undefined {
-  if (provider === "exa") return exaKeys().length;
-  if (provider === "tavily") return tavilyKeys().length;
-  if (provider === "langsearch") return langSearchKeys().length;
-  return undefined;
+function locationConfigured(provider: SharedSearchProvider): boolean {
+  if (provider === "exa") return exaKeys().length > 0;
+  if (provider === "tavily") return tavilyKeys().length > 0;
+  return appConfigured(provider);
+}
+
+function isCompanyLocationQuery(query: string): boolean {
+  const normalized = query.toLowerCase();
+  const markers = ["locations", "offices", "branches", "facilities", "plants", "warehouses", "campuses", "service centers", "operating sites"];
+  return markers.filter((marker) => normalized.includes(marker)).length >= 4;
 }
 
 async function searchKeenable(query: string, limit: number): Promise<SharedSearchItem[]> {
@@ -274,7 +279,7 @@ async function searchExa(query: string, limit: number): Promise<SharedSearchItem
     }
   }
 
-  throw new Error(errors.join("; ") || "All configured Exa keys failed");
+  throw new Error(errors.join("; ") || "All configured Exa location keys failed");
 }
 
 async function searchTavily(query: string, limit: number): Promise<SharedSearchItem[]> {
@@ -310,7 +315,7 @@ async function searchTavily(query: string, limit: number): Promise<SharedSearchI
     }
   }
 
-  throw new Error(errors.join("; ") || "All configured Tavily keys failed");
+  throw new Error(errors.join("; ") || "All configured Tavily location keys failed");
 }
 
 async function runProvider(provider: SharedSearchProvider, query: string, limit: number): Promise<SharedSearchItem[]> {
@@ -323,11 +328,11 @@ async function runProvider(provider: SharedSearchProvider, query: string, limit:
 
 export function sharedSearchConfiguration(): Record<SharedSearchProvider, boolean> {
   return {
-    keenable: configured("keenable"),
-    algolia: configured("algolia"),
-    langsearch: configured("langsearch"),
-    exa: configured("exa"),
-    tavily: configured("tavily"),
+    keenable: appConfigured("keenable"),
+    algolia: appConfigured("algolia"),
+    langsearch: appConfigured("langsearch"),
+    exa: false,
+    tavily: false,
   };
 }
 
@@ -339,14 +344,20 @@ export function sharedSearchKeyCounts(): Partial<Record<SharedSearchProvider, nu
   };
 }
 
-export async function searchSharedWeb(query: string, options?: { limit?: number }): Promise<SharedSearchResponse> {
+export async function searchSharedWeb(
+  query: string,
+  options?: { limit?: number; scope?: "app" | "company-location" },
+): Promise<SharedSearchResponse> {
   const limit = Math.max(1, Math.min(30, Number(options?.limit || 12)));
+  const locationScope = options?.scope === "company-location" || isCompanyLocationQuery(query);
+  const providers = locationScope ? [...APP_PROVIDERS, ...LOCATION_ONLY_PROVIDERS] : APP_PROVIDERS;
   const diagnostics: SharedSearchDiagnostic[] = [];
   const collected: SharedSearchItem[] = [];
   const providersUsed: SharedSearchProvider[] = [];
 
-  const outcomes = await Promise.all(ACTIVE_PROVIDERS.map(async (provider) => {
-    if (!configured(provider)) {
+  const outcomes = await Promise.all(providers.map(async (provider) => {
+    const configured = locationScope ? locationConfigured(provider) : appConfigured(provider);
+    if (!configured) {
       const extra = provider === "algolia" && process.env.ALGOLIA_API_KEY?.trim()
         ? " ALGOLIA_APP_ID and ALGOLIA_INDEXES are also required."
         : "";
@@ -358,14 +369,13 @@ export async function searchSharedWeb(query: string, options?: { limit?: number 
           configured: false,
           status: "not-configured" as const,
           resultsFound: 0,
-          message: `${provider} is not fully configured.${extra}`,
+          message: `${provider} is not configured for ${locationScope ? "company-location" : "app-wide"} search.${extra}`,
         },
       };
     }
 
     try {
       const results = await runProvider(provider, query, limit);
-      const keyCount = providerKeyCount(provider);
       return {
         provider,
         results,
@@ -374,9 +384,7 @@ export async function searchSharedWeb(query: string, options?: { limit?: number 
           configured: true,
           status: results.length ? "success" as const : "no-results" as const,
           resultsFound: results.length,
-          message: results.length
-            ? `${provider} returned ${results.length} result(s)${keyCount ? ` using a ${keyCount}-key pool` : ""}.`
-            : `${provider} returned no results${keyCount ? ` using a ${keyCount}-key pool` : ""}.`,
+          message: `${provider} returned ${results.length} result(s).`,
         },
       };
     } catch (error) {
