@@ -64,15 +64,6 @@ services:
       # Ask has separate PAYG pricing/rate limits; it is disabled unless explicitly set to true.
       - key: FOURSQUARE_ASK_ENABLED
         sync: false
-      # HERE Discover multi-key location pool.
-      - key: HERE_API_KEY
-        sync: false
-      - key: HERE_API_KEY_2
-        sync: false
-      - key: HERE_API_KEY_3
-        sync: false
-      - key: HERE_LOCATION_MAX_QUERIES
-        sync: false
       # TomTom Places Search multi-key location pool.
       - key: TOMTOM_API_KEY
         sync: false
@@ -80,14 +71,29 @@ services:
         sync: false
       - key: TOMTOM_API_KEY_3
         sync: false
+      - key: TOMTOM_API_KEY_4
+        sync: false
       - key: TOMTOM_LOCATION_MAX_QUERIES
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false
-      # Exa and Tavily are retained as fallback search providers.
+      # Exa is an active shared-search provider with four-key rotation/failover.
       - key: EXA_API_KEY
         sync: false
+      - key: EXA_API_KEY_2
+        sync: false
+      - key: EXA_API_KEY_3
+        sync: false
+      - key: EXA_API_KEY_4
+        sync: false
+      # Tavily is an active shared-search provider with four-key rotation/failover.
       - key: TAVILY_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY_2
+        sync: false
+      - key: TAVILY_API_KEY_3
+        sync: false
+      - key: TAVILY_API_KEY_4
         sync: false
       - key: FIRECRAWL_API_KEY
         sync: false
