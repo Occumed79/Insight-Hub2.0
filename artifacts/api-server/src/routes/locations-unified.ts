@@ -384,7 +384,7 @@ router.post("/locations/discover", async (req, res) => {
         savedToDatabase: true,
         status: entity.status,
       },
-      source: "Official website + Foursquare Places + TomTom Places + Geoapify + LocationIQ + Keenable/Algolia/LangSearch/Exa/Tavily + Groq/Gemini/Cerebras + Wikidata + OpenStreetMap + Photon",
+      source: "Official website + Foursquare Places + TomTom Places + Geoapify + LocationIQ + Keenable/LangSearch/Exa/Tavily + Groq/Gemini/Cerebras + Wikidata + OpenStreetMap + Photon",
       sourceDiagnostics: diagnostics,
       coverage: {
         officialPagesScanned: baseline.officialPagesScanned + ai.pagesRead,
