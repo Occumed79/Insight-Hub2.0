@@ -7,6 +7,10 @@ import { fileURLToPath } from "url";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
+// Serper has been retired from Insight Hub 2. Clear any stale Render value so
+// older provider code cannot reactivate it accidentally.
+delete process.env.SERPER_API_KEY;
+
 const app: Express = express();
 const requestBodyLimit = process.env["REQUEST_BODY_LIMIT"] || "25mb";
 
