@@ -75,6 +75,22 @@ services:
         sync: false
       - key: TOMTOM_LOCATION_MAX_QUERIES
         sync: false
+      # Geoapify is company-location-only and rotates across four configured keys.
+      - key: GEOAPIFY_API_KEY
+        sync: false
+      - key: GEOAPIFY_API_KEY_2
+        sync: false
+      - key: GEOAPIFY_API_KEY_3
+        sync: false
+      - key: GEOAPIFY_API_KEY_4
+        sync: false
+      - key: GEOAPIFY_LOCATION_MAX_QUERIES
+        sync: false
+      # LocationIQ is a company-location address/location discovery and normalization source.
+      - key: LOCATIONIQ_API_KEY
+        sync: false
+      - key: LOCATIONIQ_LOCATION_MAX_QUERIES
+        sync: false
       - key: OPENROUTER_API_KEY
         sync: false
       # Exa is company-location-only with four-key rotation/failover.
