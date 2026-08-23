@@ -51,6 +51,9 @@ services:
       # Optional per-company cap for Foursquare request attempts. Defaults to 30 in code.
       - key: FOURSQUARE_LOCATION_MAX_QUERIES
         sync: false
+      # Ask has separate PAYG pricing/rate limits; it is disabled unless explicitly set to true.
+      - key: FOURSQUARE_ASK_ENABLED
+        sync: false
       - key: SERPER_API_KEY
         sync: false
       - key: OPENROUTER_API_KEY
