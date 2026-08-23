@@ -11,6 +11,26 @@ import { logger } from "./lib/logger";
 // older provider code cannot reactivate it accidentally.
 delete process.env.SERPER_API_KEY;
 
+// Exa and Tavily are intentionally scoped to company-location discovery only.
+// Copy their Render-provided values to internal location-only names, then remove
+// the public env names so legacy/general intelligence code cannot consume them.
+const locationOnlyKeyNames = [
+  "EXA_API_KEY",
+  "EXA_API_KEY_2",
+  "EXA_API_KEY_3",
+  "EXA_API_KEY_4",
+  "TAVILY_API_KEY",
+  "TAVILY_API_KEY_2",
+  "TAVILY_API_KEY_3",
+  "TAVILY_API_KEY_4",
+] as const;
+
+for (const keyName of locationOnlyKeyNames) {
+  const value = process.env[keyName]?.trim();
+  if (value) process.env[`LOCATION_${keyName}`] = value;
+  delete process.env[keyName];
+}
+
 const app: Express = express();
 const requestBodyLimit = process.env["REQUEST_BODY_LIMIT"] || "25mb";
 
