@@ -1,4 +1,4 @@
-export type SharedSearchProvider = "keenable" | "algolia" | "langsearch" | "exa" | "tavily";
+export type SharedSearchProvider = "keenable" | "langsearch" | "exa" | "tavily";
 
 export type SharedSearchItem = {
   id: string;
@@ -27,7 +27,7 @@ export type SharedSearchResponse = {
 };
 
 const MAX_RESPONSE_BYTES = 2_500_000;
-const APP_PROVIDERS: SharedSearchProvider[] = ["keenable", "algolia", "langsearch"];
+const APP_PROVIDERS: SharedSearchProvider[] = ["keenable", "langsearch"];
 const LOCATION_ONLY_PROVIDERS: SharedSearchProvider[] = ["exa", "tavily"];
 
 let nextExaKeyIndex = 0;
@@ -83,14 +83,11 @@ function toItem(provider: SharedSearchProvider, row: any): SharedSearchItem | nu
   const url = safeUrl(row?.url || row?.link || row?.sourceUrl || row?.website);
   if (!url) return null;
   const title = clean(row?.title || row?.name || row?.heading || new URL(url).hostname, 500);
-  const snippet = clean(
-    row?.snippet || row?.description || row?.summary || row?.text || row?.content || row?._snippetResult?.content?.value,
-    2_000,
-  );
+  const snippet = clean(row?.snippet || row?.description || row?.summary || row?.text || row?.content, 2_000);
   const summary = clean(row?.summary || row?.description || row?.snippet || row?.content || row?.text, 3_000) || snippet;
   const publishedAt = clean(row?.publishedAt || row?.datePublished || row?.published_date || row?.publishedDate, 100) || null;
   return {
-    id: clean(row?.id || row?.objectID, 500) || hashId(provider, url, title),
+    id: clean(row?.id, 500) || hashId(provider, url, title),
     title,
     url,
     snippet,
@@ -147,14 +144,8 @@ function tavilyKeys(): string[] {
   ]);
 }
 
-function algoliaIndexes(): string[] {
-  const raw = process.env.ALGOLIA_INDEXES || process.env.ALGOLIA_INDEX_NAME || "";
-  return raw.split(",").map((value) => value.trim()).filter(Boolean).slice(0, 12);
-}
-
 function appConfigured(provider: SharedSearchProvider): boolean {
   if (provider === "keenable") return Boolean(process.env.KEENABLE_API_KEY?.trim());
-  if (provider === "algolia") return Boolean(process.env.ALGOLIA_API_KEY?.trim() && process.env.ALGOLIA_APP_ID?.trim() && algoliaIndexes().length);
   if (provider === "langsearch") return langSearchKeys().length > 0;
   return false;
 }
@@ -191,35 +182,6 @@ async function searchKeenable(query: string, limit: number): Promise<SharedSearc
     .filter((item: SharedSearchItem | null): item is SharedSearchItem => Boolean(item));
 }
 
-async function searchAlgolia(query: string, limit: number): Promise<SharedSearchItem[]> {
-  const apiKey = process.env.ALGOLIA_API_KEY?.trim();
-  const appId = process.env.ALGOLIA_APP_ID?.trim();
-  const indexes = algoliaIndexes();
-  if (!apiKey || !appId || !indexes.length) return [];
-
-  const response = await fetch(`https://${encodeURIComponent(appId)}-dsn.algolia.net/1/indexes/*/queries`, {
-    method: "POST",
-    headers: {
-      "X-Algolia-Application-Id": appId,
-      "X-Algolia-API-Key": apiKey,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      requests: indexes.map((indexName) => ({
-        indexName,
-        params: `query=${encodeURIComponent(query)}&hitsPerPage=${Math.max(1, Math.min(20, limit))}`,
-      })),
-    }),
-  });
-  const payload = await readJson(response);
-  if (!response.ok) throw new Error(clean(payload?.message || payload?.error, 240) || `HTTP ${response.status}`);
-  const rows = (Array.isArray(payload?.results) ? payload.results : []).flatMap((result: any) => Array.isArray(result?.hits) ? result.hits : []);
-  return rows
-    .map((row: any) => toItem("algolia", row))
-    .filter((item: SharedSearchItem | null): item is SharedSearchItem => Boolean(item));
-}
-
 async function searchLangSearch(query: string, limit: number): Promise<SharedSearchItem[]> {
   const keys = langSearchKeys();
   const errors: string[] = [];
@@ -251,7 +213,6 @@ async function searchExa(query: string, limit: number): Promise<SharedSearchItem
   if (!keys.length) return [];
   const start = nextExaKeyIndex % keys.length;
   const errors: string[] = [];
-
   for (let offset = 0; offset < keys.length; offset += 1) {
     const keyIndex = (start + offset) % keys.length;
     try {
@@ -278,7 +239,6 @@ async function searchExa(query: string, limit: number): Promise<SharedSearchItem
       errors.push(`key ${keyIndex + 1}: ${error instanceof Error ? error.message : "request failed"}`);
     }
   }
-
   throw new Error(errors.join("; ") || "All configured Exa location keys failed");
 }
 
@@ -287,7 +247,6 @@ async function searchTavily(query: string, limit: number): Promise<SharedSearchI
   if (!keys.length) return [];
   const start = nextTavilyKeyIndex % keys.length;
   const errors: string[] = [];
-
   for (let offset = 0; offset < keys.length; offset += 1) {
     const keyIndex = (start + offset) % keys.length;
     try {
@@ -314,13 +273,11 @@ async function searchTavily(query: string, limit: number): Promise<SharedSearchI
       errors.push(`key ${keyIndex + 1}: ${error instanceof Error ? error.message : "request failed"}`);
     }
   }
-
   throw new Error(errors.join("; ") || "All configured Tavily location keys failed");
 }
 
 async function runProvider(provider: SharedSearchProvider, query: string, limit: number): Promise<SharedSearchItem[]> {
   if (provider === "keenable") return searchKeenable(query, limit);
-  if (provider === "algolia") return searchAlgolia(query, limit);
   if (provider === "langsearch") return searchLangSearch(query, limit);
   if (provider === "exa") return searchExa(query, limit);
   return searchTavily(query, limit);
@@ -329,7 +286,6 @@ async function runProvider(provider: SharedSearchProvider, query: string, limit:
 export function sharedSearchConfiguration(): Record<SharedSearchProvider, boolean> {
   return {
     keenable: appConfigured("keenable"),
-    algolia: appConfigured("algolia"),
     langsearch: appConfigured("langsearch"),
     exa: false,
     tavily: false,
@@ -358,9 +314,6 @@ export async function searchSharedWeb(
   const outcomes = await Promise.all(providers.map(async (provider) => {
     const configured = locationScope ? locationConfigured(provider) : appConfigured(provider);
     if (!configured) {
-      const extra = provider === "algolia" && process.env.ALGOLIA_API_KEY?.trim()
-        ? " ALGOLIA_APP_ID and ALGOLIA_INDEXES are also required."
-        : "";
       return {
         provider,
         results: [] as SharedSearchItem[],
@@ -369,7 +322,7 @@ export async function searchSharedWeb(
           configured: false,
           status: "not-configured" as const,
           resultsFound: 0,
-          message: `${provider} is not configured for ${locationScope ? "company-location" : "app-wide"} search.${extra}`,
+          message: `${provider} is not configured for ${locationScope ? "company-location" : "app-wide"} search.`,
         },
       };
     }
