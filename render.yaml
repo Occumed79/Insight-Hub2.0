@@ -37,6 +37,20 @@ services:
       # Public browser token embedded by Vite at build time for the Mapbox basemap.
       - key: VITE_MAPBOX_ACCESS_TOKEN
         sync: false
+      # Foursquare Places company-location discovery. Up to five Service API keys can be configured.
+      - key: FOURSQUARE_API_KEY
+        sync: false
+      - key: FOURSQUARE_API_KEY_2
+        sync: false
+      - key: FOURSQUARE_API_KEY_3
+        sync: false
+      - key: FOURSQUARE_API_KEY_4
+        sync: false
+      - key: FOURSQUARE_API_KEY_5
+        sync: false
+      # Optional per-company cap for Foursquare request attempts. Defaults to 30 in code.
+      - key: FOURSQUARE_LOCATION_MAX_QUERIES
+        sync: false
       - key: SERPER_API_KEY
         sync: false
       - key: OPENROUTER_API_KEY
