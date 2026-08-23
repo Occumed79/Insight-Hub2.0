@@ -37,6 +37,12 @@ services:
       # Shared app-wide live web search. Internal saved-data search remains in Neon Postgres.
       - key: KEENABLE_API_KEY
         sync: false
+      # TinyFish Search discovers live sources and Fetch enriches the strongest URLs with clean page content.
+      - key: TINYFISH_API_KEY
+        sync: false
+      # Optional cap on URLs enriched through TinyFish Fetch per search. Defaults to 8.
+      - key: TINYFISH_FETCH_MAX_URLS
+        sync: false
       # Public browser token embedded by Vite at build time for the Mapbox basemap.
       - key: VITE_MAPBOX_ACCESS_TOKEN
         sync: false
