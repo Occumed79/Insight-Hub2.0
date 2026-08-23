@@ -62,6 +62,12 @@ router.use(locationDiscoveryCacheRouter);
 router.use(entityDiscoveryRouter);
 router.use(locationsCerebrasV2Router);
 router.use(locationsUnifiedRouter);
+router.post("/entities/import-company-location-text", (_req, res) => {
+  res.status(410).json({
+    ok: false,
+    error: "Company location text import is disabled pending a validated geographic rebuild.",
+  });
+});
 router.use(bulkManualLocationsRouter);
 router.use(intelligenceRouter);
 router.use(publicApiRepairsRouter);
