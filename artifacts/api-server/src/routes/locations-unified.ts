@@ -20,12 +20,13 @@ import {
 } from "../lib/commercialPlaceDiscovery";
 import {
   searchSharedWeb,
+  sharedSearchKeyCounts,
   type SharedSearchDiagnostic,
 } from "../lib/sharedWebSearch";
 
 const router = Router();
 const MAPPABLE_CONFIDENCE = new Set(["exact", "place", "city"]);
-const STRUCTURED_PLACE_CLASSES = new Set(["foursquare-places", "here-discover", "tomtom-poi"]);
+const STRUCTURED_PLACE_CLASSES = new Set(["foursquare-places", "tomtom-poi"]);
 
 function normalizeEntityName(value: unknown): string {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, 160);
@@ -290,6 +291,7 @@ router.post("/locations/discover", async (req, res) => {
       ...commercial.warnings,
       ...ai.warnings,
     ]));
+    const searchKeyCounts = sharedSearchKeyCounts();
 
     const metadata = {
       enteredName,
@@ -309,17 +311,15 @@ router.post("/locations/discover", async (req, res) => {
         keysConfigured: foursquare.keysConfigured,
         chainIds: foursquare.chainIds,
       },
-      commercialPlaces: {
+      tomtom: {
         locationsDiscovered: commercial.locations.length,
-        hereRequestsMade: commercial.hereRequestsMade,
-        tomtomRequestsMade: commercial.tomtomRequestsMade,
-        hereKeysConfigured: commercial.hereKeysConfigured,
-        tomtomKeysConfigured: commercial.tomtomKeysConfigured,
+        requestsMade: commercial.tomtomRequestsMade,
+        keysConfigured: commercial.tomtomKeysConfigured,
       },
       sharedSearch: {
         providersUsed: webSearch.providersUsed,
-        fallbackUsed: webSearch.fallbackUsed,
         resultsFound: webSearch.results.length,
+        keyCounts: searchKeyCounts,
       },
       aiPagesConsidered: ai.pagesConsidered,
       aiPagesRead: ai.pagesRead,
@@ -336,8 +336,7 @@ router.post("/locations/discover", async (req, res) => {
     const persisted = await persistLocations(entity.id, candidates);
     const activeLocations = persisted.allLocations.filter((location) => location.reviewStatus !== "rejected");
     const mapped = activeLocations.filter((location) => MAPPABLE_CONFIDENCE.has(String(location.geocodeConfidence))).length;
-    const hereLocations = commercial.locations.filter((location) => location.discoveredBy === "here").length;
-    const tomtomLocations = commercial.locations.filter((location) => location.discoveredBy === "tomtom").length;
+    const tomtomLocations = commercial.locations.length;
 
     res.status(200).json({
       ok: true,
@@ -354,7 +353,7 @@ router.post("/locations/discover", async (req, res) => {
         savedToDatabase: true,
         status: entity.status,
       },
-      source: "Official website + Foursquare Places + HERE Discover + TomTom Places + Keenable/Algolia/LangSearch + Groq/Gemini/Cerebras + Wikidata + OpenStreetMap + Photon",
+      source: "Official website + Foursquare Places + TomTom Places + Keenable/Algolia/LangSearch/Exa/Tavily + Groq/Gemini/Cerebras + Wikidata + OpenStreetMap + Photon",
       sourceDiagnostics: diagnostics,
       coverage: {
         officialPagesScanned: baseline.officialPagesScanned + ai.pagesRead,
@@ -364,15 +363,12 @@ router.post("/locations/discover", async (req, res) => {
         foursquareRequestsMade: foursquare.requestsMade,
         foursquareKeysConfigured: foursquare.keysConfigured,
         foursquareChainIds: foursquare.chainIds,
-        hereLocationsDiscovered: hereLocations,
-        hereRequestsMade: commercial.hereRequestsMade,
-        hereKeysConfigured: commercial.hereKeysConfigured,
         tomtomLocationsDiscovered: tomtomLocations,
         tomtomRequestsMade: commercial.tomtomRequestsMade,
         tomtomKeysConfigured: commercial.tomtomKeysConfigured,
         sharedSearchResults: webSearch.results.length,
         sharedSearchProvidersUsed: webSearch.providersUsed,
-        sharedSearchFallbackUsed: webSearch.fallbackUsed,
+        sharedSearchKeyCounts: searchKeyCounts,
         aiPagesConsidered: ai.pagesConsidered,
         aiPagesRead: ai.pagesRead,
         aiAddressesExtracted: ai.addressesExtracted,
@@ -388,7 +384,6 @@ router.post("/locations/discover", async (req, res) => {
         mappable: mapped,
         needsReview: activeLocations.filter((location) => location.reviewStatus === "needs-review" || !MAPPABLE_CONFIDENCE.has(String(location.geocodeConfidence))).length,
         foursquare: foursquare.locations.length,
-        here: hereLocations,
         tomtom: tomtomLocations,
         newCandidates: persisted.insertedCount,
         duplicatesSkipped: persisted.duplicatesSkipped,
