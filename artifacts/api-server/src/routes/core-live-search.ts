@@ -150,10 +150,12 @@ router.get("/core-intelligence/live-search/status", (_req: Request, res: Respons
     ok: true,
     configured: Object.values(providers).some(Boolean),
     providers,
-    activeProviders: ["Keenable", "LangSearch"],
+    activeProviders: ["Keenable", "TinyFish Search + Fetch", "LangSearch"],
     internalDataLayer: "Neon Postgres",
     environmentVariables: [
       "KEENABLE_API_KEY",
+      "TINYFISH_API_KEY",
+      "TINYFISH_FETCH_MAX_URLS",
       "LANGSEARCH_API_KEY",
       "LANGSEARCH_API_KEY_2",
       "LANGSEARCH_API_KEY_3",
@@ -200,10 +202,10 @@ router.get("/core-intelligence/live-search", async (req: Request, res: Response)
       providersUsed: loaded.providersUsed,
       providerDiagnostics: loaded.diagnostics,
       fallbackUsed: false,
-      source: "Keenable + LangSearch",
+      source: "Keenable + TinyFish Search/Fetch + LangSearch",
       internalDataLayer: "Neon Postgres",
       searchedAt: new Date().toISOString(),
-      limitation: "Results are live public-web search leads. Verify material claims against linked primary sources before operational use.",
+      limitation: "Results are live public-web research leads. TinyFish Search results are enriched with cleaned Fetch content when available. Verify material claims against linked primary sources before operational use.",
     });
   } catch (error) {
     return res.status(502).json({ ok: false, configured: true, error: safeError(error) });
