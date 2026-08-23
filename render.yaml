@@ -34,15 +34,8 @@ services:
         sync: false
       - key: LANGSEARCH_API_KEY_4
         sync: false
-      # Shared app-wide search sources; company-location workflows can use them too.
+      # Shared app-wide live web search. Internal saved-data search remains in Neon Postgres.
       - key: KEENABLE_API_KEY
-        sync: false
-      - key: ALGOLIA_API_KEY
-        sync: false
-      # Algolia also requires an Application ID and one or more index names.
-      - key: ALGOLIA_APP_ID
-        sync: false
-      - key: ALGOLIA_INDEXES
         sync: false
       # Public browser token embedded by Vite at build time for the Mapbox basemap.
       - key: VITE_MAPBOX_ACCESS_TOKEN
