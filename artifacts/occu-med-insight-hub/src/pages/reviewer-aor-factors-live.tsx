@@ -46,9 +46,9 @@ function eventCoordinates(item: any): [number, number] | null {
   return Number.isFinite(lat) && Number.isFinite(lon) ? [lon, lat] : null;
 }
 function styleObject(sdk: any, style: MapStyleKey) {
-  if (style === "Base") return sdk.MapStyle?.BASE?.DARK || sdk.MapStyle?.BASE;
-  if (style === "Outdoor") return sdk.MapStyle?.OUTDOOR?.DARK || sdk.MapStyle?.OUTDOOR;
-  return sdk.MapStyle?.TOPO?.DARK || sdk.MapStyle?.TOPO || sdk.MapStyle?.BASE?.DARK || sdk.MapStyle?.STREETS?.DARK;
+  if (style === "Base") return sdk.MapStyle?.BASE?.LIGHT || sdk.MapStyle?.BASE;
+  if (style === "Outdoor") return sdk.MapStyle?.OUTDOOR || sdk.MapStyle?.STREETS;
+  return sdk.MapStyle?.TOPO?.PASTEL || sdk.MapStyle?.TOPO || sdk.MapStyle?.BASE?.LIGHT || sdk.MapStyle?.BASE;
 }
 
 export default function ReviewerAorFactorsLivePage() {
