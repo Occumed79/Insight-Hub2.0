@@ -6,6 +6,7 @@ import coreLiveSearchRouter from "./core-live-search";
 import fmcsaRouter from "./fmcsa";
 import coreIntelligenceRouter from "./core-intelligence";
 import federalAgencyLiveRouter from "./federal-agency-live";
+import federalOpportunityIntelligenceRouter from "./federal-opportunity-intelligence";
 import locationDiscoveryCacheRouter from "./locationDiscoveryCache";
 import entityDiscoveryRouter from "./entityDiscovery";
 import locationsCerebrasV2Router from "./locations-cerebras-v2";
@@ -50,24 +51,19 @@ import standardsIntelligenceRouter from "./standards-intelligence";
 import onetResolverRouter from "./onet-resolver";
 
 const router: IRouter = Router();
-
 router.use(healthRouter);
 router.use(aorSourcePolicyRouter);
 router.use(stateMapGeometryRouter);
 router.use(coreLiveSearchRouter);
 router.use(fmcsaRouter);
 router.use(coreIntelligenceRouter);
+router.use(federalOpportunityIntelligenceRouter);
 router.use(federalAgencyLiveRouter);
 router.use(locationDiscoveryCacheRouter);
 router.use(entityDiscoveryRouter);
 router.use(locationsCerebrasV2Router);
 router.use(locationsUnifiedRouter);
-router.post("/entities/import-company-location-text", (_req, res) => {
-  res.status(410).json({
-    ok: false,
-    error: "Company location text import is disabled pending a validated geographic rebuild.",
-  });
-});
+router.post("/entities/import-company-location-text", (_req, res) => { res.status(410).json({ ok:false, error:"Company location text import is disabled pending a validated geographic rebuild." }); });
 router.use(bulkManualLocationsRouter);
 router.use(intelligenceRouter);
 router.use(publicApiRepairsRouter);
@@ -76,26 +72,15 @@ router.use(companyLiveIntelligenceRouter);
 router.use(courtlistenerRichRouter);
 router.use(crisiswatchRouter);
 router.use(aorTravelHealthRouter);
-// Country-specific WHO/GDACS handlers must run before the older command-wide AOR handlers.
 router.use(aorCountryResilienceRouter);
 router.use(aorProductionRepairRouter);
 router.use(aorRiskIntelligenceRouter);
 router.use(reviewerToolsRouter);
 router.use(standardsIntelligenceRouter);
-// Drug Checker live FDA/RxNorm/RxClass intelligence remains isolated from the generic reviewer-tool routes.
 router.use(drugIntelligenceRouter);
 router.use(workersCompCoverageRouter);
 router.use(dbaIntelligenceRouter);
-router.use("/dba/hub", (_req, res, next) => {
-  const originalJson = res.json.bind(res);
-  res.json = ((body: unknown) => {
-    if (body && typeof body === "object" && !Array.isArray(body)) {
-      delete (body as Record<string, unknown>).warning;
-    }
-    return originalJson(body);
-  }) as typeof res.json;
-  next();
-});
+router.use("/dba/hub", (_req, res, next) => { const originalJson=res.json.bind(res); res.json=((body:unknown)=>{ if(body&&typeof body==="object"&&!Array.isArray(body)) delete (body as Record<string,unknown>).warning; return originalJson(body); }) as typeof res.json; next(); });
 router.use(dbaHubRouter);
 router.use(sourceGovernanceRouter);
 router.use(dataVisualizationRouter);
@@ -109,7 +94,6 @@ router.use(leadershipMapLangSearchRouter);
 router.use(leadershipMapOrchestrationRouter);
 router.use(corporateStructureRouter);
 router.use(occupationalToolsRouter);
-// Exact O*NET-SOC codes must bypass keyword ambiguity before the broader discovery router handles text searches.
 router.use(onetResolverRouter);
 router.use(occupationalDiscoveryRouter);
 router.use(occupationalCaseDetailRouter);
@@ -119,5 +103,4 @@ router.use(occupationalOnetDatabaseRouter);
 router.use(occupationalSourceBrowserRouter);
 router.use(jobIntelligenceRouter);
 router.use(officialSourceWebviewRouter);
-
 export default router;
