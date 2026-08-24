@@ -197,9 +197,9 @@ async function searchTinyFish(query: string, limit: number): Promise<SharedSearc
     throw new Error(clean(searchPayload?.message || searchPayload?.error || searchPayload?.detail, 240) || `Search HTTP ${searchResponse.status}`);
   }
 
-  const searchRows = (Array.isArray(searchPayload?.results) ? searchPayload.results : [])
+  const searchRows: any[] = (Array.isArray(searchPayload?.results) ? searchPayload.results : [])
     .slice(0, Math.max(1, Math.min(10, limit)));
-  const baseItems = searchRows
+  const baseItems: SharedSearchItem[] = searchRows
     .map((row: any) => toItem("tinyfish", row))
     .filter((item: SharedSearchItem | null): item is SharedSearchItem => Boolean(item));
   if (!baseItems.length) return [];
