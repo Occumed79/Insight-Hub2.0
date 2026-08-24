@@ -175,7 +175,7 @@ async function geoapifyRequest(buildUrl: (key: string) => URL): Promise<{ payloa
         signal: controller.signal,
         headers: { Accept: "application/json" },
       });
-      const payload: Record<string, any> = await response.json().catch(() => ({}));
+      const payload = (await response.json().catch(() => ({}))) as Record<string, any>;
       if (response.ok) {
         nextGeoapifyKeyIndex = (index + 1) % keys.length;
         return { payload, attempts };
@@ -203,7 +203,7 @@ async function locationiqRequest(buildUrl: (key: string) => URL): Promise<{ payl
       signal: controller.signal,
       headers: { Accept: "application/json" },
     });
-    const payload: Record<string, any> = await response.json().catch(() => ({}));
+    const payload = (await response.json().catch(() => ({}))) as Record<string, any>;
     if (!response.ok) {
       const detail = String(payload?.error || payload?.message || `HTTP ${response.status}`).slice(0, 180);
       throw new Error(detail);
