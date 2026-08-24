@@ -78,6 +78,143 @@ textarea,
   display: none;
 }
 
+/* Reviewer workspaces should feel alive without hiding or changing the math. */
+@keyframes ihb-reviewer-sweep {
+  0% { transform: translate3d(-35%, 0, 0); opacity: 0; }
+  18% { opacity: .5; }
+  72% { opacity: .16; }
+  100% { transform: translate3d(150%, 0, 0); opacity: 0; }
+}
+@keyframes ihb-result-pulse {
+  0%, 100% { opacity: .16; transform: translate(-50%, -50%) scale(.86); }
+  50% { opacity: .34; transform: translate(-50%, -50%) scale(1.06); }
+}
+@keyframes ihb-holo-volume {
+  0%, 100% { transform: translate3d(-50%, -50%, -90px) rotate(0deg) scale(.92); opacity: .14; }
+  50% { transform: translate3d(-50%, -50%, -60px) rotate(180deg) scale(1.08); opacity: .28; }
+}
+
+.reviewer-native-page .rh-primary-action,
+.reviewer-native-page .rh-hero,
+.reviewer-native-page .rh-result,
+.reviewer-native-page .rh-card {
+  transition: transform .32s cubic-bezier(.2,.8,.2,1), border-color .32s ease, box-shadow .32s ease, background .32s ease;
+}
+.reviewer-native-page .rh-primary-action:hover,
+.reviewer-native-page .rh-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(165,243,252,.27);
+  box-shadow: 0 34px 90px rgba(0,0,0,.29), 0 0 42px rgba(34,211,238,.07), inset 0 1px 0 rgba(255,255,255,.10);
+}
+.reviewer-native-page .rh-hero::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: -20% auto -20% -35%;
+  width: 28%;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(165,243,252,.13), rgba(139,92,246,.07), transparent);
+  filter: blur(12px);
+  transform: skewX(-16deg);
+  animation: ihb-reviewer-sweep 8.5s ease-in-out infinite;
+}
+.reviewer-native-page .rh-tab,
+.reviewer-native-page .rh-secondary,
+.reviewer-native-page .rh-action {
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+}
+.reviewer-native-page .rh-tab:hover,
+.reviewer-native-page .rh-secondary:hover,
+.reviewer-native-page .rh-action:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: rgba(165,243,252,.34);
+  box-shadow: 0 10px 28px rgba(14,165,233,.10), inset 0 1px 0 rgba(255,255,255,.10);
+}
+.reviewer-native-page .rh-result {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.reviewer-native-page .rh-result::before,
+.reviewer-native-page .rh-result::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 76%;
+  top: 50%;
+  width: 280px;
+  height: 280px;
+  border: 1px solid rgba(103,232,249,.18);
+  border-radius: 50%;
+  animation: ihb-result-pulse 4.8s ease-in-out infinite;
+}
+.reviewer-native-page .rh-result::after {
+  width: 190px;
+  height: 190px;
+  animation-delay: -2.4s;
+  border-color: rgba(167,139,250,.20);
+}
+.reviewer-native-page .rh-result-value {
+  position: relative;
+  display: inline-block;
+  text-shadow: 0 0 18px rgba(103,232,249,.24), 0 0 56px rgba(99,102,241,.18);
+}
+.reviewer-native-page .rh-result-value::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -9px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(52,211,153,.72), rgba(103,232,249,.72), rgba(167,139,250,.64), transparent);
+  box-shadow: 0 0 16px rgba(103,232,249,.28);
+}
+.reviewer-native-page .rh-input:focus {
+  transform: translateY(-1px);
+}
+
+/* Push the injury point-cloud into a more dimensional volumetric presentation. */
+.ih-hologram-visual::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 49%;
+  width: min(540px, 72%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid rgba(103,232,249,.10);
+  background:
+    conic-gradient(from 90deg, transparent, rgba(45,212,191,.08), transparent 28%, rgba(59,130,246,.10), transparent 58%, rgba(139,92,246,.10), transparent 86%),
+    radial-gradient(circle, rgba(34,211,238,.08), transparent 64%);
+  box-shadow: inset 0 0 80px rgba(56,189,248,.05), 0 0 90px rgba(79,70,229,.07);
+  animation: ihb-holo-volume 12s linear infinite;
+  pointer-events: none;
+}
+.ih-hologram-rig {
+  filter: drop-shadow(0 0 22px rgba(34,211,238,.12)) drop-shadow(0 0 54px rgba(79,70,229,.09));
+}
+.ih-hologram-visual:hover .ih-orbit-x {
+  border-color: rgba(103,232,249,.32);
+  animation-duration: 7s;
+}
+.ih-hologram-visual:hover .ih-orbit-y {
+  border-color: rgba(167,139,250,.28);
+  animation-duration: 10s;
+}
+.ih-hologram-visual:hover .ih-floor-grid {
+  opacity: .72;
+}
+.ih-hotspot:hover,
+.ih-hotspot.active {
+  outline: 1px solid rgba(226,254,255,.10);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--heat-color) 42%, transparent);
+}
+.ih-projector {
+  filter: drop-shadow(0 0 26px rgba(34,211,238,.22));
+}
+
 @media (max-width: 1023px) {
   .insight-mobile-nav ~ main {
     padding-top: max(6.75rem, calc(env(safe-area-inset-top) + 5.75rem)) !important;
