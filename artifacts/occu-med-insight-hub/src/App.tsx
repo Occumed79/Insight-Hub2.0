@@ -23,7 +23,6 @@ const OccupationalExposure = React.lazy(() => import("@/pages/occupational-expos
 const CorporateSignals = React.lazy(() => import("@/pages/company-live-intelligence"));
 const SecFilings = React.lazy(() => import("@/pages/sec-filings"));
 const WorkersCompCoverage = React.lazy(() => import("@/pages/workers-comp-coverage"));
-const DbaIntelligence = React.lazy(() => import("@/pages/dba-intelligence"));
 const SourceGovernance = React.lazy(() => import("@/pages/source-governance"));
 const ReviewerInjuriesMedicalPage = React.lazy(() => import("@/pages/reviewer-injuries-medical"));
 const ReviewerJobIntelligencePage = React.lazy(() => import("@/pages/job-intelligence-v2"));
@@ -34,7 +33,7 @@ const ReviewerStandardsIntelligencePage = React.lazy(() => import("@/pages/revie
 const EntitiesPage = React.lazy(() => import("@/pages/entities-contextual").then((module) => ({ default: module.ContextualEntitiesPage })));
 const CompetitorsPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.CompetitorsPage })));
 const FederalAgenciesPage = React.lazy(() => import("@/pages/federal-agencies-v2"));
-const StateAgenciesPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.StateAgenciesPage })));
+const StateAgenciesPage = React.lazy(() => import("@/pages/state-agencies-v2"));
 const FecFilingsPage = React.lazy(() => import("@/pages/entity-public-intelligence").then((module) => ({ default: module.EntityFecFilingsPage })));
 const FederalAwardsPage = React.lazy(() => import("@/pages/entity-public-intelligence").then((module) => ({ default: module.EntityFederalAwardsPage })));
 const LegalReferencesPage = React.lazy(() => import("@/pages/entity-public-intelligence").then((module) => ({ default: module.EntityLegalReferencesPage })));
@@ -65,7 +64,6 @@ function ClientsRoute() { return <EntitiesPage defaultTab="clients" />; }
 function CompetitorsRoute() { return <TranslucentToolPage page="competitors"><CompetitorsPage /></TranslucentToolPage>; }
 function FederalAgenciesRoute() { return <TranslucentToolPage page="federal-agencies"><FederalAgenciesPage /></TranslucentToolPage>; }
 function StateAgenciesRoute() { return <TranslucentToolPage page="state-agencies"><StateAgenciesPage /></TranslucentToolPage>; }
-function DbaRoute() { return <div className="dba-hub-route"><DbaIntelligence /></div>; }
 function SecFilingsRoute() { return <TranslucentToolPage page="sec"><SecFilings /></TranslucentToolPage>; }
 function LeadershipMapRoute() { return <TranslucentToolPage page="organizational-chart"><LeadershipMap /></TranslucentToolPage>; }
 function FecFilingsRoute() { return <TranslucentToolPage page="fec"><FecFilingsPage /></TranslucentToolPage>; }
@@ -103,7 +101,6 @@ function Router() {
         <Route path="/state-agencies" component={StateAgenciesRoute} />
         <Route path="/sec-filings" component={SecFilingsRoute} />
         <Route path="/leadership-map" component={LeadershipMapRoute} />
-        <Route path="/dba-intelligence" component={DbaRoute} />
         <Route path="/fec-filings" component={FecFilingsRoute} />
 
         <Route path="/injuries-medical-conditions" component={ReviewerInjuriesMedicalPage} />
