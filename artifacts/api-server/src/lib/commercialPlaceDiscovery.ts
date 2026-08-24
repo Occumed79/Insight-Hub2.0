@@ -153,7 +153,7 @@ async function withKeyPool(buildUrl: (key: string) => URL): Promise<{ payload: a
         signal: controller.signal,
         headers: { Accept: "application/json" },
       });
-      const payload = await response.json().catch(() => ({}));
+      const payload: Record<string, any> = await response.json().catch(() => ({}));
       if (response.ok) {
         nextTomTomKeyIndex = (index + 1) % keys.length;
         return { payload, attempts };
