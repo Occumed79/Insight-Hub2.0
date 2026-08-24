@@ -15,11 +15,23 @@ import {
   Scale,
   ShieldAlert,
   Stethoscope,
+  type LucideIcon,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
-const NAV_GROUPS = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const NAV_GROUPS: NavGroup[] = [
   {
     label: "Reviewer Intelligence",
     items: [
@@ -54,9 +66,10 @@ const NAV_GROUPS = [
     label: "Organization",
     items: [{ href: "/leadership-map", label: "Organizational Chart", icon: GitBranch }],
   },
-] as const;
+];
 
-const FLAT_NAV = [{ href: "/", label: "Home", icon: Home }, ...NAV_GROUPS.flatMap((group) => group.items)];
+const HOME_NAV: NavItem = { href: "/", label: "Home", icon: Home };
+const FLAT_NAV: NavItem[] = [HOME_NAV, ...NAV_GROUPS.flatMap((group) => group.items)];
 const DESKTOP_SIDEBAR_BACKGROUND = "linear-gradient(180deg, #020611 0%, #030813 42%, #02050d 100%)";
 const MOBILE_SIDEBAR_BACKGROUND = "linear-gradient(180deg, #020611 0%, #030813 100%)";
 
@@ -68,7 +81,7 @@ function isActivePath(itemHref: string, currentPath: string) {
   return false;
 }
 
-function NavLink({ item, currentPath }: { item: (typeof FLAT_NAV)[number]; currentPath: string }) {
+function NavLink({ item, currentPath }: { item: NavItem; currentPath: string }) {
   const Icon = item.icon;
   const active = isActivePath(item.href, currentPath);
   return (
@@ -110,7 +123,7 @@ export function Sidebar() {
         </Link>
 
         <div className="mt-6 pb-8">
-          <NavLink item={FLAT_NAV[0]} currentPath={currentPath} />
+          <NavLink item={HOME_NAV} currentPath={currentPath} />
           <div className="mt-5 space-y-5">
             {NAV_GROUPS.map((group) => (
               <section key={group.label}>
