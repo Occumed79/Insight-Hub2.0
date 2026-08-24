@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
-import { Activity, Building2, ExternalLink, HeartPulse, Landmark, MapPin, ShieldCheck, Sparkles } from "lucide-react";
+import { Activity, ExternalLink, Landmark, ShieldCheck } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 
@@ -38,7 +38,7 @@ const VIEWS: View[] = ["Occu-Med signals", "Procurement", "Labor / OSHA", "Healt
 
 async function readJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });
-  const payload = await response.json().catch(() => ({}));
+  const payload = await response.json().catch(() => ({})) as { error?: string } & T;
   if (!response.ok) throw new Error(payload?.error || `HTTP ${response.status}`);
   return payload as T;
 }
@@ -146,7 +146,7 @@ export default function StateAgenciesV2Page() {
               <ComposableMap projection="geoAlbersUsa" width={980} height={600} className="h-full min-h-[520px] w-full">
                 <Geographies geography={GEOMETRY}>
                   {({ geographies }) => geographies.map((geo) => {
-                    const fips = String(geo.id || geo.properties?.STATEFP || "").padStart(2, "0");
+                    const fips = String(geo.id || "").padStart(2, "0");
                     const stateMeta = FIPS[fips];
                     const profile = stateMeta ? profiles.find((entry) => entry.stateCode === stateMeta.code) : null;
                     const isSelected = Boolean(stateMeta && stateMeta.code === selectedCode);
