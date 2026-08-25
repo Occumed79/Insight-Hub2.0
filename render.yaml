@@ -85,8 +85,14 @@ services:
         sync: false
       - key: GEOAPIFY_LOCATION_MAX_QUERIES
         sync: false
-      # LocationIQ is a company-location address/location discovery and normalization source.
+      # LocationIQ is company-location address/location discovery with four-key rotation/failover.
       - key: LOCATIONIQ_API_KEY
+        sync: false
+      - key: LOCATIONIQ_API_KEY_2
+        sync: false
+      - key: LOCATIONIQ_API_KEY_3
+        sync: false
+      - key: LOCATIONIQ_API_KEY_4
         sync: false
       - key: LOCATIONIQ_LOCATION_MAX_QUERIES
         sync: false
