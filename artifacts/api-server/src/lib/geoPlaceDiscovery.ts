@@ -75,6 +75,7 @@ const FALLBACK_AREAS: SearchArea[] = [
 ];
 
 let nextGeoapifyKeyIndex = 0;
+let nextLocationiqKeyIndex = 0;
 
 function normalize(value: unknown): string {
   return String(value || "")
@@ -130,7 +131,12 @@ function geoapifyKeys(): string[] {
 }
 
 function locationiqKeys(): string[] {
-  return uniqueKeys([process.env.LOCATIONIQ_API_KEY]);
+  return uniqueKeys([
+    process.env.LOCATIONIQ_API_KEY,
+    process.env.LOCATIONIQ_API_KEY_2,
+    process.env.LOCATIONIQ_API_KEY_3,
+    process.env.LOCATIONIQ_API_KEY_4,
+  ]);
 }
 
 function requestBudget(name: "GEOAPIFY_LOCATION_MAX_QUERIES" | "LOCATIONIQ_LOCATION_MAX_QUERIES", fallback: number): number {
@@ -196,22 +202,36 @@ async function geoapifyRequest(buildUrl: (key: string) => URL): Promise<{ payloa
 async function locationiqRequest(buildUrl: (key: string) => URL): Promise<{ payload: any; attempts: number }> {
   const keys = locationiqKeys();
   if (!keys.length) throw new Error("LocationIQ is not configured");
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 9_000);
-  try {
-    const response = await fetch(buildUrl(keys[0]), {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
+  const start = nextLocationiqKeyIndex % keys.length;
+  const errors: string[] = [];
+  let attempts = 0;
+
+  for (let offset = 0; offset < keys.length; offset += 1) {
+    const index = (start + offset) % keys.length;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 9_000);
+    attempts += 1;
+    try {
+      const response = await fetch(buildUrl(keys[index]), {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.ok) {
+        nextLocationiqKeyIndex = (index + 1) % keys.length;
+        return { payload, attempts };
+      }
       const detail = String(payload?.error || payload?.message || `HTTP ${response.status}`).slice(0, 180);
-      throw new Error(detail);
+      errors.push(`key ${index + 1}: ${detail}`);
+      if (![401, 403, 429, 500, 502, 503, 504].includes(response.status)) break;
+    } catch (error) {
+      errors.push(`key ${index + 1}: ${error instanceof Error ? error.message : "request failed"}`);
+    } finally {
+      clearTimeout(timer);
     }
-    return { payload, attempts: 1 };
-  } finally {
-    clearTimeout(timer);
   }
+
+  throw new Error(errors.join("; ") || "LocationIQ request failed");
 }
 
 function geoapifyCandidate(companyName: string, item: any): GeoPlaceCandidate | null {
