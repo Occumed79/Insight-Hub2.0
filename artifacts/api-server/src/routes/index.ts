@@ -17,6 +17,7 @@ import employerIntelligenceRouter from "./employer-intelligence";
 import companyLiveIntelligenceRouter from "./company-live-intelligence";
 import courtlistenerRichRouter from "./courtlistener-rich";
 import crisiswatchRouter from "./crisiswatch";
+import warCostsRouter from "./war-costs";
 import aorRiskIntelligenceRouter from "./aor-risk-intelligence";
 import aorProductionRepairRouter from "./aor-production-repair";
 import aorCountryResilienceRouter from "./aor-country-resilience";
@@ -75,6 +76,7 @@ router.use(employerIntelligenceRouter);
 router.use(companyLiveIntelligenceRouter);
 router.use(courtlistenerRichRouter);
 router.use(crisiswatchRouter);
+router.use(warCostsRouter);
 router.use(aorTravelHealthRouter);
 // Country-specific WHO/GDACS handlers must run before the older command-wide AOR handlers.
 router.use(aorCountryResilienceRouter);
