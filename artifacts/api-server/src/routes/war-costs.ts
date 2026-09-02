@@ -19,9 +19,12 @@ type EnrichedContractor = Record<string, unknown> & {
   weaponSystems: Record<string, unknown>[];
 };
 
+type CountryAliasSet = { compact: Set<string>; phrases: string[] };
+
 const cache = new Map<string, CacheEntry>();
 let manifestCache: { expiresAt: number; entries: ManifestEntry[] } | null = null;
 let liveManifestAudit: LiveManifestAudit = { ok: false, names: [], error: "Live Downloads manifest has not been checked yet." };
+let manifestRefreshPromise: Promise<ManifestEntry[]> | null = null;
 let persistenceReady: Promise<void> | null = null;
 let refreshAllPromise: Promise<RefreshStatus[]> | null = null;
 
@@ -55,6 +58,21 @@ const FREQUENT_DATASETS = new Set([
   "foreign-aid.json", "country-profiles-index.json", "sanctions.json",
 ]);
 
+const COUNTRY_ALIAS_GROUPS: string[][] = [
+  ["US", "USA", "United States", "United States of America"],
+  ["UK", "GB", "GBR", "United Kingdom", "Great Britain"],
+  ["UAE", "ARE", "United Arab Emirates"],
+  ["South Korea", "Republic of Korea", "ROK", "KOR"],
+  ["North Korea", "Democratic People's Republic of Korea", "DPRK", "PRK"],
+  ["Russia", "Russian Federation", "RUS"],
+  ["Iran", "Islamic Republic of Iran", "IRN"],
+  ["Syria", "Syrian Arab Republic", "SYR"],
+  ["Vietnam", "Viet Nam", "VNM"],
+  ["Czechia", "Czech Republic", "CZE"],
+  ["Turkey", "Türkiye", "Turkiye", "TUR"],
+  ["Taiwan", "Republic of China", "TWN"],
+];
+
 function categoryFor(name: string): string {
   for (const [category, names] of Object.entries(CATEGORY_DATASETS)) if (names.includes(name)) return category;
   return "Additional WarCosts Data";
@@ -80,8 +98,12 @@ function normalized(value: unknown): string {
   return text(value).toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function wordForm(value: unknown): string {
+  return text(value).toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 function asArray(value: unknown): Record<string, unknown>[] {
-  return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object")) : [];
+  return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item))) : [];
 }
 
 function itemCount(value: unknown): number {
@@ -93,6 +115,12 @@ function itemCount(value: unknown): number {
 function datasetFilename(value: string): string | null {
   const clean = value.trim().split("?")[0].split("#")[0].split("/").pop() ?? "";
   return /^[a-z0-9][a-z0-9-]*\.json$/i.test(clean) ? clean.toLowerCase() : null;
+}
+
+function manifestEntries(names: Iterable<string>): ManifestEntry[] {
+  return [...new Set(names)]
+    .sort((a, b) => categoryFor(a).localeCompare(categoryFor(b)) || a.localeCompare(b))
+    .map((name) => ({ name, category: categoryFor(name), refreshClass: refreshClassFor(name) }));
 }
 
 function liveCoverage() {
@@ -174,44 +202,59 @@ async function readPersistedDataset(name: string): Promise<DatasetResult | null>
   }
 }
 
-async function discoverManifest(force = false): Promise<ManifestEntry[]> {
-  const now = Date.now();
-  if (!force && manifestCache && manifestCache.expiresAt > now) return manifestCache.entries;
-
-  const names = new Set(KNOWN_DATASETS);
-  const liveNames = new Set<string>();
-  try {
+async function refreshManifestLive(): Promise<ManifestEntry[]> {
+  if (manifestRefreshPromise) return manifestRefreshPromise;
+  const task = (async () => {
+    const liveNames = new Set<string>();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15_000);
     try {
-      const response = await fetch(DOWNLOADS_URL, { headers: { Accept: "text/html", "User-Agent": USER_AGENT }, signal: controller.signal, cache: "no-store" });
+      const response = await fetch(DOWNLOADS_URL, {
+        headers: { Accept: "text/html", "User-Agent": USER_AGENT },
+        signal: controller.signal,
+        cache: "no-store",
+      });
       if (!response.ok) throw new Error(`Downloads manifest returned HTTP ${response.status}`);
       const html = await response.text();
-      const patterns = [/\/data\/([a-z0-9-]+\.json)/gi, /`([a-z0-9-]+\.json)`/gi];
-      for (const pattern of patterns) {
+      for (const pattern of [/\/data\/([a-z0-9-]+\.json)/gi, /`([a-z0-9-]+\.json)`/gi]) {
         for (const match of html.matchAll(pattern)) {
           const filename = datasetFilename(match[1] ?? "");
-          if (filename) {
-            liveNames.add(filename);
-            names.add(filename);
-          }
+          if (filename) liveNames.add(filename);
         }
       }
       if (!liveNames.size) throw new Error("Downloads manifest contained no discoverable JSON filenames");
       liveManifestAudit = { ok: true, fetchedAt: new Date().toISOString(), names: [...liveNames].sort() };
+      const entries = manifestEntries([...KNOWN_DATASETS, ...liveNames]);
+      manifestCache = { entries, expiresAt: Date.now() + 30 * 60 * 1000 };
+      return entries;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Manifest discovery failed";
+      liveManifestAudit = { ok: false, fetchedAt: new Date().toISOString(), names: [], error: message };
+      const entries = manifestEntries(KNOWN_DATASETS);
+      manifestCache = { entries, expiresAt: Date.now() + 5 * 60 * 1000 };
+      console.warn("WarCosts manifest discovery failed; using known dataset manifest", error);
+      return entries;
     } finally {
       clearTimeout(timer);
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Manifest discovery failed";
-    liveManifestAudit = { ok: false, names: [], error: message };
-    console.warn("WarCosts manifest discovery failed; using known dataset manifest", error);
+  })();
+  manifestRefreshPromise = task;
+  try {
+    return await task;
+  } finally {
+    if (manifestRefreshPromise === task) manifestRefreshPromise = null;
   }
+}
 
-  const entries = [...names]
-    .sort((a, b) => categoryFor(a).localeCompare(categoryFor(b)) || a.localeCompare(b))
-    .map((name) => ({ name, category: categoryFor(name), refreshClass: refreshClassFor(name) }));
-  manifestCache = { entries, expiresAt: now + 30 * 60 * 1000 };
+async function discoverManifest(force = false): Promise<ManifestEntry[]> {
+  if (force) return refreshManifestLive();
+  if (manifestCache && manifestCache.expiresAt > Date.now()) return manifestCache.entries;
+
+  // Never block the product on a slow Downloads page. Seed the exact known catalog
+  // immediately, then reconcile additions/removals against the live manifest in background.
+  const entries = manifestEntries(KNOWN_DATASETS);
+  manifestCache = { entries, expiresAt: Date.now() + 5 * 60 * 1000 };
+  void refreshManifestLive().catch(() => undefined);
   return entries;
 }
 
@@ -245,9 +288,19 @@ async function fetchLiveDataset(name: string): Promise<DatasetResult> {
 async function fetchDataset(inputName: string, force = false): Promise<DatasetResult> {
   const name = datasetFilename(inputName);
   if (!name || !(await isAllowedDataset(name))) throw new Error("Dataset is not allowlisted by the WarCosts manifest");
+
   const existing = cache.get(name);
   if (!force && existing && existing.expiresAt > Date.now()) {
     return { data: existing.data, fetchedAt: existing.fetchedAt, cached: true, source: existing.source };
+  }
+
+  if (!force) {
+    const persisted = await readPersistedDataset(name);
+    if (persisted) {
+      // Serve the retained snapshot immediately; freshness is repaired asynchronously.
+      void fetchLiveDataset(name).catch((error) => console.warn(`WarCosts background refresh failed for ${name}`, error));
+      return persisted;
+    }
   }
 
   try {
@@ -299,21 +352,34 @@ function contractorMatches(contractorName: string, candidate: unknown): boolean 
   return Boolean(left && right && (left === right || left.includes(right) || right.includes(left)));
 }
 
-function countryMatches(country: string, row: Record<string, unknown>): boolean {
-  const target = normalized(country);
-  const candidates = [row.country, row.countryName, row.name, row.location, row.region, row.slug];
-  return candidates.some((value) => {
-    const candidate = normalized(value);
-    return Boolean(target && candidate && (target === candidate || candidate.includes(target) || target.includes(candidate)));
-  });
+function countryAliases(country: string): CountryAliasSet {
+  const inputCompact = normalized(country);
+  const group = COUNTRY_ALIAS_GROUPS.find((aliases) => aliases.some((alias) => normalized(alias) === inputCompact)) ?? [country];
+  return {
+    compact: new Set(group.map(normalized).filter(Boolean)),
+    phrases: group.map(wordForm).filter((alias) => alias.length >= 4),
+  };
+}
+
+function stringMatchesCountry(value: string, aliases: CountryAliasSet): boolean {
+  const compact = normalized(value);
+  if (compact && aliases.compact.has(compact)) return true;
+  const words = wordForm(value);
+  if (!words) return false;
+  const padded = ` ${words} `;
+  return aliases.phrases.some((phrase) => padded.includes(` ${phrase} `));
+}
+
+function valueContainsCountry(value: unknown, aliases: CountryAliasSet, depth = 0): boolean {
+  if (depth > 6 || value === null || value === undefined) return false;
+  if (typeof value === "string") return stringMatchesCountry(value, aliases);
+  if (Array.isArray(value)) return value.some((item) => valueContainsCountry(item, aliases, depth + 1));
+  if (typeof value === "object") return Object.values(value as Record<string, unknown>).some((item) => valueContainsCountry(item, aliases, depth + 1));
+  return false;
 }
 
 function rowContainsCountry(country: string, row: unknown): boolean {
-  if (row && typeof row === "object" && !Array.isArray(row) && countryMatches(country, row as Record<string, unknown>)) return true;
-  const needle = text(country).toLowerCase();
-  if (!needle) return false;
-  try { return JSON.stringify(row).toLowerCase().includes(needle); }
-  catch { return false; }
+  return valueContainsCountry(row, countryAliases(country));
 }
 
 function searchableRows(data: unknown): unknown[] {
@@ -342,7 +408,7 @@ function mergeWeapons(primary: Record<string, unknown>[], detail: Record<string,
 
 router.get("/war-costs/datasets", async (_req: Request, res: Response) => {
   const manifest = await discoverManifest();
-  res.json({
+  return res.json({
     ok: true,
     source: "WarCosts.org",
     attribution: "Source: warcosts.org",
@@ -359,7 +425,6 @@ router.get("/war-costs/overview", async (req: Request, res: Response) => {
   const successful = statuses.filter((item) => item.ok);
   const failed = statuses.filter((item) => !item.ok);
   const coverage = liveCoverage();
-
   const getCached = (name: string): unknown => cache.get(name)?.data;
   const contractors = asArray(getCached("contractors.json"));
   const weapons = asArray(getCached("weapons.json"));
@@ -373,7 +438,6 @@ router.get("/war-costs/overview", async (req: Request, res: Response) => {
     const status = text(row.status).toLowerCase();
     return status.includes("ongoing") || status.includes("active") || row.endYear === null || row.endYear === undefined;
   });
-
   const categoryCounts = manifest.reduce<Record<string, number>>((acc, item) => {
     acc[item.category] = (acc[item.category] ?? 0) + 1;
     return acc;
@@ -478,7 +542,6 @@ router.get("/war-costs/search", async (req: Request, res: Response) => {
 router.get("/war-costs/country-intelligence", async (req: Request, res: Response) => {
   const country = text(req.query.country);
   if (!country) return res.status(400).json({ ok: false, error: "country is required" });
-
   await refreshAll(false);
   const manifest = await discoverManifest();
   const matched: Record<string, unknown[]> = {};
@@ -488,7 +551,6 @@ router.get("/war-costs/country-intelligence", async (req: Request, res: Response
     const rows = searchableRows(data).filter((row) => rowContainsCountry(country, row));
     if (rows.length) matched[entry.name] = rows;
   }
-
   return res.json({
     ok: true,
     source: "WarCosts.org",
@@ -502,23 +564,22 @@ router.get("/war-costs/country-intelligence", async (req: Request, res: Response
 
 router.get("/war-costs/contractor-intelligence", async (req: Request, res: Response) => {
   try {
+    const force = req.query.refresh === "1";
     const [contractorsResult, warsResult, weaponsResult, weaponDetailsResult, conflictsResult, strikesResult, statsResult] = await Promise.all([
-      fetchDataset("contractors.json"),
-      fetchDataset("contractor-by-war.json"),
-      fetchDataset("weapons.json"),
-      fetchDataset("weapons-detail.json"),
-      fetchDataset("conflicts.json"),
-      fetchDataset("drone-strikes.json"),
-      fetchDataset("stats.json"),
+      fetchDataset("contractors.json", force),
+      fetchDataset("contractor-by-war.json", force),
+      fetchDataset("weapons.json", force),
+      fetchDataset("weapons-detail.json", force),
+      fetchDataset("conflicts.json", force),
+      fetchDataset("drone-strikes.json", force),
+      fetchDataset("stats.json", force),
     ]);
-
     const contractors = asArray(contractorsResult.data);
     const contractorWars = asArray(warsResult.data);
     const weapons = mergeWeapons(asArray(weaponsResult.data), asArray(weaponDetailsResult.data));
     const conflicts = asArray(conflictsResult.data);
     const strikes = asArray(strikesResult.data);
     const company = text(req.query.company);
-
     const enriched: EnrichedContractor[] = contractors.map((contractor) => {
       const name = text(contractor.name);
       const subsidiaries = asArray(contractor.subsidiaries);
@@ -534,7 +595,6 @@ router.get("/war-costs/contractor-intelligence", async (req: Request, res: Respo
         weaponSystems,
       };
     });
-
     const filtered = company ? enriched.filter((contractor) => {
       const aliases = [contractor.name, ...contractor.subsidiaries.map((row) => row.name)];
       return aliases.some((alias) => contractorMatches(company, alias));
@@ -543,7 +603,6 @@ router.get("/war-costs/contractor-intelligence", async (req: Request, res: Respo
       const status = text(conflict.status).toLowerCase();
       return status.includes("ongoing") || status.includes("active") || conflict.endYear === null || conflict.endYear === undefined;
     });
-
     return res.json({
       ok: true,
       source: "WarCosts.org",
@@ -566,14 +625,16 @@ router.get("/war-costs/contractor-intelligence", async (req: Request, res: Respo
   }
 });
 
-// Keep the truly time-sensitive WarCosts feeds warm while the API service is awake.
-const liveTimer = setInterval(() => {
-  for (const name of LIVE_DATASETS) void fetchDataset(name, true).catch((error) => console.warn(`WarCosts live refresh failed for ${name}`, error));
-}, 5 * 60 * 1000);
-liveTimer.unref?.();
+if (process.env.NODE_ENV !== "test") {
+  const liveTimer = setInterval(() => {
+    for (const name of LIVE_DATASETS) void fetchDataset(name, true).catch((error) => console.warn(`WarCosts live refresh failed for ${name}`, error));
+  }, 5 * 60 * 1000);
+  liveTimer.unref?.();
 
-// Refresh the entire mirror periodically so every exposed dataset is retained in Neon, not only the visible dashboard slices.
-const mirrorTimer = setInterval(() => void refreshAll(true).catch((error) => console.warn("WarCosts full mirror refresh failed", error)), 6 * 60 * 60 * 1000);
-mirrorTimer.unref?.();
+  const mirrorTimer = setInterval(() => {
+    void refreshAll(true).catch((error) => console.warn("WarCosts full mirror refresh failed", error));
+  }, 6 * 60 * 60 * 1000);
+  mirrorTimer.unref?.();
+}
 
 export default router;
