@@ -21,6 +21,7 @@ import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
 import { AorPriorityBrief, buildAorPrioritySignals } from "@/components/insight/AorPriorityBrief";
+import { AorEpidemicOverlay } from "@/components/insight/AorEpidemicOverlay";
 import { AOR_REGISTRY_REVIEWED_AT, COMMANDS, COMMAND_BY_COUNTRY, type CommandId } from "@/components/insight/aor-command-registry";
 
 declare global {
@@ -203,7 +204,6 @@ export default function ReviewerAorFactorsV2Page() {
   const selectedEnvironment = (Object.keys(environment) as EnvironmentKey[]).filter((key) => environment[key]);
 
   useEffect(() => { modeRef.current = mapMode; }, [mapMode]);
-
 
   useEffect(() => {
     let active = true;
@@ -555,6 +555,7 @@ export default function ReviewerAorFactorsV2Page() {
                 <div className="relative h-[650px] overflow-hidden bg-[#020812]" data-testid="aor-map-shell">
                   <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_18%_15%,rgba(34,211,238,.055),transparent_28%),radial-gradient(circle_at_82%_76%,rgba(124,58,237,.055),transparent_30%)]" />
                   <div ref={mapHostRef} className="aor-map-tiler-host absolute inset-0" aria-label="Interactive MapTiler AOR intelligence map" />
+                  <AorEpidemicOverlay map={mapRef.current} mapStatus={mapStatus} selectedCountry={selectedCountry} />
                   {mapStatus !== "ready" ? <div className="absolute inset-0 z-20 grid place-items-center bg-[#020812]/82 p-6 text-center backdrop-blur-sm">{mapStatus === "loading" ? <div><Loader2 className="mx-auto animate-spin text-cyan-200/70" size={24} /><p className="mt-3 text-xs text-cyan-100/50">Rendering MapTiler Bright Dark vector tiles…</p></div> : <div><AlertTriangle className="mx-auto text-amber-200/70" size={24} /><p className="mt-3 text-sm font-black text-amber-50/82">Map rendering failed</p><p className="mt-2 max-w-lg text-[10px] leading-5 text-amber-100/52">{mapError}</p></div>}</div> : null}
                   <div className="pointer-events-none absolute bottom-3 left-3 z-10 max-w-[82%] rounded-xl border border-white/10 bg-[#020812]/78 px-3 py-2 text-[8px] font-bold uppercase tracking-[0.1em] text-cyan-50/58 backdrop-blur-xl"><span className="mr-3 inline-flex items-center gap-1"><i className="h-1.5 w-1.5 rounded-full bg-violet-300" />GDACS</span><span className="mr-3 inline-flex items-center gap-1"><i className="h-1.5 w-1.5 rounded-full bg-cyan-300" />USGS</span>{mapMode === "country" ? "Country mode · click a country for country-only intelligence." : "AOR mode · click a country region to select its command."}</div>
                 </div>
