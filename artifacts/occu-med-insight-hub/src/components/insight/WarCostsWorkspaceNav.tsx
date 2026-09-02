@@ -1,4 +1,4 @@
-import { Activity, Calculator, Database, FileText, MapPinned, Scale } from "lucide-react";
+import { Activity, BarChart3, Calculator, Database, FileText, MapPinned, Scale } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 const items = [
@@ -6,6 +6,7 @@ const items = [
   { href: "/war-costs-map", label: "War Map", note: "Standalone ArcGIS workspace", icon: MapPinned },
   { href: "/war-costs-tools", label: "Interactive Tools", note: "Rankings, timelines & calculators", icon: Activity },
   { href: "/war-costs-special-tools", label: "Specialized Tools", note: "Budget, aid, Hormuz & comparisons", icon: Calculator },
+  { href: "/war-costs-visualizations", label: "Visualizations", note: "Calendar, charts & overruns", icon: BarChart3 },
   { href: "/war-costs-accountability", label: "Accountability", note: "ROI, revolving door & reactions", icon: Scale },
   { href: "/war-costs-site-evidence", label: "Site Evidence", note: "Page-only facts & analyses", icon: FileText },
 ] as const;
@@ -14,7 +15,7 @@ export function WarCostsWorkspaceNav() {
   const [location] = useLocation();
   const current = location.split("?")[0];
   return (
-    <nav aria-label="WarCosts workspace" className="mt-5 grid gap-2 md:grid-cols-2 xl:grid-cols-6">
+    <nav aria-label="WarCosts workspace" className="mt-5 grid gap-2 md:grid-cols-2 xl:grid-cols-7">
       {items.map((item) => {
         const Icon = item.icon;
         const active = current === item.href || (item.href === "/war-costs-intelligence" && current === "/war-costs");
