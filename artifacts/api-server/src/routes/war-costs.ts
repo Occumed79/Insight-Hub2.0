@@ -9,6 +9,13 @@ type CacheEntry = { expiresAt: number; fetchedAt: string; data: unknown; source:
 type ManifestEntry = { name: string; category: string; refreshClass: "live" | "frequent" | "periodic" };
 type DatasetResult = { data: unknown; fetchedAt: string; cached: boolean; source: "live" | "database" };
 type RefreshStatus = { name: string; ok: boolean; count: number; fetchedAt?: string; source?: string; error?: string };
+type EnrichedContractor = Record<string, unknown> & {
+  name: string;
+  subsidiaries: Record<string, unknown>[];
+  amount?: number;
+  wars: unknown[];
+  weaponSystems: Record<string, unknown>[];
+};
 
 const cache = new Map<string, CacheEntry>();
 let manifestCache: { expiresAt: number; entries: ManifestEntry[] } | null = null;
@@ -352,7 +359,8 @@ router.get("/war-costs/overview", async (req: Request, res: Response) => {
 });
 
 router.get("/war-costs/dataset/:name", async (req: Request, res: Response) => {
-  const name = datasetFilename(req.params.name);
+  const rawName = Array.isArray(req.params.name) ? req.params.name[0] : req.params.name;
+  const name = datasetFilename(rawName ?? "");
   if (!name || !(await isAllowedDataset(name))) return res.status(404).json({ ok: false, error: "Unknown WarCosts dataset" });
   try {
     const result = await fetchDataset(name, req.query.refresh === "1");
@@ -365,7 +373,9 @@ router.get("/war-costs/dataset/:name", async (req: Request, res: Response) => {
       category: categoryFor(name),
       refreshClass: refreshClassFor(name),
       itemCount: itemCount(result.data),
-      ...result,
+      fetchedAt: result.fetchedAt,
+      cached: result.cached,
+      mirrorSource: result.source,
       data: result.data,
     });
   } catch (error) {
@@ -444,16 +454,24 @@ router.get("/war-costs/contractor-intelligence", async (req: Request, res: Respo
     const strikes = asArray(strikesResult.data);
     const company = text(req.query.company);
 
-    const enriched = contractors.map((contractor) => {
+    const enriched: EnrichedContractor[] = contractors.map((contractor) => {
       const name = text(contractor.name);
-      const aliases = [name, ...asArray(contractor.subsidiaries).map((row) => text(row.name)).filter(Boolean)];
+      const subsidiaries = asArray(contractor.subsidiaries);
+      const aliases = [name, ...subsidiaries.map((row) => text(row.name)).filter(Boolean)];
       const wars = contractorWars.filter((row) => aliases.some((alias) => contractorMatches(alias, row.contractor)));
       const weaponSystems = weapons.filter((weapon) => aliases.some((alias) => contractorMatches(alias, weapon.contractor)));
-      return { ...contractor, wars: wars.flatMap((row) => Array.isArray(row.wars) ? row.wars : []), weaponSystems };
+      return {
+        ...contractor,
+        name,
+        subsidiaries,
+        amount: typeof contractor.amount === "number" ? contractor.amount : undefined,
+        wars: wars.flatMap((row) => Array.isArray(row.wars) ? row.wars : []),
+        weaponSystems,
+      };
     });
 
     const filtered = company ? enriched.filter((contractor) => {
-      const aliases = [contractor.name, ...asArray(contractor.subsidiaries).map((row) => row.name)];
+      const aliases = [contractor.name, ...contractor.subsidiaries.map((row) => row.name)];
       return aliases.some((alias) => contractorMatches(company, alias));
     }) : enriched;
     const activeConflicts = conflicts.filter((conflict) => {
@@ -470,7 +488,7 @@ router.get("/war-costs/contractor-intelligence", async (req: Request, res: Respo
       refreshPolicy: { liveMinutes: 5, contractorMinutes: 30 },
       summary: {
         contractors: enriched.length,
-        totalFy2024: enriched.reduce((sum, row) => sum + (typeof row.amount === "number" ? row.amount : 0), 0),
+        totalFy2024: enriched.reduce((sum, row) => sum + (row.amount ?? 0), 0),
         weaponSystems: weapons.length,
         activeConflicts: activeConflicts.length,
         strikeRecords: strikes.length,
