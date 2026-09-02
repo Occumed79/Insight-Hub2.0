@@ -284,10 +284,36 @@ function countryMatches(country: string, row: Record<string, unknown>): boolean 
   });
 }
 
+function rowContainsCountry(country: string, row: unknown): boolean {
+  if (row && typeof row === "object" && !Array.isArray(row) && countryMatches(country, row as Record<string, unknown>)) return true;
+  const needle = text(country).toLowerCase();
+  if (!needle) return false;
+  try { return JSON.stringify(row).toLowerCase().includes(needle); }
+  catch { return false; }
+}
+
 function searchableRows(data: unknown): unknown[] {
   if (Array.isArray(data)) return data;
   if (data && typeof data === "object") return Object.entries(data as Record<string, unknown>).map(([key, value]) => ({ key, value }));
   return [data];
+}
+
+function weaponKey(row: Record<string, unknown>): string {
+  return normalized(row.slug) || `${normalized(row.name)}|${normalized(row.contractor)}|${normalized(row.manufacturer)}`;
+}
+
+function mergeWeapons(primary: Record<string, unknown>[], detail: Record<string, unknown>[]): Record<string, unknown>[] {
+  const merged = new Map<string, Record<string, unknown>>();
+  for (const row of primary) {
+    const key = weaponKey(row);
+    if (key) merged.set(key, row);
+  }
+  for (const row of detail) {
+    const key = weaponKey(row);
+    if (!key) continue;
+    merged.set(key, { ...(merged.get(key) ?? {}), ...row });
+  }
+  return [...merged.values()];
 }
 
 router.get("/war-costs/datasets", async (_req: Request, res: Response) => {
@@ -311,7 +337,9 @@ router.get("/war-costs/overview", async (req: Request, res: Response) => {
 
   const getCached = (name: string): unknown => cache.get(name)?.data;
   const contractors = asArray(getCached("contractors.json"));
-  const weapons = asArray(getCached("weapons-detail.json"));
+  const weapons = asArray(getCached("weapons.json"));
+  const weaponDetails = asArray(getCached("weapons-detail.json"));
+  const mergedWeapons = mergeWeapons(weapons, weaponDetails);
   const conflicts = asArray(getCached("conflicts.json"));
   const strikes = asArray(getCached("drone-strikes.json"));
   const bases = asArray(getCached("base-index.json"));
@@ -340,6 +368,8 @@ router.get("/war-costs/overview", async (req: Request, res: Response) => {
       failedDatasets: failed.length,
       contractors: contractors.length,
       weaponSystems: weapons.length,
+      weaponDetailRecords: weaponDetails.length,
+      enrichedWeaponSystems: mergedWeapons.length,
       conflicts: conflicts.length,
       activeConflicts: activeConflicts.length,
       strikeRecords: strikes.length,
@@ -350,7 +380,7 @@ router.get("/war-costs/overview", async (req: Request, res: Response) => {
     datasets: statuses.map((status) => ({ ...manifest.find((entry) => entry.name === status.name), ...status })),
     highlights: {
       contractors: contractors.slice(0, 25),
-      weapons: weapons.slice(0, 20),
+      weapons: mergedWeapons.slice(0, 20),
       activeConflicts,
       recentStrikes: strikes.slice(-50).reverse(),
       stats: getCached("stats.json") ?? null,
@@ -418,29 +448,34 @@ router.get("/war-costs/search", async (req: Request, res: Response) => {
 router.get("/war-costs/country-intelligence", async (req: Request, res: Response) => {
   const country = text(req.query.country);
   if (!country) return res.status(400).json({ ok: false, error: "country is required" });
-  const names = [
-    "country-profiles-index.json", "base-countries.json", "overseas-presence.json", "arms-sales.json",
-    "arms-sales-countries.json", "foreign-aid.json", "aid-countries-index.json", "global-spending.json",
-    "sanctions.json", "conflicts.json", "operations.json",
-  ];
-  const loaded = await Promise.all(names.map((name) => fetchDataset(name).then((result) => [name, result.data] as const).catch(() => [name, []] as const)));
+
+  await refreshAll(false);
+  const manifest = await discoverManifest();
   const matched: Record<string, unknown[]> = {};
-  for (const [name, data] of loaded) matched[name] = asArray(data).filter((row) => countryMatches(country, row));
+  for (const entry of manifest) {
+    const data = cache.get(entry.name)?.data;
+    if (data === undefined) continue;
+    const rows = searchableRows(data).filter((row) => rowContainsCountry(country, row));
+    if (rows.length) matched[entry.name] = rows;
+  }
+
   return res.json({
     ok: true,
     source: "WarCosts.org",
     attribution: "Source: warcosts.org",
     country,
-    datasetsMatched: Object.values(matched).filter((rows) => rows.length > 0).length,
+    datasetsSearched: manifest.length,
+    datasetsMatched: Object.keys(matched).length,
     data: matched,
   });
 });
 
 router.get("/war-costs/contractor-intelligence", async (req: Request, res: Response) => {
   try {
-    const [contractorsResult, warsResult, weaponsResult, conflictsResult, strikesResult, statsResult] = await Promise.all([
+    const [contractorsResult, warsResult, weaponsResult, weaponDetailsResult, conflictsResult, strikesResult, statsResult] = await Promise.all([
       fetchDataset("contractors.json"),
       fetchDataset("contractor-by-war.json"),
+      fetchDataset("weapons.json"),
       fetchDataset("weapons-detail.json"),
       fetchDataset("conflicts.json"),
       fetchDataset("drone-strikes.json"),
@@ -449,7 +484,7 @@ router.get("/war-costs/contractor-intelligence", async (req: Request, res: Respo
 
     const contractors = asArray(contractorsResult.data);
     const contractorWars = asArray(warsResult.data);
-    const weapons = asArray(weaponsResult.data);
+    const weapons = mergeWeapons(asArray(weaponsResult.data), asArray(weaponDetailsResult.data));
     const conflicts = asArray(conflictsResult.data);
     const strikes = asArray(strikesResult.data);
     const company = text(req.query.company);
@@ -459,7 +494,7 @@ router.get("/war-costs/contractor-intelligence", async (req: Request, res: Respo
       const subsidiaries = asArray(contractor.subsidiaries);
       const aliases = [name, ...subsidiaries.map((row) => text(row.name)).filter(Boolean)];
       const wars = contractorWars.filter((row) => aliases.some((alias) => contractorMatches(alias, row.contractor)));
-      const weaponSystems = weapons.filter((weapon) => aliases.some((alias) => contractorMatches(alias, weapon.contractor)));
+      const weaponSystems = weapons.filter((weapon) => aliases.some((alias) => contractorMatches(alias, weapon.contractor) || contractorMatches(alias, weapon.manufacturer)));
       return {
         ...contractor,
         name,
@@ -484,7 +519,7 @@ router.get("/war-costs/contractor-intelligence", async (req: Request, res: Respo
       source: "WarCosts.org",
       attribution: "Source: warcosts.org",
       sourceUrl: DOWNLOADS_URL,
-      fetchedAt: [contractorsResult, warsResult, weaponsResult, conflictsResult, strikesResult, statsResult].map((item) => item.fetchedAt).sort().pop(),
+      fetchedAt: [contractorsResult, warsResult, weaponsResult, weaponDetailsResult, conflictsResult, strikesResult, statsResult].map((item) => item.fetchedAt).sort().pop(),
       refreshPolicy: { liveMinutes: 5, contractorMinutes: 30 },
       summary: {
         contractors: enriched.length,
