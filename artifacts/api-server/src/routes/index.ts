@@ -20,6 +20,7 @@ import crisiswatchRouter from "./crisiswatch";
 import warCostsRouter from "./war-costs";
 import warCostsPagesRouter from "./war-costs-pages";
 import warCostsPriorityPagesRouter from "./war-costs-priority-pages";
+import mapIntelligenceLayersRouter from "./map-intelligence-layers";
 import aorRiskIntelligenceRouter from "./aor-risk-intelligence";
 import aorProductionRepairRouter from "./aor-production-repair";
 import aorCountryResilienceRouter from "./aor-country-resilience";
@@ -81,6 +82,7 @@ router.use(crisiswatchRouter);
 router.use(warCostsRouter);
 router.use(warCostsPagesRouter);
 router.use(warCostsPriorityPagesRouter);
+router.use(mapIntelligenceLayersRouter);
 router.use(aorTravelHealthRouter);
 // Country-specific WHO/GDACS handlers must run before the older command-wide AOR handlers.
 router.use(aorCountryResilienceRouter);
