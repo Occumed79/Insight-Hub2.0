@@ -21,9 +21,9 @@ type MapCounts = Record<LayerKey, number>;
 type WarCostsArcGisMapProps = {
   conflicts: WarCostsRow[];
   baseCountries: WarCostsRow[];
-  deployments: WarCostsRow[];
-  operations: WarCostsRow[];
-  strikes: WarCostsRow[];
+  deployments?: WarCostsRow[];
+  operations?: WarCostsRow[];
+  strikes?: WarCostsRow[];
 };
 
 const LAYER_META: Array<{ key: LayerKey; label: string; note: string }> = [
@@ -114,7 +114,7 @@ function uniqueByPlace(rows: WarCostsRow[], max: number): WarCostsRow[] {
   return output;
 }
 
-export function WarCostsArcGisMap({ conflicts, baseCountries, deployments, operations, strikes }: WarCostsArcGisMapProps) {
+export function WarCostsArcGisMap({ conflicts, baseCountries, deployments = [], operations = [], strikes = [] }: WarCostsArcGisMapProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<any>(null);
   const layerRefs = useRef<Record<LayerKey, any>>({ conflicts: null, bases: null, naval: null, covert: null });
@@ -275,18 +275,8 @@ export function WarCostsArcGisMap({ conflicts, baseCountries, deployments, opera
   return (
     <div className="relative min-h-[720px] overflow-hidden rounded-3xl border border-cyan-100/10 bg-[#020611] shadow-[0_28px_90px_rgba(0,0,0,.42)]">
       <div ref={hostRef} className="h-[calc(100vh-235px)] min-h-[720px] w-full" aria-label="Standalone ArcGIS WarCosts operational map" />
-
-      <div className="pointer-events-none absolute left-4 top-4 z-10 max-w-sm rounded-2xl border border-white/10 bg-[#020611]/88 p-4 shadow-2xl backdrop-blur-xl">
-        <p className="text-[9px] font-bold uppercase tracking-[.24em] text-cyan-100/40">Independent ArcGIS workspace</p>
-        <h2 className="mt-1 text-lg font-black text-white">WarCosts Global War Map</h2>
-        <p className="mt-1 text-[10px] leading-4 text-cyan-100/42">This map is separate from AOR and uses only the WarCosts ArcGIS runtime key and WarCosts-derived source layers.</p>
-      </div>
-
-      <div className="absolute right-4 top-4 z-10 w-[280px] rounded-2xl border border-white/10 bg-[#020611]/90 p-3 shadow-2xl backdrop-blur-xl">
-        <p className="px-1 pb-2 text-[9px] font-bold uppercase tracking-[.2em] text-cyan-100/35">Layers</p>
-        <div className="space-y-2">{LAYER_META.map((layer) => <button key={layer.key} type="button" onClick={() => setVisible((state) => ({ ...state, [layer.key]: !state[layer.key] }))} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left ${visible[layer.key] ? "border-cyan-100/16 bg-white/[.055]" : "border-white/7 bg-black/10 opacity-55"}`}><div><p className="text-[10px] font-black text-white">{layer.label}</p><p className="mt-0.5 text-[9px] text-cyan-100/35">{counts[layer.key]} mapped · {layer.note}</p></div>{visible[layer.key] ? <Eye size={14} className="text-cyan-100/65" /> : <EyeOff size={14} className="text-cyan-100/35" />}</button>)}</div>
-      </div>
-
+      <div className="pointer-events-none absolute left-4 top-4 z-10 max-w-sm rounded-2xl border border-white/10 bg-[#020611]/88 p-4 shadow-2xl backdrop-blur-xl"><p className="text-[9px] font-bold uppercase tracking-[.24em] text-cyan-100/40">Independent ArcGIS workspace</p><h2 className="mt-1 text-lg font-black text-white">WarCosts Global War Map</h2><p className="mt-1 text-[10px] leading-4 text-cyan-100/42">This map is separate from AOR and uses only the WarCosts ArcGIS runtime key and WarCosts-derived source layers.</p></div>
+      <div className="absolute right-4 top-4 z-10 w-[280px] rounded-2xl border border-white/10 bg-[#020611]/90 p-3 shadow-2xl backdrop-blur-xl"><p className="px-1 pb-2 text-[9px] font-bold uppercase tracking-[.2em] text-cyan-100/35">Layers</p><div className="space-y-2">{LAYER_META.map((layer) => <button key={layer.key} type="button" onClick={() => setVisible((state) => ({ ...state, [layer.key]: !state[layer.key] }))} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left ${visible[layer.key] ? "border-cyan-100/16 bg-white/[.055]" : "border-white/7 bg-black/10 opacity-55"}`}><div><p className="text-[10px] font-black text-white">{layer.label}</p><p className="mt-0.5 text-[9px] text-cyan-100/35">{counts[layer.key]} mapped · {layer.note}</p></div>{visible[layer.key] ? <Eye size={14} className="text-cyan-100/65" /> : <EyeOff size={14} className="text-cyan-100/35" />}</button>)}</div></div>
       {loading && <div className="absolute inset-0 z-20 grid place-items-center bg-[#020611]/78"><div className="text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin text-cyan-200" /><p className="mt-3 text-xs font-bold text-cyan-50">Building the independent ArcGIS WarCosts map…</p></div></div>}
       {error && <div className="absolute bottom-4 left-4 z-20 max-w-md rounded-xl border border-rose-200/20 bg-[#1a070d]/95 p-3 text-xs text-rose-100"><div className="flex gap-2"><MapPinned size={15} className="shrink-0" /><span>{error}</span></div></div>}
     </div>
