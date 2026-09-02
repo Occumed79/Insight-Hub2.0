@@ -339,6 +339,11 @@ export default function SecFilings() {
                     <div>
                       <p className="text-sm font-bold text-white">Latest filings</p>
                       <p className="mt-1 text-[10px] text-cyan-100/38">Click View evidence for filing details. Rows themselves do not navigate.</p>
+                      {returnedForms.length > 0 && (
+                        <p className="mt-2 text-[10px] text-cyan-100/52">
+                          Forms returned: {returnedForms.join(" · ")}
+                        </p>
+                      )}
                     </div>
                     <select
                       value={formFilter}

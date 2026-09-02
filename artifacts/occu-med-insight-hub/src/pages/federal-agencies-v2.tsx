@@ -26,6 +26,7 @@ const PERSISTED_BUCKETS = ["forecast", "recompete-watch", "incumbent-tracker", "
 const OCCU_MED_EVIDENCE = /occupational\s+(medicine|health)|employee\s+health|medical\s+(examination|exam|surveillance)|physical\s+exam|pre[- ]?(employment|placement)|post[- ]?offer|fitness[- ]?for[- ]?duty|health\s+surveillance|respiratory\s+protection|respirator\s+fit|fit\s+testing|audiometr|hearing\s+conservation|drug\s+testing|alcohol\s+testing|dot\s+testing|specimen\s+collection|vaccin|immuniz|travel\s+medicine|deployment\s+medicine|return\s+to\s+work|workers.?\s*comp|ergonomic|clinical\s+services.*workforce\s+readiness/i;
 const RECOMPETE_EVIDENCE = /recompete|re-compete|renewal|follow[- ]?on|expir(?:e|es|ing|ation)|option\s+year|bridge\s+contract/i;
 const FORECAST_EVIDENCE = /procurement\s+forecast|acquisition\s+forecast|forecast(?:ed)?|planned\s+(acquisition|procurement|solicitation)|anticipated\s+(award|solicitation|procurement)/i;
+const NEGATED_RECOMPETE_EVIDENCE = /\b(?:no|not|without)\s+(?:contract\s+)?(?:recompete|re-compete|renewal|expiration|follow[- ]?on|option\s+year|bridge\s+contract)\b/gi;
 const VIEWS = [
   "Overview",
   "Solicitations",
@@ -449,7 +450,12 @@ export default function FederalAgenciesV2Page() {
   const knownSpend = incumbentItems.reduce((sum, item) => sum + moneyValue(item.budgetSignal), 0);
   const activeContracts = incumbentItems.filter((item) => /active/i.test(item.status || "")).length;
   const hasMedicalEvidence = (item: PersistedItem) => OCCU_MED_EVIDENCE.test(`${item.title} ${item.summary || ""} ${item.medicalTravelRelevance || ""}`);
-  const hasTypeEvidence = (item: PersistedItem, type: "recompete" | "forecast") => (type === "recompete" ? RECOMPETE_EVIDENCE : FORECAST_EVIDENCE).test(`${item.title} ${item.summary || ""} ${item.status || ""} ${item.actionTag || ""}`);
+  const hasTypeEvidence = (item: PersistedItem, type: "recompete" | "forecast") => {
+    const evidence = `${item.title} ${item.summary || ""} ${item.status || ""} ${item.actionTag || ""}`;
+    return (type === "recompete" ? RECOMPETE_EVIDENCE : FORECAST_EVIDENCE).test(
+      type === "recompete" ? evidence.replace(NEGATED_RECOMPETE_EVIDENCE, "") : evidence,
+    );
+  };
   const recompetes = agencyPersisted.filter((item) => item.bucket === "recompete-watch" && hasMedicalEvidence(item) && hasTypeEvidence(item, "recompete"));
   const forecasts = agencyPersisted.filter((item) => item.bucket === "forecast" && hasMedicalEvidence(item) && hasTypeEvidence(item, "forecast"));
   const medicalPersisted = agencyPersisted.filter((item) => item.bucket === "deployment-medical");

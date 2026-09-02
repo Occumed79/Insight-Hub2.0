@@ -77,12 +77,12 @@ export default function IndustryImpactCalculatorV2() {
   const [hoursPerWorker, setHoursPerWorker] = useState(2000);
   const [observedTrir, setObservedTrir] = useState(3.2);
   const [observedDart, setObservedDart] = useState(1.8);
-  const [targetTrir, setTargetTrir] = useState(2.1);
+  const [targetTrir, setTargetTrir] = useState(1.6);
   const [lostDaysPerRecordable, setLostDaysPerRecordable] = useState(8);
   const [lowCost, setLowCost] = useState(15000);
   const [baseCost, setBaseCost] = useState(30000);
   const [highCost, setHighCost] = useState(60000);
-  const [indirectMultiplier, setIndirectMultiplier] = useState(1.5);
+  const [indirectMultiplier, setIndirectMultiplier] = useState(0);
   const [profitMargin, setProfitMargin] = useState(8);
 
   useEffect(() => {
