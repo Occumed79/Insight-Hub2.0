@@ -199,13 +199,13 @@ async function searchTinyFish(query: string, limit: number): Promise<SharedSearc
 
   const searchRows = (Array.isArray(searchPayload?.results) ? searchPayload.results : [])
     .slice(0, Math.max(1, Math.min(10, limit)));
-  const baseItems = searchRows
+  const baseItems: SharedSearchItem[] = searchRows
     .map((row: any) => toItem("tinyfish", row))
     .filter((item: SharedSearchItem | null): item is SharedSearchItem => Boolean(item));
   if (!baseItems.length) return [];
 
   const fetchLimit = Math.max(1, Math.min(10, Number(process.env.TINYFISH_FETCH_MAX_URLS || 8)));
-  const urls = baseItems.slice(0, fetchLimit).map((item) => item.url);
+  const urls = baseItems.slice(0, fetchLimit).map((item: SharedSearchItem) => item.url);
   try {
     const fetchResponse = await fetch("https://api.fetch.tinyfish.ai", {
       method: "POST",
@@ -226,7 +226,7 @@ async function searchTinyFish(query: string, limit: number): Promise<SharedSearc
       if (url) fetchedByUrl.set(url.replace(/\/$/, "").toLowerCase(), row);
     }
 
-    return baseItems.map((item) => {
+    return baseItems.map((item: SharedSearchItem) => {
       const fetched = fetchedByUrl.get(item.url.replace(/\/$/, "").toLowerCase());
       if (!fetched) return item;
       const text = clean(fetched?.text || fetched?.markdown || fetched?.content, 3_000);

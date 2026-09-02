@@ -65,15 +65,28 @@ app.head("/api/health", (_req, res) => {
   res.status(200).end();
 });
 
-// The AOR workspace uses the MapTiler browser SDK. Keep the deployment key in
-// Render and expose it only through this no-store config route, matching the
-// Exam Reviewer implementation the key was transferred from.
+// AOR continues to use MapTiler. Keep its deployment key isolated from the
+// WarCosts ArcGIS integration so the two map stacks can evolve independently.
 app.get("/api/map-config", (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
   const apiKey = process.env.MAP_TILER_API_KEY?.trim() ?? "";
   res.status(apiKey ? 200 : 503).json({
     configured: Boolean(apiKey),
     apiKey,
+  });
+});
+
+// WarCosts uses ArcGIS Maps SDK + ArcGIS location services. The key is supplied
+// by Render as ARCGIS_API_KEY and is exposed only through this no-store runtime
+// config response; it is never baked into the frontend bundle.
+app.get("/api/war-costs/arcgis-config", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const apiKey = process.env.ARCGIS_API_KEY?.trim() ?? "";
+  res.status(apiKey ? 200 : 503).json({
+    configured: Boolean(apiKey),
+    apiKey,
+    sdkVersion: "5.1",
+    provider: "ArcGIS",
   });
 });
 
