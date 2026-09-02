@@ -46,6 +46,7 @@ const nav = [
 const WAR_COSTS_SUBNAV = [
   { href: "/war-costs-intelligence", label: "Overview & Data" },
   { href: "/war-costs-tools", label: "Interactive Tools" },
+  { href: "/war-costs-special-tools", label: "Specialized Tools" },
   { href: "/war-costs-site-evidence", label: "Site Evidence" },
 ] as const;
 
@@ -56,7 +57,7 @@ const DESKTOP_SIDEBAR_BACKGROUND = "linear-gradient(180deg, #020611 0%, #030813 
 const MOBILE_SIDEBAR_BACKGROUND = "linear-gradient(180deg, #020611 0%, #030813 100%)";
 
 function isWarCostsPath(path: string) {
-  return ["/war-costs-intelligence", "/war-costs", "/war-costs-tools", "/war-costs-site-evidence"].includes(path);
+  return ["/war-costs-intelligence", "/war-costs", "/war-costs-tools", "/war-costs-special-tools", "/war-costs-site-evidence"].includes(path);
 }
 
 function isActivePath(itemHref: string, currentPath: string) {
