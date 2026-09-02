@@ -202,11 +202,29 @@ export async function getWarCostsPageOverview(): Promise<WarCostsPageOverview> {
   return readJson<WarCostsPageOverview>(response);
 }
 
-export async function getWarCostsPageCatalog(type?: string, limit = 2_000): Promise<{ ok: boolean; total: number; pages: WarCostsPageCatalogItem[] }> {
-  const params = new URLSearchParams({ limit: String(limit) });
-  if (type) params.set("type", type);
+async function getWarCostsPageCatalogSlice(type: string, limit: number): Promise<{ ok: boolean; total: number; pages: WarCostsPageCatalogItem[] }> {
+  const params = new URLSearchParams({ type, limit: String(limit) });
   const response = await fetch(`/api/war-costs/pages/catalog?${params.toString()}`, { headers: { Accept: "application/json" } });
   return readJson(response);
+}
+
+export async function getWarCostsPageCatalog(type?: string, limit = 2_000): Promise<{ ok: boolean; total: number; pages: WarCostsPageCatalogItem[] }> {
+  if (type) return getWarCostsPageCatalogSlice(type, limit);
+
+  // The public WarCosts site has more than 2,000 pages. The backend intentionally caps one
+  // catalog response, so assemble the visible catalog by page type to avoid silently hiding
+  // the tail of the retained page mirror.
+  const overview = await getWarCostsPageOverview();
+  const types = Object.keys(overview.summary.byType);
+  if (!types.length) return { ok: true, total: 0, pages: [] };
+
+  const responses = await Promise.all(types.map((pageType) => getWarCostsPageCatalogSlice(pageType, limit)));
+  const byPath = new Map<string, WarCostsPageCatalogItem>();
+  for (const response of responses) {
+    for (const page of response.pages) byPath.set(page.path, page);
+  }
+  const pages = [...byPath.values()].sort((a, b) => a.page_type.localeCompare(b.page_type) || a.title.localeCompare(b.title));
+  return { ok: responses.every((response) => response.ok), total: pages.length, pages };
 }
 
 export async function getWarCostsPageEvidence(path: string): Promise<{ ok: boolean; page: WarCostsPageEvidence }> {
