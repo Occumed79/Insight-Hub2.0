@@ -27,6 +27,7 @@ const DbaIntelligence = React.lazy(() => import("@/pages/dba-intelligence"));
 const SourceGovernance = React.lazy(() => import("@/pages/source-governance"));
 const WarCostsIntelligence = React.lazy(() => import("@/pages/war-costs-intelligence"));
 const WarCostsTools = React.lazy(() => import("@/pages/war-costs-tools"));
+const WarCostsSpecialTools = React.lazy(() => import("@/pages/war-costs-special-tools"));
 const WarCostsSiteEvidence = React.lazy(() => import("@/pages/war-costs-site-evidence"));
 const ReviewerInjuriesMedicalPage = React.lazy(() => import("@/pages/reviewer-injuries-medical"));
 const ReviewerJobIntelligencePage = React.lazy(() => import("@/pages/job-intelligence-v2"));
@@ -80,6 +81,7 @@ function FederalAwardsRoute() { return <TranslucentToolPage page="federal-awards
 function LegalReferencesRoute() { return <TranslucentToolPage page="legal"><LegalReferencesPage /></TranslucentToolPage>; }
 function WarCostsRoute() { return <TranslucentToolPage page="war-costs"><WarCostsIntelligence /></TranslucentToolPage>; }
 function WarCostsToolsRoute() { return <TranslucentToolPage page="war-costs"><WarCostsTools /></TranslucentToolPage>; }
+function WarCostsSpecialToolsRoute() { return <TranslucentToolPage page="war-costs"><WarCostsSpecialTools /></TranslucentToolPage>; }
 function WarCostsSiteEvidenceRoute() { return <TranslucentToolPage page="war-costs"><WarCostsSiteEvidence /></TranslucentToolPage>; }
 
 function StandaloneMapPage({ children }: { children: React.ReactNode }) {
@@ -129,6 +131,7 @@ function Router() {
         <Route path="/war-costs-intelligence" component={WarCostsRoute} />
         <Route path="/war-costs" component={WarCostsRoute} />
         <Route path="/war-costs-tools" component={WarCostsToolsRoute} />
+        <Route path="/war-costs-special-tools" component={WarCostsSpecialToolsRoute} />
         <Route path="/war-costs-site-evidence" component={WarCostsSiteEvidenceRoute} />
         <Route path="/federal-awards" component={FederalAwardsRoute} />
         <Route path="/public-legal-references" component={LegalReferencesRoute} />
