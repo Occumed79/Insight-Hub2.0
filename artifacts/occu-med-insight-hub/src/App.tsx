@@ -26,6 +26,7 @@ const WorkersCompCoverage = React.lazy(() => import("@/pages/workers-comp-covera
 const DbaIntelligence = React.lazy(() => import("@/pages/dba-intelligence"));
 const SourceGovernance = React.lazy(() => import("@/pages/source-governance"));
 const WarCostsIntelligence = React.lazy(() => import("@/pages/war-costs-intelligence"));
+const WarCostsTools = React.lazy(() => import("@/pages/war-costs-tools"));
 const WarCostsSiteEvidence = React.lazy(() => import("@/pages/war-costs-site-evidence"));
 const ReviewerInjuriesMedicalPage = React.lazy(() => import("@/pages/reviewer-injuries-medical"));
 const ReviewerJobIntelligencePage = React.lazy(() => import("@/pages/job-intelligence-v2"));
@@ -78,7 +79,8 @@ function OccupationalCalculatorsRoute() { return <TranslucentToolPage page="occu
 function FederalAwardsRoute() { return <TranslucentToolPage page="federal-awards"><FederalAwardsPage /></TranslucentToolPage>; }
 function LegalReferencesRoute() { return <TranslucentToolPage page="legal"><LegalReferencesPage /></TranslucentToolPage>; }
 function WarCostsRoute() { return <TranslucentToolPage page="war-costs"><WarCostsIntelligence /></TranslucentToolPage>; }
-function WarCostsSiteEvidenceRoute() { return <TranslucentToolPage page="war-costs-site-evidence"><WarCostsSiteEvidence /></TranslucentToolPage>; }
+function WarCostsToolsRoute() { return <TranslucentToolPage page="war-costs"><WarCostsTools /></TranslucentToolPage>; }
+function WarCostsSiteEvidenceRoute() { return <TranslucentToolPage page="war-costs"><WarCostsSiteEvidence /></TranslucentToolPage>; }
 
 function StandaloneMapPage({ children }: { children: React.ReactNode }) {
   return (
@@ -126,6 +128,7 @@ function Router() {
         <Route path="/occupational-calculators" component={OccupationalCalculatorsRoute} />
         <Route path="/war-costs-intelligence" component={WarCostsRoute} />
         <Route path="/war-costs" component={WarCostsRoute} />
+        <Route path="/war-costs-tools" component={WarCostsToolsRoute} />
         <Route path="/war-costs-site-evidence" component={WarCostsSiteEvidenceRoute} />
         <Route path="/federal-awards" component={FederalAwardsRoute} />
         <Route path="/public-legal-references" component={LegalReferencesRoute} />
