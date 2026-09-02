@@ -7,6 +7,7 @@ import {
   CircleDollarSign,
   Database,
   FileSearch,
+  FileText,
   GitBranch,
   Home,
   Landmark,
@@ -39,6 +40,7 @@ const nav = [
   { href: "/industry-impact-calculator", label: "Industry Impact Calculator", icon: BarChart3 },
   { href: "/occupational-calculators", label: "Occupational Calculators", icon: Calculator },
   { href: "/war-costs-intelligence", label: "War & Defense Intelligence", icon: Radar },
+  { href: "/war-costs-site-evidence", label: "WarCosts Site Evidence", icon: FileText },
   { href: "/federal-awards", label: "Federal Awards Intelligence", icon: CircleDollarSign },
   { href: "/public-legal-references", label: "Legal & Injury Intelligence", icon: Scale },
 ];
