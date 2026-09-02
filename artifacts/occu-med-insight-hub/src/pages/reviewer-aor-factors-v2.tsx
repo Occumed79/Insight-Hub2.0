@@ -57,6 +57,36 @@ type GlobalWatchResponse = {
   disasters: Array<any>;
   earthquakes: Array<any>;
 };
+type HealthMapLayer = "none" | "current" | "history" | "lisa";
+type AorHealthRiskResponse = {
+  ok: boolean;
+  fetchedAt: string;
+  current: {
+    source: string;
+    sourceUrl: string;
+    note: string;
+    trackers: Array<{ slug: string; name: string; status: string; summary: string; url: string; countries: Array<{ name: string; iso2: string; iso3: string }> }>;
+    countries: Array<{ name: string; iso2: string; iso3: string; trackers: string[] }>;
+  };
+  historical: {
+    source: string;
+    sourceUrl: string;
+    sourceUpdatedAt: string;
+    maxOutbreaks: number;
+    definition: string;
+    countries: Array<{ country: string; iso2: string; iso3: string; outbreaks: number; uniqueDiseases: number; firstYear: number; lastYear: number; topDiseases: Array<{ disease: string; outbreaks: number }> }>;
+  };
+  lisa: {
+    source: string;
+    doi: string;
+    period: string;
+    confidence: string;
+    globalMoransI: number;
+    pValue: string;
+    note: string;
+    countries: Array<{ iso2: string; classification: "High-High" | "Low-High" }>;
+  };
+};
 const EMPTY_COUNTRY_FILTER = ["==", "iso_a2", "__NONE__"];
 const countryFilter = (iso2s: readonly string[]) => ["all", ["==", "level", 0], ["in", "iso_a2", ...iso2s]];
 
@@ -196,6 +226,10 @@ export default function ReviewerAorFactorsV2Page() {
   const [globalWatch, setGlobalWatch] = useState<GlobalWatchResponse | null>(null);
   const [globalWatchLoading, setGlobalWatchLoading] = useState(true);
   const [globalWatchError, setGlobalWatchError] = useState("");
+  const [healthRisk, setHealthRisk] = useState<AorHealthRiskResponse | null>(null);
+  const [healthRiskLoading, setHealthRiskLoading] = useState(true);
+  const [healthRiskError, setHealthRiskError] = useState("");
+  const [healthMapLayer, setHealthMapLayer] = useState<HealthMapLayer>("current");
   const [environment, setEnvironment] = useState<Record<EnvironmentKey, boolean>>({ heat: false, cold: false, altitude: false, poorAir: false, fatigue: false, ppe: false, night: false });
 
   const mappedCountryCommand = selectedCountry?.iso2 ? COMMAND_BY_COUNTRY.get(selectedCountry.iso2) ?? null : null;
@@ -213,6 +247,18 @@ export default function ReviewerAorFactorsV2Page() {
       .then((payload) => { if (active) setGlobalWatch(payload); })
       .catch((reason) => { if (active) setGlobalWatchError(errorMessage(reason)); })
       .finally(() => { if (active) setGlobalWatchLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+
+  useEffect(() => {
+    let active = true;
+    setHealthRiskLoading(true);
+    setHealthRiskError("");
+    loadJson("/api/aor-health-risk")
+      .then((payload) => { if (active) setHealthRisk(payload); })
+      .catch((reason) => { if (active) setHealthRiskError(errorMessage(reason)); })
+      .finally(() => { if (active) setHealthRiskLoading(false); });
     return () => { active = false; };
   }, []);
 
@@ -313,6 +359,9 @@ export default function ReviewerAorFactorsV2Page() {
           map.addLayer({ id: "aor-selected-country-fill", type: "fill", source: "aor-countries", "source-layer": "administrative", filter: EMPTY_COUNTRY_FILTER, paint: { "fill-color": "#47e8d0", "fill-opacity": 0.20 } }, before);
           map.addLayer({ id: "aor-selected-country-glow", type: "line", source: "aor-countries", "source-layer": "administrative", filter: EMPTY_COUNTRY_FILTER, paint: { "line-color": "#71f4ff", "line-width": 8, "line-opacity": 0.18, "line-blur": 4 } }, before);
           map.addLayer({ id: "aor-selected-country-line", type: "line", source: "aor-countries", "source-layer": "administrative", filter: EMPTY_COUNTRY_FILTER, paint: { "line-color": "#efffff", "line-width": 2.8, "line-opacity": 0.96 } }, before);
+          map.addLayer({ id: "aor-health-history-fill", type: "fill", source: "aor-countries", "source-layer": "administrative", filter: ["==", "level", 0], paint: { "fill-color": "rgba(0,0,0,0)", "fill-opacity": 0 } }, before);
+          map.addLayer({ id: "aor-health-lisa-fill", type: "fill", source: "aor-countries", "source-layer": "administrative", filter: ["==", "level", 0], paint: { "fill-color": "rgba(0,0,0,0)", "fill-opacity": 0 } }, before);
+          map.addLayer({ id: "aor-health-current-fill", type: "fill", source: "aor-countries", "source-layer": "administrative", filter: ["==", "level", 0], paint: { "fill-color": "rgba(0,0,0,0)", "fill-opacity": 0 } }, before);
           map.addLayer({ id: "aor-country-hit", type: "fill", source: "aor-countries", "source-layer": "administrative", filter: ["==", "level", 0], paint: { "fill-color": "#ffffff", "fill-opacity": 0.001 } }, before);
           map.addSource("aor-live-events", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
           map.addLayer({ id: "aor-live-events-glow", type: "circle", source: "aor-live-events", paint: { "circle-radius": 10, "circle-color": ["match", ["get", "kind"], "GDACS", "#9f76ff", "#52e5ef"], "circle-opacity": 0.18 } });
@@ -410,6 +459,27 @@ export default function ReviewerAorFactorsV2Page() {
     for (const layer of ["aor-selected-country-fill", "aor-selected-country-glow", "aor-selected-country-line"]) if (map.getLayer?.(layer)) map.setFilter(layer, filter);
   }, [mapMode, selectedCountry]);
 
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || mapStatus !== "ready" || !healthRisk) return;
+
+    const currentPairs = healthRisk.current.countries.flatMap((row) => [row.iso2, row.trackers.length]);
+    const currentValue: any = ["match", ["get", "iso_a2"], ...currentPairs, 0];
+    const historicalPairs = healthRisk.historical.countries.flatMap((row) => [row.iso2, row.outbreaks]);
+    const historicalValue: any = ["match", ["get", "iso_a2"], ...historicalPairs, 0];
+    const maxHistory = Math.max(1, healthRisk.historical.maxOutbreaks || 1);
+    const lisaPairs = healthRisk.lisa.countries.flatMap((row) => [row.iso2, row.classification === "High-High" ? "#fb6f57" : "#55c8ff"]);
+    const lisaColor: any = ["match", ["get", "iso_a2"], ...lisaPairs, "rgba(0,0,0,0)"];
+
+    map.setPaintProperty?.("aor-health-current-fill", "fill-color", ["interpolate", ["linear"], currentValue, 0, "rgba(0,0,0,0)", 1, "#f6c453", 2, "#fb8c55", 4, "#f45b69"]);
+    map.setPaintProperty?.("aor-health-history-fill", "fill-color", ["interpolate", ["linear"], historicalValue, 0, "rgba(0,0,0,0)", Math.max(1, maxHistory * 0.2), "#7dd3fc", Math.max(2, maxHistory * 0.5), "#8b5cf6", maxHistory, "#f43f5e"]);
+    map.setPaintProperty?.("aor-health-lisa-fill", "fill-color", lisaColor);
+    map.setPaintProperty?.("aor-health-current-fill", "fill-opacity", healthMapLayer === "current" ? 0.46 : 0);
+    map.setPaintProperty?.("aor-health-history-fill", "fill-opacity", healthMapLayer === "history" ? 0.44 : 0);
+    map.setPaintProperty?.("aor-health-lisa-fill", "fill-opacity", healthMapLayer === "lisa" ? 0.52 : 0);
+  }, [healthMapLayer, healthRisk, mapStatus]);
+
   const strictQuakes = useMemo(() => {
     if (selectedCountry) return (countrySources.usgs.data?.earthquakes || []).slice(0, 6);
     return mapMode === "aor" ? (data?.earthquakes || []).slice(0, 6) : [];
@@ -421,6 +491,10 @@ export default function ReviewerAorFactorsV2Page() {
   const travelHealth = countrySources.health.data;
   const vaccines = (travelHealth?.vaccines || []).slice(0, 10);
   const infectiousDiseases = (travelHealth?.diseases || []).slice(0, 10);
+  const selectedHistoricalRisk = selectedCountry?.iso2 ? healthRisk?.historical.countries.find((row) => row.iso2 === selectedCountry.iso2) ?? null : null;
+  const selectedLisaRisk = selectedCountry?.iso2 ? healthRisk?.lisa.countries.find((row) => row.iso2 === selectedCountry.iso2) ?? null : null;
+  const selectedCurrentTrackers = selectedCountry?.iso2 ? (healthRisk?.current.trackers || []).filter((tracker) => tracker.countries.some((country) => country.iso2 === selectedCountry.iso2)) : [];
+
 
   const prioritySignals = useMemo(() => buildAorPrioritySignals({
     advisory: selectedCountry ? advisory : undefined,
@@ -520,7 +594,7 @@ export default function ReviewerAorFactorsV2Page() {
     <main className="aurora-bg min-h-screen pb-16 text-white">
       <Sidebar />
       <section className="relative z-10 px-4 py-6 pt-24 lg:ml-[210px] lg:px-8 lg:pt-6 xl:px-10">
-        <HeaderBar eyebrow="Operational / Environmental Intelligence" title="AOR Factors" subtitle="Choose Country mode for country-level travel and health intelligence, or AOR mode for command-wide operational feeds. Both use the same MapTiler vector-tile map." />
+        <HeaderBar eyebrow="Operational / Environmental Intelligence" title="AOR Factors" subtitle="The MapTiler health-and-risk workspace: current outbreaks, historical epidemic exposure, travel health, disasters, earthquakes, and environmental operating factors. Defense intelligence stays on the separate ArcGIS War Map." />
 
         <Surface className="overflow-hidden">
           <div className="grid gap-3 lg:grid-cols-2" aria-label="Map selection mode">
@@ -541,6 +615,8 @@ export default function ReviewerAorFactorsV2Page() {
 
           <div className="mt-4 flex flex-wrap gap-2" aria-label="AOR source status">
             <SourceChip label="MapTiler" status={mapStatus === "ready" ? "ok" : mapStatus === "error" ? "warn" : "loading"} note={mapStatus === "ready" ? "Bright Dark vector tiles rendered" : mapStatus === "error" ? mapError : "Rendering vector tiles"} />
+            <SourceChip label="OutbreakTracker" status={healthRiskLoading ? "loading" : healthRiskError ? "warn" : "ok"} note={healthRiskLoading ? "Loading current trackers" : healthRiskError || `${healthRisk?.current.trackers.length ?? 0} current disease trackers`} />
+            <SourceChip label="Epidemic history" status={healthRiskLoading ? "loading" : healthRiskError ? "warn" : "ok"} note={healthRiskLoading ? "Loading WHO DON history" : healthRiskError || `${healthRisk?.historical.countries.length ?? 0} countries · source refresh ${healthRisk?.historical.sourceUpdatedAt ?? "—"}`} />
             {mapMode === "aor" ? ["WHO Disease Outbreak News", "GDACS", "USGS Earthquake Catalog"].map((provider) => { const source = sourceHealth.get(provider); return <SourceChip key={provider} label={provider.replace(" Disease Outbreak News", "").replace(" Earthquake Catalog", "")} status={loading ? "loading" : source?.ok ? "ok" : "warn"} note={loading ? "Refreshing" : source?.ok ? `${source.count} AOR matches` : source?.error || "Unavailable"} />; }) : <><SourceChip label="State Travel" status={stateStatus.status} note={stateStatus.note} /><SourceChip label="CDC Travel Health" status={healthStatus.status} note={healthStatus.note} /><SourceChip label="WHO" status={whoStatus.status} note={whoStatus.note} /><SourceChip label="GDACS" status={gdacsStatus.status} note={gdacsStatus.note} /><SourceChip label="USGS" status={usgsStatus.status} note={usgsStatus.note} /><SourceChip label="CrisisWatch" status={crisisStatus.status} note={crisisStatus.note} /></>}
           </div>
 
@@ -548,15 +624,27 @@ export default function ReviewerAorFactorsV2Page() {
             <AorPriorityBrief context={priorityContext} signals={prioritySignals} loading={priorityLoading} error={priorityError} />
           </div>
 
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,.75fr)]" data-testid="aor-epidemic-intelligence">
+          <div className="rounded-2xl border border-rose-100/12 bg-rose-300/[0.035] p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-rose-100/48">Epidemic intelligence</p><h3 className="mt-1 text-sm font-black text-white">{selectedCountry ? selectedCountry.name : "Global health-risk layers"}</h3></div><span className="rounded-full border border-rose-100/15 bg-rose-300/[0.06] px-2.5 py-1 text-[9px] font-black text-rose-50/72">Occurrence ≠ severity</span></div>
+            {healthRiskLoading ? <p className="mt-3 text-[10px] text-cyan-100/42">Loading current and historical outbreak intelligence…</p> : healthRiskError ? <p className="mt-3 text-[10px] text-amber-100/66">{healthRiskError}</p> : selectedCountry ? <div className="mt-3 grid gap-2 sm:grid-cols-3"><div className="rounded-xl border border-white/8 bg-white/[0.025] p-3"><p className="text-[9px] text-cyan-100/38">Current trackers</p><p className="mt-1 text-lg font-black">{selectedCurrentTrackers.length}</p><p className="mt-1 text-[9px] leading-4 text-cyan-100/42">{selectedCurrentTrackers.slice(0, 3).map((item) => item.name).join(" · ") || "No country association extracted from the current tracker cards."}</p></div><div className="rounded-xl border border-white/8 bg-white/[0.025] p-3"><p className="text-[9px] text-cyan-100/38">Historical outbreaks</p><p className="mt-1 text-lg font-black">{selectedHistoricalRisk?.outbreaks ?? "—"}</p><p className="mt-1 text-[9px] leading-4 text-cyan-100/42">{selectedHistoricalRisk ? `${selectedHistoricalRisk.uniqueDiseases} diseases · ${selectedHistoricalRisk.firstYear}–${selectedHistoricalRisk.lastYear}` : "No historical country record."}</p></div><div className="rounded-xl border border-white/8 bg-white/[0.025] p-3"><p className="text-[9px] text-cyan-100/38">Published LISA</p><p className="mt-1 text-lg font-black">{selectedLisaRisk?.classification ?? "Not significant"}</p><p className="mt-1 text-[9px] leading-4 text-cyan-100/42">1996–2021 published 99% classification; not recalculated as current risk.</p></div></div> : <div className="mt-3 grid gap-2 sm:grid-cols-3"><div className="rounded-xl border border-white/8 bg-white/[0.025] p-3"><p className="text-[9px] text-cyan-100/38">Current trackers</p><p className="mt-1 text-lg font-black">{healthRisk?.current.trackers.length ?? 0}</p></div><div className="rounded-xl border border-white/8 bg-white/[0.025] p-3"><p className="text-[9px] text-cyan-100/38">Historical countries</p><p className="mt-1 text-lg font-black">{healthRisk?.historical.countries.length ?? 0}</p></div><div className="rounded-xl border border-white/8 bg-white/[0.025] p-3"><p className="text-[9px] text-cyan-100/38">Global Moran's I</p><p className="mt-1 text-lg font-black">{healthRisk?.lisa.globalMoransI ?? "—"}</p><p className="mt-1 text-[9px] text-cyan-100/42">p {healthRisk?.lisa.pValue ?? "—"}</p></div></div>}
+            {selectedHistoricalRisk?.topDiseases?.length ? <p className="mt-3 text-[9px] leading-4 text-cyan-100/44"><strong className="text-cyan-50/68">Most recurrent:</strong> {selectedHistoricalRisk.topDiseases.slice(0, 5).map((item) => `${item.disease} (${item.outbreaks})`).join(" · ")}</p> : null}
+          </div>
+          <div className="rounded-2xl border border-cyan-100/10 bg-cyan-300/[0.025] p-4"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-cyan-100/45">Source boundary</p><p className="mt-2 text-[10px] leading-5 text-cyan-100/48">OutbreakTracker is a situational-awareness overlay. Existing WHO/CDC feeds remain the decision-grade health sources. Historical frequency is disease-country-year occurrence from the authors' WHO DON pipeline; it does not measure cases, deaths, or outbreak intensity.</p><p className="mt-2 text-[9px] leading-4 text-cyan-100/34">Published LISA: {healthRisk?.lisa.period ?? "1996–2021"} · Moran's I {healthRisk?.lisa.globalMoransI ?? "0.336"} · p {healthRisk?.lisa.pValue ?? "<0.001"}</p></div>
+        </div>
+
           <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.42fr)_minmax(340px,.58fr)]">
             <div className="min-w-0 space-y-4">
               <div className="overflow-hidden rounded-[24px] border border-white/13 bg-[#020812]/76 shadow-[0_22px_65px_rgba(0,0,0,.34)]">
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/9 px-4 py-3"><div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-cyan-100/42">{mapMode === "country" ? "Country selection" : "AOR operating picture"}</p><h2 className="mt-1 text-lg font-black">{contextLabel}</h2><p className="mt-1 max-w-3xl text-[10px] leading-4 text-cyan-100/42">{selectedCountry ? `${selectedCountry.name} drives all country-specific travel, health, outbreak, disaster, conflict, and environmental intelligence below.${mappedCountryCommand ? ` Assigned command: ${mappedCountryCommand.label}.` : " No AOR assignment is forced for this country."}` : mapMode === "aor" ? selectedCommand.scope : "Click any country on the MapTiler map or search for a destination. No AOR is selected by default."}</p></div><span className="rounded-full border border-cyan-100/18 bg-cyan-300/[0.06] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-cyan-50/72">{mapMode === "country" ? "Country selection" : "AOR selection"}</span></div>
                 <div className="relative h-[650px] overflow-hidden bg-[#020812]" data-testid="aor-map-shell">
                   <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_18%_15%,rgba(34,211,238,.055),transparent_28%),radial-gradient(circle_at_82%_76%,rgba(124,58,237,.055),transparent_30%)]" />
-                  <div ref={mapHostRef} className="aor-map-tiler-host absolute inset-0" aria-label="Interactive MapTiler AOR intelligence map" />
+                  <div ref={mapHostRef} className="aor-map-tiler-host absolute inset-0" aria-label="Interactive MapTiler AOR health and risk intelligence map" />
+                  <div className="absolute left-3 top-3 z-10 rounded-2xl border border-white/10 bg-[#020812]/88 p-2 shadow-2xl backdrop-blur-xl" aria-label="Health risk map layers"><p className="px-1 pb-1 text-[8px] font-bold uppercase tracking-[0.16em] text-cyan-100/40">Health layer</p><div className="flex flex-wrap gap-1">{([['none', 'Off'], ['current', 'Active outbreaks'], ['history', 'Historical frequency'], ['lisa', 'LISA hotspots']] as Array<[HealthMapLayer, string]>).map(([key, label]) => <button key={key} type="button" onClick={() => setHealthMapLayer(key)} className={`rounded-lg border px-2 py-1.5 text-[8px] font-black transition ${healthMapLayer === key ? "border-rose-100/30 bg-rose-300/[0.13] text-white" : "border-white/8 bg-white/[0.025] text-cyan-100/44 hover:border-white/18"}`}>{label}</button>)}</div></div>
+
                   {mapStatus !== "ready" ? <div className="absolute inset-0 z-20 grid place-items-center bg-[#020812]/82 p-6 text-center backdrop-blur-sm">{mapStatus === "loading" ? <div><Loader2 className="mx-auto animate-spin text-cyan-200/70" size={24} /><p className="mt-3 text-xs text-cyan-100/50">Rendering MapTiler Bright Dark vector tiles…</p></div> : <div><AlertTriangle className="mx-auto text-amber-200/70" size={24} /><p className="mt-3 text-sm font-black text-amber-50/82">Map rendering failed</p><p className="mt-2 max-w-lg text-[10px] leading-5 text-amber-100/52">{mapError}</p></div>}</div> : null}
-                  <div className="pointer-events-none absolute bottom-3 left-3 z-10 max-w-[82%] rounded-xl border border-white/10 bg-[#020812]/78 px-3 py-2 text-[8px] font-bold uppercase tracking-[0.1em] text-cyan-50/58 backdrop-blur-xl"><span className="mr-3 inline-flex items-center gap-1"><i className="h-1.5 w-1.5 rounded-full bg-violet-300" />GDACS</span><span className="mr-3 inline-flex items-center gap-1"><i className="h-1.5 w-1.5 rounded-full bg-cyan-300" />USGS</span>{mapMode === "country" ? "Country mode · click a country for country-only intelligence." : "AOR mode · click a country region to select its command."}</div>
+                  <div className="pointer-events-none absolute bottom-3 left-3 z-10 max-w-[82%] rounded-xl border border-white/10 bg-[#020812]/78 px-3 py-2 text-[8px] font-bold uppercase tracking-[0.1em] text-cyan-50/58 backdrop-blur-xl"><span className="mr-3 inline-flex items-center gap-1"><i className="h-1.5 w-1.5 rounded-full bg-violet-300" />GDACS</span><span className="mr-3 inline-flex items-center gap-1"><i className="h-1.5 w-1.5 rounded-full bg-cyan-300" />USGS</span><span className="mr-3">Health: {healthMapLayer === "current" ? "active outbreaks" : healthMapLayer === "history" ? "historical frequency" : healthMapLayer === "lisa" ? "published LISA hotspots" : "off"}</span>{mapMode === "country" ? "Country mode · click a country for country-only intelligence." : "AOR mode · click a country region to select its command."}</div>
                 </div>
               </div>
 
