@@ -12,6 +12,7 @@ import {
   Landmark,
   Map,
   Pill,
+  Radar,
   Scale,
   ShieldAlert,
   ShieldCheck,
@@ -37,6 +38,7 @@ const nav = [
   { href: "/occupational-data-explorer", label: "Occupational Data Explorer", icon: Database },
   { href: "/industry-impact-calculator", label: "Industry Impact Calculator", icon: BarChart3 },
   { href: "/occupational-calculators", label: "Occupational Calculators", icon: Calculator },
+  { href: "/war-costs-intelligence", label: "War & Defense Intelligence", icon: Radar },
   { href: "/federal-awards", label: "Federal Awards Intelligence", icon: CircleDollarSign },
   { href: "/public-legal-references", label: "Legal & Injury Intelligence", icon: Scale },
 ];
@@ -52,6 +54,7 @@ function isActivePath(itemHref: string, currentPath: string) {
   if (itemHref === "/aor-factors" && currentPath === "/aor-risk-intelligence") return true;
   if (itemHref === "/industry-impact-calculator" && currentPath === "/industry-injury-benchmarks") return true;
   if (itemHref === "/job-intelligence" && currentPath === "/occupational-demands") return true;
+  if (itemHref === "/war-costs-intelligence" && currentPath === "/war-costs") return true;
   return false;
 }
 
