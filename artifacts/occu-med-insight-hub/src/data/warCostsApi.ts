@@ -71,7 +71,7 @@ export type WarCostsOverview = {
 
 export type WarCostsDatasetResponse = {
   ok: boolean;
-  source: string;
+  source: "WarCosts.org";
   attribution: string;
   dataset: string;
   category: string;
@@ -79,7 +79,6 @@ export type WarCostsDatasetResponse = {
   itemCount: number;
   fetchedAt: string;
   cached: boolean;
-  source: "WarCosts.org";
   data: unknown;
   error?: string;
 };
@@ -115,7 +114,11 @@ export async function searchWarCosts(query: string): Promise<WarCostsSearchRespo
   return readJson<WarCostsSearchResponse>(response);
 }
 
-export async function refreshAllWarCosts(): Promise<{ ok: boolean; succeeded: number; failed: WarCostsDatasetStatus[] }> {
+export async function refreshAllWarCosts(): Promise<{
+  ok: boolean;
+  succeeded: number;
+  failed: Array<{ name: string; ok: false; count: number; error?: string }>;
+}> {
   const response = await fetch("/api/war-costs/refresh-all", { method: "POST", headers: { Accept: "application/json" } });
   return readJson(response);
 }
