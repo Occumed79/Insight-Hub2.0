@@ -1,9 +1,10 @@
-import { Activity, Database, FileText } from "lucide-react";
+import { Activity, Calculator, Database, FileText } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 const items = [
   { href: "/war-costs-intelligence", label: "Overview & Data", note: "Full live mirror", icon: Database },
-  { href: "/war-costs-tools", label: "Interactive Tools", note: "Maps, comparisons, calculators", icon: Activity },
+  { href: "/war-costs-tools", label: "Interactive Tools", note: "Maps, rankings & core calculators", icon: Activity },
+  { href: "/war-costs-special-tools", label: "Specialized Tools", note: "Aid, countries, Hormuz & Iran/Iraq", icon: Calculator },
   { href: "/war-costs-site-evidence", label: "Site Evidence", note: "Page-only facts & analyses", icon: FileText },
 ] as const;
 
@@ -11,7 +12,7 @@ export function WarCostsWorkspaceNav() {
   const [location] = useLocation();
   const current = location.split("?")[0];
   return (
-    <nav aria-label="WarCosts workspace" className="mt-5 grid gap-2 md:grid-cols-3">
+    <nav aria-label="WarCosts workspace" className="mt-5 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
       {items.map((item) => {
         const Icon = item.icon;
         const active = current === item.href || (item.href === "/war-costs-intelligence" && current === "/war-costs");
