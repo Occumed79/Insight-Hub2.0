@@ -21,6 +21,15 @@ function objectRows(value: unknown): WarCostsRow[] {
     : [];
 }
 
+function numericValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[$,%+,]/g, ""));
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
 export function wcRows(data: unknown): WarCostsRow[] {
   const direct = objectRows(data);
   if (direct.length) return direct;
@@ -52,12 +61,28 @@ export function wcText(row: WarCostsRow, ...keys: string[]): string {
 
 export function wcNumber(row: WarCostsRow, ...keys: string[]): number {
   for (const key of keys) {
-    const value = row[key];
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string") {
-      const parsed = Number(value.replace(/[$,%+,]/g, ""));
-      if (Number.isFinite(parsed)) return parsed;
-    }
+    const value = numericValue(row[key]);
+    if (value !== null) return value;
+  }
+
+  // WarCosts uses several purpose-specific field names across its downloadable
+  // datasets. Resolve only aliases implied by the requested semantic key so a
+  // tool can follow source-schema changes without accidentally grabbing an
+  // unrelated numeric field.
+  const requested = new Set(keys);
+  const aliases: string[] = [];
+  if (requested.has("aid")) aliases.push("annual2023", "annual2024", "totalSince2001");
+  if (requested.has("spending") || requested.has("militarySpending")) aliases.push("spending2024", "spending2026", "latestSpending", "budget", "budget2024", "budget2026");
+  if (requested.has("gdpPercent") || requested.has("percentGdp") || requested.has("gdpShare")) aliases.push("pctGDP", "percentGDP", "shareGDP");
+  if (requested.has("globalShare") || requested.has("percentWorld") || requested.has("worldShare")) aliases.push("pctWorld", "shareGlobal", "worldPercent");
+  if (requested.has("perCapita") || requested.has("spendingPerCapita")) aliases.push("perCapitaSpend", "perCapitaSpending");
+  if (requested.has("jobs") || requested.has("directJobs")) aliases.push("defenseJobs", "militaryJobs");
+  if (requested.has("dodSpending") || requested.has("contractValue")) aliases.push("defenseSpending", "dodContracts", "contracts");
+  if (requested.has("bases") || requested.has("installations")) aliases.push("baseCount", "installationCount", "totalBases");
+
+  for (const key of aliases) {
+    const value = numericValue(row[key]);
+    if (value !== null) return value;
   }
   return 0;
 }
