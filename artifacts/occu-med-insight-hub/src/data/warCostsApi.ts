@@ -51,6 +51,8 @@ export type WarCostsOverview = {
     failedDatasets: number;
     contractors: number;
     weaponSystems: number;
+    weaponDetailRecords?: number;
+    enrichedWeaponSystems?: number;
     conflicts: number;
     activeConflicts: number;
     strikeRecords: number;
@@ -79,6 +81,7 @@ export type WarCostsDatasetResponse = {
   itemCount: number;
   fetchedAt: string;
   cached: boolean;
+  mirrorSource?: "live" | "database";
   data: unknown;
   error?: string;
 };
@@ -100,10 +103,7 @@ async function readJson<T>(response: Response): Promise<T> {
 
 export async function getWarCostsOverview(refresh = false): Promise<WarCostsOverview> {
   const response = await fetch(`/api/war-costs/overview${refresh ? "?refresh=1" : ""}`, { headers: { Accept: "application/json" } });
-  const overview = await readJson<WarCostsOverview>(response);
-  const completeWeaponsFeed = overview.datasets.find((item) => item.name === "weapons.json");
-  if (completeWeaponsFeed?.ok) overview.summary.weaponSystems = completeWeaponsFeed.count;
-  return overview;
+  return readJson<WarCostsOverview>(response);
 }
 
 export async function getWarCostsDataset(name: string, refresh = false): Promise<WarCostsDatasetResponse> {
