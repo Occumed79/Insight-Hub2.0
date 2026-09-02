@@ -9,6 +9,17 @@ export type WarCostsDatasetStatus = {
   error?: string;
 };
 
+export type WarCostsCoverage = {
+  liveManifestHealthy: boolean;
+  liveManifestFetchedAt?: string;
+  liveManifestError?: string;
+  advertisedDatasetEntries: number;
+  knownCatalogDatasets: number;
+  liveUniqueDatasets: number;
+  missingKnownFromLive: string[];
+  newLiveDatasets: string[];
+};
+
 export type WarCostsContractor = {
   name: string;
   slug?: string;
@@ -44,9 +55,12 @@ export type WarCostsOverview = {
     periodicHours: number;
     manifestMinutes: number;
   };
+  coverage: WarCostsCoverage;
   summary: {
     advertisedDatasets: number;
     discoveredDatasets: number;
+    liveManifestDatasets: number;
+    knownCatalogDatasets: number;
     mirroredDatasets: number;
     failedDatasets: number;
     contractors: number;
@@ -121,6 +135,7 @@ export async function refreshAllWarCosts(): Promise<{
   ok: boolean;
   succeeded: number;
   failed: Array<{ name: string; ok: false; count: number; error?: string }>;
+  coverage?: WarCostsCoverage;
 }> {
   const response = await fetch("/api/war-costs/refresh-all", { method: "POST", headers: { Accept: "application/json" } });
   return readJson(response);
