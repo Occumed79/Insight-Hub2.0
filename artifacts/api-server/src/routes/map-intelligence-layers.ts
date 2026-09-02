@@ -10,6 +10,7 @@ type JsonRow = Record<string, unknown>;
 
 const ALLEN_DASHBOARD = "https://ma-allen.com/troops_dashboard/";
 const ALLEN_RESEARCH = "https://www.ma-allen.com/military-deployments/";
+const ALLEN_GEOCODED_CONSTRUCTION = "https://ma-allen.com/Documents/research/minerva/geocoded_expenditures.csv";
 const FIGSHARE_ARTICLE = "https://api.figshare.com/v2/articles/17207183";
 const OUTBREAK_TRACKER = "https://outbreaktracker.live/";
 
@@ -112,7 +113,7 @@ async function allenDefensePresence() {
   const pages = await Promise.allSettled([fetchText(ALLEN_DASHBOARD), fetchText(ALLEN_RESEARCH)]);
   const pageBodies = pages.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
   if (!pageBodies.length) warnings.push("Michael Allen pages were unreachable during this refresh.");
-  const discovered = new Set<string>();
+  const discovered = new Set<string>([ALLEN_GEOCODED_CONSTRUCTION]);
   pageBodies.forEach((body, index) => candidateDataUrls(index === 0 ? ALLEN_DASHBOARD : ALLEN_RESEARCH, body).forEach((url) => discovered.add(url)));
 
   // The dashboard's CSV is sometimes constructed by JavaScript. Inspect same-site scripts for data-file references rather than scraping rendered SVG/circles.
@@ -143,7 +144,10 @@ async function allenDefensePresence() {
   });
   const constructionFile = dataFiles.find(({ rows }) => {
     const keys = headerKeys(rows);
-    return keys.some((key) => /lat|latitude/.test(key)) && keys.some((key) => /lon|lng|longitude/.test(key)) && keys.some((key) => /cost|spend|amount|construction/.test(key));
+    const hasLatitude = keys.some((key) => key === "lat" || key === "latitude");
+    const hasLongitude = keys.some((key) => key === "log" || key === "lon" || key === "lng" || key === "longitude");
+    const hasSpending = keys.some((key) => key === "toa.sum" || key === "toa.mean" || /cost|spend|amount|construction/.test(key));
+    return hasLatitude && hasLongitude && hasSpending;
   });
 
   const troopRows = troopFile?.rows ?? [];
@@ -163,12 +167,12 @@ async function allenDefensePresence() {
   })).filter((row) => row.country && row.personnel !== null);
 
   const construction = (constructionFile?.rows ?? []).map((row) => ({
-    location: firstField(row, "location", "base", "site", "facility", "countryname", "country"),
+    location: firstField(row, "loc.name", "location", "base", "site", "facility", "countryname", "country"),
     country: firstField(row, "countryname", "country"),
     year: numberValue(firstField(row, "year")),
     latitude: numberValue(firstField(row, "latitude", "lat")),
-    longitude: numberValue(firstField(row, "longitude", "lon", "lng")),
-    spending: numberValue(firstField(row, "spending", "amount", "cost", "total")),
+    longitude: numberValue(firstField(row, "longitude", "lon", "lng", "log")),
+    spending: numberValue(firstField(row, "toa.sum", "toa.mean", "spending", "amount", "cost", "total")),
   })).filter((row) => row.latitude !== null && row.longitude !== null);
 
   if (!troopFile) warnings.push("The Allen dashboard loaded, but its generated troop CSV/JSON export was not discoverable in this refresh. WarCosts layers remain available and no troop totals are fabricated.");
