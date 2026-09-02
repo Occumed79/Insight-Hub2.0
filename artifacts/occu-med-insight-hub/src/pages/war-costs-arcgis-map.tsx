@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, MapPinned } from "lucide-react";
-import { GlassCard } from "@/components/insight/GlassCard";
+import { Eye, EyeOff, Loader2, MapPinned } from "lucide-react";
 import { wcConflictCost, wcConflictName, wcMoney, wcNumber, wcStringArray, wcText, type WarCostsRow } from "./war-costs-utils";
 
 declare global {
@@ -14,6 +13,25 @@ const ARCGIS_VERSION = "5.1";
 const ARCGIS_SCRIPT = `https://js.arcgis.com/${ARCGIS_VERSION}/`;
 const ARCGIS_CSS = `https://js.arcgis.com/${ARCGIS_VERSION}/esri/themes/dark/main.css`;
 const GEOCODE_URL = "https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates";
+
+type LayerKey = "conflicts" | "bases" | "naval" | "covert";
+type LayerState = Record<LayerKey, boolean>;
+type MapCounts = Record<LayerKey, number>;
+
+type WarCostsArcGisMapProps = {
+  conflicts: WarCostsRow[];
+  baseCountries: WarCostsRow[];
+  deployments: WarCostsRow[];
+  operations: WarCostsRow[];
+  strikes: WarCostsRow[];
+};
+
+const LAYER_META: Array<{ key: LayerKey; label: string; note: string }> = [
+  { key: "conflicts", label: "Active Combat Zones", note: "Active / ongoing WarCosts conflicts" },
+  { key: "bases", label: "US Military Bases", note: "Country-level base presence" },
+  { key: "naval", label: "Naval Deployments", note: "Source-derived current maritime activity" },
+  { key: "covert", label: "Covert Operations", note: "Drone / special-operations evidence" },
+];
 
 async function loadArcGis(apiKey: string) {
   let css = document.querySelector<HTMLLinkElement>(`link[href="${ARCGIS_CSS}"]`);
@@ -70,16 +88,66 @@ function activeConflict(row: WarCostsRow) {
   return status.includes("ongoing") || status.includes("active") || !wcNumber(row, "endYear");
 }
 
-export function WarCostsArcGisMap({ conflicts, baseCountries }: { conflicts: WarCostsRow[]; baseCountries: WarCostsRow[] }) {
+function placeFromRow(row: WarCostsRow): string {
+  const countries = wcStringArray(row, "countries");
+  const direct = countries[0] || wcText(row, "country", "countryName", "location", "region", "targetCountry", "hostCountry");
+  if (direct) return direct;
+  const conflict = wcText(row, "conflict");
+  return conflict ? conflict.replace(/-/g, " ").replace(/\b(war|intervention|invasion)\b/gi, " ").replace(/\s+/g, " ").trim() : "";
+}
+
+function rowBlob(row: WarCostsRow): string {
+  try { return JSON.stringify(row).toLowerCase(); }
+  catch { return ""; }
+}
+
+function uniqueByPlace(rows: WarCostsRow[], max: number): WarCostsRow[] {
+  const seen = new Set<string>();
+  const output: WarCostsRow[] = [];
+  for (const row of rows) {
+    const place = placeFromRow(row).toLowerCase();
+    if (!place || seen.has(place)) continue;
+    seen.add(place);
+    output.push(row);
+    if (output.length >= max) break;
+  }
+  return output;
+}
+
+export function WarCostsArcGisMap({ conflicts, baseCountries, deployments, operations, strikes }: WarCostsArcGisMapProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<any>(null);
-  const layerRef = useRef<any>(null);
+  const layerRefs = useRef<Record<LayerKey, any>>({ conflicts: null, bases: null, naval: null, covert: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [mapped, setMapped] = useState({ conflicts: 0, bases: 0 });
+  const [counts, setCounts] = useState<MapCounts>({ conflicts: 0, bases: 0, naval: 0, covert: 0 });
+  const [visible, setVisible] = useState<LayerState>({ conflicts: true, bases: true, naval: true, covert: true });
 
-  const conflictRows = useMemo(() => conflicts.filter(activeConflict).slice(0, 20), [conflicts]);
-  const baseRows = useMemo(() => [...baseCountries].sort((a, b) => wcNumber(b, "total", "bases", "installations") - wcNumber(a, "total", "bases", "installations")).slice(0, 45), [baseCountries]);
+  const conflictRows = useMemo(() => conflicts.filter(activeConflict).slice(0, 12), [conflicts]);
+  const baseRows = useMemo(() => [...baseCountries]
+    .filter((row) => wcText(row, "country", "countryName", "name"))
+    .sort((a, b) => wcNumber(b, "total", "bases", "installations") - wcNumber(a, "total", "bases", "installations"))
+    .slice(0, 25), [baseCountries]);
+  const navalRows = useMemo(() => {
+    const keyword = /(navy|naval|carrier|fleet|warship|ship|maritime|red sea|persian gulf|strait|sea of oman)/i;
+    return uniqueByPlace([
+      ...deployments.filter((row) => keyword.test(rowBlob(row))),
+      ...operations.filter((row) => wcNumber(row, "year") >= 2001 && keyword.test(rowBlob(row))),
+    ], 8);
+  }, [deployments, operations]);
+  const covertRows = useMemo(() => {
+    const keyword = /(covert|cia|secret|special operations|special forces|seal|shadow|drone|classified)/i;
+    return uniqueByPlace([
+      ...[...strikes].reverse(),
+      ...operations.filter((row) => wcNumber(row, "year") >= 2001 && keyword.test(rowBlob(row))),
+    ], 7);
+  }, [operations, strikes]);
+
+  useEffect(() => {
+    for (const key of Object.keys(visible) as LayerKey[]) {
+      if (layerRefs.current[key]) layerRefs.current[key].visible = visible[key];
+    }
+  }, [visible]);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,65 +170,93 @@ export function WarCostsArcGisMap({ conflicts, baseCountries }: { conflicts: War
 
         if (!viewRef.current) {
           const map = new EsriMap({ basemap: "dark-gray-vector" });
-          const layer = new GraphicsLayer({ title: "WarCosts intelligence" });
-          map.add(layer);
-          layerRef.current = layer;
+          const created: Record<LayerKey, any> = {
+            bases: new GraphicsLayer({ title: "US Military Bases" }),
+            naval: new GraphicsLayer({ title: "Naval Deployments" }),
+            covert: new GraphicsLayer({ title: "Covert Operations" }),
+            conflicts: new GraphicsLayer({ title: "Active Combat Zones" }),
+          };
+          map.addMany([created.bases, created.naval, created.covert, created.conflicts]);
+          layerRefs.current = created;
           viewRef.current = new MapView({
             container: hostRef.current,
             map,
-            center: [12, 23],
-            zoom: 1.6,
+            center: [15, 23],
+            zoom: 1.7,
             constraints: { minZoom: 1 },
             popup: { dockEnabled: false },
           });
           await viewRef.current.when();
         }
 
-        const layer = layerRef.current;
-        layer?.removeAll();
-        let conflictCount = 0;
-        let baseCount = 0;
-
-        const cache = new Map<string, [number, number] | null>();
+        for (const key of Object.keys(layerRefs.current) as LayerKey[]) layerRefs.current[key]?.removeAll();
+        const nextCounts: MapCounts = { conflicts: 0, bases: 0, naval: 0, covert: 0 };
+        const geoCache = new Map<string, [number, number] | null>();
         const locate = async (place: string) => {
-          if (cache.has(place)) return cache.get(place) ?? null;
+          if (geoCache.has(place)) return geoCache.get(place) ?? null;
           const location = await geocode(place, config.apiKey).catch(() => null);
-          cache.set(place, location);
+          geoCache.set(place, location);
           return location;
         };
 
         for (const row of baseRows) {
           const country = wcText(row, "country", "countryName", "name");
-          if (!country) continue;
-          const point = await locate(country);
+          const point = country ? await locate(country) : null;
           if (!point || cancelled) continue;
           const installations = wcNumber(row, "total", "bases", "installations");
-          layer.add(new Graphic({
+          layerRefs.current.bases.add(new Graphic({
             geometry: { type: "point", longitude: point[0], latitude: point[1] },
-            symbol: { type: "simple-marker", color: [103, 232, 249, 0.72], size: Math.max(7, Math.min(20, 7 + Math.log10(Math.max(1, installations)) * 4)), outline: { color: [224, 247, 250, 0.8], width: 0.7 } },
-            attributes: { title: country, type: "Military presence", installations },
-            popupTemplate: { title: "{title}", content: `<b>US military presence</b><br/>Installations / source total: ${installations.toLocaleString()}` },
+            symbol: { type: "simple-marker", color: [103, 232, 249, 0.78], size: Math.max(8, Math.min(20, 8 + Math.log10(Math.max(1, installations)) * 4)), outline: { color: [224, 247, 250, 0.9], width: 0.8 } },
+            attributes: { title: country, installations },
+            popupTemplate: { title: "{title}", content: `<b>US military-base presence</b><br/>Source installations: ${installations.toLocaleString()}` },
           }));
-          baseCount += 1;
+          nextCounts.bases += 1;
         }
 
         for (const row of conflictRows) {
-          const countries = wcStringArray(row, "countries");
-          const place = countries[0] || wcText(row, "country", "location", "region");
-          if (!place) continue;
-          const point = await locate(place);
+          const place = placeFromRow(row);
+          const point = place ? await locate(place) : null;
           if (!point || cancelled) continue;
           const name = wcConflictName(row);
-          const cost = wcConflictCost(row);
-          layer.add(new Graphic({
+          layerRefs.current.conflicts.add(new Graphic({
             geometry: { type: "point", longitude: point[0], latitude: point[1] },
-            symbol: { type: "simple-marker", color: [251, 113, 133, 0.92], size: 14, outline: { color: [255, 228, 230, 0.95], width: 1.2 } },
-            attributes: { title: name, type: "Active conflict", place },
-            popupTemplate: { title: "{title}", content: `<b>Active / ongoing conflict</b><br/>Location: ${place}<br/>Adjusted cost: ${wcMoney(cost)}` },
+            symbol: { type: "simple-marker", color: [251, 113, 133, 0.95], size: 15, outline: { color: [255, 228, 230, 0.98], width: 1.3 } },
+            attributes: { title: name, place },
+            popupTemplate: { title: "{title}", content: `<b>Active / ongoing conflict</b><br/>Location: ${place}<br/>Adjusted cost: ${wcMoney(wcConflictCost(row))}` },
           }));
-          conflictCount += 1;
+          nextCounts.conflicts += 1;
         }
-        if (!cancelled) setMapped({ conflicts: conflictCount, bases: baseCount });
+
+        for (const row of navalRows) {
+          const place = placeFromRow(row);
+          const point = place ? await locate(place) : null;
+          if (!point || cancelled) continue;
+          const title = wcText(row, "name", "title", "operation") || `Naval activity — ${place}`;
+          layerRefs.current.naval.add(new Graphic({
+            geometry: { type: "point", longitude: point[0], latitude: point[1] },
+            symbol: { type: "simple-marker", color: [96, 165, 250, 0.92], size: 12, outline: { color: [219, 234, 254, 0.95], width: 1 } },
+            attributes: { title, place },
+            popupTemplate: { title: "{title}", content: `<b>Naval / maritime deployment evidence</b><br/>Location: ${place}<br/>Source: WarCosts deployment/operation data` },
+          }));
+          nextCounts.naval += 1;
+        }
+
+        for (const row of covertRows) {
+          const place = placeFromRow(row);
+          const point = place ? await locate(place) : null;
+          if (!point || cancelled) continue;
+          const title = wcText(row, "name", "title", "target", "location") || `Covert / strike activity — ${place}`;
+          layerRefs.current.covert.add(new Graphic({
+            geometry: { type: "point", longitude: point[0], latitude: point[1] },
+            symbol: { type: "simple-marker", color: [192, 132, 252, 0.92], size: 11, outline: { color: [243, 232, 255, 0.95], width: 1 } },
+            attributes: { title, place },
+            popupTemplate: { title: "{title}", content: `<b>Covert / special-operations evidence</b><br/>Location: ${place}<br/>Source: WarCosts strike/operation data` },
+          }));
+          nextCounts.covert += 1;
+        }
+
+        for (const key of Object.keys(visible) as LayerKey[]) layerRefs.current[key].visible = visible[key];
+        if (!cancelled) setCounts(nextCounts);
       } catch (mapError) {
         if (!cancelled) setError(mapError instanceof Error ? mapError.message : "ArcGIS map failed to initialize.");
       } finally {
@@ -168,25 +264,31 @@ export function WarCostsArcGisMap({ conflicts, baseCountries }: { conflicts: War
       }
     })();
     return () => { cancelled = true; };
-  }, [baseRows, conflictRows]);
+  }, [baseRows, conflictRows, covertRows, navalRows]);
 
   useEffect(() => () => {
     viewRef.current?.destroy?.();
     viewRef.current = null;
-    layerRef.current = null;
+    layerRefs.current = { conflicts: null, bases: null, naval: null, covert: null };
   }, []);
 
   return (
-    <GlassCard className="overflow-hidden p-0">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/8 p-5">
-        <div><p className="text-[10px] uppercase tracking-[.22em] text-cyan-100/35">ArcGIS intelligence map</p><h3 className="mt-1 text-lg font-black text-white">Global WarCosts map</h3><p className="mt-1 text-[10px] text-cyan-100/38">ArcGIS Maps SDK 5.1 · World Geocoding · interactive pan, zoom and popups</p></div>
-        <div className="flex gap-2 text-[9px]"><span className="rounded-full border border-rose-200/15 bg-rose-300/8 px-2.5 py-1 text-rose-100">{mapped.conflicts} conflicts</span><span className="rounded-full border border-cyan-200/15 bg-cyan-300/8 px-2.5 py-1 text-cyan-100">{mapped.bases} presence points</span></div>
+    <div className="relative min-h-[720px] overflow-hidden rounded-3xl border border-cyan-100/10 bg-[#020611] shadow-[0_28px_90px_rgba(0,0,0,.42)]">
+      <div ref={hostRef} className="h-[calc(100vh-235px)] min-h-[720px] w-full" aria-label="Standalone ArcGIS WarCosts operational map" />
+
+      <div className="pointer-events-none absolute left-4 top-4 z-10 max-w-sm rounded-2xl border border-white/10 bg-[#020611]/88 p-4 shadow-2xl backdrop-blur-xl">
+        <p className="text-[9px] font-bold uppercase tracking-[.24em] text-cyan-100/40">Independent ArcGIS workspace</p>
+        <h2 className="mt-1 text-lg font-black text-white">WarCosts Global War Map</h2>
+        <p className="mt-1 text-[10px] leading-4 text-cyan-100/42">This map is separate from AOR and uses only the WarCosts ArcGIS runtime key and WarCosts-derived source layers.</p>
       </div>
-      <div className="relative h-[660px] bg-[#020611]">
-        <div ref={hostRef} className="h-full w-full" aria-label="ArcGIS map of WarCosts conflicts and military presence" />
-        {loading && <div className="absolute inset-0 grid place-items-center bg-[#020611]/80"><div className="text-center"><Loader2 className="mx-auto animate-spin text-cyan-200" /><p className="mt-3 text-xs font-bold text-cyan-50">Building ArcGIS WarCosts layers…</p></div></div>}
-        {error && <div className="absolute left-4 top-4 max-w-md rounded-xl border border-rose-200/20 bg-[#1a070d]/95 p-3 text-xs text-rose-100"><div className="flex gap-2"><MapPinned size={15} className="shrink-0" /><span>{error}</span></div></div>}
+
+      <div className="absolute right-4 top-4 z-10 w-[280px] rounded-2xl border border-white/10 bg-[#020611]/90 p-3 shadow-2xl backdrop-blur-xl">
+        <p className="px-1 pb-2 text-[9px] font-bold uppercase tracking-[.2em] text-cyan-100/35">Layers</p>
+        <div className="space-y-2">{LAYER_META.map((layer) => <button key={layer.key} type="button" onClick={() => setVisible((state) => ({ ...state, [layer.key]: !state[layer.key] }))} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left ${visible[layer.key] ? "border-cyan-100/16 bg-white/[.055]" : "border-white/7 bg-black/10 opacity-55"}`}><div><p className="text-[10px] font-black text-white">{layer.label}</p><p className="mt-0.5 text-[9px] text-cyan-100/35">{counts[layer.key]} mapped · {layer.note}</p></div>{visible[layer.key] ? <Eye size={14} className="text-cyan-100/65" /> : <EyeOff size={14} className="text-cyan-100/35" />}</button>)}</div>
       </div>
-    </GlassCard>
+
+      {loading && <div className="absolute inset-0 z-20 grid place-items-center bg-[#020611]/78"><div className="text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin text-cyan-200" /><p className="mt-3 text-xs font-bold text-cyan-50">Building the independent ArcGIS WarCosts map…</p></div></div>}
+      {error && <div className="absolute bottom-4 left-4 z-20 max-w-md rounded-xl border border-rose-200/20 bg-[#1a070d]/95 p-3 text-xs text-rose-100"><div className="flex gap-2"><MapPinned size={15} className="shrink-0" /><span>{error}</span></div></div>}
+    </div>
   );
 }
