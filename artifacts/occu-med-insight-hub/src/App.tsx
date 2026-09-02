@@ -29,6 +29,7 @@ const WarCostsIntelligence = React.lazy(() => import("@/pages/war-costs-intellig
 const WarCostsMap = React.lazy(() => import("@/pages/war-costs-map"));
 const WarCostsTools = React.lazy(() => import("@/pages/war-costs-tools"));
 const WarCostsSpecialTools = React.lazy(() => import("@/pages/war-costs-special-tools"));
+const WarCostsVisualizations = React.lazy(() => import("@/pages/war-costs-visualizations"));
 const WarCostsAccountability = React.lazy(() => import("@/pages/war-costs-accountability"));
 const WarCostsSiteEvidence = React.lazy(() => import("@/pages/war-costs-site-evidence"));
 const ReviewerInjuriesMedicalPage = React.lazy(() => import("@/pages/reviewer-injuries-medical"));
@@ -85,6 +86,7 @@ function WarCostsRoute() { return <TranslucentToolPage page="war-costs"><WarCost
 function WarCostsMapRoute() { return <TranslucentToolPage page="war-costs"><WarCostsMap /></TranslucentToolPage>; }
 function WarCostsToolsRoute() { return <TranslucentToolPage page="war-costs"><WarCostsTools /></TranslucentToolPage>; }
 function WarCostsSpecialToolsRoute() { return <TranslucentToolPage page="war-costs"><WarCostsSpecialTools /></TranslucentToolPage>; }
+function WarCostsVisualizationsRoute() { return <TranslucentToolPage page="war-costs"><WarCostsVisualizations /></TranslucentToolPage>; }
 function WarCostsAccountabilityRoute() { return <TranslucentToolPage page="war-costs"><WarCostsAccountability /></TranslucentToolPage>; }
 function WarCostsSiteEvidenceRoute() { return <TranslucentToolPage page="war-costs"><WarCostsSiteEvidence /></TranslucentToolPage>; }
 
@@ -135,6 +137,7 @@ function Router() {
         <Route path="/war-costs-map" component={WarCostsMapRoute} />
         <Route path="/war-costs-tools" component={WarCostsToolsRoute} />
         <Route path="/war-costs-special-tools" component={WarCostsSpecialToolsRoute} />
+        <Route path="/war-costs-visualizations" component={WarCostsVisualizationsRoute} />
         <Route path="/war-costs-accountability" component={WarCostsAccountabilityRoute} />
         <Route path="/war-costs-site-evidence" component={WarCostsSiteEvidenceRoute} />
         <Route path="/federal-awards" component={FederalAwardsRoute} />
