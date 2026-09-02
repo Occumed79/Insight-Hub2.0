@@ -100,7 +100,10 @@ async function readJson<T>(response: Response): Promise<T> {
 
 export async function getWarCostsOverview(refresh = false): Promise<WarCostsOverview> {
   const response = await fetch(`/api/war-costs/overview${refresh ? "?refresh=1" : ""}`, { headers: { Accept: "application/json" } });
-  return readJson<WarCostsOverview>(response);
+  const overview = await readJson<WarCostsOverview>(response);
+  const completeWeaponsFeed = overview.datasets.find((item) => item.name === "weapons.json");
+  if (completeWeaponsFeed?.ok) overview.summary.weaponSystems = completeWeaponsFeed.count;
+  return overview;
 }
 
 export async function getWarCostsDataset(name: string, refresh = false): Promise<WarCostsDatasetResponse> {
