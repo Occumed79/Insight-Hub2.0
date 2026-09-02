@@ -1,7 +1,41 @@
 export type WarCostsRow = Record<string, unknown>;
 
+const WRAPPED_ARRAY_KEYS = [
+  "topRecipients",
+  "countries",
+  "states",
+  "items",
+  "examples",
+  "records",
+  "data",
+  "results",
+  "rankings",
+  "deployments",
+  "programs",
+  "systems",
+] as const;
+
+function objectRows(value: unknown): WarCostsRow[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is WarCostsRow => Boolean(item && typeof item === "object" && !Array.isArray(item)))
+    : [];
+}
+
 export function wcRows(data: unknown): WarCostsRow[] {
-  return Array.isArray(data) ? data.filter((item): item is WarCostsRow => Boolean(item && typeof item === "object")) : [];
+  const direct = objectRows(data);
+  if (direct.length) return direct;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return [];
+
+  const record = data as WarCostsRow;
+  for (const key of WRAPPED_ARRAY_KEYS) {
+    const rows = objectRows(record[key]);
+    if (rows.length) return rows;
+  }
+
+  // Last-resort schema resilience for newly added WarCosts feeds: if exactly one
+  // object-valued property is an array of records, treat that as the feed body.
+  const candidates = Object.values(record).map(objectRows).filter((rows) => rows.length > 0);
+  return candidates.length === 1 ? candidates[0] : [];
 }
 
 export function wcObject(data: unknown): WarCostsRow {
