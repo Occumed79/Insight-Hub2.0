@@ -26,6 +26,7 @@ const WorkersCompCoverage = React.lazy(() => import("@/pages/workers-comp-covera
 const DbaIntelligence = React.lazy(() => import("@/pages/dba-intelligence"));
 const SourceGovernance = React.lazy(() => import("@/pages/source-governance"));
 const WarCostsIntelligence = React.lazy(() => import("@/pages/war-costs-intelligence"));
+const WarCostsMap = React.lazy(() => import("@/pages/war-costs-map"));
 const WarCostsTools = React.lazy(() => import("@/pages/war-costs-tools"));
 const WarCostsSpecialTools = React.lazy(() => import("@/pages/war-costs-special-tools"));
 const WarCostsSiteEvidence = React.lazy(() => import("@/pages/war-costs-site-evidence"));
@@ -80,6 +81,7 @@ function OccupationalCalculatorsRoute() { return <TranslucentToolPage page="occu
 function FederalAwardsRoute() { return <TranslucentToolPage page="federal-awards"><FederalAwardsPage /></TranslucentToolPage>; }
 function LegalReferencesRoute() { return <TranslucentToolPage page="legal"><LegalReferencesPage /></TranslucentToolPage>; }
 function WarCostsRoute() { return <TranslucentToolPage page="war-costs"><WarCostsIntelligence /></TranslucentToolPage>; }
+function WarCostsMapRoute() { return <TranslucentToolPage page="war-costs"><WarCostsMap /></TranslucentToolPage>; }
 function WarCostsToolsRoute() { return <TranslucentToolPage page="war-costs"><WarCostsTools /></TranslucentToolPage>; }
 function WarCostsSpecialToolsRoute() { return <TranslucentToolPage page="war-costs"><WarCostsSpecialTools /></TranslucentToolPage>; }
 function WarCostsSiteEvidenceRoute() { return <TranslucentToolPage page="war-costs"><WarCostsSiteEvidence /></TranslucentToolPage>; }
@@ -113,7 +115,6 @@ function Router() {
         <Route path="/leadership-map" component={LeadershipMapRoute} />
         <Route path="/dba-intelligence" component={DbaRoute} />
         <Route path="/fec-filings" component={FecFilingsRoute} />
-
         <Route path="/injuries-medical-conditions" component={ReviewerInjuriesMedicalPage} />
         <Route path="/job-intelligence" component={ReviewerJobIntelligencePage} />
         <Route path="/aor-factors" component={ReviewerAorFactorsPage} />
@@ -121,7 +122,6 @@ function Router() {
         <Route path="/drug-checker" component={ReviewerDrugCheckerPage} />
         <Route path="/clinical-calculators" component={ReviewerClinicalCalculatorsPage} />
         <Route path="/standards-intelligence" component={ReviewerStandardsIntelligencePage} />
-
         <Route path="/industry-injury-benchmarks" component={IndustryImpactCalculatorRoute} />
         <Route path="/occupational-demands" component={ReviewerJobIntelligencePage} />
         <Route path="/onet-master-tool" component={OnetMasterToolRoute} />
@@ -130,17 +130,16 @@ function Router() {
         <Route path="/occupational-calculators" component={OccupationalCalculatorsRoute} />
         <Route path="/war-costs-intelligence" component={WarCostsRoute} />
         <Route path="/war-costs" component={WarCostsRoute} />
+        <Route path="/war-costs-map" component={WarCostsMapRoute} />
         <Route path="/war-costs-tools" component={WarCostsToolsRoute} />
         <Route path="/war-costs-special-tools" component={WarCostsSpecialToolsRoute} />
         <Route path="/war-costs-site-evidence" component={WarCostsSiteEvidenceRoute} />
         <Route path="/federal-awards" component={FederalAwardsRoute} />
         <Route path="/public-legal-references" component={LegalReferencesRoute} />
-
         <Route path="/geographic-footprint" component={GlobalLocationsRoute} />
         <Route path="/geographic-data" component={GlobalLocationsRoute} />
         <Route path="/location-overlap" component={GlobalLocationOverlapRoute} />
         <Route path="/geographic-overlap" component={GlobalLocationOverlapRoute} />
-
         <Route path="/data-visualization" component={DataVisualization} />
         <Route path="/quantifiable-data" component={QuantifiableData} />
         <Route path="/hiring-intelligence" component={HiringIntelligence} />
