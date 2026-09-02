@@ -4,11 +4,13 @@ const router: IRouter = Router();
 const BASE_URL = "https://www.warcosts.org/data";
 const DOWNLOADS_URL = "https://www.warcosts.org/downloads";
 const USER_AGENT = "Occu-Med Insight Hub 2.0 WarCosts ingestion";
+const ADVERTISED_DATASET_ENTRIES = 40;
 
 type CacheEntry = { expiresAt: number; fetchedAt: string; data: unknown; source: "live" | "database" };
 type ManifestEntry = { name: string; category: string; refreshClass: "live" | "frequent" | "periodic" };
 type DatasetResult = { data: unknown; fetchedAt: string; cached: boolean; source: "live" | "database" };
 type RefreshStatus = { name: string; ok: boolean; count: number; fetchedAt?: string; source?: string; error?: string };
+type LiveManifestAudit = { ok: boolean; fetchedAt?: string; names: string[]; error?: string };
 type EnrichedContractor = Record<string, unknown> & {
   name: string;
   subsidiaries: Record<string, unknown>[];
@@ -19,6 +21,7 @@ type EnrichedContractor = Record<string, unknown> & {
 
 const cache = new Map<string, CacheEntry>();
 let manifestCache: { expiresAt: number; entries: ManifestEntry[] } | null = null;
+let liveManifestAudit: LiveManifestAudit = { ok: false, names: [], error: "Live Downloads manifest has not been checked yet." };
 let persistenceReady: Promise<void> | null = null;
 let refreshAllPromise: Promise<RefreshStatus[]> | null = null;
 
@@ -92,6 +95,20 @@ function datasetFilename(value: string): string | null {
   return /^[a-z0-9][a-z0-9-]*\.json$/i.test(clean) ? clean.toLowerCase() : null;
 }
 
+function liveCoverage() {
+  const liveNames = new Set(liveManifestAudit.names);
+  return {
+    liveManifestHealthy: liveManifestAudit.ok,
+    liveManifestFetchedAt: liveManifestAudit.fetchedAt,
+    liveManifestError: liveManifestAudit.error,
+    advertisedDatasetEntries: ADVERTISED_DATASET_ENTRIES,
+    knownCatalogDatasets: KNOWN_DATASETS.size,
+    liveUniqueDatasets: liveNames.size,
+    missingKnownFromLive: [...KNOWN_DATASETS].filter((name) => !liveNames.has(name)).sort(),
+    newLiveDatasets: [...liveNames].filter((name) => !KNOWN_DATASETS.has(name)).sort(),
+  };
+}
+
 async function ensurePersistence(): Promise<void> {
   if (persistenceReady) return persistenceReady;
   persistenceReady = (async () => {
@@ -162,25 +179,32 @@ async function discoverManifest(force = false): Promise<ManifestEntry[]> {
   if (!force && manifestCache && manifestCache.expiresAt > now) return manifestCache.entries;
 
   const names = new Set(KNOWN_DATASETS);
+  const liveNames = new Set<string>();
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15_000);
     try {
       const response = await fetch(DOWNLOADS_URL, { headers: { Accept: "text/html", "User-Agent": USER_AGENT }, signal: controller.signal, cache: "no-store" });
-      if (response.ok) {
-        const html = await response.text();
-        const patterns = [/\/data\/([a-z0-9-]+\.json)/gi, /`([a-z0-9-]+\.json)`/gi];
-        for (const pattern of patterns) {
-          for (const match of html.matchAll(pattern)) {
-            const filename = datasetFilename(match[1] ?? "");
-            if (filename) names.add(filename);
+      if (!response.ok) throw new Error(`Downloads manifest returned HTTP ${response.status}`);
+      const html = await response.text();
+      const patterns = [/\/data\/([a-z0-9-]+\.json)/gi, /`([a-z0-9-]+\.json)`/gi];
+      for (const pattern of patterns) {
+        for (const match of html.matchAll(pattern)) {
+          const filename = datasetFilename(match[1] ?? "");
+          if (filename) {
+            liveNames.add(filename);
+            names.add(filename);
           }
         }
       }
+      if (!liveNames.size) throw new Error("Downloads manifest contained no discoverable JSON filenames");
+      liveManifestAudit = { ok: true, fetchedAt: new Date().toISOString(), names: [...liveNames].sort() };
     } finally {
       clearTimeout(timer);
     }
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Manifest discovery failed";
+    liveManifestAudit = { ok: false, names: [], error: message };
     console.warn("WarCosts manifest discovery failed; using known dataset manifest", error);
   }
 
@@ -322,7 +346,7 @@ router.get("/war-costs/datasets", async (_req: Request, res: Response) => {
     ok: true,
     source: "WarCosts.org",
     attribution: "Source: warcosts.org",
-    advertisedDatasetCount: 40,
+    ...liveCoverage(),
     discoveredDatasetCount: manifest.length,
     datasets: manifest,
   });
@@ -334,6 +358,7 @@ router.get("/war-costs/overview", async (req: Request, res: Response) => {
   const manifest = await discoverManifest();
   const successful = statuses.filter((item) => item.ok);
   const failed = statuses.filter((item) => !item.ok);
+  const coverage = liveCoverage();
 
   const getCached = (name: string): unknown => cache.get(name)?.data;
   const contractors = asArray(getCached("contractors.json"));
@@ -355,15 +380,18 @@ router.get("/war-costs/overview", async (req: Request, res: Response) => {
   }, {});
 
   return res.json({
-    ok: failed.length === 0,
+    ok: failed.length === 0 && coverage.liveManifestHealthy && coverage.missingKnownFromLive.length === 0,
     source: "WarCosts.org",
     attribution: "Source: warcosts.org",
     sourceUrl: DOWNLOADS_URL,
     fetchedAt: successful.map((item) => item.fetchedAt).filter(Boolean).sort().pop() ?? new Date().toISOString(),
     refreshPolicy: { liveMinutes: 5, frequentMinutes: 30, periodicHours: 6, manifestMinutes: 30 },
+    coverage,
     summary: {
-      advertisedDatasets: 40,
+      advertisedDatasets: ADVERTISED_DATASET_ENTRIES,
       discoveredDatasets: manifest.length,
+      liveManifestDatasets: coverage.liveUniqueDatasets,
+      knownCatalogDatasets: coverage.knownCatalogDatasets,
       mirroredDatasets: successful.length,
       failedDatasets: failed.length,
       contractors: contractors.length,
@@ -415,9 +443,11 @@ router.get("/war-costs/dataset/:name", async (req: Request, res: Response) => {
 
 router.post("/war-costs/refresh-all", async (_req: Request, res: Response) => {
   const statuses = await refreshAll(true);
+  const coverage = liveCoverage();
   return res.json({
-    ok: statuses.every((item) => item.ok),
+    ok: statuses.every((item) => item.ok) && coverage.liveManifestHealthy && coverage.missingKnownFromLive.length === 0,
     refreshedAt: new Date().toISOString(),
+    coverage,
     succeeded: statuses.filter((item) => item.ok).length,
     failed: statuses.filter((item) => !item.ok),
     datasets: statuses,
@@ -442,7 +472,7 @@ router.get("/war-costs/search", async (req: Request, res: Response) => {
     }
     if (results.length >= 250) break;
   }
-  return res.json({ ok: true, query, total: results.length, truncated: results.length >= 250, results });
+  return res.json({ ok: true, query, datasetsSearched: manifest.length, total: results.length, truncated: results.length >= 250, results });
 });
 
 router.get("/war-costs/country-intelligence", async (req: Request, res: Response) => {
