@@ -26,10 +26,14 @@ export const WARCOSTS_PRIORITY_PATHS = [
   "/allied-costs",
   "/military-families",
   "/conflicts/iran-2026",
+  "/iran-war-day-by-day",
+  "/iran-destruction",
+  "/iran-war-by-the-numbers",
   "/analysis/iran-2026",
   "/analysis/iran-day-by-day",
   "/analysis/iran-cost-per-second",
   "/analysis/civilian-toll-iran-2026",
+  "/analysis/iran-war-cost-breakdown",
   "/tools/compare-wars",
   "/tools/timeline-explorer",
   "/tools/inflation-calculator",
@@ -130,8 +134,6 @@ async function ensurePersistence(): Promise<void> {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
-    // The priority mirror also writes the common page-snapshot table used by Site Evidence,
-    // guaranteeing that high-value WarCosts hubs survive navigation/link-depth changes.
     await pool.query(`
       CREATE TABLE IF NOT EXISTS warcosts_page_snapshots (
         path TEXT PRIMARY KEY,
@@ -272,7 +274,6 @@ router.post("/war-costs/priority-pages/refresh", async (_req: Request, res: Resp
   return res.json({ ok: results.every((item) => item.ok), results });
 });
 
-// Explicit priority refreshes complement the recursive crawler. Keep them out of test/CI.
 if (process.env.NODE_ENV !== "test") {
   const startup = setTimeout(() => {
     void Promise.all(WARCOSTS_PRIORITY_PATHS.map((path) => readPage(path, false).catch(() => null)));
