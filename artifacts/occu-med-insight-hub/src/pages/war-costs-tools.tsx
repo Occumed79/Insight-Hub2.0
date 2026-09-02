@@ -1,11 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, CalendarDays, CheckCircle2, Clock3, GitCompareArrows, Loader2, RefreshCw, Search, Trophy, Calculator } from "lucide-react";
+import {
+  Activity,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  GitCompareArrows,
+  Loader2,
+  RefreshCw,
+  Search,
+  Trophy,
+  Calculator,
+} from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
 import { WarCostsWorkspaceNav } from "@/components/insight/WarCostsWorkspaceNav";
 import { getWarCostsDataset, type WarCostsDatasetResponse } from "@/data/warCostsApi";
 import { WarCostsCalculators } from "./war-costs-calculators";
+import { WarCostsIranTrackers } from "./war-costs-iran-trackers";
 import {
   wcCivilianDeaths,
   wcConflictCost,
@@ -26,11 +38,28 @@ import {
 
 type ToolKey = "explorer" | "compare" | "timeline" | "rankings" | "calculators" | "iran";
 type RankKey = "wars" | "contractors" | "weapons" | "presidents" | "states" | "countries" | "audits" | "deployments";
+type CompareMetric = { row: WarCostsRow; cost: number; deaths: number; duration: number; perDay: number; perLife: number };
+type ChartDef = { label: string; value: (item: CompareMetric) => number; format: (value: number) => string };
 
 const DATASETS = [
-  "conflicts.json", "operations.json", "war-votes.json", "contractors.json", "weapons.json", "presidents.json",
-  "global-spending.json", "state-military-index.json", "state-footprint.json", "spending-per-capita.json", "opportunity-costs.json", "jobs-data.json",
-  "audit-timeline.json", "overseas-presence.json", "base-countries.json", "drone-strikes.json", "stats.json", "military-spending.json",
+  "conflicts.json",
+  "operations.json",
+  "war-votes.json",
+  "contractors.json",
+  "weapons.json",
+  "presidents.json",
+  "global-spending.json",
+  "state-military-index.json",
+  "state-footprint.json",
+  "spending-per-capita.json",
+  "opportunity-costs.json",
+  "jobs-data.json",
+  "audit-timeline.json",
+  "overseas-presence.json",
+  "base-countries.json",
+  "drone-strikes.json",
+  "stats.json",
+  "military-spending.json",
 ] as const;
 
 const TOOLS: Array<{ key: ToolKey; label: string; note: string; icon: typeof Search }> = [
@@ -39,27 +68,78 @@ const TOOLS: Array<{ key: ToolKey; label: string; note: string; icon: typeof Sea
   { key: "timeline", label: "Timeline", note: "Wars, operations and votes", icon: CalendarDays },
   { key: "rankings", label: "Rankings", note: "Wars, contractors, weapons and more", icon: Trophy },
   { key: "calculators", label: "Calculators", note: "Canonical personal-impact tools", icon: Calculator },
-  { key: "iran", label: "Iran Live", note: "Conflict + domestic-spending counter", icon: Activity },
+  { key: "iran", label: "Iran Live", note: "Live counter + complete trackers", icon: Activity },
 ];
 
 function Metric({ label, value, note }: { label: string; value: string; note: string }) {
-  return <GlassCard className="p-4"><p className="text-[9px] uppercase tracking-[.2em] text-cyan-100/35">{label}</p><p className="mt-2 text-2xl font-black text-white">{value}</p><p className="mt-1 text-[9px] text-cyan-100/35">{note}</p></GlassCard>;
+  return (
+    <GlassCard className="p-4">
+      <p className="text-[9px] uppercase tracking-[.2em] text-cyan-100/35">{label}</p>
+      <p className="mt-2 text-2xl font-black text-white">{value}</p>
+      <p className="mt-1 text-[9px] text-cyan-100/35">{note}</p>
+    </GlassCard>
+  );
 }
 
 function WarClock({ annualBudget }: { annualBudget: number }) {
   const [openedAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
-  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   const rate = annualBudget / 31_536_000;
   const elapsed = Math.max(0, (now - openedAt) / 1000);
-  return <GlassCard className="p-5"><div className="flex items-center justify-between"><div><p className="text-[10px] uppercase tracking-[.22em] text-rose-100/45">War Clock</p><h3 className="mt-1 text-lg font-black">US military spending — right now</h3></div><Clock3 className="text-rose-200/60" /></div><p className="mt-5 text-4xl font-black tabular-nums">{wcMoney(elapsed * rate)}</p><p className="mt-1 text-xs text-cyan-100/42">estimated since you opened this page · {elapsed.toFixed(0)} seconds</p><div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-4"><div className="rounded-xl border border-white/8 bg-black/10 p-3"><p className="font-black">{wcMoney(rate)}</p><p className="text-[9px] text-cyan-100/35">per second</p></div><div className="rounded-xl border border-white/8 bg-black/10 p-3"><p className="font-black">{wcMoney(rate * 60)}</p><p className="text-[9px] text-cyan-100/35">per minute</p></div><div className="rounded-xl border border-white/8 bg-black/10 p-3"><p className="font-black">{wcMoney(rate * 86_400)}</p><p className="text-[9px] text-cyan-100/35">per day</p></div><div className="rounded-xl border border-white/8 bg-black/10 p-3"><p className="font-black">{wcMoney(annualBudget)}</p><p className="text-[9px] text-cyan-100/35">annual baseline</p></div></div></GlassCard>;
+
+  return (
+    <GlassCard className="p-5">
+      <div className="flex items-center justify-between">
+        <div><p className="text-[10px] uppercase tracking-[.22em] text-rose-100/45">War Clock</p><h3 className="mt-1 text-lg font-black">US military spending — right now</h3></div>
+        <Clock3 className="text-rose-200/60" />
+      </div>
+      <p className="mt-5 text-4xl font-black tabular-nums">{wcMoney(elapsed * rate)}</p>
+      <p className="mt-1 text-xs text-cyan-100/42">estimated since you opened this page · {elapsed.toFixed(0)} seconds</p>
+      <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-4">
+        <div className="rounded-xl border border-white/8 bg-black/10 p-3"><p className="font-black">{wcMoney(rate)}</p><p className="text-[9px] text-cyan-100/35">per second</p></div>
+        <div className="rounded-xl border border-white/8 bg-black/10 p-3"><p className="font-black">{wcMoney(rate * 60)}</p><p className="text-[9px] text-cyan-100/35">per minute</p></div>
+        <div className="rounded-xl border border-white/8 bg-black/10 p-3"><p className="font-black">{wcMoney(rate * 86_400)}</p><p className="text-[9px] text-cyan-100/35">per day</p></div>
+        <div className="rounded-xl border border-white/8 bg-black/10 p-3"><p className="font-black">{wcMoney(annualBudget)}</p><p className="text-[9px] text-cyan-100/35">annual baseline</p></div>
+      </div>
+    </GlassCard>
+  );
 }
 
 function DataExplorer({ conflicts }: { conflicts: WarCostsRow[] }) {
-  const [query, setQuery] = useState(""); const [region, setRegion] = useState("all"); const [sort, setSort] = useState("year");
+  const [query, setQuery] = useState("");
+  const [region, setRegion] = useState("all");
+  const [sort, setSort] = useState("year");
   const regions = useMemo(() => [...new Set(conflicts.map((row) => wcText(row, "region")).filter(Boolean))].sort(), [conflicts]);
-  const visible = useMemo(() => conflicts.filter((row) => { const needle = query.trim().toLowerCase(); return (!needle || JSON.stringify(row).toLowerCase().includes(needle)) && (region === "all" || wcText(row, "region") === region); }).sort((a, b) => sort === "cost" ? wcConflictCost(b) - wcConflictCost(a) : sort === "deaths" ? wcConflictDeaths(b) - wcConflictDeaths(a) : sort === "duration" ? wcConflictDuration(b) - wcConflictDuration(a) : wcNumber(b, "startYear") - wcNumber(a, "startYear")), [conflicts, query, region, sort]);
-  return <GlassCard className="p-5"><div className="flex flex-wrap items-end gap-3"><div className="min-w-[260px] flex-1"><p className="text-[10px] uppercase text-cyan-100/35">Search conflicts</p><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, country, outcome, event…" className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm outline-none" /></div><select value={region} onChange={(e) => setRegion(e.target.value)} className="min-h-11 rounded-xl border border-white/10 bg-[#07101c] px-3 text-xs"><option value="all">All regions</option>{regions.map((item) => <option key={item}>{item}</option>)}</select><select value={sort} onChange={(e) => setSort(e.target.value)} className="min-h-11 rounded-xl border border-white/10 bg-[#07101c] px-3 text-xs"><option value="year">Newest</option><option value="cost">Cost</option><option value="deaths">US deaths</option><option value="duration">Duration</option></select></div><p className="mt-4 text-xs text-cyan-100/40">{visible.length} source conflicts</p><div className="mt-4 overflow-x-auto"><table className="w-full min-w-[900px] text-left text-xs"><thead className="text-[9px] uppercase tracking-wider text-cyan-100/35"><tr><th className="p-2">Conflict</th><th className="p-2">Years</th><th className="p-2">Region</th><th className="p-2">Duration</th><th className="p-2">Cost</th><th className="p-2">US deaths</th><th className="p-2">Civilian deaths</th><th className="p-2">Outcome</th></tr></thead><tbody>{visible.map((row) => <tr key={wcConflictId(row)} className="border-t border-white/7"><td className="p-2 font-bold">{wcConflictName(row)}</td><td className="p-2 text-cyan-50/55">{wcText(row, "years") || `${wcNumber(row, "startYear")}–${wcNumber(row, "endYear") || "present"}`}</td><td className="p-2 text-cyan-50/55">{wcText(row, "region")}</td><td className="p-2">{wcConflictDuration(row)}y</td><td className="p-2 font-bold">{wcMoney(wcConflictCost(row))}</td><td className="p-2">{wcInteger(wcConflictDeaths(row))}</td><td className="p-2">{wcInteger(wcCivilianDeaths(row))}</td><td className="max-w-[260px] p-2 text-cyan-50/55">{wcText(row, "outcome")}</td></tr>)}</tbody></table></div></GlassCard>;
+  const visible = useMemo(() => conflicts.filter((row) => {
+    const needle = query.trim().toLowerCase();
+    return (!needle || JSON.stringify(row).toLowerCase().includes(needle)) && (region === "all" || wcText(row, "region") === region);
+  }).sort((a, b) => {
+    if (sort === "cost") return wcConflictCost(b) - wcConflictCost(a);
+    if (sort === "deaths") return wcConflictDeaths(b) - wcConflictDeaths(a);
+    if (sort === "duration") return wcConflictDuration(b) - wcConflictDuration(a);
+    return wcNumber(b, "startYear") - wcNumber(a, "startYear");
+  }), [conflicts, query, region, sort]);
+
+  return (
+    <GlassCard className="p-5">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-[260px] flex-1"><p className="text-[10px] uppercase text-cyan-100/35">Search conflicts</p><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, country, outcome, event…" className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm outline-none" /></div>
+        <select value={region} onChange={(event) => setRegion(event.target.value)} className="min-h-11 rounded-xl border border-white/10 bg-[#07101c] px-3 text-xs"><option value="all">All regions</option>{regions.map((item) => <option key={item}>{item}</option>)}</select>
+        <select value={sort} onChange={(event) => setSort(event.target.value)} className="min-h-11 rounded-xl border border-white/10 bg-[#07101c] px-3 text-xs"><option value="year">Newest</option><option value="cost">Cost</option><option value="deaths">US deaths</option><option value="duration">Duration</option></select>
+      </div>
+      <p className="mt-4 text-xs text-cyan-100/40">{visible.length} source conflicts</p>
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[900px] text-left text-xs">
+          <thead className="text-[9px] uppercase tracking-wider text-cyan-100/35"><tr><th className="p-2">Conflict</th><th className="p-2">Years</th><th className="p-2">Region</th><th className="p-2">Duration</th><th className="p-2">Cost</th><th className="p-2">US deaths</th><th className="p-2">Civilian deaths</th><th className="p-2">Outcome</th></tr></thead>
+          <tbody>{visible.map((row) => <tr key={wcConflictId(row)} className="border-t border-white/7"><td className="p-2 font-bold">{wcConflictName(row)}</td><td className="p-2 text-cyan-50/55">{wcText(row, "years") || `${wcNumber(row, "startYear")}–${wcNumber(row, "endYear") || "present"}`}</td><td className="p-2 text-cyan-50/55">{wcText(row, "region")}</td><td className="p-2">{wcConflictDuration(row)}y</td><td className="p-2 font-bold">{wcMoney(wcConflictCost(row))}</td><td className="p-2">{wcInteger(wcConflictDeaths(row))}</td><td className="p-2">{wcInteger(wcCivilianDeaths(row))}</td><td className="max-w-[260px] p-2 text-cyan-50/55">{wcText(row, "outcome")}</td></tr>)}</tbody>
+        </table>
+      </div>
+    </GlassCard>
+  );
 }
 
 function conflictDays(row: WarCostsRow) {
@@ -74,50 +154,156 @@ function CompareWars({ conflicts }: { conflicts: WarCostsRow[] }) {
   useEffect(() => { if (!selected.length && conflicts.length) setSelected(conflicts.slice(0, 3).map(wcConflictId)); }, [conflicts, selected.length]);
   const chosen = conflicts.filter((row) => selected.includes(wcConflictId(row)));
   const toggle = (id: string) => setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : current.length < 4 ? [...current, id] : current);
-  const metrics = useMemo(() => chosen.map((row) => ({ row, cost: wcConflictCost(row), deaths: wcConflictDeaths(row), duration: conflictDays(row), perDay: wcConflictCost(row) / conflictDays(row), perLife: wcConflictDeaths(row) > 0 ? wcConflictCost(row) / wcConflictDeaths(row) : 0 })), [chosen]);
-  const chartDefs = [["Adjusted cost", (item: typeof metrics[number]) => item.cost, wcMoney],["US deaths", (item: typeof metrics[number]) => item.deaths, wcInteger],["Cost per day", (item: typeof metrics[number]) => item.perDay, wcMoney],["Cost per US death", (item: typeof metrics[number]) => item.perLife, wcMoney]] as const;
-  return <div className="space-y-4"><GlassCard className="p-5"><p className="text-xs font-bold">Select 2–4 conflicts</p><div className="mt-3 flex max-h-52 flex-wrap gap-2 overflow-y-auto">{conflicts.map((row) => { const id = wcConflictId(row), active = selected.includes(id); return <button key={id} onClick={() => toggle(id)} className={`rounded-full border px-3 py-2 text-[10px] font-bold ${active ? "border-cyan-200/35 bg-cyan-300/15" : "border-white/8 bg-black/10 text-cyan-100/45"}`}>{wcConflictName(row)}</button>; })}</div></GlassCard><section className="grid gap-4 xl:grid-cols-4">{metrics.map(({ row, cost, deaths, duration, perDay, perLife }) => <GlassCard key={wcConflictId(row)} className="p-5"><h3 className="text-lg font-black">{wcConflictName(row)}</h3><p className="mt-1 text-[10px] text-cyan-100/38">{wcText(row, "years")}</p><div className="mt-4 space-y-3 text-xs"><div className="flex justify-between"><span className="text-cyan-100/45">Adjusted cost</span><strong>{wcMoney(cost)}</strong></div><div className="flex justify-between"><span className="text-cyan-100/45">US deaths</span><strong>{wcInteger(deaths)}</strong></div><div className="flex justify-between"><span className="text-cyan-100/45">Duration</span><strong>{wcInteger(duration)} days</strong></div><div className="flex justify-between"><span className="text-cyan-100/45">Cost / day</span><strong>{wcMoney(perDay)}</strong></div><div className="flex justify-between"><span className="text-cyan-100/45">Cost / US death</span><strong>{perLife ? wcMoney(perLife) : "—"}</strong></div></div></GlassCard>)}</section><section className="grid gap-4 xl:grid-cols-2">{chartDefs.map(([label, getter, formatter]) => { const max = Math.max(...metrics.map(getter), 1); return <GlassCard key={label} className="p-5"><h3 className="text-sm font-black">{label}</h3><div className="mt-4 space-y-3">{metrics.map((item) => <div key={wcConflictId(item.row)}><div className="flex justify-between gap-3 text-[10px]"><span className="truncate text-cyan-50/65">{wcConflictName(item.row)}</span><strong>{formatter(getter(item))}</strong></div><div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full bg-cyan-200/55" style={{ width: `${Math.max(2, getter(item) / max * 100)}%` }} /></div></div>)}</div></GlassCard>; })}</section></div>;
+  const metrics = useMemo<CompareMetric[]>(() => chosen.map((row) => {
+    const cost = wcConflictCost(row);
+    const deaths = wcConflictDeaths(row);
+    const duration = conflictDays(row);
+    return { row, cost, deaths, duration, perDay: cost / duration, perLife: deaths > 0 ? cost / deaths : 0 };
+  }), [chosen]);
+  const charts: ChartDef[] = [
+    { label: "Adjusted cost", value: (item) => item.cost, format: wcMoney },
+    { label: "US deaths", value: (item) => item.deaths, format: wcInteger },
+    { label: "Cost per day", value: (item) => item.perDay, format: wcMoney },
+    { label: "Cost per US death", value: (item) => item.perLife, format: wcMoney },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <GlassCard className="p-5"><p className="text-xs font-bold">Select 2–4 conflicts</p><div className="mt-3 flex max-h-52 flex-wrap gap-2 overflow-y-auto">{conflicts.map((row) => { const id = wcConflictId(row); const active = selected.includes(id); return <button key={id} type="button" onClick={() => toggle(id)} className={`rounded-full border px-3 py-2 text-[10px] font-bold ${active ? "border-cyan-200/35 bg-cyan-300/15" : "border-white/8 bg-black/10 text-cyan-100/45"}`}>{wcConflictName(row)}</button>; })}</div></GlassCard>
+      <section className="grid gap-4 xl:grid-cols-4">{metrics.map(({ row, cost, deaths, duration, perDay, perLife }) => <GlassCard key={wcConflictId(row)} className="p-5"><h3 className="text-lg font-black">{wcConflictName(row)}</h3><p className="mt-1 text-[10px] text-cyan-100/38">{wcText(row, "years")}</p><div className="mt-4 space-y-3 text-xs"><div className="flex justify-between"><span className="text-cyan-100/45">Adjusted cost</span><strong>{wcMoney(cost)}</strong></div><div className="flex justify-between"><span className="text-cyan-100/45">US deaths</span><strong>{wcInteger(deaths)}</strong></div><div className="flex justify-between"><span className="text-cyan-100/45">Duration</span><strong>{wcInteger(duration)} days</strong></div><div className="flex justify-between"><span className="text-cyan-100/45">Cost / day</span><strong>{wcMoney(perDay)}</strong></div><div className="flex justify-between"><span className="text-cyan-100/45">Cost / US death</span><strong>{perLife ? wcMoney(perLife) : "—"}</strong></div></div></GlassCard>)}</section>
+      <section className="grid gap-4 xl:grid-cols-2">{charts.map((chart) => { const max = Math.max(...metrics.map(chart.value), 1); return <GlassCard key={chart.label} className="p-5"><h3 className="text-sm font-black">{chart.label}</h3><div className="mt-4 space-y-3">{metrics.map((item) => <div key={wcConflictId(item.row)}><div className="flex justify-between gap-3 text-[10px]"><span className="truncate text-cyan-50/65">{wcConflictName(item.row)}</span><strong>{chart.format(chart.value(item))}</strong></div><div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full bg-cyan-200/55" style={{ width: `${Math.max(2, chart.value(item) / max * 100)}%` }} /></div></div>)}</div></GlassCard>; })}</section>
+    </div>
+  );
 }
 
 function Timeline({ conflicts, operations, votes }: { conflicts: WarCostsRow[]; operations: WarCostsRow[]; votes: WarCostsRow[] }) {
-  const [from, setFrom] = useState(1775); const [to, setTo] = useState(new Date().getFullYear()); const [types, setTypes] = useState({ conflict: true, operation: true, vote: true });
-  const events = useMemo(() => [...conflicts.map((row) => ({ year: wcNumber(row, "startYear", "year"), type: "conflict" as const, title: wcConflictName(row), row })), ...operations.map((row) => ({ year: wcNumber(row, "year", "startYear"), type: "operation" as const, title: wcText(row, "name", "operation", "title"), row })), ...votes.map((row) => ({ year: wcNumber(row, "year"), type: "vote" as const, title: wcText(row, "name", "title", "vote"), row }))].filter((event) => event.year >= from && event.year <= to && types[event.type]).sort((a, b) => a.year - b.year), [conflicts, operations, votes, from, to, types]);
-  return <GlassCard className="p-5"><div className="flex flex-wrap items-end gap-3"><label className="text-[10px] text-cyan-100/40">From<input type="number" value={from} onChange={(e) => setFrom(Number(e.target.value))} className="mt-1 block w-24 rounded-lg border border-white/10 bg-black/20 p-2 text-xs" /></label><label className="text-[10px] text-cyan-100/40">To<input type="number" value={to} onChange={(e) => setTo(Number(e.target.value))} className="mt-1 block w-24 rounded-lg border border-white/10 bg-black/20 p-2 text-xs" /></label>{(["conflict", "operation", "vote"] as const).map((type) => <button key={type} onClick={() => setTypes((state) => ({ ...state, [type]: !state[type] }))} className={`min-h-10 rounded-xl border px-3 text-[10px] font-bold capitalize ${types[type] ? "border-cyan-200/30 bg-cyan-300/12" : "border-white/8 bg-black/10 text-cyan-100/35"}`}>{type}s</button>)}</div><div className="mt-5 max-h-[720px] space-y-2 overflow-y-auto pr-1">{events.map((event, index) => <div key={`${event.type}-${event.year}-${index}`} className="grid grid-cols-[64px_96px_1fr] gap-3 rounded-xl border border-white/8 bg-black/10 p-3"><strong>{event.year}</strong><span className="w-fit rounded-full border border-cyan-100/10 px-2 py-1 text-[9px] uppercase text-cyan-100/55">{event.type}</span><div><p className="text-xs font-bold">{event.title}</p><p className="mt-1 line-clamp-2 text-[10px] text-cyan-100/40">{wcText(event.row, "description", "outcome", "authDetail")}</p></div></div>)}</div></GlassCard>;
+  const [from, setFrom] = useState(1775);
+  const [to, setTo] = useState(new Date().getFullYear());
+  const [types, setTypes] = useState({ conflict: true, operation: true, vote: true });
+  const events = useMemo(() => [
+    ...conflicts.map((row) => ({ year: wcNumber(row, "startYear", "year"), type: "conflict" as const, title: wcConflictName(row), row })),
+    ...operations.map((row) => ({ year: wcNumber(row, "year", "startYear"), type: "operation" as const, title: wcText(row, "name", "operation", "title"), row })),
+    ...votes.map((row) => ({ year: wcNumber(row, "year"), type: "vote" as const, title: wcText(row, "name", "title", "vote"), row })),
+  ].filter((event) => event.year >= from && event.year <= to && types[event.type]).sort((a, b) => a.year - b.year), [conflicts, operations, votes, from, to, types]);
+
+  return (
+    <GlassCard className="p-5">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-[10px] text-cyan-100/40">From<input type="number" value={from} onChange={(event) => setFrom(Number(event.target.value))} className="mt-1 block w-24 rounded-lg border border-white/10 bg-black/20 p-2 text-xs" /></label>
+        <label className="text-[10px] text-cyan-100/40">To<input type="number" value={to} onChange={(event) => setTo(Number(event.target.value))} className="mt-1 block w-24 rounded-lg border border-white/10 bg-black/20 p-2 text-xs" /></label>
+        {(["conflict", "operation", "vote"] as const).map((type) => <button key={type} type="button" onClick={() => setTypes((state) => ({ ...state, [type]: !state[type] }))} className={`min-h-10 rounded-xl border px-3 text-[10px] font-bold capitalize ${types[type] ? "border-cyan-200/30 bg-cyan-300/12" : "border-white/8 bg-black/10 text-cyan-100/35"}`}>{type}s</button>)}
+      </div>
+      <div className="mt-5 max-h-[720px] space-y-2 overflow-y-auto pr-1">{events.map((event, index) => <div key={`${event.type}-${event.year}-${index}`} className="grid grid-cols-[64px_96px_1fr] gap-3 rounded-xl border border-white/8 bg-black/10 p-3"><strong>{event.year}</strong><span className="w-fit rounded-full border border-cyan-100/10 px-2 py-1 text-[9px] uppercase text-cyan-100/55">{event.type}</span><div><p className="text-xs font-bold">{event.title}</p><p className="mt-1 line-clamp-2 text-[10px] text-cyan-100/40">{wcText(event.row, "description", "outcome", "authDetail")}</p></div></div>)}</div>
+    </GlassCard>
+  );
 }
 
 function Ranking({ title, rows, value, note }: { title: string; rows: WarCostsRow[]; value: (row: WarCostsRow) => number; note: (row: WarCostsRow) => string }) {
-  const ranked = [...rows].sort((a, b) => value(b) - value(a)).slice(0, 60); const max = Math.max(...ranked.map(value), 1);
+  const ranked = [...rows].sort((a, b) => value(b) - value(a)).slice(0, 60);
+  const max = Math.max(...ranked.map(value), 1);
   return <GlassCard className="p-5"><h3 className="text-lg font-black">{title}</h3><div className="mt-4 max-h-[700px] space-y-2 overflow-y-auto pr-1">{ranked.map((row, index) => <div key={`${index}-${wcText(row, "name", "state", "country", "fullName", "slug")}`} className="rounded-xl border border-white/8 bg-black/10 p-3"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate text-xs font-bold">#{index + 1} {wcText(row, "name", "fullName", "state", "country", "title")}</p><p className="mt-1 text-[10px] text-cyan-100/38">{note(row)}</p></div><strong>{value(row) >= 1e6 ? wcMoney(value(row)) : wcInteger(value(row))}</strong></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full bg-cyan-200/50" style={{ width: `${Math.max(2, value(row) / max * 100)}%` }} /></div></div>)}</div></GlassCard>;
 }
 
 function Rankings({ data }: { data: Record<string, unknown> }) {
-  const [active, setActive] = useState<RankKey>("wars"); const states = wcRows(data["state-military-index.json"]).length ? wcRows(data["state-military-index.json"]) : wcRows(data["state-footprint.json"]);
-  const options: Array<[RankKey, string]> = [["wars","Wars"],["contractors","Contractors"],["weapons","Weapons"],["presidents","Presidents"],["states","States"],["countries","Countries"],["audits","Audits"],["deployments","Deployments"]];
-  return <div className="space-y-4"><div className="flex flex-wrap gap-2">{options.map(([key, label]) => <button key={key} onClick={() => setActive(key)} className={`min-h-10 rounded-xl border px-3 text-[10px] font-bold ${active === key ? "border-cyan-200/30 bg-cyan-300/12" : "border-white/8 bg-black/10 text-cyan-100/45"}`}>{label}</button>)}</div>{active === "wars" && <Ranking title="Wars ranked by cost" rows={wcRows(data["conflicts.json"])} value={wcConflictCost} note={(row) => `${wcText(row, "years")} · ${wcInteger(wcConflictDeaths(row))} US deaths`} />}{active === "contractors" && <Ranking title="Defense contractors" rows={wcRows(data["contractors.json"])} value={(row) => wcNumber(row, "amount", "fy2024", "total")} note={(row) => `${wcNumber(row, "rank") ? `source rank #${wcNumber(row, "rank")} · ` : ""}${Array.isArray(row.subsidiaries) ? row.subsidiaries.length : 0} subsidiaries`} />}{active === "weapons" && <Ranking title="Weapon cost overruns" rows={wcRows(data["weapons.json"])} value={(row) => wcNumber(row, "costOverrun", "costOverrunPct")} note={(row) => `${wcText(row, "category")} · ${wcText(row, "contractor", "manufacturer")}`} />}{active === "presidents" && <Ranking title="Presidents by war cost" rows={wcRows(data["presidents.json"])} value={(row) => wcNumber(row, "warCostAdjusted2024", "totalCost")} note={(row) => `${wcText(row, "years")} · ${wcInteger(wcNumber(row, "totalUSDeaths"))} US deaths`} />}{active === "states" && <Ranking title="State military footprint" rows={states} value={(row) => wcNumber(row, "dodSpending", "spending", "contractValue", "bases", "total")} note={(row) => `${wcInteger(wcNumber(row, "jobs", "directJobs"))} jobs · ${wcInteger(wcNumber(row, "bases", "total"))} bases`} />}{active === "countries" && <Ranking title="Global military spending" rows={wcRows(data["global-spending.json"])} value={(row) => wcNumber(row, "spending", "amount", "militarySpending", "value")} note={(row) => `${wcNumber(row, "gdpPercent", "percentGdp", "gdpShare") || 0}% GDP`} />}{active === "audits" && <Ranking title="Pentagon audit tracker" rows={wcRows(data["audit-timeline.json"])} value={(row) => wcNumber(row, "amount", "unaccounted", "assets", "liabilities", "year")} note={(row) => `${wcText(row, "result", "status", "outcome")} · ${wcText(row, "description", "note")}`} />}{active === "deployments" && <Ranking title="Overseas troop deployments" rows={wcRows(data["overseas-presence.json"])} value={(row) => wcNumber(row, "troops", "personnel", "deployed")} note={(row) => `${wcText(row, "country", "region", "location")} · ${wcMoney(wcNumber(row, "annualCost", "cost"))}`} />}</div>;
+  const [active, setActive] = useState<RankKey>("wars");
+  const states = wcRows(data["state-military-index.json"]).length ? wcRows(data["state-military-index.json"]) : wcRows(data["state-footprint.json"]);
+  const options: Array<[RankKey, string]> = [["wars", "Wars"], ["contractors", "Contractors"], ["weapons", "Weapons"], ["presidents", "Presidents"], ["states", "States"], ["countries", "Countries"], ["audits", "Audits"], ["deployments", "Deployments"]];
+
+  return <div className="space-y-4"><div className="flex flex-wrap gap-2">{options.map(([key, label]) => <button key={key} type="button" onClick={() => setActive(key)} className={`min-h-10 rounded-xl border px-3 text-[10px] font-bold ${active === key ? "border-cyan-200/30 bg-cyan-300/12" : "border-white/8 bg-black/10 text-cyan-100/45"}`}>{label}</button>)}</div>{active === "wars" && <Ranking title="Wars ranked by cost" rows={wcRows(data["conflicts.json"])} value={wcConflictCost} note={(row) => `${wcText(row, "years")} · ${wcInteger(wcConflictDeaths(row))} US deaths`} />}{active === "contractors" && <Ranking title="Defense contractors" rows={wcRows(data["contractors.json"])} value={(row) => wcNumber(row, "amount", "fy2024", "total")} note={(row) => `${wcNumber(row, "rank") ? `source rank #${wcNumber(row, "rank")} · ` : ""}${Array.isArray(row.subsidiaries) ? row.subsidiaries.length : 0} subsidiaries`} />}{active === "weapons" && <Ranking title="Weapon cost overruns" rows={wcRows(data["weapons.json"])} value={(row) => wcNumber(row, "costOverrun", "costOverrunPct")} note={(row) => `${wcText(row, "category")} · ${wcText(row, "contractor", "manufacturer")}`} />}{active === "presidents" && <Ranking title="Presidents by war cost" rows={wcRows(data["presidents.json"])} value={(row) => wcNumber(row, "warCostAdjusted2024", "totalCost")} note={(row) => `${wcText(row, "years")} · ${wcInteger(wcNumber(row, "totalUSDeaths"))} US deaths`} />}{active === "states" && <Ranking title="State military footprint" rows={states} value={(row) => wcNumber(row, "dodSpending", "spending", "contractValue", "bases", "total")} note={(row) => `${wcInteger(wcNumber(row, "jobs", "directJobs"))} jobs · ${wcInteger(wcNumber(row, "bases", "total"))} bases`} />}{active === "countries" && <Ranking title="Global military spending" rows={wcRows(data["global-spending.json"])} value={(row) => wcNumber(row, "spending", "amount", "militarySpending", "value")} note={(row) => `${wcNumber(row, "gdpPercent", "percentGdp", "gdpShare") || 0}% GDP`} />}{active === "audits" && <Ranking title="Pentagon audit tracker" rows={wcRows(data["audit-timeline.json"])} value={(row) => wcNumber(row, "amount", "unaccounted", "assets", "liabilities", "year")} note={(row) => `${wcText(row, "result", "status", "outcome")} · ${wcText(row, "description", "note")}`} />}{active === "deployments" && <Ranking title="Overseas troop deployments" rows={wcRows(data["overseas-presence.json"])} value={(row) => wcNumber(row, "troops", "personnel", "deployed")} note={(row) => `${wcText(row, "country", "region", "location")} · ${wcMoney(wcNumber(row, "annualCost", "cost"))}`} />}</div>;
 }
 
 function IranLive({ conflicts, strikes, stats }: { conflicts: WarCostsRow[]; strikes: WarCostsRow[]; stats: WarCostsRow }) {
-  const [openedAt] = useState(() => Date.now()); const [now, setNow] = useState(() => Date.now());
-  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 250); return () => window.clearInterval(timer); }, []);
+  const [openedAt] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, []);
   const iran = conflicts.find((row) => wcConflictName(row).toLowerCase().includes("iran") && wcNumber(row, "startYear") >= 2025) ?? conflicts.find((row) => wcConflictName(row).toLowerCase().includes("iran")) ?? {};
-  const events = wcStringArray(iran, "keyEvents"); const cost = wcConflictCost(iran); const started = wcConflictStartTimestamp(iran); const days = Math.max(1, Math.ceil((Date.now() - started) / 86_400_000));
-  const daily = wcNumber(iran, "dailyCost", "dailyBurnRate") || (cost > 0 ? cost / days : 1.88e9); const perSecond = daily / 86_400; const sinceOpen = Math.max(0, (now - openedAt) / 1000) * perSecond;
-  const opportunity = [["School lunches",3.81],["Teacher salaries",65_000],["Pell Grants",7_000],["Homes at median price",405_000],["Years of Medicare for All",350e9],["VA healthcare appointments",350],["Miles of highway",6.5e6],["Clean-water systems",55e6]] as const;
-  const householdCount = 131_000_000, taxpayerCount = 150_000_000;
-  return <div className="space-y-5"><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Metric label="Estimated cost" value={wcMoney(cost)} note={`${wcMoney(daily)} / day`} /><Metric label="US deaths" value={wcInteger(wcConflictDeaths(iran))} note="mirrored conflict record" /><Metric label="Civilian deaths" value={wcInteger(wcCivilianDeaths(iran))} note="mirrored conflict record" /><Metric label="Strike records" value={wcInteger(strikes.length)} note="live strike feed" /><Metric label="Elapsed days" value={wcInteger(days)} note="source-derived start date" /></section><GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-[10px] uppercase tracking-[.2em] text-amber-100/40">Iran War vs Domestic Spending</p><h3 className="mt-1 text-lg font-black">Every dollar spent on war is a dollar not spent elsewhere</h3></div><div className="text-right"><p className="text-3xl font-black tabular-nums">{wcMoney(sinceOpen)}</p><p className="text-[9px] text-cyan-100/35">additional cost since opening this page</p></div></div><div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{opportunity.map(([label, unit]) => <div key={label} className="rounded-xl border border-white/8 bg-black/10 p-3"><p className="text-xl font-black">{(cost / unit).toLocaleString(undefined, { maximumFractionDigits: unit >= 1e9 ? 2 : 0 })}</p><p className="mt-1 text-[9px] text-cyan-100/38">{label} · {wcMoney(unit)} each</p><p className="mt-1 text-[9px] text-amber-100/35">+{(sinceOpen / unit).toLocaleString(undefined, { maximumFractionDigits: 2 })} since page open</p></div>)}</div><div className="mt-4 grid gap-3 sm:grid-cols-3"><Metric label="Per person" value={wcMoney(cost / 330_000_000)} note="source-style 330M denominator" /><Metric label="Per household" value={wcMoney(cost / householdCount)} note="modeled household share" /><Metric label="Per taxpayer" value={wcMoney(cost / taxpayerCount)} note="modeled taxpayer share" /></div></GlassCard><div className="grid gap-5 xl:grid-cols-2"><GlassCard className="p-5"><h3 className="text-lg font-black">Conflict timeline</h3><div className="mt-4 max-h-[620px] space-y-2 overflow-y-auto">{events.map((event, index) => <div key={index} className="rounded-xl border border-rose-200/10 bg-rose-300/[.04] p-3 text-xs leading-5 text-rose-50/75">{event}</div>)}</div></GlassCard><GlassCard className="p-5"><h3 className="text-lg font-black">Latest strikes</h3><div className="mt-4 max-h-[620px] space-y-2 overflow-y-auto">{[...strikes].reverse().slice(0, 100).map((row, index) => <details key={index} className="rounded-xl border border-amber-200/10 bg-amber-300/[.04] p-3"><summary className="cursor-pointer text-xs font-bold">{wcText(row, "name", "location", "target", "date") || `Strike ${index + 1}`}</summary><pre className="mt-2 whitespace-pre-wrap break-words text-[10px] text-amber-50/55">{JSON.stringify(row, null, 2)}</pre></details>)}</div></GlassCard></div><GlassCard className="p-5"><p className="text-[10px] uppercase tracking-[.2em] text-cyan-100/35">Current aggregate stats</p><pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words text-[10px] text-cyan-50/55">{JSON.stringify(stats, null, 2)}</pre></GlassCard></div>;
+  const events = wcStringArray(iran, "keyEvents");
+  const cost = wcConflictCost(iran);
+  const started = wcConflictStartTimestamp(iran);
+  const days = Math.max(1, Math.ceil((Date.now() - started) / 86_400_000));
+  const daily = wcNumber(iran, "dailyCost", "dailyBurnRate") || (cost > 0 ? cost / days : 1.88e9);
+  const perSecond = daily / 86_400;
+  const sinceOpen = Math.max(0, (now - openedAt) / 1000) * perSecond;
+  const opportunity = [["School lunches", 3.81], ["Teacher salaries", 65_000], ["Pell Grants", 7_000], ["Homes at median price", 405_000], ["Years of Medicare for All", 350e9], ["VA healthcare appointments", 350], ["Miles of highway", 6.5e6], ["Clean-water systems", 55e6]] as const;
+
+  return (
+    <div className="space-y-5">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Metric label="Estimated cost" value={wcMoney(cost)} note={`${wcMoney(daily)} / day`} /><Metric label="US deaths" value={wcInteger(wcConflictDeaths(iran))} note="mirrored conflict record" /><Metric label="Civilian deaths" value={wcInteger(wcCivilianDeaths(iran))} note="mirrored conflict record" /><Metric label="Strike records" value={wcInteger(strikes.length)} note="live strike feed" /><Metric label="Elapsed days" value={wcInteger(days)} note="source-derived start date" /></section>
+      <GlassCard className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-[10px] uppercase tracking-[.2em] text-amber-100/40">Iran War vs Domestic Spending</p><h3 className="mt-1 text-lg font-black">Every dollar spent on war is a dollar not spent elsewhere</h3></div><div className="text-right"><p className="text-3xl font-black tabular-nums">{wcMoney(sinceOpen)}</p><p className="text-[9px] text-cyan-100/35">additional cost since opening this page</p></div></div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{opportunity.map(([label, unit]) => <div key={label} className="rounded-xl border border-white/8 bg-black/10 p-3"><p className="text-xl font-black">{(cost / unit).toLocaleString(undefined, { maximumFractionDigits: unit >= 1e9 ? 2 : 0 })}</p><p className="mt-1 text-[9px] text-cyan-100/38">{label} · {wcMoney(unit)} each</p><p className="mt-1 text-[9px] text-amber-100/35">+{(sinceOpen / unit).toLocaleString(undefined, { maximumFractionDigits: 2 })} since page open</p></div>)}</div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3"><Metric label="Per person" value={wcMoney(cost / 330_000_000)} note="source-style 330M denominator" /><Metric label="Per household" value={wcMoney(cost / 131_000_000)} note="modeled household share" /><Metric label="Per taxpayer" value={wcMoney(cost / 150_000_000)} note="modeled taxpayer share" /></div>
+      </GlassCard>
+      <WarCostsIranTrackers />
+      <div className="grid gap-5 xl:grid-cols-2">
+        <GlassCard className="p-5"><h3 className="text-lg font-black">Conflict timeline</h3><div className="mt-4 max-h-[620px] space-y-2 overflow-y-auto">{events.map((event, index) => <div key={index} className="rounded-xl border border-rose-200/10 bg-rose-300/[.04] p-3 text-xs leading-5 text-rose-50/75">{event}</div>)}</div></GlassCard>
+        <GlassCard className="p-5"><h3 className="text-lg font-black">Latest strikes</h3><div className="mt-4 max-h-[620px] space-y-2 overflow-y-auto">{[...strikes].reverse().slice(0, 100).map((row, index) => <details key={index} className="rounded-xl border border-amber-200/10 bg-amber-300/[.04] p-3"><summary className="cursor-pointer text-xs font-bold">{wcText(row, "name", "location", "target", "date") || `Strike ${index + 1}`}</summary><pre className="mt-2 whitespace-pre-wrap break-words text-[10px] text-amber-50/55">{JSON.stringify(row, null, 2)}</pre></details>)}</div></GlassCard>
+      </div>
+      <GlassCard className="p-5"><p className="text-[10px] uppercase tracking-[.2em] text-cyan-100/35">Current aggregate stats</p><pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words text-[10px] text-cyan-50/55">{JSON.stringify(stats, null, 2)}</pre></GlassCard>
+    </div>
+  );
 }
 
 export default function WarCostsTools() {
-  const [active, setActive] = useState<ToolKey>("explorer"); const [responses, setResponses] = useState<Record<string, WarCostsDatasetResponse>>({}); const [loading, setLoading] = useState(true); const [refreshing, setRefreshing] = useState(false); const [error, setError] = useState("");
+  const [active, setActive] = useState<ToolKey>("explorer");
+  const [responses, setResponses] = useState<Record<string, WarCostsDatasetResponse>>({});
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+
   async function load(force = false) {
-    force ? setRefreshing(true) : setLoading(true); setError("");
-    try { const pairs = await Promise.all(DATASETS.map(async (name) => { try { return [name, await getWarCostsDataset(name, force)] as const; } catch { return [name, null] as const; } })); const next: Record<string, WarCostsDatasetResponse> = {}; for (const [name, response] of pairs) if (response) next[name] = response; setResponses(next); }
-    catch (loadError) { setError(loadError instanceof Error ? loadError.message : "WarCosts tools could not load."); }
-    finally { setLoading(false); setRefreshing(false); }
+    force ? setRefreshing(true) : setLoading(true);
+    setError("");
+    try {
+      const pairs = await Promise.all(DATASETS.map(async (name) => {
+        try { return [name, await getWarCostsDataset(name, force)] as const; }
+        catch { return [name, null] as const; }
+      }));
+      const next: Record<string, WarCostsDatasetResponse> = {};
+      for (const [name, response] of pairs) if (response) next[name] = response;
+      setResponses(next);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "WarCosts tools could not load.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }
+
   useEffect(() => { void load(false); }, []);
   const data = useMemo(() => Object.fromEntries(Object.entries(responses).map(([name, response]) => [name, response.data])) as Record<string, unknown>, [responses]);
-  const conflicts = wcRows(data["conflicts.json"]), operations = wcRows(data["operations.json"]), votes = wcRows(data["war-votes.json"]), strikes = wcRows(data["drone-strikes.json"]), stats = wcObject(data["stats.json"]);
+  const conflicts = wcRows(data["conflicts.json"]);
+  const operations = wcRows(data["operations.json"]);
+  const votes = wcRows(data["war-votes.json"]);
+  const strikes = wcRows(data["drone-strikes.json"]);
+  const stats = wcObject(data["stats.json"]);
   const annualBudget = wcNumber(stats, "annualBudget", "currentMilitarySpending", "militaryBudget", "dodBudget") || 886_000_000_000;
-  return <main className="aurora-bg min-h-screen text-white"><Sidebar /><section className="relative z-10 px-5 py-8 lg:ml-[210px] lg:px-10"><div className="flex flex-wrap items-start justify-between gap-4"><HeaderBar eyebrow="WarCosts Intelligence" title="Interactive Tools" subtitle="Canonical WarCosts comparisons, timelines, rankings, live counters and personal-impact calculators driven by the mirrored source data." /><button onClick={() => void load(true)} disabled={refreshing} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-200/20 bg-cyan-300/10 px-4 text-xs font-bold"><RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />Refresh tool data</button></div><WarCostsWorkspaceNav />{error && <GlassCard className="mt-5 border-rose-300/20 p-4 text-sm text-rose-100">{error}</GlassCard>}{loading ? <GlassCard className="mt-5 grid min-h-[420px] place-items-center"><Loader2 className="animate-spin text-cyan-200" /></GlassCard> : <div className="mt-5 space-y-5"><div className="grid gap-5 xl:grid-cols-[1fr_1.5fr]"><WarClock annualBudget={annualBudget} /><GlassCard className="p-5"><div className="flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-300/70" /><p className="text-xs font-black">Canonical capability layer</p></div><p className="mt-3 text-xs leading-5 text-cyan-100/42">No duplicate weaker calculators: personal cost, inflation, draft and advanced quiz live only in Specialized Tools; the operational ArcGIS map lives only in War Map.</p></GlassCard></div><section className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">{TOOLS.map((tool) => { const Icon = tool.icon; return <button key={tool.key} onClick={() => setActive(tool.key)} className={`rounded-2xl border p-4 text-left transition ${active === tool.key ? "border-cyan-200/28 bg-cyan-300/12" : "border-white/8 bg-black/10 hover:bg-white/[.035]"}`}><Icon size={18} className={active === tool.key ? "text-cyan-100" : "text-cyan-100/40"} /><p className="mt-3 text-xs font-black">{tool.label}</p><p className="mt-1 text-[9px] leading-4 text-cyan-100/35">{tool.note}</p></button>; })}</section>{active === "explorer" && <DataExplorer conflicts={conflicts} />}{active === "compare" && <CompareWars conflicts={conflicts} />}{active === "timeline" && <Timeline conflicts={conflicts} operations={operations} votes={votes} />}{active === "rankings" && <Rankings data={data} />}{active === "calculators" && <WarCostsCalculators datasets={data} />}{active === "iran" && <IranLive conflicts={conflicts} strikes={strikes} stats={stats} />}</div>}</section></main>;
+
+  return (
+    <main className="aurora-bg min-h-screen text-white">
+      <Sidebar />
+      <section className="relative z-10 px-5 py-8 lg:ml-[210px] lg:px-10">
+        <div className="flex flex-wrap items-start justify-between gap-4"><HeaderBar eyebrow="WarCosts Intelligence" title="Interactive Tools" subtitle="Canonical WarCosts comparisons, timelines, rankings, live counters and personal-impact calculators driven by mirrored source data." /><button type="button" onClick={() => void load(true)} disabled={refreshing} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-200/20 bg-cyan-300/10 px-4 text-xs font-bold"><RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />Refresh tool data</button></div>
+        <WarCostsWorkspaceNav />
+        {error && <GlassCard className="mt-5 border-rose-300/20 p-4 text-sm text-rose-100">{error}</GlassCard>}
+        {loading ? (
+          <GlassCard className="mt-5 grid min-h-[420px] place-items-center"><Loader2 className="animate-spin text-cyan-200" /></GlassCard>
+        ) : (
+          <div className="mt-5 space-y-5">
+            <div className="grid gap-5 xl:grid-cols-[1fr_1.5fr]"><WarClock annualBudget={annualBudget} /><GlassCard className="p-5"><div className="flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-300/70" /><p className="text-xs font-black">Canonical capability layer</p></div><p className="mt-3 text-xs leading-5 text-cyan-100/42">No duplicate weaker calculators: personal cost, inflation, draft and advanced quiz live only in Specialized Tools; the operational ArcGIS map lives only in War Map. Iran Live owns the complete Iran tracker stack.</p></GlassCard></div>
+            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">{TOOLS.map((tool) => { const Icon = tool.icon; return <button key={tool.key} type="button" onClick={() => setActive(tool.key)} className={`rounded-2xl border p-4 text-left transition ${active === tool.key ? "border-cyan-200/28 bg-cyan-300/12" : "border-white/8 bg-black/10 hover:bg-white/[.035]"}`}><Icon size={18} className={active === tool.key ? "text-cyan-100" : "text-cyan-100/40"} /><p className="mt-3 text-xs font-black">{tool.label}</p><p className="mt-1 text-[9px] leading-4 text-cyan-100/35">{tool.note}</p></button>; })}</section>
+            {active === "explorer" && <DataExplorer conflicts={conflicts} />}
+            {active === "compare" && <CompareWars conflicts={conflicts} />}
+            {active === "timeline" && <Timeline conflicts={conflicts} operations={operations} votes={votes} />}
+            {active === "rankings" && <Rankings data={data} />}
+            {active === "calculators" && <WarCostsCalculators datasets={data} />}
+            {active === "iran" && <IranLive conflicts={conflicts} strikes={strikes} stats={stats} />}
+          </div>
+        )}
+      </section>
+    </main>
+  );
 }
