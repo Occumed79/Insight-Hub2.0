@@ -186,13 +186,16 @@ export async function refreshAllWarCosts(): Promise<{
   return readJson(response);
 }
 
-export async function getWarCostsContractorIntelligence(company?: string): Promise<{
+export async function getWarCostsContractorIntelligence(company?: string, refresh = false): Promise<{
   ok: boolean;
   contractors: WarCostsContractor[];
   summary: { contractors: number; totalFy2024: number; weaponSystems: number; activeConflicts: number; strikeRecords: number };
   live: { activeConflicts: Record<string, unknown>[]; strikes: Record<string, unknown>[]; stats: unknown };
 }> {
-  const query = company ? `?company=${encodeURIComponent(company)}` : "";
+  const params = new URLSearchParams();
+  if (company) params.set("company", company);
+  if (refresh) params.set("refresh", "1");
+  const query = params.toString() ? `?${params.toString()}` : "";
   const response = await fetch(`/api/war-costs/contractor-intelligence${query}`, { headers: { Accept: "application/json" } });
   return readJson(response);
 }
@@ -210,14 +213,9 @@ async function getWarCostsPageCatalogSlice(type: string, limit: number): Promise
 
 export async function getWarCostsPageCatalog(type?: string, limit = 2_000): Promise<{ ok: boolean; total: number; pages: WarCostsPageCatalogItem[] }> {
   if (type) return getWarCostsPageCatalogSlice(type, limit);
-
-  // The public WarCosts site has more than 2,000 pages. The backend intentionally caps one
-  // catalog response, so assemble the visible catalog by page type to avoid silently hiding
-  // the tail of the retained page mirror.
   const overview = await getWarCostsPageOverview();
   const types = Object.keys(overview.summary.byType);
   if (!types.length) return { ok: true, total: 0, pages: [] };
-
   const responses = await Promise.all(types.map((pageType) => getWarCostsPageCatalogSlice(pageType, limit)));
   const byPath = new Map<string, WarCostsPageCatalogItem>();
   for (const response of responses) {
