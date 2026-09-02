@@ -111,7 +111,53 @@ export function wcConflictDuration(row: WarCostsRow): number {
 }
 export function wcConflictId(row: WarCostsRow): string { return wcText(row, "id", "slug", "name"); }
 export function wcConflictName(row: WarCostsRow): string { return wcText(row, "name", "shortName", "title") || "Unnamed conflict"; }
+
+function textFromArrayItem(item: unknown): string {
+  if (typeof item === "string") return item.trim();
+  if (!item || typeof item !== "object" || Array.isArray(item)) return "";
+  return wcText(item as WarCostsRow, "event", "text", "name", "title", "description", "note", "statement");
+}
+
 export function wcStringArray(row: WarCostsRow, key: string): string[] {
   const value = row[key];
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  if (!Array.isArray(value)) return [];
+  return value.map(textFromArrayItem).filter(Boolean);
+}
+
+export function wcObjectArray(row: WarCostsRow, key: string): WarCostsRow[] {
+  return objectRows(row[key]);
+}
+
+const MONTHS: Record<string, number> = {
+  jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3,
+  may: 4, jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7, sep: 8, sept: 8,
+  september: 8, oct: 9, october: 9, nov: 10, november: 10, dec: 11, december: 11,
+};
+
+function dateFromText(text: string, fallbackYear: number): number | null {
+  const full = text.match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+(\d{1,2})(?:,)?\s+(\d{4})\b/i);
+  const partial = text.match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+(\d{1,2})\b/i);
+  const match = full ?? partial;
+  if (!match) return null;
+  const month = MONTHS[match[1].toLowerCase()];
+  const day = Number(match[2]);
+  const year = full ? Number(match[3]) : fallbackYear;
+  if (!Number.isFinite(month) || !Number.isFinite(day) || !Number.isFinite(year)) return null;
+  return Date.UTC(year, month, day);
+}
+
+export function wcConflictStartTimestamp(row: WarCostsRow): number {
+  const explicit = wcText(row, "startDate", "dateStarted", "began");
+  if (explicit) {
+    const parsed = Date.parse(explicit);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  const startYear = wcNumber(row, "startYear", "year") || new Date().getUTCFullYear();
+  const descriptionDate = dateFromText(wcText(row, "description", "summary"), startYear);
+  if (descriptionDate !== null) return descriptionDate;
+  for (const event of wcStringArray(row, "keyEvents")) {
+    const eventDate = dateFromText(event, startYear);
+    if (eventDate !== null) return eventDate;
+  }
+  return Date.UTC(startYear, 0, 1);
 }
