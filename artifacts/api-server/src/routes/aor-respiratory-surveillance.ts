@@ -3,7 +3,7 @@ import { Router, type IRouter } from "express";
 const router: IRouter = Router();
 const CACHE_TTL = 45 * 60_000;
 
-type CsvRow = Record<string, string>;
+export type CsvRow = Record<string, string>;
 type CachedPayload = { expiresAt: number; value: unknown };
 let cache: CachedPayload | null = null;
 let inFlight: Promise<unknown> | null = null;
@@ -93,30 +93,22 @@ function latestBy<T>(rows: T[], key: (row: T) => string, date: (row: T) => strin
   return [...result.values()];
 }
 
-function latestRtRows(rows: Array<{ asOf: string; date: string; location: string; pathogen: string; epidemicTrend: string; rtEstimate: number | null; rtLower: number | null; rtUpper: number | null; pGrowing: number | null; intervalWidth: number | null }>) {
-  const latestRun = rows.reduce((max, row) => Math.max(max, dateNumber(row.asOf)), 0);
-  const runRows = latestRun ? rows.filter((row) => dateNumber(row.asOf) === latestRun) : rows;
-  return latestBy(runRows, (row) => `${row.location}|${row.pathogen}`, (row) => row.date);
-}
+export type AriRecord = { date: string; location: string; stateAbbreviation: string; level: string };
+export type RtRecord = { asOf: string; date: string; location: string; pathogen: string; epidemicTrend: string; rtEstimate: number | null; rtLower: number | null; rtUpper: number | null; pGrowing: number | null; intervalWidth: number | null };
+export type PositivityRecord = { date: string; pathogen: string; percentPositive: number | null };
+export type WastewaterRecord = { week: string; location: string; stateAbbreviation: string; pathogen: string; activityLevel: string; activityValue: number | null; dataCollectionPeriod: string; updatedAt: string };
 
-async function loadPayload() {
-  const settled = await Promise.allSettled([
-    fetchCsv(SOURCES.ari), fetchCsv(SOURCES.rt, 36_000_000), fetchCsv(SOURCES.positivity),
-    fetchCsv(SOURCES.wastewaterCovid), fetchCsv(SOURCES.wastewaterFlu), fetchCsv(SOURCES.wastewaterRsv),
-  ]);
-  const rows = (index: number): CsvRow[] => settled[index].status === "fulfilled" ? settled[index].value : [];
-
-  // CDC dataset f3zz-zga5 currently exposes week_end, geography and label.
-  const ariRows = latestBy(rows(0).map((row) => ({
+export function normalizeAriRows(rows: CsvRow[]): AriRecord[] {
+  return latestBy(rows.map((row) => ({
     date: value(row, "week_end", "week end", "date"),
     location: value(row, "geography", "location", "state", "state territory"),
     stateAbbreviation: value(row, "state_abbreviation", "state abbrev", "abbreviation"),
     level: value(row, "label", "respiratory illness level", "ari activity level", "activity level"),
   })).filter((row) => row.location && row.level), (row) => row.location, (row) => row.date);
+}
 
-  // CDC dataset 5dqz-y4ea is an archive of model runs. Restrict to the newest as_of run,
-  // then retain the newest estimate date for each state/disease combination.
-  const rtNormalized = rows(1).map((row) => ({
+export function normalizeRtRows(rows: CsvRow[]): RtRecord[] {
+  const normalized = rows.map((row) => ({
     asOf: value(row, "as_of", "as of", "model run date"),
     date: value(row, "date", "week_end", "week end"),
     location: value(row, "state", "location"),
@@ -128,10 +120,14 @@ async function loadPayload() {
     pGrowing: numeric(value(row, "p_growing", "p growing", "probability growing")),
     intervalWidth: numeric(value(row, "interval_width", "interval width")),
   })).filter((row) => row.location && row.pathogen && row.date);
-  const rtRows = latestRtRows(rtNormalized);
+  const latestRun = normalized.reduce((max, row) => Math.max(max, dateNumber(row.asOf)), 0);
+  const runRows = latestRun ? normalized.filter((row) => dateNumber(row.asOf) === latestRun) : normalized;
+  return latestBy(runRows, (row) => `${row.location}|${row.pathogen}`, (row) => row.date);
+}
 
-  const positivityRows: Array<{ date: string; pathogen: string; percentPositive: number | null }> = [];
-  for (const row of rows(2)) {
+export function normalizePositivityRows(rows: CsvRow[]): PositivityRecord[] {
+  const positivityRows: PositivityRecord[] = [];
+  for (const row of rows) {
     const date = value(row, "week_end", "week end", "date");
     const pathogen = value(row, "pathogen", "virus");
     const percentage = value(row, "percent_test_positivity", "percent test positivity", "percent positive", "percentage positive", "numeric value");
@@ -143,13 +139,12 @@ async function loadPayload() {
       }
     }
   }
-  positivityRows.sort((a, b) => dateNumber(a.date) - dateNumber(b.date));
+  return positivityRows.sort((a, b) => dateNumber(a.date) - dateNumber(b.date));
+}
 
-  const wastewaterRows: Array<{ week: string; location: string; stateAbbreviation: string; pathogen: string; activityLevel: string; activityValue: number | null; dataCollectionPeriod: string; updatedAt: string }> = [];
-  const wastewaterSources = [
-    { index: 3, pathogen: "COVID-19" }, { index: 4, pathogen: "Influenza A" }, { index: 5, pathogen: "RSV" },
-  ];
-  for (const source of wastewaterSources) for (const row of rows(source.index)) {
+export function normalizeWastewaterRows(rows: CsvRow[], fallbackPathogen: string): WastewaterRecord[] {
+  const wastewaterRows: WastewaterRecord[] = [];
+  for (const row of rows) {
     const dataCollectionPeriod = value(row, "Data_Collection_Period", "Data Collection Period", "collection period");
     if (dataCollectionPeriod && normalizeKey(dataCollectionPeriod) !== "all results") continue;
     const location = value(row, "State/Territory", "state territory", "location");
@@ -158,19 +153,32 @@ async function loadPayload() {
       week: value(row, "Week_Ending_Date", "week ending date", "week_end", "week end", "week"),
       location,
       stateAbbreviation: value(row, "state_abbreviation", "state abbreviation", "state_abbrev"),
-      pathogen: value(row, "pathogen_target", "pathogen target", "pathogen") || source.pathogen,
+      pathogen: value(row, "pathogen_target", "pathogen target", "pathogen") || fallbackPathogen,
       activityLevel: value(row, "WVAL_Category", "wval category", "activity level", "activity_level"),
       activityValue: numeric(value(row, "State/Territory_WVAL", "state territory wval", "wval", "wastewater viral activity level")),
       dataCollectionPeriod,
       updatedAt: value(row, "date_updated", "date updated"),
     });
   }
-  const latestWastewater = latestBy(wastewaterRows, (row) => `${row.location}|${row.pathogen}`, (row) => row.week || row.updatedAt);
+  return latestBy(wastewaterRows, (row) => `${row.location}|${row.pathogen}`, (row) => row.week || row.updatedAt);
+}
 
-  const normalizedCounts = [ariRows.length, rtRows.length, positivityRows.length,
-    latestWastewater.filter((row) => row.pathogen === "COVID-19").length,
-    latestWastewater.filter((row) => /influenza/i.test(row.pathogen)).length,
-    latestWastewater.filter((row) => /rsv|respiratory syncytial/i.test(row.pathogen)).length];
+async function loadPayload() {
+  const settled = await Promise.allSettled([
+    fetchCsv(SOURCES.ari), fetchCsv(SOURCES.rt, 36_000_000), fetchCsv(SOURCES.positivity),
+    fetchCsv(SOURCES.wastewaterCovid), fetchCsv(SOURCES.wastewaterFlu), fetchCsv(SOURCES.wastewaterRsv),
+  ]);
+  const rows = (index: number): CsvRow[] => settled[index].status === "fulfilled" ? settled[index].value : [];
+
+  const ariRows = normalizeAriRows(rows(0));
+  const rtRows = normalizeRtRows(rows(1));
+  const positivityRows = normalizePositivityRows(rows(2));
+  const wastewaterCovid = normalizeWastewaterRows(rows(3), "COVID-19");
+  const wastewaterFlu = normalizeWastewaterRows(rows(4), "Influenza A");
+  const wastewaterRsv = normalizeWastewaterRows(rows(5), "RSV");
+  const latestWastewater = [...wastewaterCovid, ...wastewaterFlu, ...wastewaterRsv];
+
+  const normalizedCounts = [ariRows.length, rtRows.length, positivityRows.length, wastewaterCovid.length, wastewaterFlu.length, wastewaterRsv.length];
   const sourceNames = Object.keys(SOURCES);
   const sourceHealth = sourceNames.map((name, index) => {
     const fetched = settled[index].status === "fulfilled";
