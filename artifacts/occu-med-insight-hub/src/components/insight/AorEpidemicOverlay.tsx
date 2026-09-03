@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Activity, AlertTriangle, ArrowUpRight, BookOpen, History, Loader2, RadioTower, ShieldCheck, Stethoscope, Syringe } from "lucide-react";
+import { AorSurveillanceLayers } from "./AorSurveillanceLayers";
 
 type LayerMode = "current" | "notices" | "destination" | "frequency" | "lisa" | "yellowbook";
 type HistoricalRow = { country?: string; iso2: string; outbreakCount: number | null; uniqueDiseases?: number; firstYear?: number; lastYear?: number; diseaseCounts?: Record<string, number>; topDiseases?: Array<{ disease: string; count: number }>; lisa?: "high-high" | "low-high" | "not-significant"; neighboringPressure?: string };
@@ -201,5 +202,6 @@ export function AorEpidemicOverlay({ map, mapStatus, selectedCountry, travelHeal
         <p className="mt-2 text-[8px] leading-3 text-cyan-100/30">Historical layer records disease-country-year occurrence, not cases, deaths or current intensity.</p>
       </>}
     </div> : null}
+    <AorSurveillanceLayers map={map} mapStatus={mapStatus} selectedCountry={selectedCountry} />
   </>;
 }
