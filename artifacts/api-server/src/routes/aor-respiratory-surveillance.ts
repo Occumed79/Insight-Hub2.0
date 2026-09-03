@@ -64,9 +64,9 @@ function dateNumber(input: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-async function fetchCsv(url: string, maxBytes = 18_000_000) {
+async function fetchCsv(url: string, maxBytes = 24_000_000) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 22_000);
+  const timer = setTimeout(() => controller.abort(), 25_000);
   try {
     const response = await fetch(url, {
       signal: controller.signal,
@@ -93,35 +93,42 @@ function latestBy<T>(rows: T[], key: (row: T) => string, date: (row: T) => strin
   return [...result.values()];
 }
 
+function latestRtRows(rows: Array<{ asOf: string; date: string; location: string; pathogen: string; epidemicTrend: string; rtEstimate: number | null; rtLower: number | null; rtUpper: number | null; pGrowing: number | null; intervalWidth: number | null }>) {
+  const latestRun = rows.reduce((max, row) => Math.max(max, dateNumber(row.asOf)), 0);
+  const runRows = latestRun ? rows.filter((row) => dateNumber(row.asOf) === latestRun) : rows;
+  return latestBy(runRows, (row) => `${row.location}|${row.pathogen}`, (row) => row.date);
+}
+
 async function loadPayload() {
   const settled = await Promise.allSettled([
-    fetchCsv(SOURCES.ari), fetchCsv(SOURCES.rt), fetchCsv(SOURCES.positivity),
+    fetchCsv(SOURCES.ari), fetchCsv(SOURCES.rt, 36_000_000), fetchCsv(SOURCES.positivity),
     fetchCsv(SOURCES.wastewaterCovid), fetchCsv(SOURCES.wastewaterFlu), fetchCsv(SOURCES.wastewaterRsv),
   ]);
-  const rows = (index: number) => settled[index].status === "fulfilled" ? settled[index].value : [];
-  const sourceHealth = Object.keys(SOURCES).map((name, index) => ({
-    source: name,
-    ok: settled[index].status === "fulfilled",
-    rows: rows(index).length,
-    error: settled[index].status === "rejected" ? String((settled[index] as PromiseRejectedResult).reason?.message || (settled[index] as PromiseRejectedResult).reason).slice(0, 180) : undefined,
-  }));
+  const rows = (index: number): CsvRow[] => settled[index].status === "fulfilled" ? settled[index].value : [];
 
+  // CDC dataset f3zz-zga5 currently exposes week_end, geography and label.
   const ariRows = latestBy(rows(0).map((row) => ({
     date: value(row, "week_end", "week end", "date"),
-    location: value(row, "location", "state", "state territory"),
+    location: value(row, "geography", "location", "state", "state territory"),
     stateAbbreviation: value(row, "state_abbreviation", "state abbrev", "abbreviation"),
-    level: value(row, "respiratory illness level", "ari activity level", "activity level"),
+    level: value(row, "label", "respiratory illness level", "ari activity level", "activity level"),
   })).filter((row) => row.location && row.level), (row) => row.location, (row) => row.date);
 
-  const rtRows = latestBy(rows(1).map((row) => ({
+  // CDC dataset 5dqz-y4ea is an archive of model runs. Restrict to the newest as_of run,
+  // then retain the newest estimate date for each state/disease combination.
+  const rtNormalized = rows(1).map((row) => ({
+    asOf: value(row, "as_of", "as of", "model run date"),
     date: value(row, "date", "week_end", "week end"),
-    location: value(row, "location", "state"),
-    stateAbbreviation: value(row, "state_abbreviation", "state abbreviation", "state_abbrev"),
-    pathogen: value(row, "pathogen", "pathogen target"),
-    epidemicTrend: value(row, "epidemic trend", "trend"),
-    rtEstimate: value(row, "rt estimate", "rt", "estimate"),
-    emergencyDepartmentVisitLevel: value(row, "emergency department visit level", "ed visit level"),
-  })).filter((row) => row.location && row.pathogen), (row) => `${row.location}|${row.pathogen}`, (row) => row.date);
+    location: value(row, "state", "location"),
+    pathogen: value(row, "disease", "pathogen", "pathogen target"),
+    epidemicTrend: value(row, "category", "epidemic trend", "trend"),
+    rtEstimate: numeric(value(row, "median", "rt estimate", "rt", "estimate")),
+    rtLower: numeric(value(row, "lower", "lower bound")),
+    rtUpper: numeric(value(row, "upper", "upper bound")),
+    pGrowing: numeric(value(row, "p_growing", "p growing", "probability growing")),
+    intervalWidth: numeric(value(row, "interval_width", "interval width")),
+  })).filter((row) => row.location && row.pathogen && row.date);
+  const rtRows = latestRtRows(rtNormalized);
 
   const positivityRows: Array<{ date: string; pathogen: string; percentPositive: number | null }> = [];
   for (const row of rows(2)) {
@@ -138,22 +145,49 @@ async function loadPayload() {
   }
   positivityRows.sort((a, b) => dateNumber(a.date) - dateNumber(b.date));
 
-  const wastewaterRows: Array<{ week: string; location: string; stateAbbreviation: string; pathogen: string; activityLevel: string; activityValue: number | null; sitesReporting: number | null; coverage: string; updatedAt: string }> = [];
+  const wastewaterRows: Array<{ week: string; location: string; stateAbbreviation: string; pathogen: string; activityLevel: string; activityValue: number | null; dataCollectionPeriod: string; updatedAt: string }> = [];
   const wastewaterSources = [
     { index: 3, pathogen: "COVID-19" }, { index: 4, pathogen: "Influenza A" }, { index: 5, pathogen: "RSV" },
   ];
-  for (const source of wastewaterSources) for (const row of rows(source.index)) wastewaterRows.push({
-    week: value(row, "week", "week_end", "week end"),
-    location: value(row, "location", "state territory wval", "state territory"),
-    stateAbbreviation: value(row, "state_abbrev", "state abbreviation", "state_abbreviation"),
-    pathogen: value(row, "pathogen_target", "pathogen target", "pathogen") || source.pathogen,
-    activityLevel: value(row, "activity level", "activity_level"),
-    activityValue: numeric(value(row, "state territory wval", "wval", "wastewater viral activity level")),
-    sitesReporting: numeric(value(row, "sites currently reporting", "sites reporting")),
-    coverage: value(row, "coverage"),
-    updatedAt: value(row, "date_updated", "date updated"),
+  for (const source of wastewaterSources) for (const row of rows(source.index)) {
+    const dataCollectionPeriod = value(row, "Data_Collection_Period", "Data Collection Period", "collection period");
+    if (dataCollectionPeriod && normalizeKey(dataCollectionPeriod) !== "all results") continue;
+    const location = value(row, "State/Territory", "state territory", "location");
+    if (!location) continue;
+    wastewaterRows.push({
+      week: value(row, "Week_Ending_Date", "week ending date", "week_end", "week end", "week"),
+      location,
+      stateAbbreviation: value(row, "state_abbreviation", "state abbreviation", "state_abbrev"),
+      pathogen: value(row, "pathogen_target", "pathogen target", "pathogen") || source.pathogen,
+      activityLevel: value(row, "WVAL_Category", "wval category", "activity level", "activity_level"),
+      activityValue: numeric(value(row, "State/Territory_WVAL", "state territory wval", "wval", "wastewater viral activity level")),
+      dataCollectionPeriod,
+      updatedAt: value(row, "date_updated", "date updated"),
+    });
+  }
+  const latestWastewater = latestBy(wastewaterRows, (row) => `${row.location}|${row.pathogen}`, (row) => row.week || row.updatedAt);
+
+  const normalizedCounts = [ariRows.length, rtRows.length, positivityRows.length,
+    latestWastewater.filter((row) => row.pathogen === "COVID-19").length,
+    latestWastewater.filter((row) => /influenza/i.test(row.pathogen)).length,
+    latestWastewater.filter((row) => /rsv|respiratory syncytial/i.test(row.pathogen)).length];
+  const sourceNames = Object.keys(SOURCES);
+  const sourceHealth = sourceNames.map((name, index) => {
+    const fetched = settled[index].status === "fulfilled";
+    const rawRows = rows(index).length;
+    const normalizedRows = normalizedCounts[index] ?? 0;
+    const schemaOk = !fetched || rawRows === 0 ? fetched : normalizedRows > 0;
+    return {
+      source: name,
+      ok: fetched && schemaOk,
+      fetched,
+      rawRows,
+      normalizedRows,
+      error: settled[index].status === "rejected"
+        ? String((settled[index] as PromiseRejectedResult).reason?.message || (settled[index] as PromiseRejectedResult).reason).slice(0, 180)
+        : fetched && rawRows > 0 && normalizedRows === 0 ? "Source returned rows but none matched the expected CDC schema." : undefined,
+    };
   });
-  const latestWastewater = latestBy(wastewaterRows.filter((row) => row.location), (row) => `${row.location}|${row.pathogen}`, (row) => row.week || row.updatedAt);
 
   return {
     ok: sourceHealth.some((source) => source.ok),
@@ -162,10 +196,12 @@ async function loadPayload() {
     sourceHealth,
     sources: SOURCES,
     ari: { rows: ariRows, latestDate: ariRows.map((row) => row.date).sort().at(-1) || null },
-    rt: { rows: rtRows, latestDate: rtRows.map((row) => row.date).sort().at(-1) || null },
+    rt: { rows: rtRows, latestDate: rtRows.map((row) => row.date).sort().at(-1) || null, latestModelRun: rtRows.map((row) => row.asOf).sort().at(-1) || null },
     positivity: { rows: positivityRows.slice(-900), latestDate: positivityRows.map((row) => row.date).sort().at(-1) || null },
     wastewater: { rows: latestWastewater, latestDate: latestWastewater.map((row) => row.week).sort().at(-1) || null },
-    limitation: "CDC respiratory surveillance is provisional and source-specific. ARI activity, epidemic trend/Rt, laboratory test positivity, emergency-department activity and wastewater viral activity measure different signals and should not be treated as interchangeable case counts.",
+    rtMethodologyNotice: "CDC changed the Epidemic Trends and Rt modeling method on June 1, 2026; archived estimates spanning that change are not method-identical.",
+    seasonalRtNotice: "CDC paused weekly influenza and RSV Epidemic Trends/Rt updates after the 2025–26 respiratory season; a missing current flu/RSV Rt row can reflect the seasonal publication pause rather than a data-processing failure.",
+    limitation: "CDC respiratory surveillance is provisional and source-specific. ARI activity, epidemic trend/Rt, laboratory test positivity and wastewater viral activity measure different signals and should not be treated as interchangeable case counts or collapsed into a synthetic respiratory-risk score.",
   };
 }
 
@@ -173,9 +209,9 @@ async function getPayload() {
   if (cache && cache.expiresAt > Date.now()) return cache.value;
   if (!inFlight) inFlight = loadPayload();
   try {
-    const value = await inFlight;
-    cache = { expiresAt: Date.now() + CACHE_TTL, value };
-    return value;
+    const loaded = await inFlight;
+    cache = { expiresAt: Date.now() + CACHE_TTL, value: loaded };
+    return loaded;
   } finally { inFlight = null; }
 }
 
