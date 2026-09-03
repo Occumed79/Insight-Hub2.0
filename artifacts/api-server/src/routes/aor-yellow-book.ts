@@ -26,6 +26,12 @@ type YellowBookProfile = {
 };
 
 const PROFILES = [...yellowBook1, ...yellowBook2, ...yellowBook3, ...yellowBook4] as unknown as YellowBookProfile[];
+const FLAG_OVERRIDES: Record<string, Record<string, boolean>> = {
+  "Typhoid and Paratyphoid Fever": { animalExposure: false },
+  "Leptospirosis": { animalExposure: true },
+  "Malaria": { freshwater: false },
+  "Cholera": { vaccinePreventable: true },
+};
 
 function normalize(value: string) {
   return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -44,7 +50,11 @@ router.get("/aor/yellow-book", (req, res) => {
   res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
   const query = String(req.query.q || "").trim().slice(0, 100);
   const selected = query ? PROFILES.filter((profile) => matches(profile, query)) : PROFILES;
-  const profiles = selected.map((profile) => ({ ...profile, operationalRules: YELLOW_BOOK_OPERATIONAL_RULES[profile.title] ?? [] }));
+  const profiles = selected.map((profile) => ({
+    ...profile,
+    flags: { ...profile.flags, ...(FLAG_OVERRIDES[profile.title] ?? {}) },
+    operationalRules: YELLOW_BOOK_OPERATIONAL_RULES[profile.title] ?? [],
+  }));
 
   return res.json({
     ok: true,
