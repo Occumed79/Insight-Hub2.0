@@ -4,6 +4,7 @@ import yellowBook2 from "./aor-yellow-book-data-2";
 import yellowBook3 from "./aor-yellow-book-data-3";
 import yellowBook4 from "./aor-yellow-book-data-4";
 import { YELLOW_BOOK_OPERATIONAL_RULES } from "./aor-yellow-book-rules";
+import { YELLOW_BOOK_ASSET_COUNT, YELLOW_BOOK_SOURCE_ASSETS } from "./aor-yellow-book-assets";
 
 const router: IRouter = Router();
 
@@ -29,6 +30,7 @@ const PROFILES = [...yellowBook1, ...yellowBook2, ...yellowBook3, ...yellowBook4
 const FLAG_OVERRIDES: Record<string, Record<string, boolean>> = {
   "Typhoid and Paratyphoid Fever": { animalExposure: false },
   "Leptospirosis": { animalExposure: true },
+  "Schistosomiasis": { foodWater: false },
   "Malaria": { freshwater: false },
   "Cholera": { vaccinePreventable: true },
 };
@@ -54,6 +56,7 @@ router.get("/aor/yellow-book", (req, res) => {
     ...profile,
     flags: { ...profile.flags, ...(FLAG_OVERRIDES[profile.title] ?? {}) },
     operationalRules: YELLOW_BOOK_OPERATIONAL_RULES[profile.title] ?? [],
+    sourceAssets: YELLOW_BOOK_SOURCE_ASSETS[profile.title] ?? [],
   }));
 
   return res.json({
@@ -63,7 +66,8 @@ router.get("/aor/yellow-book", (req, res) => {
       edition: 2026,
       bookletPages: 277,
       diseaseChapters: 22,
-      extraction: "Structured from the supplied CDC infectious-disease booklet, preserving chapter terminology and source page ranges.",
+      structuredAssets: YELLOW_BOOK_ASSET_COUNT,
+      extraction: "Structured from the supplied CDC infectious-disease booklet, preserving chapter terminology, source page ranges, and every distinct table/map/figure/box identified in the booklet.",
       currentGuidanceBoundary: "Yellow Book content is reference context. Current country-specific recommendations and Travel Health Notices continue to come from CDC Travelers' Health and other live official sources.",
     },
     profiles,
