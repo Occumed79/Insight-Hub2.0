@@ -2,13 +2,14 @@ import { Router, type IRouter } from "express";
 
 const router: IRouter = Router();
 
-type DiseaseConfig = { title: string; sourceTable: string; rows: string };
+type DiseaseConfig = { title: string; sourceTable: string; sourceColumns: string[]; rows: string };
 const SOURCE_URL = "https://doi.org/10.3390/jof3040057";
 
 const DISEASES: Record<string, DiseaseConfig> = {
   candidemia: {
-    title: "Candidaemia / invasive candidiasis",
+    title: "Candidaemia",
     sourceTable: "Table 2",
+    sourceColumns: ["Country", "Burden", "Rate/100,000", "Comments"],
     rows: `Brazil|BR|28991|14.9
 Pakistan|PK|38795|21
 Qatar|QA|288|15.4
@@ -52,6 +53,7 @@ Philippines|PH|1968|2`,
   "invasive-aspergillosis": {
     title: "Invasive aspergillosis",
     sourceTable: "Table 3",
+    sourceColumns: ["Country", "Burden", "Rate/100,000", "Assumptions"],
     rows: `Vietnam|VN|14523|16
 Egypt|EG|9001|10.7
 Greece|GR|1125|10.4
@@ -96,6 +98,7 @@ Tanzania|TZ|20|0.1`,
   pcp: {
     title: "Pneumocystis jirovecii pneumonia",
     sourceTable: "Table 4",
+    sourceColumns: ["Country", "Burden", "Rate/100,000", "Assumptions"],
     rows: `Nigeria|NG|74595|48.2
 Kenya|KE|17000|43
 Trinidad and Tobago|TT|400|30
@@ -140,6 +143,7 @@ Denmark|DK|2|0.04`,
   cpa: {
     title: "Chronic pulmonary aspergillosis",
     sourceTable: "Table 5",
+    sourceColumns: ["Country", "Burden", "Rate/100,000"],
     rows: `Russia|RU|52311|126.2
 Nigeria|NG|120747|78
 Philippines|PH|77172|78
@@ -187,6 +191,7 @@ Canada|CA|492|1.4`,
   abpa: {
     title: "Allergic bronchopulmonary aspergillosis",
     sourceTable: "Table 6",
+    sourceColumns: ["Country", "Burden", "Rate/100,000", "Assumptions"],
     rows: `United Kingdom|GB|235070|372
 Trinidad and Tobago|TT|3491|260
 Dominican Republic|DO|25149|249
@@ -234,6 +239,7 @@ Uzbekistan|UZ|879|2.9`,
   safs: {
     title: "Severe asthma with fungal sensitisation",
     sourceTable: "Table 7",
+    sourceColumns: ["Country", "Burden", "Rate/100,000"],
     rows: `United Kingdom|GB|413724|654
 Trinidad and Tobago|TT|4608|344
 Dominican Republic|DO|33197|329
@@ -281,6 +287,7 @@ Uzbekistan|UZ|1147|3.7`,
   "fungal-keratitis": {
     title: "Fungal keratitis",
     sourceTable: "Table 8",
+    sourceColumns: ["Country", "Burden", "Rate/100,000", "Proportion of microbial keratitis that is fungal / source assumption"],
     rows: `Nepal|NP|19938|73
 Pakistan|PK|80553|44
 Thailand|TH|9765|15
@@ -296,6 +303,39 @@ Denmark|DK|3|0.05
 Germany|DE|32|0.04`,
   },
 };
+
+const GLOBAL_CONTEXT = [
+  { disease: "Chronic pulmonary aspergillosis", estimate: "3,000,000 cases" },
+  { disease: "Cryptococcal meningitis complicating HIV/AIDS", estimate: "~223,100 cases" },
+  { disease: "Invasive candidiasis", estimate: "~700,000 cases" },
+  { disease: "Pneumocystis jirovecii pneumonia", estimate: "~500,000 cases" },
+  { disease: "Invasive aspergillosis", estimate: "~250,000 cases" },
+  { disease: "Disseminated histoplasmosis", estimate: "~100,000 cases" },
+  { disease: "Fungal asthma", estimate: ">10,000,000 cases" },
+  { disease: "Fungal keratitis", estimate: "~1,000,000 cases annually" },
+];
+
+const RVVC_CONTEXT = {
+  title: "Recurrent vulvovaginal candidiasis (rVVC)",
+  sourceSection: "Section 2.7",
+  globalEstimate: "~134,000,000 cases",
+  definition: "Four or more episodes per year in the review's discussion.",
+  workedExample: "Nepal: 443,237 estimated cases among 7,380,000 women aged 15–49, using a 6% assumption.",
+  limitation: "The review states that most country burden estimates used a uniform 6% rate and that supporting proportion data were missing from large parts of Central/South America, Africa, the Middle East, Asia and Australasia. It is therefore not rendered as a comparable country choropleth.",
+};
+
+const TINEA_COUNTRY_BURDENS = [
+  ["Nigeria", 15581400], ["Kenya", 1712676], ["Senegal", 1523700], ["Uganda", 1300000], ["Tanzania", 420000], ["Vietnam", 415301],
+  ["South Korea", 45087], ["Uzbekistan", 7307], ["Algeria", 4265], ["Austria", 1221], ["Czech Republic", 960], ["Philippines", 846], ["Denmark", 185], ["Thailand", 59], ["Sri Lanka", 50],
+].map(([country, burden]) => ({ country: String(country), burden: Number(burden) }));
+
+const TINEA_STUDY_PREVALENCE = [
+  ["Nigeria", "76.1", 2011], ["Kenya", "68.0", 2015], ["Rwanda", "49.5", 1983], ["Nigeria", "45.0", 2016], ["Senegal", "44.8", 2016],
+  ["Mali", "39.3", 2016], ["Ethiopia", "36.5", 2015], ["Nigeria", "35.2", 2015], ["Kenya", "33.3", 2001], ["Nigeria", "31.2", 2008],
+  ["Nigeria", "26.9", 2014], ["Gabon", "23.1", 2011], ["Gabon", "23.1", 2013], ["Tanzania", "22.5", 1998], ["Kenya", "20.6", 2013],
+  ["Nigeria", "15.4", 2014], ["Ivory Coast", "13.9", 2013], ["Kenya", "11.2", 2009], ["Nigeria", "9.4", 2008], ["Ghana", "8.7", 2013],
+  ["Ghana", "8.4", 2013], ["Cameroon", "8.1", 2014], ["Kenya", "7.8", 1997], ["Kenya", "7.1", 2010], ["Mozambique", "3.6–9.6", 2007],
+].map(([country, prevalencePercent, publicationYear]) => ({ country: String(country), prevalencePercent: String(prevalencePercent), publicationYear: Number(publicationYear) }));
 
 function parseRows(config: DiseaseConfig) {
   return config.rows.split("\n").filter(Boolean).map((line) => {
@@ -315,14 +355,28 @@ router.get("/aor/fungal-burden", (req, res) => {
 
   return res.json({
     ok: true,
-    disease: { key: diseaseKey, title: config.title, sourceTable: config.sourceTable },
-    availableDiseases: Object.entries(DISEASES).map(([key, value]) => ({ key, title: value.title, sourceTable: value.sourceTable })),
+    disease: { key: diseaseKey, title: config.title, sourceTable: config.sourceTable, sourceColumns: config.sourceColumns },
+    availableDiseases: Object.entries(DISEASES).map(([key, value]) => ({ key, title: value.title, sourceTable: value.sourceTable, sourceColumns: value.sourceColumns })),
     rows: selected,
     source: "Bongomin et al., Journal of Fungi 2017",
     sourceUrl: SOURCE_URL,
     publicationYear: 2017,
     modeledEstimate: true,
-    methodology: "Country figures reproduce the review's published modeled burden and rate-per-100,000 tables. Estimates were assembled from heterogeneous surveillance, literature and assumption-based methods and were intended as rough burden approximations, not comprehensive surveillance.",
+    globalContext: {
+      basis: "Abstract's recent global estimates; Table 1 contains the paper's broader burden inventory and in some cases differently updated figures.",
+      rows: GLOBAL_CONTEXT,
+    },
+    additionalEvidence: {
+      recurrentVulvovaginalCandidiasis: RVVC_CONTEXT,
+      tineaCapitis: {
+        title: "Tinea capitis",
+        sourceSection: "Section 2.8 and Table 9",
+        countryBurdenExamples: TINEA_COUNTRY_BURDENS,
+        studyPrevalence: TINEA_STUDY_PREVALENCE,
+        limitation: "Table 9 reports prevalence in individual school-age study populations, primarily in sub-Saharan Africa. Those study percentages are not equivalent to national population prevalence and are intentionally not rendered as a national choropleth.",
+      },
+    },
+    methodology: `Country figures reproduce ${config.sourceTable}'s published modeled burden and rate-per-100,000 values. The source table columns are: ${config.sourceColumns.join(", ")}. Several tables contain country-specific comments or assumptions, and the review emphasizes heterogeneous surveillance, literature and assumption-based methods; map comparison therefore reflects published estimates, not equal surveillance quality.`,
     limitation: "Historical modeled burden only. Do not interpret these values as current outbreak activity, current incidence, current prevalence or a present-day travel-risk score. Country coverage and estimate precision vary materially by disease.",
   });
 });
