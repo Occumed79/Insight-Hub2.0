@@ -44,7 +44,7 @@ export const YELLOW_BOOK_OPERATIONAL_RULES: Record<string, string[]> = {
   "Rabies": [
     "Any potentially rabies-exposing bite or scratch requires immediate thorough wound cleansing and urgent assessment for post-exposure prophylaxis; do not wait for symptoms.",
     "Pre-exposure vaccination is useful for travelers with elevated animal-contact risk but does not eliminate the need for post-exposure management after a qualifying exposure.",
-    "Post-exposure management differs by prior vaccination and immune status. Appropriate previously unvaccinated exposures require vaccine plus rabies immune globulin, while previously vaccinated people follow a different vaccine-only regimen.",
+    "Previously vaccinated people receive 2 modern cell-culture vaccine doses on days 0 and 3 after a qualifying exposure and should not receive rabies immune globulin; previously unvaccinated people require a different vaccine-plus-RIG regimen under current guidance.",
     "Risk assessment should consider bats as well as dogs, cats, and other mammals. Travelers working outdoors, in remote settings, with animals, or where prompt access to quality rabies biologics is uncertain need stronger pre-travel planning.",
     "Clinical rabies is an acute encephalitis and is nearly always fatal once symptoms develop. Incubation can be prolonged, so a remote travel exposure remains relevant long after return."
   ],
@@ -84,18 +84,18 @@ export const YELLOW_BOOK_OPERATIONAL_RULES: Record<string, string[]> = {
     "Typhoid/paratyphoid are nationally notifiable. Antimicrobial resistance patterns vary geographically, so treatment choices should use travel history and susceptibility information rather than a generic empiric assumption."
   ],
   "Hepatitis A": [
-    "HAV is transmitted fecal-orally through contaminated food/water or person-to-person contact; unvaccinated travelers are at greatest risk where sanitation and clean-water access are limited.",
+    "Unvaccinated travelers are at risk where sanitation and clean-water access are limited; HAV spreads fecal-orally through contaminated food/water or person-to-person contact.",
     "The incubation period averages 28 days with a 15–50 day range, so illness can present weeks after return and should be linked back to travel history.",
     "The booklet includes a global hepatitis A immunity/endemicity map and vaccine table with age, product, dose, route, and schedule information.",
-    "Older adults, immunocompromised people, and people with chronic liver disease need additional pre-travel consideration when departure is soon; immune globulin can be part of prevention/PEP strategy in selected patients.",
-    "Hepatitis A post-exposure prevention is time-sensitive; appropriate vaccine and/or immune globulin should be considered promptly after a qualifying exposure under current CDC guidance."
+    "Older adults, immunocompromised people, and people with chronic liver disease need additional pre-travel consideration when departure is soon; immune globulin can be part of prevention strategy in selected patients.",
+    "For an exposed, asymptomatic person who has not completed hepatitis A vaccination, vaccine and/or immune globulin should be given as soon as possible, ideally within 2 weeks of exposure; effectiveness after >2 weeks is not established in the chapter."
   ],
   "Influenza": [
     "Influenza is worldwide with seasonal variation, so international travel can expose personnel to active circulation outside their home-region influenza season.",
     "Pre-travel planning should account for vaccination status and destination timing; vaccination remains the principal preventive measure along with respiratory and hand-hygiene controls.",
     "The chapter includes an antiviral treatment/prophylaxis table. Early antiviral treatment can shorten illness and reduce complications in appropriate patients and should not be delayed unnecessarily in high-risk/severe cases.",
-    "The supplied booklet includes a global highly pathogenic avian influenza A(H5Nx) map, relevant when travelers have poultry, bird, animal-market, agricultural, or similar occupational exposure.",
-    "Respiratory symptoms alone cannot distinguish influenza from other respiratory pathogens; testing/treatment decisions should incorporate current circulation, exposure, patient risk, and travel context."
+    "Antiviral post-exposure prophylaxis can be used after close contact with confirmed influenza in selected situations and, when used, should be started within 48 hours of exposure; CDC does not recommend routine prophylaxis for every exposure.",
+    "The supplied booklet includes a global highly pathogenic avian influenza A(H5Nx) map, relevant when travelers have poultry, bird, animal-market, agricultural, or similar occupational exposure."
   ],
   "Japanese Encephalitis": [
     "The chapter contains destination- and subnational-area-specific JE risk and transmission-season data; risk can vary substantially within a country and from year to year.",
