@@ -1,7 +1,7 @@
 {
-  "description": "Reviewed structural baseline for Insight Hub 2. The active application keeps one shell, three global CSS layers, protected intelligence routes, and the existing AOR MapTiler implementation. The complete WarCosts integration is deliberately contained under one top-level WarCosts Intelligence sidebar entry with seven internal views. WarCosts data ownership includes the full 39-unique-file downloadable JSON mirror, page-evidence and priority-page mirrors, cross-feed intelligence, canonical tools, and a fresh ArcGIS War Map isolated from AOR. The War Map also owns Michael Allen / troopdata personnel-presence and geocoded construction layers. The AOR MapTiler map remains the health/risk workspace and owns OutbreakTracker current awareness, live CDC Travel Health Notices, live CDC destination vaccine/medicine/non-vaccine-disease guidance with clinician links, WHO/Figshare historical outbreak-frequency and paper-published LISA hotspot layers, plus a structured 22-chapter CDC Yellow Book 2026 infectious-disease catalog cross-matched against current CDC destination guidance. Yellow Book reference context preserves chapter page ranges, endemicity, traveler risk, transmission, prevention, diagnostic support, clinical recognition, treatment, expanded operational rules, exposure flags, and all 51 distinct source tables/maps/figures/boxes identified in the supplied booklet without replacing live destination recommendations. These reviewed map-intelligence and Yellow Book files raise the repository file ceiling to 313. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
+  "description": "Reviewed structural baseline for Insight Hub 2. The active application keeps one shell, three global CSS layers, protected intelligence routes, and the existing AOR MapTiler implementation. The complete WarCosts integration is deliberately contained under one top-level WarCosts Intelligence sidebar entry with seven internal views. WarCosts data ownership includes the full 39-unique-file downloadable JSON mirror, page-evidence and priority-page mirrors, cross-feed intelligence, canonical tools, and a fresh ArcGIS War Map isolated from AOR. The War Map also owns Michael Allen / troopdata personnel-presence and geocoded construction layers. The AOR MapTiler map remains the health/risk workspace and owns OutbreakTracker current awareness, live CDC Travel Health Notices, live CDC destination vaccine/medicine/non-vaccine-disease guidance with clinician links, WHO/Figshare historical outbreak-frequency and paper-published LISA hotspot layers, a structured 22-chapter CDC Yellow Book 2026 infectious-disease catalog, live CDC U.S. respiratory surveillance (ARI, epidemic trend/Rt, test positivity and wastewater), live WHO Immunization Data Portal intelligence (coverage, incidence, reported cases, vaccine introduction, program indicators and WUENIC evidence), and a separately labeled historical modeled fungal-burden layer derived from the published 2017 country tables. Yellow Book reference context preserves chapter page ranges, endemicity, traveler risk, transmission, prevention, diagnostic support, clinical recognition, treatment, expanded operational rules, exposure flags, and all 51 distinct source tables/maps/figures/boxes identified in the supplied booklet without replacing live destination recommendations. Respiratory signals remain distinct rather than being collapsed into a synthetic score; WHO coverage categories remain distinct; fungal estimates are never represented as live surveillance. These reviewed health-intelligence files raise the repository file ceiling to 317. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
   "maximums": {
-    "totalFiles": 313,
+    "totalFiles": 317,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
@@ -31,6 +31,7 @@
     "artifacts/occu-med-insight-hub/src/components/insight/AuroraMolecule.tsx",
     "artifacts/occu-med-insight-hub/src/components/insight/WarCostsWorkspaceNav.tsx",
     "artifacts/occu-med-insight-hub/src/components/insight/AorEpidemicOverlay.tsx",
+    "artifacts/occu-med-insight-hub/src/components/insight/AorSurveillanceLayers.tsx",
     "artifacts/occu-med-insight-hub/src/pages/onet-master-tool.tsx",
     "artifacts/occu-med-insight-hub/src/pages/occupational-data-explorer.tsx",
     "artifacts/occu-med-insight-hub/src/pages/industry-impact-calculator.tsx",
@@ -53,6 +54,9 @@
     "artifacts/api-server/src/routes/aor-yellow-book-data-4.ts",
     "artifacts/api-server/src/routes/aor-yellow-book-rules.ts",
     "artifacts/api-server/src/routes/aor-yellow-book-assets.ts",
+    "artifacts/api-server/src/routes/aor-respiratory-surveillance.ts",
+    "artifacts/api-server/src/routes/aor-immunization.ts",
+    "artifacts/api-server/src/routes/aor-fungal-burden.ts",
     "artifacts/api-server/src/routes/standards-intelligence.ts",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-standards-intelligence.tsx",
     "artifacts/occu-med-insight-hub/tests/occupational-intelligence.spec.ts",
