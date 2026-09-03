@@ -2,77 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { Activity, AlertTriangle, ArrowUpRight, BookOpen, History, Loader2, RadioTower, ShieldCheck, Stethoscope, Syringe } from "lucide-react";
 
 type LayerMode = "current" | "frequency" | "lisa" | "yellowbook";
-type HistoricalRow = {
-  country?: string;
-  iso2: string;
-  outbreakCount: number | null;
-  uniqueDiseases?: number;
-  firstYear?: number;
-  lastYear?: number;
-  diseaseCounts?: Record<string, number>;
-  topDiseases?: Array<{ disease: string; count: number }>;
-  lisa?: "high-high" | "low-high" | "not-significant";
-  neighboringPressure?: string;
-};
-type HistoricalPayload = {
-  ok: boolean;
-  partial?: boolean;
-  rows: HistoricalRow[];
-  diseases?: string[];
-  methodology?: { period?: string; globalMoransI?: number; pValue?: string; limitation?: string; lisa?: string };
-  error?: string;
-};
-type TrackerPayload = {
-  ok: boolean;
-  trackers: Array<{ disease: string; status?: string; location?: string; summary?: string; url?: string }>;
-  error?: string;
-};
-type YellowBookProfile = {
-  title: string;
-  aliases: string[];
-  pages: [number, number];
-  sourceDate: string;
-  agent: string;
-  endemicity: string;
-  atRisk: string;
-  prevention: string;
-  diagnosticSupport: string;
-  transmission: string;
-  clinical: string;
-  diagnosis: string;
-  treatment: string;
-  keyNotes: string[];
-  operationalRules?: string[];
-  flags: Record<string, boolean>;
-};
-type YellowBookPayload = {
-  ok: boolean;
-  source?: { publication?: string; edition?: number; bookletPages?: number; diseaseChapters?: number; currentGuidanceBoundary?: string };
-  profiles: YellowBookProfile[];
-  error?: string;
-};
-
-type Props = {
-  map: any;
-  mapStatus: "loading" | "ready" | "error";
-  selectedCountry?: { name: string; iso2: string } | null;
-  travelHealth?: any;
-};
+type HistoricalRow = { country?: string; iso2: string; outbreakCount: number | null; uniqueDiseases?: number; firstYear?: number; lastYear?: number; diseaseCounts?: Record<string, number>; topDiseases?: Array<{ disease: string; count: number }>; lisa?: "high-high" | "low-high" | "not-significant"; neighboringPressure?: string };
+type HistoricalPayload = { ok: boolean; partial?: boolean; rows: HistoricalRow[]; diseases?: string[]; methodology?: { period?: string; globalMoransI?: number; pValue?: string; limitation?: string; lisa?: string }; error?: string };
+type TrackerPayload = { ok: boolean; trackers: Array<{ disease: string; status?: string; location?: string; summary?: string; url?: string }>; error?: string };
+type YellowBookProfile = { title: string; aliases: string[]; pages: [number, number]; sourceDate: string; agent: string; endemicity: string; atRisk: string; prevention: string; diagnosticSupport: string; transmission: string; clinical: string; diagnosis: string; treatment: string; keyNotes: string[]; operationalRules?: string[]; flags: Record<string, boolean> };
+type YellowBookPayload = { ok: boolean; source?: { publication?: string; edition?: number; bookletPages?: number; diseaseChapters?: number; currentGuidanceBoundary?: string }; profiles: YellowBookProfile[]; error?: string };
+type Props = { map: any; mapStatus: "loading" | "ready" | "error"; selectedCountry?: { name: string; iso2: string } | null; travelHealth?: any };
 
 const HISTORY_FILL = "aor-epidemic-history-fill";
 const HISTORY_LINE = "aor-epidemic-history-line";
-const FLAG_LABELS: Record<string, string> = {
-  vaccinePreventable: "Vaccine",
-  mosquitoBorne: "Mosquito",
-  tickBorne: "Tick",
-  foodWater: "Food / water",
-  respiratory: "Respiratory",
-  animalExposure: "Animal",
-  freshwater: "Freshwater",
-  sexualTransmission: "Sexual",
-  notifiable: "Notifiable",
-  postExposure: "PEP",
-};
+const FLAG_LABELS: Record<string, string> = { vaccinePreventable: "Vaccine", mosquitoBorne: "Mosquito", tickBorne: "Tick", foodWater: "Food / water", respiratory: "Respiratory", animalExposure: "Animal", freshwater: "Freshwater", sexualTransmission: "Sexual", notifiable: "Notifiable", postExposure: "PEP" };
 
 async function loadJson(url: string) {
   const response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
@@ -80,57 +19,27 @@ async function loadJson(url: string) {
   if (!response.ok) throw new Error(payload?.error || `Request failed (${response.status}).`);
   return payload;
 }
-
-function normalize(value: unknown) {
-  return String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-function frequencyColor(count: number) {
-  if (count >= 40) return "#ef4444";
-  if (count >= 30) return "#f97316";
-  if (count >= 20) return "#f59e0b";
-  if (count >= 10) return "#eab308";
-  if (count >= 5) return "#84cc16";
-  if (count > 0) return "#22c55e";
-  return "rgba(255,255,255,0)";
-}
-
-function matchExpression(rows: Array<{ iso2: string; color: string }>, fallback = "rgba(255,255,255,0)") {
-  const expression: any[] = ["match", ["get", "iso_a2"]];
-  for (const row of rows) expression.push(row.iso2, row.color);
-  expression.push(fallback);
-  return expression;
-}
-
-function diseaseCount(row: HistoricalRow, disease: string) {
-  if (!disease) return Number(row.outbreakCount ?? 0);
-  return Number(row.diseaseCounts?.[disease] ?? 0);
-}
-
+function normalize(value: unknown) { return String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
+function frequencyColor(count: number) { if (count >= 40) return "#ef4444"; if (count >= 30) return "#f97316"; if (count >= 20) return "#f59e0b"; if (count >= 10) return "#eab308"; if (count >= 5) return "#84cc16"; if (count > 0) return "#22c55e"; return "rgba(255,255,255,0)"; }
+function matchExpression(rows: Array<{ iso2: string; color: string }>, fallback = "rgba(255,255,255,0)") { const expression: any[] = ["match", ["get", "iso_a2"]]; for (const row of rows) expression.push(row.iso2, row.color); expression.push(fallback); return expression; }
+function diseaseCount(row: HistoricalRow, disease: string) { return disease ? Number(row.diseaseCounts?.[disease] ?? 0) : Number(row.outbreakCount ?? 0); }
 function destinationDiseaseNames(travelHealth: any) {
   const values: string[] = [];
   for (const item of travelHealth?.diseases || []) if (item?.name) values.push(String(item.name));
   for (const item of travelHealth?.vaccines || []) if (item?.name) values.push(String(item.name));
   if (travelHealth?.malaria) values.push(String(travelHealth.malaria.name || "Malaria"));
   if (travelHealth?.yellowFever) values.push(String(travelHealth.yellowFever.name || "Yellow Fever"));
-  return [...new Set(values.map((value) => normalize(value)).filter(Boolean))];
+  return [...new Set(values.map(normalize).filter(Boolean))];
 }
-
-function profileMatchesDestination(profile: YellowBookProfile, names: string[]) {
-  const terms = [profile.title, ...(profile.aliases || [])].map(normalize).filter(Boolean);
-  return names.some((name) => terms.some((term) => name === term || name.includes(term) || term.includes(name)));
-}
-
-function InfoBlock({ label, children }: { label: string; children?: string }) {
-  if (!children) return null;
-  return <div className="rounded-xl border border-white/8 bg-white/[0.025] p-2.5"><p className="text-[8px] font-black uppercase tracking-[0.12em] text-cyan-100/34">{label}</p><p className="mt-1 text-[9px] leading-4 text-cyan-50/62">{children}</p></div>;
-}
+function profileMatchesDestination(profile: YellowBookProfile, names: string[]) { const terms = [profile.title, ...(profile.aliases || [])].map(normalize).filter(Boolean); return names.some((name) => terms.some((term) => name === term || name.includes(term) || term.includes(name))); }
+function InfoBlock({ label, children }: { label: string; children?: string }) { if (!children) return null; return <div className="rounded-xl border border-white/8 bg-white/[0.025] p-2.5"><p className="text-[8px] font-black uppercase tracking-[0.12em] text-cyan-100/34">{label}</p><p className="mt-1 text-[9px] leading-4 text-cyan-50/62">{children}</p></div>; }
 
 export function AorEpidemicOverlay({ map, mapStatus, selectedCountry, travelHealth }: Props) {
   const [mode, setMode] = useState<LayerMode>("current");
   const [history, setHistory] = useState<HistoricalPayload | null>(null);
   const [tracker, setTracker] = useState<TrackerPayload | null>(null);
   const [yellowBook, setYellowBook] = useState<YellowBookPayload | null>(null);
+  const [countryTravelHealth, setCountryTravelHealth] = useState<any>(null);
   const [historyError, setHistoryError] = useState("");
   const [trackerError, setTrackerError] = useState("");
   const [yellowBookError, setYellowBookError] = useState("");
@@ -139,43 +48,31 @@ export function AorEpidemicOverlay({ map, mapStatus, selectedCountry, travelHeal
 
   useEffect(() => {
     let active = true;
-    loadJson("/api/aor/epidemic-history")
-      .then((payload) => { if (active) setHistory(payload); })
-      .catch((reason) => { if (active) setHistoryError(reason instanceof Error ? reason.message : "Historical epidemic source failed."); });
-    loadJson("/api/aor/outbreak-tracker")
-      .then((payload) => { if (active) setTracker(payload); })
-      .catch((reason) => { if (active) setTrackerError(reason instanceof Error ? reason.message : "Outbreak Tracker failed."); });
-    loadJson("/api/aor/yellow-book")
-      .then((payload) => { if (active) setYellowBook(payload); })
-      .catch((reason) => { if (active) setYellowBookError(reason instanceof Error ? reason.message : "CDC Yellow Book catalog failed."); });
+    loadJson("/api/aor/epidemic-history").then((payload) => { if (active) setHistory(payload); }).catch((reason) => { if (active) setHistoryError(reason instanceof Error ? reason.message : "Historical epidemic source failed."); });
+    loadJson("/api/aor/outbreak-tracker").then((payload) => { if (active) setTracker(payload); }).catch((reason) => { if (active) setTrackerError(reason instanceof Error ? reason.message : "Outbreak Tracker failed."); });
+    loadJson("/api/aor/yellow-book").then((payload) => { if (active) setYellowBook(payload); }).catch((reason) => { if (active) setYellowBookError(reason instanceof Error ? reason.message : "CDC Yellow Book catalog failed."); });
     return () => { active = false; };
   }, []);
 
-  const selectedHistorical = useMemo(() => {
-    const iso2 = selectedCountry?.iso2?.toUpperCase();
-    return iso2 ? history?.rows?.find((row) => row.iso2 === iso2) ?? null : null;
-  }, [history?.rows, selectedCountry?.iso2]);
-
-  const destinationNames = useMemo(() => destinationDiseaseNames(travelHealth), [travelHealth]);
-  const relevantProfiles = useMemo(() => (yellowBook?.profiles || []).filter((profile) => profileMatchesDestination(profile, destinationNames)), [destinationNames, yellowBook?.profiles]);
-  const selectedYellowBook = useMemo(() => {
-    const profiles = yellowBook?.profiles || [];
-    if (yellowBookDisease) return profiles.find((profile) => profile.title === yellowBookDisease) || null;
-    return relevantProfiles[0] || profiles[0] || null;
-  }, [relevantProfiles, yellowBook?.profiles, yellowBookDisease]);
-
   useEffect(() => {
-    if (mode !== "yellowbook" || yellowBookDisease || !relevantProfiles.length) return;
-    setYellowBookDisease(relevantProfiles[0].title);
-  }, [mode, relevantProfiles, yellowBookDisease]);
+    if (travelHealth) { setCountryTravelHealth(null); return; }
+    if (!selectedCountry?.name) { setCountryTravelHealth(null); return; }
+    let active = true;
+    loadJson(`/api/aor/travel-health?country=${encodeURIComponent(selectedCountry.name)}`).then((payload) => { if (active) setCountryTravelHealth(payload); }).catch(() => { if (active) setCountryTravelHealth(null); });
+    return () => { active = false; };
+  }, [selectedCountry?.name, travelHealth]);
+
+  const effectiveTravelHealth = travelHealth || countryTravelHealth;
+  const selectedHistorical = useMemo(() => { const iso2 = selectedCountry?.iso2?.toUpperCase(); return iso2 ? history?.rows?.find((row) => row.iso2 === iso2) ?? null : null; }, [history?.rows, selectedCountry?.iso2]);
+  const destinationNames = useMemo(() => destinationDiseaseNames(effectiveTravelHealth), [effectiveTravelHealth]);
+  const relevantProfiles = useMemo(() => (yellowBook?.profiles || []).filter((profile) => profileMatchesDestination(profile, destinationNames)), [destinationNames, yellowBook?.profiles]);
+  const selectedYellowBook = useMemo(() => { const profiles = yellowBook?.profiles || []; if (yellowBookDisease) return profiles.find((profile) => profile.title === yellowBookDisease) || null; return relevantProfiles[0] || profiles[0] || null; }, [relevantProfiles, yellowBook?.profiles, yellowBookDisease]);
+
+  useEffect(() => { if (mode === "yellowbook" && !yellowBookDisease && relevantProfiles.length) setYellowBookDisease(relevantProfiles[0].title); }, [mode, relevantProfiles, yellowBookDisease]);
 
   const colorRows = useMemo(() => {
     if (!history?.rows?.length) return [];
-    if (mode === "lisa") return history.rows.flatMap((row) => {
-      if (row.lisa === "high-high") return [{ iso2: row.iso2, color: "#f97316" }];
-      if (row.lisa === "low-high") return [{ iso2: row.iso2, color: "#38bdf8" }];
-      return [];
-    });
+    if (mode === "lisa") return history.rows.flatMap((row) => row.lisa === "high-high" ? [{ iso2: row.iso2, color: "#f97316" }] : row.lisa === "low-high" ? [{ iso2: row.iso2, color: "#38bdf8" }] : []);
     if (mode === "frequency") return history.rows.map((row) => ({ iso2: row.iso2, color: frequencyColor(diseaseCount(row, disease)) }));
     return [];
   }, [disease, history?.rows, mode]);
@@ -184,12 +81,8 @@ export function AorEpidemicOverlay({ map, mapStatus, selectedCountry, travelHeal
     if (!map || mapStatus !== "ready" || !map.getSource?.("aor-countries")) return;
     const sourceLayer = "administrative";
     const firstSymbol = map.getStyle?.()?.layers?.find((layer: any) => layer.type === "symbol")?.id;
-    if (!map.getLayer?.(HISTORY_FILL)) {
-      map.addLayer({ id: HISTORY_FILL, type: "fill", source: "aor-countries", "source-layer": sourceLayer, filter: ["==", "level", 0], paint: { "fill-color": "rgba(255,255,255,0)", "fill-opacity": 0 } }, firstSymbol || undefined);
-    }
-    if (!map.getLayer?.(HISTORY_LINE)) {
-      map.addLayer({ id: HISTORY_LINE, type: "line", source: "aor-countries", "source-layer": sourceLayer, filter: ["==", "level", 0], paint: { "line-color": "rgba(255,255,255,0)", "line-width": 1.1, "line-opacity": 0 } }, firstSymbol || undefined);
-    }
+    if (!map.getLayer?.(HISTORY_FILL)) map.addLayer({ id: HISTORY_FILL, type: "fill", source: "aor-countries", "source-layer": sourceLayer, filter: ["==", "level", 0], paint: { "fill-color": "rgba(255,255,255,0)", "fill-opacity": 0 } }, firstSymbol || undefined);
+    if (!map.getLayer?.(HISTORY_LINE)) map.addLayer({ id: HISTORY_LINE, type: "line", source: "aor-countries", "source-layer": sourceLayer, filter: ["==", "level", 0], paint: { "line-color": "rgba(255,255,255,0)", "line-width": 1.1, "line-opacity": 0 } }, firstSymbol || undefined);
   }, [map, mapStatus]);
 
   useEffect(() => {
@@ -211,12 +104,7 @@ export function AorEpidemicOverlay({ map, mapStatus, selectedCountry, travelHeal
     <div className="absolute left-3 top-3 z-10 w-[min(94%,820px)] rounded-2xl border border-white/14 bg-[#020812]/88 p-3 shadow-[0_18px_50px_rgba(0,0,0,.38)] backdrop-blur-2xl" data-testid="aor-epidemic-layer-control">
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.16em] text-cyan-50/62"><Activity size={12} />Health intelligence</span>
-        {([
-          ["current", "Current outbreaks", RadioTower],
-          ["frequency", "Historical frequency", History],
-          ["lisa", "Epidemic hotspots / LISA", Activity],
-          ["yellowbook", "CDC Yellow Book", BookOpen],
-        ] as const).map(([key, label, Icon]) => <button key={key} type="button" onClick={() => setMode(key)} aria-pressed={mode === key} className={`inline-flex min-h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[9px] font-black transition ${mode === key ? "border-cyan-100/38 bg-cyan-300/[0.13] text-white" : "border-white/10 bg-white/[0.025] text-cyan-100/50 hover:border-white/20"}`}><Icon size={11} />{label}</button>)}
+        {([ ["current", "Current outbreaks", RadioTower], ["frequency", "Historical frequency", History], ["lisa", "Epidemic hotspots / LISA", Activity], ["yellowbook", "CDC Yellow Book", BookOpen] ] as const).map(([key, label, Icon]) => <button key={key} type="button" onClick={() => setMode(key)} aria-pressed={mode === key} className={`inline-flex min-h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[9px] font-black transition ${mode === key ? "border-cyan-100/38 bg-cyan-300/[0.13] text-white" : "border-white/10 bg-white/[0.025] text-cyan-100/50 hover:border-white/20"}`}><Icon size={11} />{label}</button>)}
         {mode === "frequency" && history?.diseases?.length ? <select aria-label="Historical disease filter" value={disease} onChange={(event) => setDisease(event.target.value)} className="min-h-8 max-w-[220px] rounded-xl border border-white/12 bg-[#071421] px-2 text-[9px] font-bold text-cyan-50/72 outline-none"><option value="">All diseases</option>{history.diseases.map((name) => <option key={name} value={name}>{name}</option>)}</select> : null}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[8px] leading-4 text-cyan-100/42">
