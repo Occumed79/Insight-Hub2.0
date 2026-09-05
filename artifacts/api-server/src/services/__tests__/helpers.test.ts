@@ -199,6 +199,20 @@ describe("CDC respiratory source schema normalization", () => {
     assert.equal(rows[0].asOf, "2026-07-22");
   });
 
+  it("preserves the compact Rt interval and ED visit level from the CDC map export schema", () => {
+    const rows = normalizeRtRows([
+      { Date: "2026-08-25", Location: "Alabama", pathogen: "COVID-19", state_abbreviation: "AL", "Epidemic Trend": "Growing", "Rt Estimate": "1.17 (1.12 - 1.22)", "Emergency Department Visit Level": "Very Low" },
+    ]);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].location, "Alabama");
+    assert.equal(rows[0].stateAbbreviation, "AL");
+    assert.equal(rows[0].rtEstimate, 1.17);
+    assert.equal(rows[0].rtLower, 1.12);
+    assert.equal(rows[0].rtUpper, 1.22);
+    assert.ok(Math.abs(Number(rows[0].intervalWidth) - 0.1) < 1e-9);
+    assert.equal(rows[0].emergencyDepartmentVisitLevel, "Very Low");
+  });
+
   it("normalizes current national positivity columns", () => {
     const rows = normalizePositivityRows([
       { week_end: "2026-07-18", pathogen: "Influenza", percent_test_positivity: "1.7" },
