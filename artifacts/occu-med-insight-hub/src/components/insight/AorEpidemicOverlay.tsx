@@ -21,6 +21,7 @@ const HISTORY_FILL = "aor-epidemic-history-fill";
 const HISTORY_LINE = "aor-epidemic-history-line";
 const NOTICE_FILL = "aor-cdc-notice-fill";
 const NOTICE_LINE = "aor-cdc-notice-line";
+const HEALTH_LAYER_EVENT = "aor-health-layer-activated";
 const FLAG_LABELS: Record<string, string> = { vaccinePreventable: "Vaccine", mosquitoBorne: "Mosquito", tickBorne: "Tick", foodWater: "Food / water", respiratory: "Respiratory", animalExposure: "Animal", freshwater: "Freshwater", sexualTransmission: "Sexual", notifiable: "Notifiable", postExposure: "PEP" };
 const NOTICE_COLORS: Record<number, string> = { 4: "#ef4444", 3: "#f97316", 2: "#facc15", 1: "#38bdf8" };
 
@@ -61,6 +62,7 @@ function LinkChips({ links }: { links?: SourceLink[] }) { if (!links?.length) re
 
 export function AorEpidemicOverlay({ map, mapStatus, selectedCountry, travelHealth }: Props) {
   const [mode, setMode] = useState<LayerMode>("current");
+  const [surveillanceActive, setSurveillanceActive] = useState(false);
   const [history, setHistory] = useState<HistoricalPayload | null>(null);
   const [tracker, setTracker] = useState<TrackerPayload | null>(null);
   const [notices, setNotices] = useState<TravelNoticesPayload | null>(null);
@@ -72,6 +74,20 @@ export function AorEpidemicOverlay({ map, mapStatus, selectedCountry, travelHeal
   const [yellowBookError, setYellowBookError] = useState("");
   const [disease, setDisease] = useState("");
   const [yellowBookDisease, setYellowBookDisease] = useState("");
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      if ((event as CustomEvent<{ owner?: string }>).detail?.owner === "surveillance") setSurveillanceActive(true);
+    };
+    window.addEventListener(HEALTH_LAYER_EVENT, handler as EventListener);
+    return () => window.removeEventListener(HEALTH_LAYER_EVENT, handler as EventListener);
+  }, []);
+
+  function chooseMode(next: LayerMode) {
+    setSurveillanceActive(false);
+    window.dispatchEvent(new CustomEvent(HEALTH_LAYER_EVENT, { detail: { owner: "epidemic" } }));
+    setMode(next);
+  }
 
   useEffect(() => {
     let active = true;
@@ -123,24 +139,24 @@ export function AorEpidemicOverlay({ map, mapStatus, selectedCountry, travelHeal
 
   useEffect(() => {
     if (!map || mapStatus !== "ready" || !map.getLayer?.(HISTORY_FILL)) return;
-    const active = (mode === "frequency" || mode === "lisa") && colorRows.length > 0;
+    const active = !surveillanceActive && (mode === "frequency" || mode === "lisa") && colorRows.length > 0;
     const expression = matchExpression(colorRows);
     map.setPaintProperty?.(HISTORY_FILL, "fill-color", expression);
     map.setPaintProperty?.(HISTORY_FILL, "fill-opacity", active ? (mode === "lisa" ? 0.48 : 0.42) : 0);
     map.setPaintProperty?.(HISTORY_LINE, "line-color", expression);
     map.setPaintProperty?.(HISTORY_LINE, "line-opacity", active ? 0.82 : 0);
     map.setPaintProperty?.(HISTORY_LINE, "line-width", mode === "lisa" ? 1.7 : 1.05);
-  }, [colorRows, map, mapStatus, mode]);
+  }, [colorRows, map, mapStatus, mode, surveillanceActive]);
 
   useEffect(() => {
     if (!map || mapStatus !== "ready" || !map.getLayer?.(NOTICE_FILL)) return;
-    const active = mode === "notices" && noticeMap.count > 0;
+    const active = !surveillanceActive && mode === "notices" && noticeMap.count > 0;
     map.setPaintProperty?.(NOTICE_FILL, "fill-color", noticeMap.expression);
     map.setPaintProperty?.(NOTICE_FILL, "fill-opacity", active ? 0.43 : 0);
     map.setPaintProperty?.(NOTICE_LINE, "line-color", noticeMap.expression);
     map.setPaintProperty?.(NOTICE_LINE, "line-opacity", active ? 0.9 : 0);
     map.setPaintProperty?.(NOTICE_LINE, "line-width", active ? 1.7 : 1.1);
-  }, [map, mapStatus, mode, noticeMap]);
+  }, [map, mapStatus, mode, noticeMap, surveillanceActive]);
 
   const selectedDiseaseCount = selectedHistorical ? diseaseCount(selectedHistorical, disease) : 0;
   const currentTrackers = tracker?.trackers ?? [];
@@ -153,15 +169,15 @@ export function AorEpidemicOverlay({ map, mapStatus, selectedCountry, travelHeal
     <div className="absolute left-3 top-3 z-10 w-[min(94%,980px)] rounded-2xl border border-white/14 bg-[#020812]/88 p-3 shadow-[0_18px_50px_rgba(0,0,0,.38)] backdrop-blur-2xl" data-testid="aor-epidemic-layer-control">
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.16em] text-cyan-50/62"><Activity size={12} />Health intelligence</span>
-        {([ ["current", "Current outbreaks", RadioTower], ["notices", "CDC Travel Notices", AlertTriangle], ["destination", "CDC Destination", ShieldCheck], ["frequency", "Historical frequency", History], ["lisa", "Epidemic hotspots / LISA", Activity], ["yellowbook", "CDC Yellow Book", BookOpen] ] as const).map(([key, label, Icon]) => <button key={key} type="button" onClick={() => setMode(key)} aria-pressed={mode === key} className={`inline-flex min-h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[9px] font-black transition ${mode === key ? "border-cyan-100/38 bg-cyan-300/[0.13] text-white" : "border-white/10 bg-white/[0.025] text-cyan-100/50 hover:border-white/20"}`}><Icon size={11} />{label}</button>)}
-        {mode === "frequency" && history?.diseases?.length ? <select aria-label="Historical disease filter" value={disease} onChange={(event) => setDisease(event.target.value)} className="min-h-8 max-w-[220px] rounded-xl border border-white/12 bg-[#071421] px-2 text-[9px] font-bold text-cyan-50/72 outline-none"><option value="">All diseases</option>{history.diseases.map((name) => <option key={name} value={name}>{name}</option>)}</select> : null}
+        {([ ["current", "Current outbreaks", RadioTower], ["notices", "CDC Travel Notices", AlertTriangle], ["destination", "CDC Destination", ShieldCheck], ["frequency", "Historical frequency", History], ["lisa", "Epidemic hotspots / LISA", Activity], ["yellowbook", "CDC Yellow Book", BookOpen] ] as const).map(([key, label, Icon]) => <button key={key} type="button" onClick={() => chooseMode(key)} aria-pressed={!surveillanceActive && mode === key} className={`inline-flex min-h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[9px] font-black transition ${!surveillanceActive && mode === key ? "border-cyan-100/38 bg-cyan-300/[0.13] text-white" : "border-white/10 bg-white/[0.025] text-cyan-100/50 hover:border-white/20"}`}><Icon size={11} />{label}</button>)}
+        {!surveillanceActive && mode === "frequency" && history?.diseases?.length ? <select aria-label="Historical disease filter" value={disease} onChange={(event) => setDisease(event.target.value)} className="min-h-8 max-w-[220px] rounded-xl border border-white/12 bg-[#071421] px-2 text-[9px] font-bold text-cyan-50/72 outline-none"><option value="">All diseases</option>{history.diseases.map((name) => <option key={name} value={name}>{name}</option>)}</select> : null}
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[8px] leading-4 text-cyan-100/42">
+      {!surveillanceActive ? <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[8px] leading-4 text-cyan-100/42">
         {mode === "current" ? <><span>OutbreakTracker awareness: {tracker ? `${currentTrackers.length} trackers` : trackerError ? "unavailable" : "loading…"}</span><span>Official WHO / hazard feeds remain authoritative.</span></> : mode === "notices" ? <><span>Live CDC Travel Health Notices</span><span>{notices ? `${notices.notices.length} active notices · ${noticeMap.count} named destinations` : noticesError ? "unavailable" : "loading…"}</span><span>Levels 1–4 shown on map where CDC names a destination.</span></> : mode === "destination" ? <><span>Live CDC Travelers' Health destination guidance</span><span>{selectedCountry ? selectedCountry.name : "Select a country"}</span><span>Vaccines · medicines · non-vaccine diseases · clinical guidance</span></> : mode === "frequency" ? <><span>WHO DON historical occurrence dataset, 1996–Mar 2022</span><span>{disease ? `Disease: ${disease}` : "All 70 diseases"}</span><span>Occurrence ≠ severity.</span></> : mode === "lisa" ? <><span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-orange-500" />High–High</span><span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-sky-400" />Low–High</span><span>Published ESDA/LISA period {history?.methodology?.esdaPeriod || "1996–2021"} · Moran's I 0.336, p&lt;0.001</span></> : <><span>CDC Yellow Book 2026 · {yellowBook?.source?.diseaseChapters || 22} infectious-disease chapters · {yellowBook?.source?.structuredAssets || 51} indexed source assets</span><span>{selectedCountry ? `${relevantProfiles.length} destination guidance matches for ${selectedCountry.name}` : "Select a country to cross-match live CDC destination guidance."}</span></>}
-      </div>
+      </div> : <div className="mt-2 text-[8px] leading-4 text-cyan-100/36">Surveillance/program layer active below. Choose an outbreak or travel-health mode to replace it.</div>}
     </div>
 
-    {(mode !== "current" || selectedCountry || currentTrackers.length > 0) ? <div className={`absolute right-3 top-[102px] z-10 rounded-2xl border border-white/12 bg-[#020812]/90 p-3 shadow-[0_18px_50px_rgba(0,0,0,.34)] backdrop-blur-2xl ${(mode === "yellowbook" || mode === "destination" || mode === "notices") ? "max-h-[560px] w-[min(92%,430px)] overflow-y-auto" : "w-[min(88%,310px)]"}`}>
+    {!surveillanceActive && (mode !== "current" || selectedCountry || currentTrackers.length > 0) ? <div className={`absolute right-3 top-[102px] z-10 rounded-2xl border border-white/12 bg-[#020812]/90 p-3 shadow-[0_18px_50px_rgba(0,0,0,.34)] backdrop-blur-2xl ${(mode === "yellowbook" || mode === "destination" || mode === "notices") ? "max-h-[560px] w-[min(92%,430px)] overflow-y-auto" : "w-[min(88%,310px)]"}`}>
       {mode === "current" ? <>
         <div className="flex items-center justify-between gap-2"><p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-50/58">OutbreakTracker · current awareness</p>{!tracker && !trackerError ? <Loader2 size={12} className="animate-spin text-cyan-200/60" /> : null}</div>
         {trackerError ? <p className="mt-2 text-[9px] leading-4 text-amber-100/68"><AlertTriangle size={10} className="mr-1 inline" />{trackerError}</p> : <div className="mt-2 space-y-1.5">{currentTrackers.slice(0, 6).map((item) => <a key={item.url || item.disease} href={item.url} target="_blank" rel="noreferrer" className="block rounded-xl border border-white/8 bg-white/[0.025] p-2 hover:border-cyan-100/20"><div className="flex items-start justify-between gap-2"><strong className="text-[9px] text-white/82">{item.disease}</strong><ArrowUpRight size={9} className="shrink-0 text-cyan-100/42" /></div><p className="mt-1 line-clamp-2 text-[8px] leading-3 text-cyan-100/38">{item.location || item.summary}</p></a>)}</div>}
