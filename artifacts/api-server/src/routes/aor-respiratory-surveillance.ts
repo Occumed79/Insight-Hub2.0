@@ -63,6 +63,16 @@ function numeric(input: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function parseRtComposite(input: string) {
+  const raw = String(input || "").trim();
+  const match = raw.match(/^(-?\d+(?:\.\d+)?)\s*(?:\(\s*(-?\d+(?:\.\d+)?)\s*[-–—]\s*(-?\d+(?:\.\d+)?)\s*\))?/);
+  return {
+    median: match?.[1] ? Number(match[1]) : null,
+    lower: match?.[2] ? Number(match[2]) : null,
+    upper: match?.[3] ? Number(match[3]) : null,
+  };
+}
+
 function dateNumber(input: string) {
   const parsed = Date.parse(input);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -98,7 +108,7 @@ function latestBy<T>(rows: T[], key: (row: T) => string, date: (row: T) => strin
 }
 
 export type AriRecord = { date: string; location: string; stateAbbreviation: string; level: string };
-export type RtRecord = { asOf: string; date: string; location: string; stateAbbreviation: string; pathogen: string; epidemicTrend: string; rtEstimate: number | null; rtLower: number | null; rtUpper: number | null; pGrowing: number | null; intervalWidth: number | null };
+export type RtRecord = { asOf: string; date: string; location: string; stateAbbreviation: string; pathogen: string; epidemicTrend: string; rtEstimate: number | null; rtLower: number | null; rtUpper: number | null; pGrowing: number | null; intervalWidth: number | null; emergencyDepartmentVisitLevel: string };
 export type PositivityRecord = { date: string; pathogen: string; percentPositive: number | null };
 export type WastewaterRecord = { week: string; location: string; stateAbbreviation: string; pathogen: string; activityLevel: string; activityValue: number | null; sitesReporting: number | null; coverage: string; dataCollectionPeriod: string; updatedAt: string };
 
@@ -112,19 +122,27 @@ export function normalizeAriRows(rows: CsvRow[]): AriRecord[] {
 }
 
 export function normalizeRtRows(rows: CsvRow[]): RtRecord[] {
-  const normalized = rows.map((row) => ({
-    asOf: value(row, "as_of", "as of", "model run date"),
-    date: value(row, "date", "week_end", "week end"),
-    location: value(row, "state", "location"),
-    stateAbbreviation: value(row, "state_abbreviation", "state abbreviation", "state abbrev"),
-    pathogen: value(row, "disease", "pathogen", "pathogen target"),
-    epidemicTrend: value(row, "category", "epidemic trend", "trend"),
-    rtEstimate: numeric(value(row, "median", "rt estimate", "rt", "estimate")),
-    rtLower: numeric(value(row, "lower", "lower bound")),
-    rtUpper: numeric(value(row, "upper", "upper bound")),
-    pGrowing: numeric(value(row, "p_growing", "p growing", "probability growing")),
-    intervalWidth: numeric(value(row, "interval_width", "interval width")),
-  })).filter((row) => row.location && row.pathogen && row.date);
+  const normalized = rows.map((row) => {
+    const composite = parseRtComposite(value(row, "rt estimate", "rt", "estimate"));
+    const median = numeric(value(row, "median")) ?? composite.median;
+    const lower = numeric(value(row, "lower", "lower bound")) ?? composite.lower;
+    const upper = numeric(value(row, "upper", "upper bound")) ?? composite.upper;
+    const suppliedWidth = numeric(value(row, "interval_width", "interval width"));
+    return {
+      asOf: value(row, "as_of", "as of", "model run date"),
+      date: value(row, "date", "week_end", "week end"),
+      location: value(row, "state", "location"),
+      stateAbbreviation: value(row, "state_abbreviation", "state abbreviation", "state abbrev"),
+      pathogen: value(row, "disease", "pathogen", "pathogen target"),
+      epidemicTrend: value(row, "category", "epidemic trend", "trend"),
+      rtEstimate: median,
+      rtLower: lower,
+      rtUpper: upper,
+      pGrowing: numeric(value(row, "p_growing", "p growing", "probability growing")),
+      intervalWidth: suppliedWidth ?? (lower != null && upper != null ? upper - lower : null),
+      emergencyDepartmentVisitLevel: value(row, "emergency department visit level", "ed visit level", "emergency department activity level"),
+    };
+  }).filter((row) => row.location && row.pathogen && row.date);
   const latestRun = normalized.reduce((max, row) => Math.max(max, dateNumber(row.asOf)), 0);
   const runRows = latestRun ? normalized.filter((row) => dateNumber(row.asOf) === latestRun) : normalized;
   return latestBy(runRows, (row) => `${row.location}|${row.pathogen}`, (row) => row.date);
@@ -214,7 +232,7 @@ async function loadPayload() {
     rt: { rows: rtRows, latestDate: rtRows.map((row) => row.date).sort().at(-1) || null, latestModelRun: rtRows.map((row) => row.asOf).filter(Boolean).sort().at(-1) || null },
     positivity: { rows: positivityRows.slice(-900), latestDate: positivityRows.map((row) => row.date).sort().at(-1) || null },
     wastewater: { rows: latestWastewater, latestDate: latestWastewater.map((row) => row.week).sort().at(-1) || null },
-    rtMethodologyNotice: "CDC changed the Epidemic Trends and Rt modeling method on June 1, 2026; archived estimates spanning that change are not method-identical. This feed preserves the published median, credible interval, P(Rt > 1), epidemic-trend category, estimate date and model-run date.",
+    rtMethodologyNotice: "CDC changed the Epidemic Trends and Rt modeling method on June 1, 2026; archived estimates spanning that change are not method-identical. This feed preserves the published median, credible interval, P(Rt > 1), epidemic-trend category, estimate date and model-run date. Emergency-department visit level is also preserved when the source schema supplies it.",
     seasonalRtNotice: "The CDC Epidemic Trends and Rt dataset documents estimates for COVID-19 and influenza. RSV remains available in the laboratory-positivity and wastewater panels, but a missing RSV Rt row is not treated as zero or inferred from another signal.",
     limitation: "CDC respiratory surveillance is provisional and source-specific. ARI is an all-acute-respiratory-illness activity measure; epidemic trend/Rt is pathogen-specific; laboratory positivity is national in this feed; wastewater is state/territory and pathogen-specific. These signals measure different concepts and are not interchangeable case counts or a synthetic respiratory-risk score.",
   };
