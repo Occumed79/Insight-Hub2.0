@@ -81,14 +81,24 @@ async function geocode(label: string, apiKey: string): Promise<[number, number] 
   return Number.isFinite(location?.x) && Number.isFinite(location?.y) ? [location.x, location.y] : null;
 }
 
+function directionalNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return null;
+  const raw = value.trim();
+  const direction = raw.match(/\b([NSEW])\b/i)?.[1]?.toUpperCase() || raw.match(/([NSEW])\s*$/i)?.[1]?.toUpperCase() || "";
+  const numericMatch = raw.replace(/,/g, "").match(/[-+]?\d+(?:\.\d+)?/);
+  if (!numericMatch) return null;
+  let parsed = Number(numericMatch[0]);
+  if (!Number.isFinite(parsed)) return null;
+  if (direction === "S" || direction === "W") parsed = -Math.abs(parsed);
+  if (direction === "N" || direction === "E") parsed = Math.abs(parsed);
+  return parsed;
+}
+
 function numericField(row: WarCostsRow, ...keys: string[]): number | null {
   for (const key of keys) {
-    const value = row[key];
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string" && value.trim()) {
-      const parsed = Number(value.replace(/[$,%+°NSEW,]/gi, "").trim());
-      if (Number.isFinite(parsed)) return parsed;
-    }
+    const parsed = directionalNumber(row[key]);
+    if (parsed !== null) return parsed;
   }
   return null;
 }
@@ -99,9 +109,9 @@ function sourceCoordinate(row: WarCostsRow): [number, number] | null {
   if (lat !== null && lon !== null && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) return [lon, lat];
   const coordinates = row.coordinates;
   if (Array.isArray(coordinates) && coordinates.length >= 2) {
-    const first = Number(coordinates[0]);
-    const second = Number(coordinates[1]);
-    if (Number.isFinite(first) && Number.isFinite(second)) {
+    const first = directionalNumber(coordinates[0]);
+    const second = directionalNumber(coordinates[1]);
+    if (first !== null && second !== null) {
       if (Math.abs(first) <= 180 && Math.abs(second) <= 90) return [first, second];
       if (Math.abs(first) <= 90 && Math.abs(second) <= 180) return [second, first];
     }
