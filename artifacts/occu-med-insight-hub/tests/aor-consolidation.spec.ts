@@ -16,7 +16,6 @@ const aorFixture = {
   earthquakes: [{ id: "usgs-tj", title: "M4.2 · 24 km ESE of Norak, Tajikistan", place: "24 km ESE of Norak, Tajikistan", magnitude: 4.2, occurredAt: new Date().toISOString(), url: "https://earthquake.usgs.gov/", tsunami: false, latitude: 38.3, longitude: 69.4, depthKm: 10 }],
 };
 
-
 const globalWatchFixture = {
   ok: true,
   partial: false,
@@ -54,6 +53,44 @@ const cdcFixture = {
     { name: "Tuberculosis (TB)", transmission: "Airborne", advice: "Avoid sick people" },
   ],
   notices: ["Level 1 Practice Usual Precautions"],
+};
+
+const respiratoryFixture = {
+  ok: true,
+  partial: false,
+  ari: { latestDate: "2026-08-22", rows: [{ date: "2026-08-22", location: "California", stateAbbreviation: "CA", level: "Very Low" }] },
+  rt: { latestDate: "2026-08-22", latestModelRun: "2026-08-23", rows: [{ asOf: "2026-08-23", date: "2026-08-22", location: "California", stateAbbreviation: "CA", pathogen: "COVID-19", epidemicTrend: "Growing", rtEstimate: 1.17, rtLower: 1.12, rtUpper: 1.22, pGrowing: null, intervalWidth: 0.1, emergencyDepartmentVisitLevel: "Very Low" }] },
+  positivity: { latestDate: "2026-08-22", rows: [{ date: "2026-08-22", pathogen: "COVID-19", percentPositive: 8.4 }] },
+  wastewater: { latestDate: "2026-08-22", rows: [{ week: "2026-08-22", location: "California", stateAbbreviation: "CA", pathogen: "COVID-19", activityLevel: "Low", activityValue: 2.1, sitesReporting: 20, coverage: "All Results", dataCollectionPeriod: "All Results", updatedAt: "2026-08-25" }] },
+  sourceHealth: [],
+  limitation: "Signals are distinct.",
+};
+
+const immunizationFixture = {
+  ok: true,
+  dataset: "coverage",
+  source: "WHO Immunization Data Portal",
+  sourceUrl: "https://immunizationdata.who.int/",
+  selected: { year: 2025, item: "DTP3", category: "WUENIC" },
+  facets: { years: [2025], items: ["DTP3"], categories: ["WUENIC"] },
+  rows: [{ country: "Kuwait", code: "KWT", iso2: "KW", year: 2025, item: "DTP3", description: "DTP3 coverage", value: 96, category: "WUENIC", target: 100000, doses: 96000 }],
+  totalMatched: 1,
+  mapCoverage: { mappedRows: 1, unmappedRows: 0 },
+  methodology: "WHO coverage categories remain distinct.",
+  limitation: "Coverage is not a general country risk score.",
+};
+
+const fungalFixture = {
+  ok: true,
+  disease: { key: "cpa", title: "Chronic pulmonary aspergillosis", sourceTable: "Table 5", sourceColumns: ["burden", "rate per 100k"] },
+  availableDiseases: [{ key: "cpa", title: "Chronic pulmonary aspergillosis", sourceTable: "Table 5" }],
+  rows: [{ country: "Kuwait", iso2: "KW", burden: 1200, ratePer100k: 28.5 }],
+  source: "Bongomin et al.",
+  sourceUrl: "https://www.mdpi.com/2309-608X/3/4/57",
+  publicationYear: 2017,
+  modeledEstimate: true,
+  methodology: "Historical modeled estimate.",
+  limitation: "Not live surveillance.",
 };
 
 const mapTilerStub = String.raw`
@@ -147,6 +184,20 @@ async function mockAor(page: Page) {
   await page.route("**/api/aor/disaster-alerts?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, country: "Kuwait", events: [] }) }));
   await page.route("**/api/aor/crisiswatch?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, country: "Kuwait", updates: [] }) }));
   await page.route("**/api/aor/travel-health?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(cdcFixture) }));
+  await page.route("**/api/aor/epidemic-history", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, rows: [{ country: "Kuwait", iso2: "KW", outbreakCount: 4, lisa: "not-significant", diseaseCounts: { Cholera: 1 } }], diseases: ["Cholera"], methodology: { period: "1996–Mar 2022", esdaPeriod: "1996–2021", globalMoransI: 0.336, pValue: "<0.001" } }) }));
+  await page.route("**/api/aor/outbreak-tracker", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, trackers: [] }) }));
+  await page.route("**/api/aor/travel-notices", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, notices: [], counts: {} }) }));
+  await page.route("**/api/aor/yellow-book", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, source: { diseaseChapters: 22, structuredAssets: 51 }, profiles: [] }) }));
+  await page.route("**/api/aor/respiratory-surveillance", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(respiratoryFixture) }));
+  await page.route("**/api/core-intelligence/state-map-geometry", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ type: "Topology", transform: { scale: [1, 1], translate: [0, 0] }, arcs: [], objects: { states: { type: "GeometryCollection", geometries: [] } } }) }));
+  await page.route("**/api/aor/immunization?**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("dataset") === "wuenic") {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...immunizationFixture, dataset: "wuenic", rows: [{ ...immunizationFixture.rows[0], gradeOfConfidence: "3", gradeOfConfidenceLabel: "Grade 3", previousRevision: 95, administrativeCoverage: 97, governmentEstimate: 96, childrenVaccinated: 96000, childrenInTarget: 100000, comment: "Test WUENIC evidence" }] }) });
+    }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(immunizationFixture) });
+  });
+  await page.route("**/api/aor/fungal-burden?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fungalFixture) }));
 }
 
 test.beforeEach(async ({ page }) => {
@@ -216,4 +267,34 @@ test("legacy AOR Risk URL resolves to the country-first unified workspace", asyn
   await expect(page.getByText("Map-linked intelligence inspector")).toBeVisible();
   await expect(page.getByText("Bright Dark vector tiles rendered")).toBeVisible();
   await expect(page.getByRole("button", { name: /Country mode/ })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("AOR surveillance modes are source-specific and mutually exclusive with epidemic layers", async ({ page }) => {
+  await page.goto("/aor-factors");
+  await expect(page.getByText("Bright Dark vector tiles rendered")).toBeVisible();
+
+  const historical = page.getByRole("button", { name: "Historical frequency" });
+  await historical.click();
+  await expect(historical).toHaveAttribute("aria-pressed", "true");
+
+  const respiratory = page.getByRole("button", { name: "U.S. Respiratory" });
+  await respiratory.click();
+  await expect(respiratory).toHaveAttribute("aria-pressed", "true");
+  await expect(historical).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByText("CDC U.S. respiratory surveillance")).toBeVisible();
+  await expect(page.getByText("Very Low").first()).toBeVisible();
+  await expect(page.getByText("Rt median")).toBeVisible();
+
+  await page.getByRole("button", { name: "WHO Immunization" }).click();
+  await expect(page.getByText("WHO immunization intelligence")).toBeVisible();
+  await expect(page.getByText("DTP3 coverage")).toBeVisible();
+
+  await page.getByRole("button", { name: "Fungal Burden" }).click();
+  await expect(page.getByText("Historical fungal disease burden")).toBeVisible();
+  await expect(page.getByText("Chronic pulmonary aspergillosis")).toBeVisible();
+  await expect(page.getByText(/modeled historical estimate/i)).toBeVisible();
+
+  await historical.click();
+  await expect(historical).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("Historical fungal disease burden")).toHaveCount(0);
 });
