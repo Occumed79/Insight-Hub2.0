@@ -52,6 +52,8 @@ function value(row: Row, keys: string[]) {
   return null;
 }
 function unique(values: string[], max = 500) { return [...new Set(values.filter(Boolean))].slice(0, max); }
+function reportedMetric(input: unknown) { return input == null || text(input) === "" ? "Not reported" : input; }
+function reportedNumber(input: unknown) { const parsed = number(input); return parsed == null ? "Not reported" : parsed; }
 
 function sourceUrls(dataset: DatasetKey) {
   const primary = `${BASE_URL}/${DATASETS[dataset].file}`;
@@ -119,15 +121,15 @@ function defaultItem(dataset: DatasetKey, items: string[]) {
 }
 
 function normalizedOutput(row: Row, dataset: DatasetKey) {
-  const common = { country: rowCountry(row, dataset), code: rowCode(row, dataset), iso2: rowIso2(row, dataset), year: rowYear(row, dataset), item: rowItem(row, dataset), description: rowDescription(row, dataset), value: rowMetric(row, dataset) };
-  if (dataset === "coverage") return { ...common, category: text(value(row, ["COVERAGE_CATEGORY", "Coverage Category"])), categoryDescription: text(value(row, ["COVERAGE_CATEGORY_DESCRIPTION", "Coverage Category Description"])), target: number(value(row, ["TARGET_NUMBER", "Target Number"])), doses: number(value(row, ["DOSES", "Doses"])), value: number(value(row, ["COVERAGE", "Coverage"])) };
-  if (dataset === "incidence") return { ...common, denominator: number(value(row, ["DENOMINATOR", "Denominator"])), value: number(value(row, ["INCIDENCE_RATE", "Incidence Rate"])) };
-  if (dataset === "cases") return { ...common, value: number(value(row, ["CASES", "Cases"])) };
-  if (dataset === "introduction") return { ...common, region: text(value(row, ["WHO_REGION", "WHO Region"])), value: text(value(row, ["INTRO", "Introduction", "Status"])) };
-  if (dataset === "indicators") return { ...common, region: text(value(row, ["WHO_REGION", "WHO Region"])), category: text(value(row, ["INDCAT_DESCRIPTION", "Indicator Category Description"])), sort: number(value(row, ["INDSORT", "Indicator Sort"])), value: value(row, ["VALUE", "Value"]) };
+  const common = { country: rowCountry(row, dataset), code: rowCode(row, dataset), iso2: rowIso2(row, dataset), year: rowYear(row, dataset), item: rowItem(row, dataset), description: rowDescription(row, dataset), value: reportedMetric(rowMetric(row, dataset)) };
+  if (dataset === "coverage") return { ...common, category: text(value(row, ["COVERAGE_CATEGORY", "Coverage Category"])), categoryDescription: text(value(row, ["COVERAGE_CATEGORY_DESCRIPTION", "Coverage Category Description"])), target: number(value(row, ["TARGET_NUMBER", "Target Number"])), doses: number(value(row, ["DOSES", "Doses"])), value: reportedNumber(value(row, ["COVERAGE", "Coverage"])) };
+  if (dataset === "incidence") return { ...common, denominator: number(value(row, ["DENOMINATOR", "Denominator"])), value: reportedNumber(value(row, ["INCIDENCE_RATE", "Incidence Rate"])) };
+  if (dataset === "cases") return { ...common, value: reportedNumber(value(row, ["CASES", "Cases"])) };
+  if (dataset === "introduction") return { ...common, region: text(value(row, ["WHO_REGION", "WHO Region"])), value: reportedMetric(value(row, ["INTRO", "Introduction", "Status"])) };
+  if (dataset === "indicators") return { ...common, region: text(value(row, ["WHO_REGION", "WHO Region"])), category: text(value(row, ["INDCAT_DESCRIPTION", "Indicator Category Description"])), sort: number(value(row, ["INDSORT", "Indicator Sort"])), value: reportedMetric(value(row, ["VALUE", "Value"])) };
   return {
     ...common,
-    value: number(value(row, ["WUENIC", "Wuenic"])),
+    value: reportedNumber(value(row, ["WUENIC", "Wuenic"])),
     previousRevision: number(value(row, ["WUENICPreviousRevision", "WUENIC Previous Revision", "Previous Revision"])),
     gradeOfConfidence: text(value(row, ["GradeOfConfidence", "Grade of Confidence", "Confidence Grade"])),
     administrativeCoverage: number(value(row, ["AdministrativeCoverage", "Administrative Coverage"])),
@@ -182,7 +184,7 @@ router.get("/aor/immunization", async (req, res) => {
       mapCoverage: { mappedRows, unmappedRows: output.length - mappedRows },
       schemaHealth: { rawRows: loaded.rows.length, recognizableRows: recognizableRows.length },
       methodology: dataset === "coverage" ? "Coverage categories remain distinct. WUENIC estimates are not silently substituted for administrative or official country-reported coverage." : dataset === "wuenic" ? "WUENIC detail preserves current estimate, prior revision, confidence grade, administrative/government estimates, target denominators and source comments where supplied." : "Values are returned with the dataset's own WHO definition and unit; no composite risk score is inferred.",
-      limitation: "WHO immunization indicators are programmatic/public-health measures. Coverage, incidence, reported cases, vaccine introduction status and modeled WUENIC estimates describe different concepts and must not be compared as if they were the same metric. Missing numeric cells remain missing rather than being interpreted as zero. Map colors are an Insight Hub visualization aid, not WHO risk classifications.",
+      limitation: "WHO immunization indicators are programmatic/public-health measures. Coverage, incidence, reported cases, vaccine introduction status and modeled WUENIC estimates describe different concepts and must not be compared as if they were the same metric. Missing metric cells are returned as 'Not reported' so UI parsers cannot silently reinterpret them as numeric zero. Map colors are an Insight Hub visualization aid, not WHO risk classifications.",
     });
   } catch (error) {
     return res.status(502).json({ ok: false, dataset, error: error instanceof Error ? error.message : "WHO immunization source failed." });
