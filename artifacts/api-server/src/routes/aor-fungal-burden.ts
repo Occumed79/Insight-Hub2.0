@@ -305,23 +305,40 @@ Germany|DE|32|0.04`,
 };
 
 const GLOBAL_CONTEXT = [
-  { disease: "Chronic pulmonary aspergillosis", estimate: "3,000,000 cases" },
-  { disease: "Cryptococcal meningitis complicating HIV/AIDS", estimate: "~223,100 cases" },
-  { disease: "Invasive candidiasis", estimate: "~700,000 cases" },
-  { disease: "Pneumocystis jirovecii pneumonia", estimate: "~500,000 cases" },
-  { disease: "Invasive aspergillosis", estimate: "~250,000 cases" },
-  { disease: "Disseminated histoplasmosis", estimate: "~100,000 cases" },
-  { disease: "Fungal asthma", estimate: ">10,000,000 cases" },
-  { disease: "Fungal keratitis", estimate: "~1,000,000 cases annually" },
+  { disease: "Skin, hair and nail fungal infections", estimate: "~1,000,000,000" },
+  { disease: "Fungal keratitis", estimate: "~1,000,000" },
+  { disease: "Oral candidiasis", estimate: "~2,000,000 · HIV only; Table 1 notes 90% of those not on ARVs" },
+  { disease: "Oesophageal candidiasis", estimate: "~1,300,000 · HIV context; Table 1 distinguishes CD4/ARV groups" },
+  { disease: "Vulvovaginal candidiasis episode", estimate: "~70% affected during their lifetime" },
+  { disease: "Recurrent vulvovaginal candidiasis", estimate: "~134,000,000 annual prevalence · nearly 500 million lifetime experience" },
+  { disease: "ABPA in asthma", estimate: "~4,800,000 · adults only; rare in children" },
+  { disease: "ABPA in cystic fibrosis", estimate: "~6,675 · adults only; starts from age 4" },
+  { disease: "Severe asthma with fungal sensitisation", estimate: "~6,500,000 · adults only; probably uncommon in children" },
+  { disease: "Fungal rhinosinusitis", estimate: "~12,000,000" },
+  { disease: "Chronic pulmonary aspergillosis", estimate: "~3,000,000" },
+  { disease: "Mycetoma", estimate: "~9,000 · 1950–2013 case reports; WHO-accepted NTD" },
+  { disease: "Chromoblastomycosis", estimate: ">10,000 · limited data; WHO-accepted NTD" },
+  { disease: "Coccidioidomycosis", estimate: "~25,000" },
+  { disease: "Paracoccidioidomycosis", estimate: "~4,000" },
+  { disease: "Blastomycosis", estimate: "~3,000" },
+  { disease: "Histoplasma infection", estimate: "~500,000 annual infections / ~25,000 global burden · most new infections asymptomatic in Table 1" },
+  { disease: "Sporotrichosis", estimate: ">40,000 · very limited global data; highlighted as common in hyperendemic areas of Peru, Brazil and Mexico" },
+  { disease: "Invasive candidiasis", estimate: "~750,000 · includes 60,000–100,000 intra-abdominal candidiasis cases" },
+  { disease: "Invasive aspergillosis", estimate: ">300,000 · from about 10 million at risk annually" },
+  { disease: "Pneumocystis jirovecii pneumonia", estimate: "~500,000 · AIDS and non-AIDS" },
+  { disease: "Cryptococcosis in AIDS", estimate: "~223,000 · Table 1 notes up to another 10% non-HIV" },
+  { disease: "Mucormycosis", estimate: ">10,000 · Table 1 notes materially different extrapolations from French and Indian data" },
+  { disease: "Disseminated histoplasmosis", estimate: "~100,000 · Table 1 explicitly says no reliable estimates" },
+  { disease: "Talaromycosis", estimate: "~8,000 · Southeast Asia only" },
 ];
 
 const RVVC_CONTEXT = {
   title: "Recurrent vulvovaginal candidiasis (rVVC)",
   sourceSection: "Section 2.7",
   globalEstimate: "~134,000,000 cases",
-  definition: "Four or more episodes per year in the review's discussion.",
+  definition: "Recurrent VVC is defined in the review as four or more episodes per year. The discussion says VVC affects 70–75% of women at least once, rVVC affects roughly 5–9% of adult women, and prevalence is highest around ages 25–34.",
   workedExample: "Nepal: 443,237 estimated cases among 7,380,000 women aged 15–49, using a 6% assumption.",
-  limitation: "The review states that most country burden estimates used a uniform 6% rate and that supporting proportion data were missing from large parts of Central/South America, Africa, the Middle East, Asia and Australasia. It is therefore not rendered as a comparable country choropleth.",
+  limitation: "The review states that most country burden estimates used a uniform 6% rate, ignored post-menopausal episodes, and lacked supporting proportion data across large parts of Central/South America, Africa, the Middle East, Asia and Australasia. It is therefore not rendered as a comparable country choropleth.",
 };
 
 const TINEA_COUNTRY_BURDENS = [
@@ -363,7 +380,7 @@ router.get("/aor/fungal-burden", (req, res) => {
     publicationYear: 2017,
     modeledEstimate: true,
     globalContext: {
-      basis: "Abstract's recent global estimates; Table 1 contains the paper's broader burden inventory and in some cases differently updated figures.",
+      basis: "Table 1 broader burden inventory. The source mixes annual incidence, global burden/prevalence and lifetime experience depending on disease, so these entries are preserved as source context rather than normalized into a single comparable rate.",
       rows: GLOBAL_CONTEXT,
     },
     additionalEvidence: {
@@ -373,11 +390,11 @@ router.get("/aor/fungal-burden", (req, res) => {
         sourceSection: "Section 2.8 and Table 9",
         countryBurdenExamples: TINEA_COUNTRY_BURDENS,
         studyPrevalence: TINEA_STUDY_PREVALENCE,
-        limitation: "Table 9 reports prevalence in individual school-age study populations, primarily in sub-Saharan Africa. Those study percentages are not equivalent to national population prevalence and are intentionally not rendered as a national choropleth.",
+        limitation: "The paper says 21,073,423 estimated cases across 16 countries, but the narrative explicitly names only 15 country burden examples; no sixteenth country is invented here. Table 9 reports prevalence in individual school-age study populations, primarily in sub-Saharan Africa. Those study percentages are not equivalent to national population prevalence and are intentionally not rendered as a national choropleth.",
       },
     },
     methodology: `Country figures reproduce ${config.sourceTable}'s published modeled burden and rate-per-100,000 values. The source table columns are: ${config.sourceColumns.join(", ")}. Several tables contain country-specific comments or assumptions, and the review emphasizes heterogeneous surveillance, literature and assumption-based methods; map comparison therefore reflects published estimates, not equal surveillance quality.`,
-    limitation: "Historical modeled burden only. Do not interpret these values as current outbreak activity, current incidence, current prevalence or a present-day travel-risk score. Country coverage and estimate precision vary materially by disease.",
+    limitation: "Historical modeled burden only. In the source, 'burden' can mean annual incidence, period or total prevalence, and for rVVC annual prevalence. The authors explicitly describe these estimates as rough approximations rather than substitutes for high-quality epidemiological study or comprehensive surveillance. Do not interpret them as current outbreak activity or a present-day travel-risk score.",
   });
 });
 
