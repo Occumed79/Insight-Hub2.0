@@ -54,6 +54,7 @@ function value(row: Row, keys: string[]) {
 function unique(values: string[], max = 500) { return [...new Set(values.filter(Boolean))].slice(0, max); }
 function reportedMetric(input: unknown) { return input == null || text(input) === "" ? "Not reported" : input; }
 function reportedNumber(input: unknown) { const parsed = number(input); return parsed == null ? "Not reported" : parsed; }
+function sameItem(candidate: string, requested: string) { const left = normalize(candidate); const right = normalize(requested); return Boolean(left && right && (left === right || left.includes(right) || right.includes(left))); }
 
 function sourceUrls(dataset: DatasetKey) {
   const primary = `${BASE_URL}/${DATASETS[dataset].file}`;
@@ -155,18 +156,21 @@ router.get("/aor/immunization", async (req, res) => {
     if (!recognizableRows.length) throw new Error("WHO workbook downloaded, but its current columns did not match the recognized country/year/metric schema.");
 
     const countryQuery = normalize(req.query.country);
-    const requestedItem = normalize(req.query.item);
+    const requestedItem = text(req.query.item);
+    const requestedItemNormalized = normalize(requestedItem);
     const requestedYear = Number(req.query.year);
     const requestedCategory = normalize(req.query.category);
     const years = [...new Set(recognizableRows.map((row) => rowYear(row, dataset)).filter((year): year is number => Number.isFinite(year)))].sort((a, b) => b - a);
     const itemLabels = unique(recognizableRows.map((row) => rowItem(row, dataset)), 400).sort((a, b) => a.localeCompare(b));
-    const selectedItem = requestedItem ? itemLabels.find((item) => normalize(item) === requestedItem) || itemLabels.find((item) => normalize(item).includes(requestedItem)) || "" : defaultItem(dataset, itemLabels);
+    const selectedItem = requestedItemNormalized ? itemLabels.find((item) => normalize(item) === requestedItemNormalized) || itemLabels.find((item) => sameItem(item, requestedItem)) || "" : defaultItem(dataset, itemLabels);
+    const itemMatched = !requestedItemNormalized || Boolean(selectedItem);
     const selectedYear = Number.isFinite(requestedYear) && requestedYear > 1900 ? requestedYear : years[0] || null;
     const categories = dataset === "coverage" ? unique(recognizableRows.map((row) => text(value(row, ["COVERAGE_CATEGORY", "Coverage Category"])))).sort() : [];
     let selectedCategory = "";
     if (dataset === "coverage") selectedCategory = requestedCategory ? categories.find((category) => normalize(category) === requestedCategory) || "" : categories.find((category) => /wuenic/i.test(category)) || categories[0] || "";
 
     const filtered = recognizableRows.filter((row) => {
+      if (!itemMatched) return false;
       if (countryQuery && normalize(rowCountry(row, dataset)) !== countryQuery && normalize(rowCode(row, dataset)) !== countryQuery && normalize(rowIso2(row, dataset)) !== countryQuery) return false;
       if (selectedYear != null && rowYear(row, dataset) !== selectedYear) return false;
       if (selectedItem && normalize(rowItem(row, dataset)) !== normalize(selectedItem)) return false;
@@ -178,12 +182,12 @@ router.get("/aor/immunization", async (req, res) => {
 
     return res.json({
       ok: true, dataset, retrievedAt: new Date().toISOString(), source: "WHO Immunization Data Portal", sourceUrl: loaded.sourceUrl,
-      selected: { year: selectedYear, item: selectedItem, category: selectedCategory || null, country: countryQuery || null },
+      selected: { year: selectedYear, item: selectedItem || null, itemMatched, requestedItem: requestedItem || null, category: selectedCategory || null, country: countryQuery || null },
       facets: { years: years.slice(0, 60), items: itemLabels, categories },
       rows: output.slice(0, countryQuery ? 1500 : 350), totalMatched: output.length,
       mapCoverage: { mappedRows, unmappedRows: output.length - mappedRows },
       schemaHealth: { rawRows: loaded.rows.length, recognizableRows: recognizableRows.length },
-      methodology: dataset === "coverage" ? "Coverage categories remain distinct. WUENIC estimates are not silently substituted for administrative or official country-reported coverage." : dataset === "wuenic" ? "WUENIC detail preserves current estimate, prior revision, confidence grade, administrative/government estimates, target denominators and source comments where supplied." : "Values are returned with the dataset's own WHO definition and unit; no composite risk score is inferred.",
+      methodology: dataset === "coverage" ? "Coverage categories remain distinct. WUENIC estimates are not silently substituted for administrative or official country-reported coverage." : dataset === "wuenic" ? "WUENIC detail preserves current estimate, prior revision, confidence grade, administrative/government estimates, target denominators and source comments where supplied. If a requested vaccine label does not match the workbook, the endpoint returns no evidence rows rather than widening to another antigen." : "Values are returned with the dataset's own WHO definition and unit; no composite risk score is inferred.",
       limitation: "WHO immunization indicators are programmatic/public-health measures. Coverage, incidence, reported cases, vaccine introduction status and modeled WUENIC estimates describe different concepts and must not be compared as if they were the same metric. Missing metric cells are returned as 'Not reported' so UI parsers cannot silently reinterpret them as numeric zero. Map colors are an Insight Hub visualization aid, not WHO risk classifications.",
     });
   } catch (error) {
