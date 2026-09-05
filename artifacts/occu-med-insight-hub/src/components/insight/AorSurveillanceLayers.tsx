@@ -1,31 +1,172 @@
 import { useEffect, useMemo, useState } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
-import { Activity, AlertTriangle, BarChart3, Loader2, Microscope, Syringe, X } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowUpRight,
+  BarChart3,
+  Loader2,
+  Microscope,
+  Syringe,
+  X,
+} from "lucide-react";
 
 type Mode = "respiratory" | "immunization" | "fungal";
-type Props = { map: any; mapStatus: "loading" | "ready" | "error"; selectedCountry?: { name: string; iso2: string } | null };
-type AriRow = { date: string; location: string; stateAbbreviation: string; level: string };
-type RtRow = { asOf: string; date: string; location: string; pathogen: string; epidemicTrend: string; rtEstimate: number | null; rtLower: number | null; rtUpper: number | null; pGrowing: number | null; intervalWidth: number | null };
-type PositivityRow = { date: string; pathogen: string; percentPositive: number | null };
-type WastewaterRow = { week: string; location: string; stateAbbreviation: string; pathogen: string; activityLevel: string; activityValue: number | null; dataCollectionPeriod: string; updatedAt: string };
-type SourceHealth = { source: string; ok: boolean; fetched?: boolean; rawRows?: number; normalizedRows?: number; error?: string };
-type RespiratoryPayload = { ok: boolean; partial?: boolean; retrievedAt?: string; ari?: { rows: AriRow[]; latestDate?: string | null }; rt?: { rows: RtRow[]; latestDate?: string | null; latestModelRun?: string | null }; positivity?: { rows: PositivityRow[]; latestDate?: string | null }; wastewater?: { rows: WastewaterRow[]; latestDate?: string | null }; sourceHealth?: SourceHealth[]; rtMethodologyNotice?: string; seasonalRtNotice?: string; limitation?: string; error?: string };
-type ImmunizationRow = { country: string; code: string; iso2?: string; year: number | null; item: string; description: string; value: unknown; category?: string; categoryDescription?: string; target?: number | null; doses?: number | null; denominator?: number | null; region?: string; gradeOfConfidence?: string; previousRevision?: number | null; administrativeCoverage?: number | null; governmentEstimate?: number | null; childrenVaccinated?: number | null; childrenInTarget?: number | null; births?: number | null; survivingInfants?: number | null; comment?: string };
-type ImmunizationPayload = { ok: boolean; dataset: string; source?: string; sourceUrl?: string; selected?: { year?: number | null; item?: string; category?: string | null; country?: string | null }; facets?: { years?: number[]; items?: string[]; categories?: string[] }; rows: ImmunizationRow[]; totalMatched?: number; mapCoverage?: { mappedRows: number; unmappedRows: number }; methodology?: string; limitation?: string; error?: string };
-type FungalRow = { country: string; iso2: string; burden: number; ratePer100k: number };
+type Props = {
+  map: any;
+  mapStatus: "loading" | "ready" | "error";
+  selectedCountry?: { name: string; iso2: string } | null;
+};
+
+type AriRow = {
+  date: string;
+  location: string;
+  stateAbbreviation: string;
+  level: string;
+};
+type RtRow = {
+  asOf: string;
+  date: string;
+  location: string;
+  pathogen: string;
+  epidemicTrend: string;
+  rtEstimate: number | null;
+  rtLower: number | null;
+  rtUpper: number | null;
+  pGrowing: number | null;
+  intervalWidth: number | null;
+};
+type PositivityRow = {
+  date: string;
+  pathogen: string;
+  percentPositive: number | null;
+};
+type WastewaterRow = {
+  week: string;
+  location: string;
+  stateAbbreviation: string;
+  pathogen: string;
+  activityLevel: string;
+  activityValue: number | null;
+  dataCollectionPeriod: string;
+  updatedAt: string;
+};
+type SourceHealth = {
+  source: string;
+  ok: boolean;
+  fetched?: boolean;
+  rawRows?: number;
+  normalizedRows?: number;
+  error?: string;
+};
+type RespiratoryPayload = {
+  ok: boolean;
+  partial?: boolean;
+  retrievedAt?: string;
+  ari?: { rows: AriRow[]; latestDate?: string | null };
+  rt?: { rows: RtRow[]; latestDate?: string | null; latestModelRun?: string | null };
+  positivity?: { rows: PositivityRow[]; latestDate?: string | null };
+  wastewater?: { rows: WastewaterRow[]; latestDate?: string | null };
+  sourceHealth?: SourceHealth[];
+  rtMethodologyNotice?: string;
+  seasonalRtNotice?: string;
+  limitation?: string;
+  error?: string;
+};
+
+type ImmunizationRow = {
+  country: string;
+  code: string;
+  iso2?: string;
+  year: number | null;
+  item: string;
+  description: string;
+  value: unknown;
+  category?: string;
+  categoryDescription?: string;
+  target?: number | null;
+  doses?: number | null;
+  denominator?: number | null;
+  region?: string;
+  gradeOfConfidence?: string;
+  previousRevision?: number | null;
+  administrativeCoverage?: number | null;
+  governmentEstimate?: number | null;
+  childrenVaccinated?: number | null;
+  childrenInTarget?: number | null;
+  births?: number | null;
+  survivingInfants?: number | null;
+  comment?: string;
+};
+type ImmunizationPayload = {
+  ok: boolean;
+  dataset: string;
+  source?: string;
+  sourceUrl?: string;
+  selected?: {
+    year?: number | null;
+    item?: string;
+    category?: string | null;
+    country?: string | null;
+  };
+  facets?: { years?: number[]; items?: string[]; categories?: string[] };
+  rows: ImmunizationRow[];
+  totalMatched?: number;
+  mapCoverage?: { mappedRows: number; unmappedRows: number };
+  methodology?: string;
+  limitation?: string;
+  error?: string;
+};
+
+type FungalRow = {
+  country: string;
+  iso2: string;
+  burden: number;
+  ratePer100k: number;
+};
 type FungalPayload = {
   ok: boolean;
-  disease: { key: string; title: string; sourceTable: string; sourceColumns?: string[] };
-  availableDiseases: Array<{ key: string; title: string; sourceTable: string; sourceColumns?: string[] }>;
+  disease: {
+    key: string;
+    title: string;
+    sourceTable: string;
+    sourceColumns?: string[];
+  };
+  availableDiseases: Array<{
+    key: string;
+    title: string;
+    sourceTable: string;
+    sourceColumns?: string[];
+  }>;
   rows: FungalRow[];
   source?: string;
   sourceUrl?: string;
   publicationYear?: number;
   modeledEstimate?: boolean;
-  globalContext?: { basis?: string; rows: Array<{ disease: string; estimate: string }> };
+  globalContext?: {
+    basis?: string;
+    rows: Array<{ disease: string; estimate: string }>;
+  };
   additionalEvidence?: {
-    recurrentVulvovaginalCandidiasis?: { title: string; sourceSection: string; globalEstimate: string; definition: string; workedExample: string; limitation: string };
-    tineaCapitis?: { title: string; sourceSection: string; countryBurdenExamples: Array<{ country: string; burden: number }>; studyPrevalence: Array<{ country: string; prevalencePercent: string; publicationYear: number }>; limitation: string };
+    recurrentVulvovaginalCandidiasis?: {
+      title: string;
+      sourceSection: string;
+      globalEstimate: string;
+      definition: string;
+      workedExample: string;
+      limitation: string;
+    };
+    tineaCapitis?: {
+      title: string;
+      sourceSection: string;
+      countryBurdenExamples: Array<{ country: string; burden: number }>;
+      studyPrevalence: Array<{
+        country: string;
+        prevalencePercent: string;
+        publicationYear: number;
+      }>;
+      limitation: string;
+    };
   };
   methodology?: string;
   limitation?: string;
@@ -35,29 +176,264 @@ type FungalPayload = {
 const METRIC_FILL = "aor-health-metric-fill";
 const METRIC_LINE = "aor-health-metric-line";
 const STATE_GEOMETRY = "/api/core-intelligence/state-map-geometry";
-const ARI_COLORS: Record<string, string> = { "very low": "#cdece8", low: "#b5e4a5", moderate: "#ffad32", high: "#f65b55", "very high": "#9d2d68", "data unavailable": "#d7d7d7" };
-const FIPS: Record<string, { code: string; name: string }> = {
-  "01": { code: "AL", name: "Alabama" }, "02": { code: "AK", name: "Alaska" }, "04": { code: "AZ", name: "Arizona" }, "05": { code: "AR", name: "Arkansas" }, "06": { code: "CA", name: "California" }, "08": { code: "CO", name: "Colorado" }, "09": { code: "CT", name: "Connecticut" }, "10": { code: "DE", name: "Delaware" }, "11": { code: "DC", name: "District of Columbia" }, "12": { code: "FL", name: "Florida" }, "13": { code: "GA", name: "Georgia" }, "15": { code: "HI", name: "Hawaii" }, "16": { code: "ID", name: "Idaho" }, "17": { code: "IL", name: "Illinois" }, "18": { code: "IN", name: "Indiana" }, "19": { code: "IA", name: "Iowa" }, "20": { code: "KS", name: "Kansas" }, "21": { code: "KY", name: "Kentucky" }, "22": { code: "LA", name: "Louisiana" }, "23": { code: "ME", name: "Maine" }, "24": { code: "MD", name: "Maryland" }, "25": { code: "MA", name: "Massachusetts" }, "26": { code: "MI", name: "Michigan" }, "27": { code: "MN", name: "Minnesota" }, "28": { code: "MS", name: "Mississippi" }, "29": { code: "MO", name: "Missouri" }, "30": { code: "MT", name: "Montana" }, "31": { code: "NE", name: "Nebraska" }, "32": { code: "NV", name: "Nevada" }, "33": { code: "NH", name: "New Hampshire" }, "34": { code: "NJ", name: "New Jersey" }, "35": { code: "NM", name: "New Mexico" }, "36": { code: "NY", name: "New York" }, "37": { code: "NC", name: "North Carolina" }, "38": { code: "ND", name: "North Dakota" }, "39": { code: "OH", name: "Ohio" }, "40": { code: "OK", name: "Oklahoma" }, "41": { code: "OR", name: "Oregon" }, "42": { code: "PA", name: "Pennsylvania" }, "44": { code: "RI", name: "Rhode Island" }, "45": { code: "SC", name: "South Carolina" }, "46": { code: "SD", name: "South Dakota" }, "47": { code: "TN", name: "Tennessee" }, "48": { code: "TX", name: "Texas" }, "49": { code: "UT", name: "Utah" }, "50": { code: "VT", name: "Vermont" }, "51": { code: "VA", name: "Virginia" }, "53": { code: "WA", name: "Washington" }, "54": { code: "WV", name: "West Virginia" }, "55": { code: "WI", name: "Wisconsin" }, "56": { code: "WY", name: "Wyoming" }, "72": { code: "PR", name: "Puerto Rico" },
+const ARI_COLORS: Record<string, string> = {
+  "very low": "#cdece8",
+  low: "#b5e4a5",
+  moderate: "#ffad32",
+  high: "#f65b55",
+  "very high": "#9d2d68",
+  "data unavailable": "#d7d7d7",
 };
-const TERRITORIES = ["AS", "GU", "MP", "PR", "VI"];
-const TERRITORY_CODES: Record<string, string> = { "american samoa": "AS", guam: "GU", "northern mariana islands": "MP", "commonwealth of the northern mariana islands": "MP", "puerto rico": "PR", "virgin islands": "VI", "u s virgin islands": "VI", "united states virgin islands": "VI" };
 
-function normalize(value: unknown) { return String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
-function numeric(value: unknown) { const parsed = Number(String(value ?? "").replace(/[%,$]/g, "").trim()); return Number.isFinite(parsed) ? parsed : null; }
-async function loadJson(url: string) { const response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" }); const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload?.error || `Request failed (${response.status}).`); return payload; }
-function isoExpression(rows: Array<{ iso2: string; color: string }>) { const byIso = new Map<string, string>(); for (const row of rows) { const iso2 = row.iso2.trim().toUpperCase(); if (iso2) byIso.set(iso2, row.color); } const expression: any[] = ["match", ["get", "iso_a2"]]; for (const [iso2, color] of byIso) expression.push(iso2, color); expression.push("rgba(255,255,255,0)"); return expression; }
-function pathogenMatch(value: string, wanted: string) { const hay = normalize(value); if (wanted === "COVID-19") return hay.includes("covid") || hay.includes("sars cov 2"); if (wanted === "Influenza") return hay.includes("influenza") || hay === "flu" || hay.includes("flu a"); return hay === "rsv" || hay.includes("respiratory syncytial"); }
-function stateCode(row: { stateAbbreviation?: string; location?: string }) { if (row.stateAbbreviation) return row.stateAbbreviation.toUpperCase(); const raw = String(row.location || "").trim(); if (/^[A-Za-z]{2}$/.test(raw)) return raw.toUpperCase(); const name = normalize(raw); return TERRITORY_CODES[name] || Object.values(FIPS).find((item) => normalize(item.name) === name)?.code || ""; }
-function fixedMetricColor(dataset: string, value: unknown) {
-  if (dataset === "introduction") { const label = normalize(value); if (label.startsWith("yes")) return "#22c55e"; if (label === "no" || label.startsWith("no ")) return "#ef4444"; if (/high risk|partial|pilot|selected/.test(label)) return "#f59e0b"; return "#64748b"; }
-  const number = numeric(value); if (number == null) return "#64748b";
-  if (number >= 95) return "#22c55e"; if (number >= 85) return "#84cc16"; if (number >= 70) return "#facc15"; if (number >= 50) return "#f97316"; return "#ef4444";
+const FIPS: Record<string, { code: string; name: string }> = {
+  "01": { code: "AL", name: "Alabama" },
+  "02": { code: "AK", name: "Alaska" },
+  "04": { code: "AZ", name: "Arizona" },
+  "05": { code: "AR", name: "Arkansas" },
+  "06": { code: "CA", name: "California" },
+  "08": { code: "CO", name: "Colorado" },
+  "09": { code: "CT", name: "Connecticut" },
+  "10": { code: "DE", name: "Delaware" },
+  "11": { code: "DC", name: "District of Columbia" },
+  "12": { code: "FL", name: "Florida" },
+  "13": { code: "GA", name: "Georgia" },
+  "15": { code: "HI", name: "Hawaii" },
+  "16": { code: "ID", name: "Idaho" },
+  "17": { code: "IL", name: "Illinois" },
+  "18": { code: "IN", name: "Indiana" },
+  "19": { code: "IA", name: "Iowa" },
+  "20": { code: "KS", name: "Kansas" },
+  "21": { code: "KY", name: "Kentucky" },
+  "22": { code: "LA", name: "Louisiana" },
+  "23": { code: "ME", name: "Maine" },
+  "24": { code: "MD", name: "Maryland" },
+  "25": { code: "MA", name: "Massachusetts" },
+  "26": { code: "MI", name: "Michigan" },
+  "27": { code: "MN", name: "Minnesota" },
+  "28": { code: "MS", name: "Mississippi" },
+  "29": { code: "MO", name: "Missouri" },
+  "30": { code: "MT", name: "Montana" },
+  "31": { code: "NE", name: "Nebraska" },
+  "32": { code: "NV", name: "Nevada" },
+  "33": { code: "NH", name: "New Hampshire" },
+  "34": { code: "NJ", name: "New Jersey" },
+  "35": { code: "NM", name: "New Mexico" },
+  "36": { code: "NY", name: "New York" },
+  "37": { code: "NC", name: "North Carolina" },
+  "38": { code: "ND", name: "North Dakota" },
+  "39": { code: "OH", name: "Ohio" },
+  "40": { code: "OK", name: "Oklahoma" },
+  "41": { code: "OR", name: "Oregon" },
+  "42": { code: "PA", name: "Pennsylvania" },
+  "44": { code: "RI", name: "Rhode Island" },
+  "45": { code: "SC", name: "South Carolina" },
+  "46": { code: "SD", name: "South Dakota" },
+  "47": { code: "TN", name: "Tennessee" },
+  "48": { code: "TX", name: "Texas" },
+  "49": { code: "UT", name: "Utah" },
+  "50": { code: "VT", name: "Vermont" },
+  "51": { code: "VA", name: "Virginia" },
+  "53": { code: "WA", name: "Washington" },
+  "54": { code: "WV", name: "West Virginia" },
+  "55": { code: "WI", name: "Wisconsin" },
+  "56": { code: "WY", name: "Wyoming" },
+  "72": { code: "PR", name: "Puerto Rico" },
+};
+const TERRITORIES = ["AS", "GU", "MP", "PR", "VI"] as const;
+const TERRITORY_CODES: Record<string, string> = {
+  "american samoa": "AS",
+  guam: "GU",
+  "northern mariana islands": "MP",
+  "commonwealth of the northern mariana islands": "MP",
+  "puerto rico": "PR",
+  "virgin islands": "VI",
+  "u s virgin islands": "VI",
+  "united states virgin islands": "VI",
+};
+
+function normalize(value: unknown) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
-function relativeColor(value: number, max: number) { const ratio = max > 0 ? value / max : 0; if (ratio >= .75) return "#9d2d68"; if (ratio >= .5) return "#ef4444"; if (ratio >= .25) return "#f97316"; if (ratio >= .1) return "#facc15"; return "#84cc16"; }
-function formatValue(value: unknown) { if (typeof value === "number") return Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 2 }); const parsed = numeric(value); if (parsed != null && String(value).trim() !== "") return parsed.toLocaleString(undefined, { maximumFractionDigits: 2 }); return String(value ?? "—"); }
-function formatDate(value?: string | null) { if (!value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }); }
-function formatProbability(value?: number | null) { if (value == null) return "Unavailable"; const percentage = value <= 1.0001 ? value * 100 : value; return `${percentage.toFixed(percentage < 10 ? 1 : 0)}%`; }
-function Sparkline({ rows }: { rows: PositivityRow[] }) { const points = rows.filter((row) => row.percentPositive != null).slice(-18); if (points.length < 2) return null; const max = Math.max(...points.map((row) => Number(row.percentPositive)), 1); const d = points.map((row, index) => `${index ? "L" : "M"}${(index / (points.length - 1)) * 220},${58 - (Number(row.percentPositive) / max) * 50}`).join(" "); return <svg viewBox="0 0 220 64" className="mt-2 h-16 w-full" role="img" aria-label="Recent national test positivity trend"><path d={d} fill="none" stroke="currentColor" strokeWidth="2" className="text-cyan-300" /><line x1="0" y1="58" x2="220" y2="58" stroke="currentColor" className="text-white/10" /></svg>; }
+
+function numeric(value: unknown) {
+  const parsed = Number(String(value ?? "").replace(/[%,$]/g, "").trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function loadJson<T>(url: string): Promise<T> {
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) {
+    throw new Error(
+      typeof payload.error === "string"
+        ? payload.error
+        : `Request failed (${response.status}).`,
+    );
+  }
+  return payload as T;
+}
+
+function stateCode(row: { stateAbbreviation?: string; location?: string }) {
+  if (row.stateAbbreviation) return row.stateAbbreviation.toUpperCase();
+  const raw = String(row.location || "").trim();
+  if (/^[A-Za-z]{2}$/.test(raw)) return raw.toUpperCase();
+  const name = normalize(raw);
+  return (
+    TERRITORY_CODES[name] ||
+    Object.values(FIPS).find((item) => normalize(item.name) === name)?.code ||
+    ""
+  );
+}
+
+function pathogenMatch(value: string, wanted: string) {
+  const hay = normalize(value);
+  if (wanted === "COVID-19") {
+    return hay.includes("covid") || hay.includes("sars cov 2");
+  }
+  if (wanted === "Influenza") {
+    return hay.includes("influenza") || hay === "flu" || hay.includes("flu a");
+  }
+  return hay === "rsv" || hay.includes("respiratory syncytial");
+}
+
+function isoExpression(rows: Array<{ iso2: string; color: string }>) {
+  const unique = new Map<string, string>();
+  for (const row of rows) {
+    const iso2 = row.iso2.trim().toUpperCase();
+    if (iso2) unique.set(iso2, row.color);
+  }
+  const expression: any[] = ["match", ["get", "iso_a2"]];
+  for (const [iso2, color] of unique) expression.push(iso2, color);
+  expression.push("rgba(255,255,255,0)");
+  return expression;
+}
+
+function fixedMetricColor(dataset: string, value: unknown) {
+  if (dataset === "introduction") {
+    const label = normalize(value);
+    if (label.startsWith("yes")) return "#22c55e";
+    if (label === "no" || label.startsWith("no ")) return "#ef4444";
+    if (/high risk|partial|pilot|selected/.test(label)) return "#f59e0b";
+    return "#64748b";
+  }
+  const number = numeric(value);
+  if (number == null) return "#64748b";
+  if (number >= 95) return "#22c55e";
+  if (number >= 85) return "#84cc16";
+  if (number >= 70) return "#facc15";
+  if (number >= 50) return "#f97316";
+  return "#ef4444";
+}
+
+function relativeColor(value: number, max: number) {
+  const ratio = max > 0 ? value / max : 0;
+  if (ratio >= 0.75) return "#9d2d68";
+  if (ratio >= 0.5) return "#ef4444";
+  if (ratio >= 0.25) return "#f97316";
+  if (ratio >= 0.1) return "#facc15";
+  return "#84cc16";
+}
+
+function formatValue(value: unknown) {
+  if (typeof value === "number") {
+    return Number.isInteger(value)
+      ? value.toLocaleString()
+      : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+  const parsed = numeric(value);
+  if (parsed != null && String(value).trim() !== "") {
+    return parsed.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+  return String(value ?? "—");
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+}
+
+function formatProbability(value?: number | null) {
+  if (value == null) return "Unavailable";
+  const percentage = value <= 1.0001 ? value * 100 : value;
+  return `${percentage.toFixed(percentage < 10 ? 1 : 0)}%`;
+}
+
+function Sparkline({ rows }: { rows: PositivityRow[] }) {
+  const points = rows.filter((row) => row.percentPositive != null).slice(-18);
+  if (points.length < 2) return null;
+  const max = Math.max(...points.map((row) => Number(row.percentPositive)), 1);
+  const path = points
+    .map((row, index) => {
+      const x = (index / (points.length - 1)) * 220;
+      const y = 58 - (Number(row.percentPositive) / max) * 50;
+      return `${index ? "L" : "M"}${x},${y}`;
+    })
+    .join(" ");
+  return (
+    <svg
+      viewBox="0 0 220 64"
+      className="mt-2 h-16 w-full"
+      role="img"
+      aria-label="Recent national test positivity trend"
+    >
+      <path
+        d={path}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        className="text-cyan-300"
+      />
+      <line
+        x1="0"
+        y1="58"
+        x2="220"
+        y2="58"
+        stroke="currentColor"
+        className="text-white/10"
+      />
+    </svg>
+  );
+}
+
+function SmallMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/8 bg-white/[0.025] p-2">
+      <p className="text-[7px] uppercase tracking-[.1em] text-cyan-100/35">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-black text-white/78">{value}</p>
+    </div>
+  );
+}
+
+function ExternalSource({ url, label }: { url?: string; label: string }) {
+  if (!url) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-1 text-[8px] font-bold text-cyan-100/45 hover:text-white"
+    >
+      {label} <ArrowUpRight size={9} />
+    </a>
+  );
+}
 
 export function AorSurveillanceLayers({ map, mapStatus, selectedCountry }: Props) {
   const [mode, setMode] = useState<Mode | null>(null);
@@ -65,6 +441,7 @@ export function AorSurveillanceLayers({ map, mapStatus, selectedCountry }: Props
   const [respiratoryError, setRespiratoryError] = useState("");
   const [respState, setRespState] = useState("CA");
   const [respPathogen, setRespPathogen] = useState("COVID-19");
+
   const [immunization, setImmunization] = useState<ImmunizationPayload | null>(null);
   const [immunizationError, setImmunizationError] = useState("");
   const [immDataset, setImmDataset] = useState("coverage");
@@ -72,95 +449,921 @@ export function AorSurveillanceLayers({ map, mapStatus, selectedCountry }: Props
   const [immYear, setImmYear] = useState("");
   const [immCategory, setImmCategory] = useState("");
   const [wuenic, setWuenic] = useState<ImmunizationPayload | null>(null);
+
   const [fungal, setFungal] = useState<FungalPayload | null>(null);
   const [fungalError, setFungalError] = useState("");
   const [fungalDisease, setFungalDisease] = useState("cpa");
 
   useEffect(() => {
     if (mode !== "respiratory" || respiratory || respiratoryError) return;
-    let active = true; loadJson("/api/aor/respiratory-surveillance").then((payload) => { if (active) setRespiratory(payload); }).catch((error) => { if (active) setRespiratoryError(error instanceof Error ? error.message : "CDC respiratory surveillance failed."); }); return () => { active = false; };
+    let active = true;
+    loadJson<RespiratoryPayload>("/api/aor/respiratory-surveillance")
+      .then((payload) => {
+        if (active) setRespiratory(payload);
+      })
+      .catch((error) => {
+        if (active) {
+          setRespiratoryError(
+            error instanceof Error ? error.message : "CDC respiratory surveillance failed.",
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, [mode, respiratory, respiratoryError]);
 
   useEffect(() => {
     if (mode !== "immunization") return;
-    let active = true; setImmunizationError("");
-    const params = new URLSearchParams({ dataset: immDataset }); if (immItem) params.set("item", immItem); if (immYear) params.set("year", immYear); if (immCategory) params.set("category", immCategory);
-    loadJson(`/api/aor/immunization?${params.toString()}`).then((payload) => { if (active) setImmunization(payload); }).catch((error) => { if (active) { setImmunization(null); setImmunizationError(error instanceof Error ? error.message : "WHO immunization source failed."); } }); return () => { active = false; };
+    let active = true;
+    setImmunizationError("");
+    const params = new URLSearchParams({ dataset: immDataset });
+    if (immItem) params.set("item", immItem);
+    if (immYear) params.set("year", immYear);
+    if (immCategory) params.set("category", immCategory);
+
+    loadJson<ImmunizationPayload>(`/api/aor/immunization?${params.toString()}`)
+      .then((payload) => {
+        if (active) setImmunization(payload);
+      })
+      .catch((error) => {
+        if (active) {
+          setImmunization(null);
+          setImmunizationError(
+            error instanceof Error ? error.message : "WHO immunization source failed.",
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, [mode, immDataset, immItem, immYear, immCategory]);
 
   useEffect(() => {
-    if (mode !== "immunization" || !selectedCountry?.iso2 || immDataset !== "coverage" || !immunization) { setWuenic(null); return; }
-    const item = immItem || immunization.selected?.item || ""; const year = immYear || String(immunization.selected?.year || ""); const params = new URLSearchParams({ dataset: "wuenic", country: selectedCountry.iso2 }); if (item) params.set("item", item); if (year) params.set("year", year);
-    let active = true; loadJson(`/api/aor/immunization?${params.toString()}`).then((payload) => { if (active) setWuenic(payload); }).catch(() => { if (active) setWuenic(null); }); return () => { active = false; };
+    if (
+      mode !== "immunization" ||
+      !selectedCountry?.iso2 ||
+      immDataset !== "coverage" ||
+      !immunization
+    ) {
+      setWuenic(null);
+      return;
+    }
+
+    const item = immItem || immunization.selected?.item || "";
+    const year = immYear || String(immunization.selected?.year || "");
+    const params = new URLSearchParams({
+      dataset: "wuenic",
+      country: selectedCountry.iso2,
+    });
+    if (item) params.set("item", item);
+    if (year) params.set("year", year);
+
+    let active = true;
+    loadJson<ImmunizationPayload>(`/api/aor/immunization?${params.toString()}`)
+      .then((payload) => {
+        if (active) setWuenic(payload);
+      })
+      .catch(() => {
+        if (active) setWuenic(null);
+      });
+    return () => {
+      active = false;
+    };
   }, [mode, selectedCountry?.iso2, immDataset, immItem, immYear, immunization]);
 
   useEffect(() => {
     if (mode !== "fungal") return;
-    let active = true; setFungalError(""); loadJson(`/api/aor/fungal-burden?disease=${encodeURIComponent(fungalDisease)}`).then((payload) => { if (active) setFungal(payload); }).catch((error) => { if (active) { setFungal(null); setFungalError(error instanceof Error ? error.message : "Fungal burden source failed."); } }); return () => { active = false; };
+    let active = true;
+    setFungalError("");
+    loadJson<FungalPayload>(
+      `/api/aor/fungal-burden?disease=${encodeURIComponent(fungalDisease)}`,
+    )
+      .then((payload) => {
+        if (active) setFungal(payload);
+      })
+      .catch((error) => {
+        if (active) {
+          setFungal(null);
+          setFungalError(
+            error instanceof Error ? error.message : "Fungal burden source failed.",
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, [mode, fungalDisease]);
 
   useEffect(() => {
     if (!map || mapStatus !== "ready" || !map.getSource?.("aor-countries")) return;
-    const sourceLayer = "administrative"; const firstSymbol = map.getStyle?.()?.layers?.find((layer: any) => layer.type === "symbol")?.id;
-    if (!map.getLayer?.(METRIC_FILL)) map.addLayer({ id: METRIC_FILL, type: "fill", source: "aor-countries", "source-layer": sourceLayer, filter: ["==", "level", 0], paint: { "fill-color": "rgba(255,255,255,0)", "fill-opacity": 0 } }, firstSymbol || undefined);
-    if (!map.getLayer?.(METRIC_LINE)) map.addLayer({ id: METRIC_LINE, type: "line", source: "aor-countries", "source-layer": sourceLayer, filter: ["==", "level", 0], paint: { "line-color": "rgba(255,255,255,0)", "line-opacity": 0, "line-width": 1.2 } }, firstSymbol || undefined);
+    const sourceLayer = "administrative";
+    const firstSymbol = map
+      .getStyle?.()
+      ?.layers?.find((layer: any) => layer.type === "symbol")?.id;
+
+    if (!map.getLayer?.(METRIC_FILL)) {
+      map.addLayer(
+        {
+          id: METRIC_FILL,
+          type: "fill",
+          source: "aor-countries",
+          "source-layer": sourceLayer,
+          filter: ["==", "level", 0],
+          paint: { "fill-color": "rgba(255,255,255,0)", "fill-opacity": 0 },
+        },
+        firstSymbol || undefined,
+      );
+    }
+    if (!map.getLayer?.(METRIC_LINE)) {
+      map.addLayer(
+        {
+          id: METRIC_LINE,
+          type: "line",
+          source: "aor-countries",
+          "source-layer": sourceLayer,
+          filter: ["==", "level", 0],
+          paint: {
+            "line-color": "rgba(255,255,255,0)",
+            "line-opacity": 0,
+            "line-width": 1.2,
+          },
+        },
+        firstSymbol || undefined,
+      );
+    }
   }, [map, mapStatus]);
 
-  const fungalMax = useMemo(() => Math.max(...(fungal?.rows || []).map((row) => row.ratePer100k), 1), [fungal?.rows]);
+  const fungalMax = useMemo(
+    () => Math.max(...(fungal?.rows || []).map((row) => row.ratePer100k), 1),
+    [fungal?.rows],
+  );
+
   const metricExpression = useMemo(() => {
-    if (mode === "fungal" && fungal?.rows?.length) return { expression: isoExpression(fungal.rows.map((row) => ({ iso2: row.iso2, color: relativeColor(row.ratePer100k, fungalMax) }))), active: true };
-    if (mode === "immunization" && immunization?.rows?.length) {
-      const mapped = immunization.rows.filter((row): row is ImmunizationRow & { iso2: string } => Boolean(row.iso2));
-      if (immunization.dataset === "coverage" || immunization.dataset === "introduction") return { expression: isoExpression(mapped.map((row) => ({ iso2: row.iso2, color: fixedMetricColor(immunization.dataset, row.value) }))), active: mapped.length > 0 };
-      const numericRows = mapped.map((row) => ({ row, value: numeric(row.value) })).filter((entry): entry is { row: ImmunizationRow & { iso2: string }; value: number } => entry.value != null);
-      const max = Math.max(...numericRows.map((entry) => entry.value), 1);
-      return { expression: isoExpression(numericRows.map((entry) => ({ iso2: entry.row.iso2, color: relativeColor(entry.value, max) }))), active: numericRows.length > 0 };
+    if (mode === "fungal" && fungal?.rows?.length) {
+      return {
+        expression: isoExpression(
+          fungal.rows.map((row) => ({
+            iso2: row.iso2,
+            color: relativeColor(row.ratePer100k, fungalMax),
+          })),
+        ),
+        active: true,
+      };
     }
-    return { expression: ["literal", "rgba(255,255,255,0)"] as any[], active: false };
+
+    if (mode === "immunization" && immunization?.rows?.length) {
+      const mapped = immunization.rows.filter(
+        (row): row is ImmunizationRow & { iso2: string } => Boolean(row.iso2),
+      );
+      if (
+        immunization.dataset === "coverage" ||
+        immunization.dataset === "introduction"
+      ) {
+        return {
+          expression: isoExpression(
+            mapped.map((row) => ({
+              iso2: row.iso2,
+              color: fixedMetricColor(immunization.dataset, row.value),
+            })),
+          ),
+          active: mapped.length > 0,
+        };
+      }
+
+      const numericRows = mapped
+        .map((row) => ({ row, value: numeric(row.value) }))
+        .filter(
+          (entry): entry is {
+            row: ImmunizationRow & { iso2: string };
+            value: number;
+          } => entry.value != null,
+        );
+      const max = Math.max(...numericRows.map((entry) => entry.value), 1);
+      return {
+        expression: isoExpression(
+          numericRows.map((entry) => ({
+            iso2: entry.row.iso2,
+            color: relativeColor(entry.value, max),
+          })),
+        ),
+        active: numericRows.length > 0,
+      };
+    }
+
+    return {
+      expression: ["literal", "rgba(255,255,255,0)"] as any[],
+      active: false,
+    };
   }, [mode, fungal?.rows, fungalMax, immunization]);
 
   useEffect(() => {
     if (!map || mapStatus !== "ready" || !map.getLayer?.(METRIC_FILL)) return;
-    map.setPaintProperty?.(METRIC_FILL, "fill-color", metricExpression.expression); map.setPaintProperty?.(METRIC_FILL, "fill-opacity", metricExpression.active ? .44 : 0); map.setPaintProperty?.(METRIC_LINE, "line-color", metricExpression.expression); map.setPaintProperty?.(METRIC_LINE, "line-opacity", metricExpression.active ? .82 : 0);
+    map.setPaintProperty?.(METRIC_FILL, "fill-color", metricExpression.expression);
+    map.setPaintProperty?.(
+      METRIC_FILL,
+      "fill-opacity",
+      metricExpression.active ? 0.44 : 0,
+    );
+    map.setPaintProperty?.(METRIC_LINE, "line-color", metricExpression.expression);
+    map.setPaintProperty?.(
+      METRIC_LINE,
+      "line-opacity",
+      metricExpression.active ? 0.82 : 0,
+    );
   }, [map, mapStatus, metricExpression]);
 
-  useEffect(() => { setImmItem(""); setImmYear(""); setImmCategory(""); setImmunization(null); }, [immDataset]);
+  useEffect(() => {
+    setImmItem("");
+    setImmYear("");
+    setImmCategory("");
+    setImmunization(null);
+  }, [immDataset]);
 
-  const ariByCode = useMemo(() => new Map((respiratory?.ari?.rows || []).map((row) => [stateCode(row), row]).filter(([code]) => Boolean(code))), [respiratory?.ari?.rows]);
+  const ariByCode = useMemo<Map<string, AriRow>>(() => {
+    const byCode = new Map<string, AriRow>();
+    for (const row of respiratory?.ari?.rows || []) {
+      const code = stateCode(row);
+      if (code) byCode.set(code, row);
+    }
+    return byCode;
+  }, [respiratory?.ari?.rows]);
+
   const selectedAri = ariByCode.get(respState) || null;
-  const selectedRt = (respiratory?.rt?.rows || []).find((row) => stateCode(row) === respState && pathogenMatch(row.pathogen, respPathogen)) || null;
-  const selectedWastewater = (respiratory?.wastewater?.rows || []).find((row) => stateCode(row) === respState && pathogenMatch(row.pathogen, respPathogen)) || null;
-  const positivity = (respiratory?.positivity?.rows || []).filter((row) => pathogenMatch(row.pathogen, respPathogen));
-  const sourceProblems = (respiratory?.sourceHealth || []).filter((source) => !source.ok);
-  const selectedImmRow = selectedCountry ? (immunization?.rows || []).find((row) => row.iso2?.toUpperCase() === selectedCountry.iso2.toUpperCase()) || (immunization?.rows || []).find((row) => normalize(row.country) === normalize(selectedCountry.name)) || null : null;
+  const selectedRt =
+    (respiratory?.rt?.rows || []).find(
+      (row) =>
+        stateCode(row) === respState && pathogenMatch(row.pathogen, respPathogen),
+    ) || null;
+  const selectedWastewater =
+    (respiratory?.wastewater?.rows || []).find(
+      (row) =>
+        stateCode(row) === respState && pathogenMatch(row.pathogen, respPathogen),
+    ) || null;
+  const positivity = (respiratory?.positivity?.rows || []).filter((row) =>
+    pathogenMatch(row.pathogen, respPathogen),
+  );
+  const sourceProblems = (respiratory?.sourceHealth || []).filter(
+    (source) => !source.ok,
+  );
+
+  const selectedImmRow = selectedCountry
+    ? (immunization?.rows || []).find(
+        (row) => row.iso2?.toUpperCase() === selectedCountry.iso2.toUpperCase(),
+      ) ||
+      (immunization?.rows || []).find(
+        (row) => normalize(row.country) === normalize(selectedCountry.name),
+      ) ||
+      null
+    : null;
   const selectedWuenic = wuenic?.rows?.[0] || null;
-  const selectedFungal = selectedCountry ? (fungal?.rows || []).find((row) => row.iso2 === selectedCountry.iso2.toUpperCase()) || null : null;
+  const selectedFungal = selectedCountry
+    ? (fungal?.rows || []).find(
+        (row) => row.iso2.toUpperCase() === selectedCountry.iso2.toUpperCase(),
+      ) || null
+    : null;
 
-  return <div className="absolute bottom-3 left-3 z-20" data-testid="aor-surveillance-layers">
-    <div className="flex max-w-[94vw] flex-wrap gap-1.5 rounded-2xl border border-white/14 bg-[#020812]/88 p-2 shadow-[0_18px_50px_rgba(0,0,0,.38)] backdrop-blur-2xl">
-      <span className="inline-flex items-center gap-1.5 px-1.5 text-[8px] font-black uppercase tracking-[0.14em] text-cyan-50/45"><BarChart3 size={11} />Surveillance</span>
-      {([ ["respiratory", "U.S. Respiratory", Activity], ["immunization", "WHO Immunization", Syringe], ["fungal", "Fungal Burden", Microscope] ] as const).map(([key, label, Icon]) => <button key={key} type="button" onClick={() => setMode((current) => current === key ? null : key)} aria-pressed={mode === key} className={`inline-flex min-h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[8px] font-black ${mode === key ? "border-cyan-100/35 bg-cyan-300/[0.12] text-white" : "border-white/9 bg-white/[0.025] text-cyan-100/48"}`}><Icon size={10} />{label}</button>)}
+  const sortedFungal = useMemo(
+    () => [...(fungal?.rows || [])].sort((a, b) => b.ratePer100k - a.ratePer100k),
+    [fungal?.rows],
+  );
+
+  return (
+    <div className="absolute bottom-3 left-3 z-20" data-testid="aor-surveillance-layers">
+      <div className="flex max-w-[94vw] flex-wrap gap-1.5 rounded-2xl border border-white/14 bg-[#020812]/88 p-2 shadow-[0_18px_50px_rgba(0,0,0,.38)] backdrop-blur-2xl">
+        <span className="inline-flex items-center gap-1.5 px-1.5 text-[8px] font-black uppercase tracking-[0.14em] text-cyan-50/45">
+          <BarChart3 size={11} /> Surveillance
+        </span>
+        {(
+          [
+            ["respiratory", "U.S. Respiratory", Activity],
+            ["immunization", "WHO Immunization", Syringe],
+            ["fungal", "Fungal Burden", Microscope],
+          ] as const
+        ).map(([key, label, Icon]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setMode((current) => (current === key ? null : key))}
+            aria-pressed={mode === key}
+            className={`inline-flex min-h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[8px] font-black ${
+              mode === key
+                ? "border-cyan-100/35 bg-cyan-300/[0.12] text-white"
+                : "border-white/9 bg-white/[0.025] text-cyan-100/48"
+            }`}
+          >
+            <Icon size={10} /> {label}
+          </button>
+        ))}
+      </div>
+
+      {mode ? (
+        <div className="mt-2 max-h-[min(70vh,650px)] w-[min(94vw,610px)] overflow-y-auto rounded-2xl border border-white/14 bg-[#020812]/94 p-3 shadow-[0_20px_60px_rgba(0,0,0,.42)] backdrop-blur-2xl">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-50/55">
+              {mode === "respiratory"
+                ? "CDC U.S. respiratory surveillance"
+                : mode === "immunization"
+                  ? "WHO immunization intelligence"
+                  : "Historical fungal disease burden"}
+            </p>
+            <button
+              type="button"
+              onClick={() => setMode(null)}
+              className="rounded-lg border border-white/9 p-1.5 text-cyan-100/40 hover:text-white"
+            >
+              <X size={11} />
+            </button>
+          </div>
+
+          {mode === "respiratory" ? (
+            !respiratory && !respiratoryError ? (
+              <p className="mt-4 inline-flex items-center gap-2 text-[9px] text-cyan-100/45">
+                <Loader2 size={12} className="animate-spin" /> Loading CDC ARI, Rt,
+                laboratory and wastewater feeds…
+              </p>
+            ) : respiratoryError ? (
+              <p className="mt-3 text-[9px] text-amber-100/65">{respiratoryError}</p>
+            ) : (
+              <div className="mt-3 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-1">
+                    {["Very Low", "Low", "Moderate", "High", "Very High", "Data Unavailable"].map(
+                      (level) => (
+                        <span
+                          key={level}
+                          className="inline-flex items-center gap-1 text-[7px] text-cyan-50/45"
+                        >
+                          <i
+                            className="h-2 w-2 rounded-sm border border-white/10"
+                            style={{ background: ARI_COLORS[normalize(level)] }}
+                          />
+                          {level}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                  <span className="text-[7px] font-bold text-cyan-100/35">
+                    ARI through {formatDate(respiratory?.ari?.latestDate)}
+                  </span>
+                </div>
+
+                {sourceProblems.length ? (
+                  <div className="rounded-xl border border-amber-200/14 bg-amber-300/[0.035] p-2">
+                    <p className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-[.1em] text-amber-100/55">
+                      <AlertTriangle size={10} /> Partial CDC source coverage
+                    </p>
+                    {sourceProblems.map((source) => (
+                      <p
+                        key={source.source}
+                        className="mt-1 text-[8px] leading-3 text-amber-50/48"
+                      >
+                        {source.source}: {source.error || `normalized ${source.normalizedRows ?? 0} of ${source.rawRows ?? 0} source rows`}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="rounded-xl border border-white/8 bg-white/[0.02] p-2">
+                  <ComposableMap
+                    width={520}
+                    height={320}
+                    projection="geoAlbersUsa"
+                    projectionConfig={{ scale: 650 }}
+                    className="h-auto w-full"
+                  >
+                    <Geographies geography={STATE_GEOMETRY}>
+                      {({ geographies }) => (
+                        <>
+                          {geographies.map((geo) => {
+                            const fips = String(geo.id || "").padStart(2, "0");
+                            const meta = FIPS[fips];
+                            const row = meta ? ariByCode.get(meta.code) : undefined;
+                            const level = normalize(row?.level || "data unavailable");
+                            const active = meta?.code === respState;
+                            return (
+                              <Geography
+                                key={geo.rsmKey}
+                                geography={geo}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={
+                                  meta
+                                    ? `${meta.name}: ${row?.level || "Data Unavailable"}`
+                                    : undefined
+                                }
+                                onClick={() => meta && setRespState(meta.code)}
+                                onKeyDown={(event) => {
+                                  if (
+                                    meta &&
+                                    (event.key === "Enter" || event.key === " ")
+                                  ) {
+                                    setRespState(meta.code);
+                                  }
+                                }}
+                                fill={ARI_COLORS[level] || ARI_COLORS["data unavailable"]}
+                                stroke={active ? "#ffffff" : "#13202b"}
+                                strokeWidth={active ? 2 : 0.8}
+                                style={{
+                                  default: { outline: "none", cursor: "pointer" },
+                                  hover: {
+                                    outline: "none",
+                                    opacity: 0.78,
+                                    cursor: "pointer",
+                                  },
+                                  pressed: { outline: "none" },
+                                }}
+                              />
+                            );
+                          })}
+                        </>
+                      )}
+                    </Geographies>
+                  </ComposableMap>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {TERRITORIES.map((code) => {
+                      const row = ariByCode.get(code);
+                      const fill =
+                        ARI_COLORS[normalize(row?.level || "data unavailable")] ||
+                        ARI_COLORS["data unavailable"];
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => setRespState(code)}
+                          title={row?.location || code}
+                          className={`rounded-lg border px-2 py-1 text-[8px] font-black text-slate-900 ${
+                            respState === code ? "ring-2 ring-white/80" : "border-black/20"
+                          }`}
+                          style={{ background: fill }}
+                        >
+                          {code}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-1">
+                  {["COVID-19", "Influenza", "RSV"].map((pathogen) => (
+                    <button
+                      key={pathogen}
+                      type="button"
+                      onClick={() => setRespPathogen(pathogen)}
+                      className={`rounded-full border px-2.5 py-1 text-[8px] font-bold ${
+                        respPathogen === pathogen
+                          ? "border-cyan-100/30 bg-cyan-300/10 text-white"
+                          : "border-white/9 text-cyan-100/45"
+                      }`}
+                    >
+                      {pathogen}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <SmallMetric label="ARI level" value={selectedAri?.level || "Unavailable"} />
+                  <SmallMetric
+                    label="Epidemic trend"
+                    value={selectedRt?.epidemicTrend || "Unavailable"}
+                  />
+                  <SmallMetric
+                    label="Rt median"
+                    value={
+                      selectedRt?.rtEstimate != null
+                        ? selectedRt.rtEstimate.toFixed(2)
+                        : "Unavailable"
+                    }
+                  />
+                  <SmallMetric
+                    label="P(growing)"
+                    value={formatProbability(selectedRt?.pGrowing)}
+                  />
+                </div>
+
+                {selectedRt ? (
+                  <p className="rounded-xl border border-white/8 bg-white/[0.02] p-2 text-[8px] leading-3.5 text-cyan-100/40">
+                    Rt credible interval: {selectedRt.rtLower != null ? selectedRt.rtLower.toFixed(2) : "—"}–{selectedRt.rtUpper != null ? selectedRt.rtUpper.toFixed(2) : "—"} · estimate date {formatDate(selectedRt.date)} · model run {formatDate(selectedRt.asOf)}
+                  </p>
+                ) : (respPathogen === "Influenza" || respPathogen === "RSV") &&
+                  respiratory?.seasonalRtNotice ? (
+                  <p className="rounded-xl border border-amber-200/10 bg-amber-300/[0.025] p-2 text-[8px] leading-3.5 text-amber-100/48">
+                    {respiratory.seasonalRtNotice}
+                  </p>
+                ) : null}
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-xl border border-white/8 bg-white/[0.025] p-2.5">
+                    <p className="text-[8px] font-black uppercase tracking-[.1em] text-cyan-100/40">
+                      Wastewater · {respPathogen}
+                    </p>
+                    <p className="mt-1 text-lg font-black text-white">
+                      {selectedWastewater?.activityLevel || "Unavailable"}
+                    </p>
+                    <p className="mt-1 text-[8px] text-cyan-100/38">
+                      WVAL {selectedWastewater?.activityValue ?? "—"} · week ending {formatDate(selectedWastewater?.week)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-white/8 bg-white/[0.025] p-2.5">
+                    <p className="text-[8px] font-black uppercase tracking-[.1em] text-cyan-100/40">
+                      National test positivity · {respPathogen}
+                    </p>
+                    <p className="mt-1 text-lg font-black text-white">
+                      {positivity.at(-1)?.percentPositive != null
+                        ? `${positivity.at(-1)?.percentPositive}%`
+                        : "Unavailable"}
+                    </p>
+                    <p className="mt-1 text-[7px] text-cyan-100/30">
+                      Through {formatDate(positivity.at(-1)?.date || respiratory?.positivity?.latestDate)}
+                    </p>
+                    <Sparkline rows={positivity} />
+                  </div>
+                </div>
+
+                {respiratory?.rtMethodologyNotice ? (
+                  <p className="text-[8px] leading-3.5 text-cyan-100/32">
+                    {respiratory.rtMethodologyNotice}
+                  </p>
+                ) : null}
+                <p className="text-[8px] leading-3.5 text-cyan-100/30">
+                  {respiratory?.limitation}
+                </p>
+              </div>
+            )
+          ) : null}
+
+          {mode === "immunization" ? (
+            <div className="mt-3 space-y-3">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select
+                  aria-label="WHO immunization dataset"
+                  value={immDataset}
+                  onChange={(event) => setImmDataset(event.target.value)}
+                  className="min-h-9 rounded-xl border border-white/12 bg-[#071421] px-2 text-[9px] text-cyan-50/75"
+                >
+                  <option value="coverage">Coverage</option>
+                  <option value="incidence">Incidence rate</option>
+                  <option value="cases">Reported cases</option>
+                  <option value="introduction">Vaccine introduction</option>
+                  <option value="indicators">Program indicators</option>
+                </select>
+
+                {immunization?.facets?.items?.length ? (
+                  <select
+                    aria-label="WHO metric"
+                    value={immItem || immunization.selected?.item || ""}
+                    onChange={(event) => setImmItem(event.target.value)}
+                    className="min-h-9 rounded-xl border border-white/12 bg-[#071421] px-2 text-[9px] text-cyan-50/75"
+                  >
+                    {immunization.facets.items.slice(0, 300).map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="min-h-9 rounded-xl border border-white/8 bg-white/[0.02]" />
+                )}
+
+                {immunization?.facets?.years?.length ? (
+                  <select
+                    aria-label="WHO metric year"
+                    value={immYear || String(immunization.selected?.year || "")}
+                    onChange={(event) => setImmYear(event.target.value)}
+                    className="min-h-9 rounded-xl border border-white/12 bg-[#071421] px-2 text-[9px] text-cyan-50/75"
+                  >
+                    {immunization.facets.years.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+
+                {immDataset === "coverage" && immunization?.facets?.categories?.length ? (
+                  <select
+                    aria-label="Coverage category"
+                    value={immCategory || immunization.selected?.category || ""}
+                    onChange={(event) => setImmCategory(event.target.value)}
+                    className="min-h-9 rounded-xl border border-white/12 bg-[#071421] px-2 text-[9px] text-cyan-50/75"
+                  >
+                    {immunization.facets.categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+              </div>
+
+              {!immunization && !immunizationError ? (
+                <p className="inline-flex items-center gap-2 text-[9px] text-cyan-100/45">
+                  <Loader2 size={12} className="animate-spin" /> Loading WHO workbook…
+                </p>
+              ) : immunizationError ? (
+                <p className="text-[9px] text-amber-100/65">{immunizationError}</p>
+              ) : immunization ? (
+                <>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <SmallMetric
+                      label="Metric"
+                      value={immunization.selected?.item || "—"}
+                    />
+                    <SmallMetric
+                      label="Year"
+                      value={String(immunization.selected?.year || "—")}
+                    />
+                    <SmallMetric
+                      label="Mapped / matched"
+                      value={`${immunization.mapCoverage?.mappedRows ?? immunization.rows.length} / ${immunization.totalMatched ?? immunization.rows.length}`}
+                    />
+                  </div>
+
+                  <p className="rounded-lg border border-white/7 bg-white/[0.015] px-2 py-1.5 text-[7px] leading-3 text-cyan-100/32">
+                    Map color: {immDataset === "coverage"
+                      ? "Insight Hub coverage bands (≥95, ≥85, ≥70, ≥50, <50%). These are display bands, not WHO risk categories."
+                      : immDataset === "introduction"
+                        ? "categorical introduction status."
+                        : "relative intensity among countries with numeric values for the selected WHO metric/year; not a cross-dataset risk scale."}
+                  </p>
+
+                  {selectedCountry ? (
+                    <div className="rounded-xl border border-cyan-100/12 bg-cyan-300/[0.035] p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[8px] uppercase tracking-[.11em] text-cyan-100/40">
+                            {selectedCountry.name}
+                          </p>
+                          <p className="mt-1 text-2xl font-black text-white">
+                            {selectedImmRow ? formatValue(selectedImmRow.value) : "No matched row"}
+                          </p>
+                        </div>
+                        <ExternalSource url={immunization.sourceUrl} label="WHO source" />
+                      </div>
+
+                      {selectedImmRow?.description ? (
+                        <p className="mt-1 text-[9px] text-cyan-100/48">
+                          {selectedImmRow.description}
+                        </p>
+                      ) : null}
+                      {selectedImmRow?.category ? (
+                        <p className="mt-1 text-[8px] text-cyan-100/35">
+                          Category: {selectedImmRow.category}
+                        </p>
+                      ) : null}
+                      {selectedImmRow?.doses != null || selectedImmRow?.target != null ? (
+                        <p className="mt-1 text-[8px] text-cyan-100/35">
+                          Doses / target: {selectedImmRow.doses?.toLocaleString() || "—"} / {selectedImmRow.target?.toLocaleString() || "—"}
+                        </p>
+                      ) : null}
+                      {selectedImmRow?.denominator != null ? (
+                        <p className="mt-1 text-[8px] text-cyan-100/35">
+                          Denominator: {selectedImmRow.denominator.toLocaleString()}
+                        </p>
+                      ) : null}
+
+                      {selectedWuenic ? (
+                        <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+                          <SmallMetric
+                            label="WUENIC confidence"
+                            value={selectedWuenic.gradeOfConfidence || "Not supplied"}
+                          />
+                          <SmallMetric
+                            label="Admin / government"
+                            value={`${selectedWuenic.administrativeCoverage ?? "—"} / ${selectedWuenic.governmentEstimate ?? "—"}`}
+                          />
+                          <SmallMetric
+                            label="Vaccinated / target"
+                            value={`${selectedWuenic.childrenVaccinated?.toLocaleString() || "—"} / ${selectedWuenic.childrenInTarget?.toLocaleString() || "—"}`}
+                          />
+                          <SmallMetric
+                            label="Prior revision"
+                            value={String(selectedWuenic.previousRevision ?? "—")}
+                          />
+                          {selectedWuenic.comment ? (
+                            <p className="sm:col-span-2 text-[8px] leading-3.5 text-cyan-100/38">
+                              {selectedWuenic.comment}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="rounded-xl border border-white/8 bg-white/[0.02] p-2.5 text-[9px] text-cyan-100/42">
+                      Click a country to inspect its value and WUENIC evidence where applicable.
+                    </p>
+                  )}
+
+                  <p className="text-[8px] leading-3.5 text-cyan-100/30">
+                    {immunization.methodology}
+                  </p>
+                  <p className="text-[8px] leading-3.5 text-cyan-100/28">
+                    {immunization.limitation}
+                  </p>
+                </>
+              ) : null}
+            </div>
+          ) : null}
+
+          {mode === "fungal" ? (
+            <div className="mt-3 space-y-3">
+              {fungal?.availableDiseases?.length ? (
+                <select
+                  aria-label="Fungal burden disease"
+                  value={fungalDisease}
+                  onChange={(event) => setFungalDisease(event.target.value)}
+                  className="min-h-9 w-full rounded-xl border border-white/12 bg-[#071421] px-2 text-[9px] text-cyan-50/75"
+                >
+                  {fungal.availableDiseases.map((item) => (
+                    <option key={item.key} value={item.key}>
+                      {item.title}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+
+              {!fungal && !fungalError ? (
+                <p className="inline-flex items-center gap-2 text-[9px] text-cyan-100/45">
+                  <Loader2 size={12} className="animate-spin" /> Loading published burden table…
+                </p>
+              ) : fungalError ? (
+                <p className="text-[9px] text-amber-100/65">{fungalError}</p>
+              ) : fungal ? (
+                <>
+                  <div className="rounded-xl border border-amber-200/12 bg-amber-300/[0.035] p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[8px] font-black uppercase tracking-[.11em] text-amber-100/45">
+                          {fungal.publicationYear || 2017} publication · modeled historical estimate
+                        </p>
+                        <h3 className="mt-1 text-base font-black text-white">
+                          {fungal.disease.title}
+                        </h3>
+                        <p className="mt-1 text-[8px] text-cyan-100/35">
+                          {fungal.disease.sourceTable} · {fungal.rows.length} countries with published estimates
+                        </p>
+                        {fungal.disease.sourceColumns?.length ? (
+                          <p className="mt-1 text-[7px] text-cyan-100/28">
+                            Source columns: {fungal.disease.sourceColumns.join(" · ")}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <Microscope size={16} className="text-amber-100/45" />
+                        <ExternalSource url={fungal.sourceUrl} label="Paper" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="rounded-lg border border-white/7 bg-white/[0.015] px-2 py-1.5 text-[7px] leading-3 text-cyan-100/32">
+                    Map color is relative within this disease's published country estimates. It is not current incidence, a WHO/CDC classification, or a travel-risk scale.
+                  </p>
+
+                  {selectedCountry ? (
+                    <div className="rounded-xl border border-white/9 bg-white/[0.025] p-3">
+                      <p className="text-[8px] uppercase tracking-[.11em] text-cyan-100/35">
+                        {selectedCountry.name}
+                      </p>
+                      {selectedFungal ? (
+                        <>
+                          <p className="mt-1 text-2xl font-black text-white">
+                            {selectedFungal.ratePer100k.toLocaleString()} {" "}
+                            <span className="text-[9px] font-bold text-cyan-100/40">
+                              per 100,000
+                            </span>
+                          </p>
+                          <p className="mt-1 text-[9px] text-cyan-100/48">
+                            Modeled burden: {selectedFungal.burden.toLocaleString()}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="mt-1 text-[9px] text-cyan-100/45">
+                          No country estimate was published in this table.
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-[.11em] text-cyan-100/35">
+                      Highest published rates
+                    </p>
+                    <div className="mt-1.5 grid gap-1 sm:grid-cols-2">
+                      {sortedFungal.slice(0, 8).map((row) => (
+                        <div
+                          key={row.iso2}
+                          className="flex items-center justify-between rounded-lg border border-white/8 bg-white/[0.02] px-2 py-1.5 text-[8px]"
+                        >
+                          <span className="text-cyan-50/55">{row.country}</span>
+                          <b className="text-white/70">{row.ratePer100k}/100k</b>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {fungal.globalContext?.rows?.length ? (
+                    <details className="rounded-xl border border-violet-100/10 bg-violet-300/[0.025] p-2.5">
+                      <summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.11em] text-violet-100/50">
+                        Paper-wide global burden context
+                      </summary>
+                      <p className="mt-2 text-[7px] leading-3 text-violet-50/38">
+                        {fungal.globalContext.basis}
+                      </p>
+                      <div className="mt-2 grid gap-1 sm:grid-cols-2">
+                        {fungal.globalContext.rows.map((row) => (
+                          <div
+                            key={row.disease}
+                            className="rounded-lg border border-white/8 bg-white/[0.02] p-2"
+                          >
+                            <p className="text-[8px] text-cyan-50/55">{row.disease}</p>
+                            <p className="mt-0.5 text-[9px] font-black text-white/72">
+                              {row.estimate}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
+
+                  {fungal.additionalEvidence ? (
+                    <details className="rounded-xl border border-cyan-100/10 bg-cyan-300/[0.02] p-2.5">
+                      <summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.11em] text-cyan-100/50">
+                        Additional evidence · rVVC + tinea capitis
+                      </summary>
+                      {fungal.additionalEvidence.recurrentVulvovaginalCandidiasis ? (
+                        <div className="mt-2 rounded-lg border border-white/8 bg-white/[0.02] p-2.5">
+                          <p className="text-[9px] font-black text-white/72">
+                            {fungal.additionalEvidence.recurrentVulvovaginalCandidiasis.title}
+                          </p>
+                          <p className="mt-1 text-sm font-black text-cyan-50/78">
+                            {fungal.additionalEvidence.recurrentVulvovaginalCandidiasis.globalEstimate}
+                          </p>
+                          <p className="mt-1 text-[8px] leading-3.5 text-cyan-100/42">
+                            {fungal.additionalEvidence.recurrentVulvovaginalCandidiasis.definition}
+                          </p>
+                          <p className="mt-1 text-[8px] leading-3.5 text-cyan-100/42">
+                            {fungal.additionalEvidence.recurrentVulvovaginalCandidiasis.workedExample}
+                          </p>
+                          <p className="mt-1 text-[8px] leading-3.5 text-amber-100/44">
+                            {fungal.additionalEvidence.recurrentVulvovaginalCandidiasis.limitation}
+                          </p>
+                        </div>
+                      ) : null}
+                      {fungal.additionalEvidence.tineaCapitis ? (
+                        <div className="mt-2 rounded-lg border border-white/8 bg-white/[0.02] p-2.5">
+                          <p className="text-[9px] font-black text-white/72">
+                            {fungal.additionalEvidence.tineaCapitis.title}
+                          </p>
+                          <p className="mt-1 text-[7px] uppercase tracking-[.1em] text-cyan-100/32">
+                            Country burden examples
+                          </p>
+                          <div className="mt-1 grid gap-1 sm:grid-cols-3">
+                            {fungal.additionalEvidence.tineaCapitis.countryBurdenExamples.map(
+                              (row) => (
+                                <div
+                                  key={row.country}
+                                  className="rounded-md border border-white/7 px-1.5 py-1 text-[7px] text-cyan-50/48"
+                                >
+                                  {row.country} · <b>{row.burden.toLocaleString()}</b>
+                                </div>
+                              ),
+                            )}
+                          </div>
+                          <p className="mt-2 text-[7px] uppercase tracking-[.1em] text-cyan-100/32">
+                            School-age study prevalence
+                          </p>
+                          <div className="mt-1 grid gap-1 sm:grid-cols-3">
+                            {fungal.additionalEvidence.tineaCapitis.studyPrevalence.map(
+                              (row, index) => (
+                                <div
+                                  key={`${row.country}-${row.publicationYear}-${index}`}
+                                  className="rounded-md border border-white/7 px-1.5 py-1 text-[7px] text-cyan-50/48"
+                                >
+                                  {row.country} · <b>{row.prevalencePercent}%</b> · {row.publicationYear}
+                                </div>
+                              ),
+                            )}
+                          </div>
+                          <p className="mt-2 text-[8px] leading-3.5 text-amber-100/44">
+                            {fungal.additionalEvidence.tineaCapitis.limitation}
+                          </p>
+                        </div>
+                      ) : null}
+                    </details>
+                  ) : null}
+
+                  <p className="text-[8px] leading-3.5 text-cyan-100/30">
+                    {fungal.methodology}
+                  </p>
+                  <p className="text-[8px] leading-3.5 text-amber-100/40">
+                    {fungal.limitation}
+                  </p>
+                </>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
-
-    {mode ? <div className="mt-2 max-h-[min(70vh,650px)] w-[min(94vw,610px)] overflow-y-auto rounded-2xl border border-white/14 bg-[#020812]/94 p-3 shadow-[0_20px_60px_rgba(0,0,0,.42)] backdrop-blur-2xl">
-      <div className="flex items-center justify-between"><p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-50/55">{mode === "respiratory" ? "CDC U.S. respiratory surveillance" : mode === "immunization" ? "WHO immunization intelligence" : "Historical fungal disease burden"}</p><button type="button" onClick={() => setMode(null)} className="rounded-lg border border-white/9 p-1.5 text-cyan-100/40 hover:text-white"><X size={11} /></button></div>
-
-      {mode === "respiratory" ? !respiratory && !respiratoryError ? <p className="mt-4 inline-flex items-center gap-2 text-[9px] text-cyan-100/45"><Loader2 size={12} className="animate-spin" />Loading CDC ARI, Rt, laboratory and wastewater feeds…</p> : respiratoryError ? <p className="mt-3 text-[9px] text-amber-100/65">{respiratoryError}</p> : <div className="mt-3 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-1">{["Very Low", "Low", "Moderate", "High", "Very High", "Data Unavailable"].map((level) => <span key={level} className="inline-flex items-center gap-1 text-[7px] text-cyan-50/45"><i className="h-2 w-2 rounded-sm border border-white/10" style={{ background: ARI_COLORS[normalize(level)] }} />{level}</span>)}</div><span className="text-[7px] font-bold text-cyan-100/35">ARI through {formatDate(respiratory?.ari?.latestDate)}</span></div>
-        {sourceProblems.length ? <div className="rounded-xl border border-amber-200/14 bg-amber-300/[0.035] p-2"><p className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-[.1em] text-amber-100/55"><AlertTriangle size={10} />Partial CDC source coverage</p>{sourceProblems.map((source) => <p key={source.source} className="mt-1 text-[8px] leading-3 text-amber-50/48">{source.source}: {source.error || `normalized ${source.normalizedRows ?? 0} of ${source.rawRows ?? 0} source rows`}</p>)}</div> : null}
-        <div className="rounded-xl border border-white/8 bg-white/[0.02] p-2"><ComposableMap width={520} height={320} projection="geoAlbersUsa" projectionConfig={{ scale: 650 }} className="h-auto w-full"><Geographies geography={STATE_GEOMETRY}>{({ geographies }) => <>{geographies.map((geo) => { const fips = String(geo.id || "").padStart(2, "0"); const meta = FIPS[fips]; const row = meta ? ariByCode.get(meta.code) : null; const level = normalize(row?.level || "data unavailable"); const active = meta?.code === respState; return <Geography key={geo.rsmKey} geography={geo} role="button" tabIndex={0} aria-label={meta ? `${meta.name}: ${row?.level || "Data Unavailable"}` : undefined} onClick={() => meta && setRespState(meta.code)} onKeyDown={(event) => { if (meta && (event.key === "Enter" || event.key === " ")) setRespState(meta.code); }} fill={ARI_COLORS[level] || ARI_COLORS["data unavailable"]} stroke={active ? "#ffffff" : "#13202b"} strokeWidth={active ? 2 : .8} style={{ default: { outline: "none", cursor: "pointer" }, hover: { outline: "none", opacity: .78, cursor: "pointer" }, pressed: { outline: "none" } }} />; })}</>}</Geographies></ComposableMap><div className="mt-1 flex flex-wrap gap-1">{TERRITORIES.map((code) => { const row = ariByCode.get(code); const fill = ARI_COLORS[normalize(row?.level || "data unavailable")]; return <button key={code} type="button" onClick={() => setRespState(code)} title={row?.location || code} className={`rounded-lg border px-2 py-1 text-[8px] font-black text-slate-900 ${respState === code ? "ring-2 ring-white/80" : "border-black/20"}`} style={{ background: fill }}>{code}</button>; })}</div></div>
-        <div className="flex flex-wrap gap-1">{["COVID-19", "Influenza", "RSV"].map((pathogen) => <button key={pathogen} type="button" onClick={() => setRespPathogen(pathogen)} className={`rounded-full border px-2.5 py-1 text-[8px] font-bold ${respPathogen === pathogen ? "border-cyan-100/30 bg-cyan-300/10 text-white" : "border-white/9 text-cyan-100/45"}`}>{pathogen}</button>)}</div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{[["ARI level", selectedAri?.level || "Unavailable"], ["Epidemic trend", selectedRt?.epidemicTrend || "Unavailable"], ["Rt median", selectedRt?.rtEstimate != null ? selectedRt.rtEstimate.toFixed(2) : "Unavailable"], ["P(growing)", formatProbability(selectedRt?.pGrowing)]].map(([label, value]) => <div key={label} className="rounded-xl border border-white/8 bg-white/[0.025] p-2"><p className="text-[7px] uppercase tracking-[.1em] text-cyan-100/35">{label}</p><p className="mt-1 text-sm font-black text-white/78">{value}</p></div>)}</div>
-        {selectedRt ? <p className="rounded-xl border border-white/8 bg-white/[0.02] p-2 text-[8px] leading-3.5 text-cyan-100/40">Rt credible interval: {selectedRt.rtLower != null ? selectedRt.rtLower.toFixed(2) : "—"}–{selectedRt.rtUpper != null ? selectedRt.rtUpper.toFixed(2) : "—"} · estimate date {formatDate(selectedRt.date)} · model run {formatDate(selectedRt.asOf)}</p> : (respPathogen === "Influenza" || respPathogen === "RSV") && respiratory?.seasonalRtNotice ? <p className="rounded-xl border border-amber-200/10 bg-amber-300/[0.025] p-2 text-[8px] leading-3.5 text-amber-100/48">{respiratory.seasonalRtNotice}</p> : null}
-        <div className="grid gap-2 sm:grid-cols-2"><div className="rounded-xl border border-white/8 bg-white/[0.025] p-2.5"><p className="text-[8px] font-black uppercase tracking-[.1em] text-cyan-100/40">Wastewater · {respPathogen}</p><p className="mt-1 text-lg font-black text-white">{selectedWastewater?.activityLevel || "Unavailable"}</p><p className="mt-1 text-[8px] text-cyan-100/38">WVAL {selectedWastewater?.activityValue ?? "—"} · week ending {formatDate(selectedWastewater?.week)}</p></div><div className="rounded-xl border border-white/8 bg-white/[0.025] p-2.5"><p className="text-[8px] font-black uppercase tracking-[.1em] text-cyan-100/40">National test positivity · {respPathogen}</p><p className="mt-1 text-lg font-black text-white">{positivity.at(-1)?.percentPositive != null ? `${positivity.at(-1)?.percentPositive}%` : "Unavailable"}</p><p className="mt-1 text-[7px] text-cyan-100/30">Through {formatDate(positivity.at(-1)?.date || respiratory?.positivity?.latestDate)}</p><Sparkline rows={positivity} /></div></div>
-        {respiratory?.rtMethodologyNotice ? <p className="text-[8px] leading-3.5 text-cyan-100/32">{respiratory.rtMethodologyNotice}</p> : null}<p className="text-[8px] leading-3.5 text-cyan-100/30">{respiratory?.limitation}</p>
-      </div> : null}
-
-      {mode === "immunization" ? <div className="mt-3 space-y-3"><div className="grid gap-2 sm:grid-cols-2"><select aria-label="WHO immunization dataset" value={immDataset} onChange={(event) => setImmDataset(event.target.value)} className="min-h-9 rounded-xl border border-white/12 bg-[#071421] px-2 text-[9px] text-cyan-50/75"><option value="coverage">Coverage</option><option value="incidence">Incidence rate</option><option value="cases">Reported cases</option><option value="introduction">Vaccine introduction</option><option value="indicators">Program indicators</option></select>{immunization?.facets?.items?.length ? <select aria-label="WHO metric" value={immItem || immunization.selected?.item || ""} onChange={(event) => setImmItem(event.target.value)} className="min-h-9 rounded-xl border border-white/12 bg-[#071421] px-2 text-[9px] text-cyan-50/75">{immunization.facets.items.slice(0, 300).map((item) => <option key={item} value={item}>{item}</option>)}</select> : <div className="min-h-9 rounded-xl border border-white/8 bg-white/[0.02]" />}{immunization?.facets?.years?.length ? <select aria-label="WHO metric year" value={immYear || String(immunization.selected?.year || "")} onChange={(event) => setImmYear(event.target.value)} className="min-h-9 rounded-xl border border-white/12 bg-[#071421] px-2 text-[9px] text-cyan-50/75">{immunization.facets.years.map((year) => <option key={year} value={year}>{year}</option>)}</select> : null}{immDataset === "coverage" && immunization?.facets?.categories?.length ? <select aria-label="Coverage category" value={immCategory || immunization.selected?.category || ""} onChange={(event) => setImmCategory(event.target.value)} className="min-h-9 rounded-xl border border-white/12 bg-[#071421] px-2 text-[9px] text-cyan-50/75">{immunization.facets.categories.map((category) => <option key={category} value={category}>{category}</option>)}</select> : null}</div>
-        {!immunization && !immunizationError ? <p className="inline-flex items-center gap-2 text-[9px] text-cyan-100/45"><Loader2 size={12} className="animate-spin" />Loading WHO workbook…</p> : immunizationError ? <p className="text-[9px] text-amber-100/65">{immunizationError}</p> : immunization ? <><div className="grid gap-2 sm:grid-cols-3"><div className="rounded-xl border border-white/8 bg-white/[0.025] p-2"><p className="text-[7px] uppercase tracking-[.1em] text-cyan-100/35">Metric</p><p className="mt-1 text-[10px] font-black text-white/75">{immunization.selected?.item || "—"}</p></div><div className="rounded-xl border border-white/8 bg-white/[0.025] p-2"><p className="text-[7px] uppercase tracking-[.1em] text-cyan-100/35">Year</p><p className="mt-1 text-[10px] font-black text-white/75">{immunization.selected?.year || "—"}</p></div><div className="rounded-xl border border-white/8 bg-white/[0.025] p-2"><p className="text-[7px] uppercase tracking-[.1em] text-cyan-100/35">Mapped / matched</p><p className="mt-1 text-[10px] font-black text-white/75">{immunization.mapCoverage?.mappedRows ?? immunization.rows.length} / {immunization.totalMatched ?? immunization.rows.length}</p></div></div><p className="rounded-lg border border-white/7 bg-white/[0.015] px-2 py-1.5 text-[7px] leading-3 text-cyan-100/32">Map color: {immDataset === "coverage" ? "Insight Hub coverage bands (≥95, ≥85, ≥70, ≥50, <50%). These are not WHO risk categories." : immDataset === "introduction" ? "categorical introduction status." : "relative intensity among countries with numeric values for the selected WHO metric/year; not a cross-dataset risk scale."}</p>{selectedCountry ? <div className="rounded-xl border border-cyan-100/12 bg-cyan-300/[0.035] p-3"><p className="text-[8px] uppercase tracking-[.11em] text-cyan-100/40">{selectedCountry.name}</p><p className="mt-1 text-2xl font-black text-white">{selectedImmRow ? formatValue(selectedImmRow.value) : "No matched row"}</p>{selectedImmRow?.description ? <p className="mt-1 text-[9px] text-cyan-100/48">{selectedImmRow.description}</p> : null}{selectedImmRow?.category ? <p className="mt-1 text-[8px] text-cyan-100/35">Category: {selectedImmRow.category}</p> : null}{selectedImmRow?.target != null || selectedImmRow?.doses != null ? <p className="mt-1 text-[8px] text-cyan-100/35">Doses / target: {selectedImmRow.doses?.toLocaleString() || "—"} / {selectedImmRow.target?.toLocaleString() || "—"}</p> : null}{selectedWuenic ? <div className="mt-3 grid gap-1.5 sm:grid-cols-2"><div className="rounded-lg border border-white/8 p-2"><p className="text-[7px] uppercase text-cyan-100/32">WUENIC confidence</p><p className="mt-1 text-[9px] font-bold text-white/65">{selectedWuenic.gradeOfConfidence || "Not supplied"}</p></div><div className="rounded-lg border border-white/8 p-2"><p className="text-[7px] uppercase text-cyan-100/32">Admin / government</p><p className="mt-1 text-[9px] font-bold text-white/65">{selectedWuenic.administrativeCoverage ?? "—"} / {selectedWuenic.governmentEstimate ?? "—"}</p></div><div className="rounded-lg border border-white/8 p-2"><p className="text-[7px] uppercase text-cyan-100/32">Vaccinated / target</p><p className="mt-1 text-[9px] font-bold text-white/65">{selectedWuenic.childrenVaccinated?.toLocaleString() || "—"} / {selectedWuenic.childrenInTarget?.toLocaleString() || "—"}</p></div><div className="rounded-lg border border-white/8 p-2"><p className="text-[7px] uppercase text-cyan-100/32">Prior revision</p><p className="mt-1 text-[9px] font-bold text-white/65">{selectedWuenic.previousRevision ?? "—"}</p></div>{selectedWuenic.comment ? <p className="sm:col-span-2 text-[8px] leading-3.5 text-cyan-100/38">{selectedWuenic.comment}</p> : null}</div> : null}</div> : <p className="rounded-xl border border-white/8 bg-white/[0.02] p-2.5 text-[9px] text-cyan-100/42">Click a country to inspect its value and WUENIC evidence where applicable.</p>}<p className="text-[8px] leading-3.5 text-cyan-100/30">{immunization.methodology}</p><p className="text-[8px] leading-3.5 text-cyan-100/28">{immunization.limitation}</p></> : null}
-      </div> : null}
-
-      {mode === "fungal" ? <div className="mt-3 space-y-3">{fungal?.availableDiseases?.length ? <select aria-label="Fungal burden disease" value={fungalDisease} onChange={(event) => setFungalDisease(event.target.value)} className="min-h-9 w-full rounded-xl border border-white/12 bg-[#071421] px-2 text-[9px] text-cyan-50/75">{fungal.availableDiseases.map((item) => <option key={item.key} value={item.key}>{item.title}</option>)}</select> : null}{!fungal && !fungalError ? <p className="inline-flex items-center gap-2 text-[9px] text-cyan-100/45"><Loader2 size={12} className="animate-spin" />Loading published burden table…</p> : fungalError ? <p className="text-[9px] text-amber-100/65">{fungalError}</p> : fungal ? <><div className="rounded-xl border border-amber-200/12 bg-amber-300/[0.035] p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-[8px] font-black uppercase tracking-[.11em] text-amber-100/45">2017 publication · modeled historical estimate</p><h3 className="mt-1 text-base font-black text-white">{fungal.disease.title}</h3><p className="mt-1 text-[8px] text-cyan-100/35">{fungal.disease.sourceTable} · {fungal.rows.length} countries with published estimates</p>{fungal.disease.sourceColumns?.length ? <p className="mt-1 text-[7px] text-cyan-100/28">Source columns: {fungal.disease.sourceColumns.join(" · ")}</p> : null}</div><Microscope size={16} className="text-amber-100/45" /></div></div><p className="rounded-lg border border-white/7 bg-white/[0.015] px-2 py-1.5 text-[7px] leading-3 text-cyan-100/32">Map color is relative within this disease's published country estimates. It is not a current incidence category, WHO/CDC classification, or travel-risk scale.</p>{selectedCountry ? <div className="rounded-xl border border-white/9 bg-white/[0.025] p-3"><p className="text-[8px] uppercase tracking-[.11em] text-cyan-100/35">{selectedCountry.name}</p>{selectedFungal ? <><p className="mt-1 text-2xl font-black text-white">{selectedFungal.ratePer100k.toLocaleString()} <span className="text-[9px] font-bold text-cyan-100/40">per 100,000</span></p><p className="mt-1 text-[9px] text-cyan-100/48">Modeled burden: {selectedFungal.burden.toLocaleString()}</p></> : <p className="mt-1 text-[9px] text-cyan-100/45">No country estimate was published in this table.</p>}</div> : null}<div><p className="text-[8px] font-black uppercase tracking-[.11em] text-cyan-100/35">Highest published rates</p><div className="mt-1.5 grid gap-1 sm:grid-cols-2">{fungal.rows.slice(0, 8).map((row) => <div key={row.iso2} className="flex items-center justify-between rounded-lg border border-white/8 bg-white/[0.02] px-2 py-1.5 text-[8px]"><span className="text-cyan-50/55">{row.country}</span><b className="text-white/70">{row.ratePer100k}/100k</b></div>)}</div></div>{fungal.globalContext?.rows?.length ? <details className="rounded-xl border border-violet-100/10 bg-violet-300/[0.025] p-2.5"><summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.11em] text-violet-100/50">Paper-wide global burden context</summary><p className="mt-2 text-[7px] leading-3 text-violet-50/38">{fungal.globalContext.basis}</p><div className="mt-2 grid gap-1 sm:grid-cols-2">{fungal.globalContext.rows.map((row) => <div key={row.disease} className="rounded-lg border border-white/8 bg-white/[0.02] p-2"><p className="text-[8px] text-cyan-50/55">{row.disease}</p><p className="mt-0.5 text-[9px] font-black text-white/72">{row.estimate}</p></div>)}</div></details> : null}{fungal.additionalEvidence ? <details className="rounded-xl border border-cyan-100/10 bg-cyan-300/[0.02] p-2.5"><summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.11em] text-cyan-100/50">Additional evidence in the review · rVVC + tinea capitis</summary>{fungal.additionalEvidence.recurrentVulvovaginalCandidiasis ? <div className="mt-2 rounded-lg border border-white/8 bg-white/[0.02] p-2.5"><p className="text-[9px] font-black text-white/72">{fungal.additionalEvidence.recurrentVulvovaginalCandidiasis.title}</p><p className="mt-1 text-sm font-black text-cyan-50/78">{fungal.additionalEvidence.recurrentVulvovaginalCandidiasis.globalEstimate}</p><p className="mt-1 text-[8px] leading-3.5 text-cyan-100/42">{fungal.additionalEvidence.recurrentVulvovaginalCandidiasis.definition}</p><p className="mt-1 text-[8px] leading-3.5 text-cyan-100/42">{fungal.additionalEvidence.recurrentVulvovaginalCandidiasis.workedExample}</p><p className="mt-1 text-[8px] leading-3.5 text-amber-100/44">{fungal.additionalEvidence.recurrentVulvovaginalCandidiasis.limitation}</p></div> : null}{fungal.additionalEvidence.tineaCapitis ? <div className="mt-2 rounded-lg border border-white/8 bg-white/[0.02] p-2.5"><p className="text-[9px] font-black text-white/72">{fungal.additionalEvidence.tineaCapitis.title}</p><p className="mt-1 text-[7px] uppercase tracking-[.1em] text-cyan-100/32">Country burden examples cited in the discussion</p><div className="mt-1 grid gap-1 sm:grid-cols-3">{fungal.additionalEvidence.tineaCapitis.countryBurdenExamples.map((row) => <div key={row.country} className="rounded-md border border-white/7 px-1.5 py-1 text-[7px] text-cyan-50/48">{row.country} · <b>{row.burden.toLocaleString()}</b></div>)}</div><p className="mt-2 text-[7px] uppercase tracking-[.1em] text-cyan-100/32">Table 9 · school-age study prevalence</p><div className="mt-1 grid gap-1 sm:grid-cols-3">{fungal.additionalEvidence.tineaCapitis.studyPrevalence.map((row, index) => <div key={`${row.country}-${row.publicationYear}-${index}`} className="rounded-md border border-white/7 px-1.5 py-1 text-[7px] text-cyan-50/48">{row.country} · <b>{row.prevalencePercent}%</b> · {row.publicationYear}</div>)}</div><p className="mt-2 text-[8px] leading-3.5 text-amber-100/44">{fungal.additionalEvidence.tineaCapitis.limitation}</p></div> : null}</details> : null}<p className="text-[8px] leading-3.5 text-cyan-100/30">{fungal.methodology}</p><p className="text-[8px] leading-3.5 text-amber-100/40">{fungal.limitation}</p></> : null}</div> : null}
-    </div> : null}
-  </div>;
+  );
 }
