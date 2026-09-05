@@ -98,7 +98,7 @@ function latestBy<T>(rows: T[], key: (row: T) => string, date: (row: T) => strin
 }
 
 export type AriRecord = { date: string; location: string; stateAbbreviation: string; level: string };
-export type RtRecord = { asOf: string; date: string; location: string; stateAbbreviation: string; pathogen: string; epidemicTrend: string; rtEstimate: number | null; rtLower: number | null; rtUpper: number | null; pGrowing: number | null; intervalWidth: number | null; emergencyDepartmentVisitLevel: string };
+export type RtRecord = { asOf: string; date: string; location: string; stateAbbreviation: string; pathogen: string; epidemicTrend: string; rtEstimate: number | null; rtLower: number | null; rtUpper: number | null; pGrowing: number | null; intervalWidth: number | null };
 export type PositivityRecord = { date: string; pathogen: string; percentPositive: number | null };
 export type WastewaterRecord = { week: string; location: string; stateAbbreviation: string; pathogen: string; activityLevel: string; activityValue: number | null; sitesReporting: number | null; coverage: string; dataCollectionPeriod: string; updatedAt: string };
 
@@ -124,7 +124,6 @@ export function normalizeRtRows(rows: CsvRow[]): RtRecord[] {
     rtUpper: numeric(value(row, "upper", "upper bound")),
     pGrowing: numeric(value(row, "p_growing", "p growing", "probability growing")),
     intervalWidth: numeric(value(row, "interval_width", "interval width")),
-    emergencyDepartmentVisitLevel: value(row, "emergency department visit level", "ed visit level"),
   })).filter((row) => row.location && row.pathogen && row.date);
   const latestRun = normalized.reduce((max, row) => Math.max(max, dateNumber(row.asOf)), 0);
   const runRows = latestRun ? normalized.filter((row) => dateNumber(row.asOf) === latestRun) : normalized;
@@ -159,13 +158,13 @@ export function normalizeWastewaterRows(rows: CsvRow[], fallbackPathogen: string
       week: value(row, "Week_Ending_Date", "week ending date", "week_end", "week end", "week"),
       location,
       stateAbbreviation: value(row, "state_abbreviation", "state abbreviation", "state_abbrev"),
-      pathogen: value(row, "pathogen_target", "pathogen target", "pathogen") || fallbackPathogen,
+      pathogen: value(row, "Pathogen_Target", "pathogen target", "pathogen") || fallbackPathogen,
       activityLevel: value(row, "WVAL_Category", "wval category", "activity level", "activity_level"),
       activityValue: numeric(value(row, "State/Territory_WVAL", "state territory wval", "wval", "wastewater viral activity level")),
-      sitesReporting: numeric(value(row, "Sites Currently Reporting", "sites currently reporting", "sites reporting")),
+      sitesReporting: numeric(value(row, "Number of Sites", "number of sites", "Sites Currently Reporting", "sites currently reporting", "sites reporting")),
       coverage: value(row, "Coverage", "coverage"),
-      dataCollectionPeriod: value(row, "Time_Period", "time period", "Data_Collection_Period", "Data Collection Period", "collection period"),
-      updatedAt: value(row, "date_updated", "date updated"),
+      dataCollectionPeriod: aggregation || value(row, "Time_Period", "time period"),
+      updatedAt: value(row, "Date_Updated", "date updated"),
     });
   }
   return latestBy(wastewaterRows, (row) => `${row.location}|${row.pathogen}`, (row) => row.week || row.updatedAt);
@@ -215,9 +214,9 @@ async function loadPayload() {
     rt: { rows: rtRows, latestDate: rtRows.map((row) => row.date).sort().at(-1) || null, latestModelRun: rtRows.map((row) => row.asOf).filter(Boolean).sort().at(-1) || null },
     positivity: { rows: positivityRows.slice(-900), latestDate: positivityRows.map((row) => row.date).sort().at(-1) || null },
     wastewater: { rows: latestWastewater, latestDate: latestWastewater.map((row) => row.week).sort().at(-1) || null },
-    rtMethodologyNotice: "CDC changed the Epidemic Trends and Rt modeling method on June 1, 2026; archived estimates spanning that change are not method-identical. Current map-format rows can also include Emergency Department Visit Level, which is retained separately from Rt and epidemic-trend estimates.",
-    seasonalRtNotice: "CDC paused weekly influenza and RSV Epidemic Trends/Rt updates after the 2025–26 respiratory season; a missing current flu/RSV Rt row can reflect the seasonal publication pause rather than a data-processing failure.",
-    limitation: "CDC respiratory surveillance is provisional and source-specific. ARI is an all-acute-respiratory-illness activity measure; epidemic trend/Rt and ED visit level are pathogen-specific; laboratory positivity is national in this feed; wastewater is state/territory and pathogen-specific. These signals measure different concepts and are not interchangeable case counts or a synthetic respiratory-risk score.",
+    rtMethodologyNotice: "CDC changed the Epidemic Trends and Rt modeling method on June 1, 2026; archived estimates spanning that change are not method-identical. This feed preserves the published median, credible interval, P(Rt > 1), epidemic-trend category, estimate date and model-run date.",
+    seasonalRtNotice: "The CDC Epidemic Trends and Rt dataset documents estimates for COVID-19 and influenza. RSV remains available in the laboratory-positivity and wastewater panels, but a missing RSV Rt row is not treated as zero or inferred from another signal.",
+    limitation: "CDC respiratory surveillance is provisional and source-specific. ARI is an all-acute-respiratory-illness activity measure; epidemic trend/Rt is pathogen-specific; laboratory positivity is national in this feed; wastewater is state/territory and pathogen-specific. These signals measure different concepts and are not interchangeable case counts or a synthetic respiratory-risk score.",
   };
 }
 
