@@ -84,10 +84,10 @@ function countryMatches(country: string, ...values: unknown[]): boolean {
   if (!needle) return false;
   return values.some((value) => {
     const normalized = normalize(text(value));
-    return normalized === needle
-      || normalized.startsWith(`${needle} `)
-      || normalized.includes(` ${needle} `)
-      || normalized.endsWith(` ${needle}`);
+    if (normalized === needle) return true;
+    // Match complete words only. The previous startsWith/endsWith checks made
+    // similarly named places (for example Congo and DR Congo) indistinguishable.
+    return (` ${normalized} `).includes(` ${needle} `);
   });
 }
 
@@ -252,7 +252,9 @@ router.get("/aor/health-outbreaks", async (req: Request, res: ExpressResponse) =
       item.Advice,
       item.Response,
     ));
-    const selected = (matched.length > 0 ? matched : allItems.slice(0, 12)).slice(0, 20);
+    // Never substitute unrelated global notices for a country with no match.
+    // The global watch endpoint owns global context; this endpoint is strict.
+    const selected = matched.slice(0, 20);
     const matchedIds = new Set(matched.map((item) => text(item.Id) || text(item.DonId) || text(item.UrlName)));
     const outbreaks = selected.map((item) => {
       const path = text(item.ItemDefaultUrl)
@@ -277,7 +279,7 @@ router.get("/aor/health-outbreaks", async (req: Request, res: ExpressResponse) =
       country,
       directMatches: matched.length,
       outbreaks,
-      fallbackUsed: matched.length === 0,
+      fallbackUsed: false,
       cacheState: loaded.cacheState,
       source: "World Health Organization Disease Outbreak News",
       sourceUrl: "https://www.who.int/emergencies/disease-outbreak-news",

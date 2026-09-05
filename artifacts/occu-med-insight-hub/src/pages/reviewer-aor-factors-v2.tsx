@@ -188,6 +188,7 @@ export default function ReviewerAorFactorsV2Page() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [mapLayersRevision, setMapLayersRevision] = useState(0);
   const [mapError, setMapError] = useState("");
   const [countryQuery, setCountryQuery] = useState("");
   const [countrySearchLoading, setCountrySearchLoading] = useState(false);
@@ -318,6 +319,10 @@ export default function ReviewerAorFactorsV2Page() {
           map.addLayer({ id: "aor-live-events-glow", type: "circle", source: "aor-live-events", paint: { "circle-radius": 10, "circle-color": ["match", ["get", "kind"], "GDACS", "#9f76ff", "#52e5ef"], "circle-opacity": 0.18 } });
           map.addLayer({ id: "aor-live-events-points", type: "circle", source: "aor-live-events", paint: { "circle-radius": ["match", ["get", "kind"], "GDACS", 5.5, 4.5], "circle-color": ["match", ["get", "kind"], "GDACS", "#a785ff", "#65eff4"], "circle-stroke-color": "#ecfeff", "circle-stroke-width": 1.1, "circle-opacity": 0.96 } });
 
+          // State-driven effects may have run while the style was still loading.
+          // Trigger them again now that every source and layer actually exists.
+          setMapLayersRevision((revision) => revision + 1);
+
           map.on("mousemove", "aor-country-hit", () => { map.getCanvas().style.cursor = "pointer"; });
           map.on("mouseleave", "aor-country-hit", () => { map.getCanvas().style.cursor = ""; });
           map.on("click", "aor-country-hit", (event: any) => {
@@ -401,14 +406,14 @@ export default function ReviewerAorFactorsV2Page() {
     map.setPaintProperty?.("aor-active-glow", "line-opacity", mapMode === "aor" ? 0.20 : 0);
     map.setPaintProperty?.("aor-active-line", "line-opacity", mapMode === "aor" ? 0.98 : 0);
     if (mapMode === "aor") map.easeTo?.({ center: selectedCommand.center, zoom: selectedCommand.zoom, duration: 650 });
-  }, [command, mapMode, selectedCommand]);
+  }, [command, mapMode, mapLayersRevision, selectedCommand]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const filter = mapMode === "country" && selectedCountry?.iso2 ? countryFilter([selectedCountry.iso2]) : EMPTY_COUNTRY_FILTER;
     for (const layer of ["aor-selected-country-fill", "aor-selected-country-glow", "aor-selected-country-line"]) if (map.getLayer?.(layer)) map.setFilter(layer, filter);
-  }, [mapMode, selectedCountry]);
+  }, [mapLayersRevision, mapMode, selectedCountry]);
 
   const strictQuakes = useMemo(() => {
     if (selectedCountry) return (countrySources.usgs.data?.earthquakes || []).slice(0, 6);
@@ -452,7 +457,7 @@ export default function ReviewerAorFactorsV2Page() {
     return { type: "FeatureCollection", features };
   }, [countryGdacs, data?.disasters, mapMode, selectedCountry, strictQuakes]);
 
-  useEffect(() => { mapRef.current?.getSource?.("aor-live-events")?.setData?.(eventGeoJson); }, [eventGeoJson]);
+  useEffect(() => { mapRef.current?.getSource?.("aor-live-events")?.setData?.(eventGeoJson); }, [eventGeoJson, mapLayersRevision]);
 
   async function resolveCountrySearch() {
     const query = countryQuery.trim();

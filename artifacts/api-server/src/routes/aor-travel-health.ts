@@ -2,7 +2,8 @@ import { Router, type IRouter } from "express";
 
 const router: IRouter = Router();
 const CACHE_TTL = 6 * 60 * 60_000;
-const cache = new Map<string, { expiresAt: number; value: string }>();
+const CACHE_STALE_TTL = 24 * 60 * 60_000;
+const cache = new Map<string, { expiresAt: number; staleUntil: number; value: string }>();
 
 const COUNTRY_SLUG_ALIASES: Record<string, string[]> = {
   "united states": ["United-States"],
@@ -120,7 +121,7 @@ function slugCandidates(country: string) {
 
 async function fetchText(url: string, timeoutMs = 18_000) {
   const hit = cache.get(url);
-  if (hit && hit.expiresAt > Date.now()) return hit.value;
+  if (hit && hit.expiresAt > Date.now()) return { value: hit.value, cacheState: "fresh" as const };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -137,8 +138,12 @@ async function fetchText(url: string, timeoutMs = 18_000) {
       throw error;
     }
     const value = await response.text();
-    cache.set(url, { expiresAt: Date.now() + CACHE_TTL, value });
-    return value;
+    if (!/<html|<!doctype/i.test(value)) throw new Error("CDC Travelers' Health returned an unexpected response format.");
+    cache.set(url, { expiresAt: Date.now() + CACHE_TTL, staleUntil: Date.now() + CACHE_TTL + CACHE_STALE_TTL, value });
+    return { value, cacheState: "refreshed" as const };
+  } catch (error) {
+    if (hit && hit.staleUntil > Date.now()) return { value: hit.value, cacheState: "stale" as const };
+    throw error;
   } finally {
     clearTimeout(timer);
   }
@@ -149,8 +154,8 @@ async function fetchDestination(country: string) {
   for (const slug of slugCandidates(country)) {
     const sourceUrl = `https://wwwnc.cdc.gov/travel/destinations/traveler/none/${encodeURIComponent(slug)}`;
     try {
-      const raw = await fetchText(sourceUrl);
-      return { raw, sourceUrl, slug };
+      const loaded = await fetchText(sourceUrl);
+      return { raw: loaded.value, cacheState: loaded.cacheState, sourceUrl, slug };
     } catch (error) {
       lastError = error;
       const status = (error as Error & { status?: number })?.status;
@@ -160,7 +165,7 @@ async function fetchDestination(country: string) {
   throw lastError instanceof Error ? lastError : new Error("CDC destination page was not found.");
 }
 
-function parseTravelHealth(country: string, raw: string, sourceUrl: string) {
+function parseTravelHealth(country: string, raw: string, sourceUrl: string, cacheState: "fresh" | "refreshed" | "stale") {
   const vaccineSection = section(raw, "Vaccines and Medicines", "Non-Vaccine-Preventable Diseases");
   const diseaseSection = section(raw, "Non-Vaccine-Preventable Diseases", "Stay Healthy and Safe");
   const noticeSection = section(raw, "Travel Health Notices", "Vaccines and Medicines");
@@ -198,6 +203,7 @@ function parseTravelHealth(country: string, raw: string, sourceUrl: string) {
     source: "CDC Travelers' Health",
     sourceUrl,
     retrievedAt: new Date().toISOString(),
+    cacheState,
     vaccines,
     malaria,
     yellowFever,
@@ -213,11 +219,11 @@ router.get("/aor/travel-health", async (req, res) => {
   if (!country) return res.status(400).json({ ok: false, error: "country is required" });
 
   try {
-    const { raw, sourceUrl } = await fetchDestination(country);
-    const parsed = parseTravelHealth(country, raw, sourceUrl);
+    const { raw, cacheState, sourceUrl } = await fetchDestination(country);
+    const parsed = parseTravelHealth(country, raw, sourceUrl, cacheState);
     if (!parsed.vaccines.length && !parsed.diseases.length) {
-      return res.json({
-        ok: true,
+      return res.status(502).json({
+        ok: false,
         available: false,
         country,
         source: "CDC Travelers' Health",
@@ -231,9 +237,9 @@ router.get("/aor/travel-health", async (req, res) => {
       });
     }
     return res.json(parsed);
-  } catch {
-    return res.json({
-      ok: true,
+  } catch (error) {
+    return res.status(502).json({
+      ok: false,
       available: false,
       country,
       source: "CDC Travelers' Health",
@@ -243,7 +249,8 @@ router.get("/aor/travel-health", async (req, res) => {
       yellowFever: null,
       diseases: [],
       notices: [],
-      sourceNotice: "CDC Travelers' Health is temporarily unavailable for this destination. Other country intelligence remains active.",
+      error: error instanceof Error ? error.message.slice(0, 240) : "CDC Travelers' Health request failed.",
+      sourceNotice: "CDC Travelers' Health is temporarily unavailable for this destination; no values were substituted.",
     });
   }
 });
