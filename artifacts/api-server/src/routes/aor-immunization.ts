@@ -37,7 +37,14 @@ const inFlight = new Map<DatasetKey, Promise<CachedWorkbook>>();
 
 function text(value: unknown) { return value == null ? "" : String(value).trim(); }
 function normalize(value: unknown) { return text(value).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
-function number(value: unknown) { const parsed = Number(String(value ?? "").replace(/[%,$]/g, "").trim()); return Number.isFinite(parsed) ? parsed : null; }
+function number(value: unknown) {
+  const raw = text(value);
+  if (!raw) return null;
+  const cleaned = raw.replace(/[%,$]/g, "").trim();
+  if (!cleaned) return null;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 function value(row: Row, keys: string[]) {
   for (const key of keys) if (row[key] != null && text(row[key])) return row[key];
   const normalized = new Map(Object.entries(row).map(([key, cell]) => [normalize(key), cell]));
@@ -49,11 +56,7 @@ function unique(values: string[], max = 500) { return [...new Set(values.filter(
 function sourceUrls(dataset: DatasetKey) {
   const primary = `${BASE_URL}/${DATASETS[dataset].file}`;
   if (dataset !== "wuenic") return [primary];
-  return [
-    primary,
-    "https://immunizationdata.who.int/assets/additional-data/wuenic_input_to_pdf.xlsx",
-    "https://cdn.who.int/media/docs/default-source/immunization/wuenic_input_to_pdf.xlsx?download=true",
-  ];
+  return [primary, "https://immunizationdata.who.int/assets/additional-data/wuenic_input_to_pdf.xlsx", "https://cdn.who.int/media/docs/default-source/immunization/wuenic_input_to_pdf.xlsx?download=true"];
 }
 
 async function fetchWorkbookBytes(url: string, dataset: DatasetKey) {
@@ -62,11 +65,7 @@ async function fetchWorkbookBytes(url: string, dataset: DatasetKey) {
   const timer = setTimeout(() => controller.abort(), longWorkbook ? 60_000 : 40_000);
   const maxBytes = longWorkbook ? 72_000_000 : 45_000_000;
   try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: { Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*;q=0.7", "User-Agent": "Occu-Med Insight Hub/2.0 WHO immunization intelligence" },
-    });
+    const response = await fetch(url, { signal: controller.signal, redirect: "follow", headers: { Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*;q=0.7", "User-Agent": "Occu-Med Insight Hub/2.0 WHO immunization intelligence" } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const declared = Number(response.headers.get("content-length"));
     if (Number.isFinite(declared) && declared > maxBytes) throw new Error("workbook exceeded safety limit");
@@ -183,7 +182,7 @@ router.get("/aor/immunization", async (req, res) => {
       mapCoverage: { mappedRows, unmappedRows: output.length - mappedRows },
       schemaHealth: { rawRows: loaded.rows.length, recognizableRows: recognizableRows.length },
       methodology: dataset === "coverage" ? "Coverage categories remain distinct. WUENIC estimates are not silently substituted for administrative or official country-reported coverage." : dataset === "wuenic" ? "WUENIC detail preserves current estimate, prior revision, confidence grade, administrative/government estimates, target denominators and source comments where supplied." : "Values are returned with the dataset's own WHO definition and unit; no composite risk score is inferred.",
-      limitation: "WHO immunization indicators are programmatic/public-health measures. Coverage, incidence, reported cases, vaccine introduction status and modeled WUENIC estimates describe different concepts and must not be compared as if they were the same metric. Map colors are an Insight Hub visualization aid, not WHO risk classifications.",
+      limitation: "WHO immunization indicators are programmatic/public-health measures. Coverage, incidence, reported cases, vaccine introduction status and modeled WUENIC estimates describe different concepts and must not be compared as if they were the same metric. Missing numeric cells remain missing rather than being interpreted as zero. Map colors are an Insight Hub visualization aid, not WHO risk classifications.",
     });
   } catch (error) {
     return res.status(502).json({ ok: false, dataset, error: error instanceof Error ? error.message : "WHO immunization source failed." });
