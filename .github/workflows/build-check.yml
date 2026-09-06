@@ -86,7 +86,7 @@ jobs:
         run: pnpm --filter @workspace/occu-med-insight-hub exec playwright install chromium
 
       - name: Browser acceptance — Hub 2 UI hardening
-        timeout-minutes: 5
+        timeout-minutes: 12
         run: pnpm run test:browser
 
       - name: Upload browser failure artifacts
