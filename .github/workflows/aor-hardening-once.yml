@@ -27,8 +27,6 @@ jobs:
           rm -f scripts/aor-hardening-once.py .github/workflows/aor-hardening-once.yml
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.4.1
 
       - uses: actions/setup-node@v4
         with:
