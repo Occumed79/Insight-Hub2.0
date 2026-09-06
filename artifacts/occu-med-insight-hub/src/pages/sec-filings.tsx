@@ -340,9 +340,12 @@ export default function SecFilings() {
                       <p className="text-sm font-bold text-white">Latest filings</p>
                       <p className="mt-1 text-[10px] text-cyan-100/38">Click View evidence for filing details. Rows themselves do not navigate.</p>
                       {returnedForms.length > 0 && (
-                        <p className="mt-2 text-[10px] text-cyan-100/52">
-                          Forms returned: {returnedForms.join(" · ")}
-                        </p>
+                        <div className="mt-2" aria-label="Forms returned">
+                          <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-cyan-100/38">Forms returned</p>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {returnedForms.map((form) => <span key={form} className="rounded-full border border-violet-200/14 bg-violet-300/[0.07] px-2.5 py-1 text-[10px] font-bold text-violet-100/78">{form}</span>)}
+                          </div>
+                        </div>
                       )}
                     </div>
                     <select
