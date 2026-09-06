@@ -62,18 +62,7 @@ const navGroups: NavGroup[] = [
 ];
 
 const nav: NavItem[] = navGroups.flatMap((group) => group.items);
-
-const WAR_COSTS_SUBNAV = [
-  { href: "/war-costs-intelligence", label: "Overview & Data" },
-  { href: "/war-costs-map", label: "War Map" },
-  { href: "/war-costs-tools", label: "Interactive Tools" },
-  { href: "/war-costs-special-tools", label: "Specialized Tools" },
-  { href: "/war-costs-visualizations", label: "Visualizations" },
-  { href: "/war-costs-accountability", label: "Accountability" },
-  { href: "/war-costs-site-evidence", label: "Site Evidence" },
-] as const;
-
-const DESKTOP_SIDEBAR_BACKGROUND = "linear-gradient(180deg, rgba(2,6,17,.985) 0%, rgba(3,8,19,.98) 48%, rgba(2,5,13,.99) 100%)";
+const DESKTOP_SIDEBAR_BACKGROUND = "linear-gradient(180deg, rgba(2,6,17,.99) 0%, rgba(3,8,19,.985) 48%, rgba(2,5,13,.995) 100%)";
 const MOBILE_SIDEBAR_BACKGROUND = "linear-gradient(180deg, #020611 0%, #030813 100%)";
 
 function isWarCostsPath(path: string) {
@@ -93,7 +82,6 @@ export function Sidebar() {
   const [location] = useLocation();
   const currentPath = location.split("?")[0];
   const entitiesCompatibilityActive = ["/entities", "/prospects", "/clients"].includes(currentPath);
-  const warCostsActive = isWarCostsPath(currentPath);
 
   return (
     <>
@@ -105,8 +93,8 @@ export function Sidebar() {
 
         <Link href="/" className="block rounded-2xl px-1 py-1 focus-visible:outline-none" aria-label="Insight Hub 2 home">
           <div className="flex h-14 items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200/12 bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,.07),0_0_22px_rgba(34,211,238,.035)]">
-              <span className="h-2.5 w-6 rounded-full bg-white/90 shadow-[0_0_12px_rgba(255,255,255,.24)]" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200/12 bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,.07)]">
+              <span className="h-2.5 w-6 rounded-full bg-white/90 shadow-[0_0_12px_rgba(255,255,255,.20)]" />
             </div>
             <div>
               <p className="text-[12px] font-extrabold uppercase tracking-[0.18em] text-white">Occu-Med</p>
@@ -123,43 +111,21 @@ export function Sidebar() {
                 {group.items.map((item) => {
                   const Icon = item.icon;
                   const active = isActivePath(item.href, currentPath);
-                  const warCostsItem = item.href === "/war-costs-intelligence";
                   return (
-                    <div key={item.href}>
-                      <Link
-                        href={item.href}
-                        aria-current={active ? "page" : undefined}
-                        className={cn(
-                          "group flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2.5 text-[14px] font-medium leading-5 transition duration-200",
-                          active
-                            ? "border-cyan-200/22 bg-white/[0.07] text-white shadow-[0_10px_28px_rgba(0,0,0,.24),inset_2px_0_0_rgba(103,232,249,.70),inset_0_1px_0_rgba(255,255,255,.055)]"
-                            : "border-transparent bg-transparent text-slate-300/72 hover:border-slate-200/10 hover:bg-white/[0.04] hover:text-white",
-                        )}
-                      >
-                        <Icon size={16} className={cn("shrink-0 transition", active ? "text-cyan-200/90" : "text-slate-400/72 group-hover:text-cyan-100/74")} />
-                        <span>{item.label}</span>
-                      </Link>
-
-                      {warCostsItem && warCostsActive ? (
-                        <div className="mb-2 ml-7 mt-1.5 space-y-1 border-l border-slate-300/10 pl-2.5">
-                          {WAR_COSTS_SUBNAV.map((sub) => {
-                            const selected = currentPath === sub.href || (sub.href === "/war-costs-intelligence" && currentPath === "/war-costs");
-                            return (
-                              <Link
-                                key={sub.href}
-                                href={sub.href}
-                                className={cn(
-                                  "block rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition",
-                                  selected ? "bg-white/[0.055] text-cyan-50" : "text-slate-400/72 hover:bg-white/[0.035] hover:text-slate-100",
-                                )}
-                              >
-                                {sub.label}
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                    </div>
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "group flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2.5 text-[14px] font-medium leading-5 transition duration-200",
+                        active
+                          ? "border-cyan-200/20 bg-white/[0.065] text-white shadow-[inset_2px_0_0_rgba(103,232,249,.72),inset_0_1px_0_rgba(255,255,255,.045)]"
+                          : "border-transparent bg-transparent text-slate-300/70 hover:border-slate-200/8 hover:bg-white/[0.035] hover:text-white",
+                      )}
+                    >
+                      <Icon size={16} className={cn("shrink-0 transition", active ? "text-cyan-200/90" : "text-slate-400/70 group-hover:text-slate-200")} />
+                      <span>{item.label}</span>
+                    </Link>
                   );
                 })}
               </div>
@@ -177,7 +143,6 @@ export function Sidebar() {
             return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn("inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition", active ? "border-cyan-200/24 bg-cyan-300/14 text-white" : "border-white/8 bg-white/[0.035] text-cyan-50/64 hover:border-cyan-100/18 hover:text-white")}><Icon size={15} className="shrink-0" /><span>{item.label}</span></Link>;
           })}
         </nav>
-        {warCostsActive ? <nav className="flex gap-2 overflow-x-auto border-b border-cyan-100/10 bg-[#020611]/96 px-3 py-2" aria-label="WarCosts workspace">{WAR_COSTS_SUBNAV.map((sub) => { const selected = currentPath === sub.href || (sub.href === "/war-costs-intelligence" && currentPath === "/war-costs"); return <Link key={sub.href} href={sub.href} className={cn("shrink-0 rounded-lg border px-3 py-2 text-[10px] font-bold", selected ? "border-cyan-200/24 bg-cyan-300/12 text-white" : "border-white/8 bg-white/[0.025] text-cyan-100/45")}>{sub.label}</Link>; })}</nav> : null}
       </div>
     </>
   );
