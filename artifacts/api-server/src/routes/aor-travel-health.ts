@@ -167,7 +167,7 @@ function slugCandidates(country: string) {
 
 async function fetchText(url: string, timeoutMs = 18_000, ttl = CACHE_TTL) {
   const hit = cache.get(url);
-  if (hit && hit.expiresAt > Date.now()) return hit.value;
+  if (hit && hit.expiresAt > Date.now()) return { value: hit.value, cacheState: "fresh" as const };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
