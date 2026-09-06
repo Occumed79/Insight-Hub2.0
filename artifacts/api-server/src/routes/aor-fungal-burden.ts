@@ -304,6 +304,16 @@ Germany|DE|32|0.04`,
   },
 };
 
+const FUNGAL_SELECTOR_LABELS: Record<string, string> = {
+  candidemia: "Candidemia · Table 2",
+  "invasive-aspergillosis": "IA · Table 3",
+  pcp: "PCP · Table 4",
+  cpa: "CPA · Table 5",
+  abpa: "ABPA · Table 6",
+  safs: "SAFS · Table 7",
+  "fungal-keratitis": "FK · Table 8",
+};
+
 const GLOBAL_CONTEXT = [
   { disease: "Skin, hair and nail fungal infections", estimate: "~1,000,000,000" },
   { disease: "Fungal keratitis", estimate: "~1,000,000" },
@@ -373,7 +383,7 @@ router.get("/aor/fungal-burden", (req, res) => {
   return res.json({
     ok: true,
     disease: { key: diseaseKey, title: config.title, sourceTable: config.sourceTable, sourceColumns: config.sourceColumns },
-    availableDiseases: Object.entries(DISEASES).map(([key, value]) => ({ key, title: value.title, sourceTable: value.sourceTable, sourceColumns: value.sourceColumns })),
+    availableDiseases: Object.entries(DISEASES).map(([key, value]) => ({ key, title: FUNGAL_SELECTOR_LABELS[key] || key.toUpperCase(), fullTitle: value.title, sourceTable: value.sourceTable, sourceColumns: value.sourceColumns })),
     rows: selected,
     source: "Bongomin et al., Journal of Fungi 2017",
     sourceUrl: SOURCE_URL,
