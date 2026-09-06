@@ -1,0 +1,58 @@
+name: One-time AOR hardening
+
+on:
+  push:
+    branches:
+      - integrate-defense-health-map-layers
+    paths:
+      - .github/workflows/aor-hardening-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integrate-defense-health-map-layers
+          fetch-depth: 0
+
+      - name: Apply reviewed hardening patch
+        run: |
+          sed -i 's|resolve(import.meta.dirname, "../../../..")|resolve(import.meta.dirname, "../../..")|' scripts/aor-hardening-once.py
+          python3 scripts/aor-hardening-once.py
+          rm -f scripts/aor-hardening-once.py .github/workflows/aor-hardening-once.yml
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Focused AOR regressions
+        run: pnpm --filter @workspace/api-server exec tsx --test src/services/__tests__/aor-regressions.test.ts
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Production builds
+        run: |
+          pnpm --filter @workspace/api-server run build
+          pnpm --filter @workspace/occu-med-insight-hub run build
+
+      - name: Commit hardened branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Harden AOR source reliability and map synchronization"
+          git push origin HEAD:integrate-defense-health-map-layers
