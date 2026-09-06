@@ -20,8 +20,6 @@
 
 .translucent-tool-page > * { position: relative; z-index: 1; }
 
-/* General tool routes use a calm, dark workstation canvas. Keep the protected O*NET
-   and Occupational Data Explorer surfaces visually untouched. */
 .translucent-tool-page:not([data-tool-page="onet-master"]):not([data-tool-page="occupational-data-explorer"]) > .aurora-bg {
   background:
     radial-gradient(ellipse at 18% -8%, rgba(22,78,99,.18), transparent 34%),
@@ -49,7 +47,6 @@
   opacity: .52 !important;
 }
 
-/* Only components that explicitly opt into glass-card get a raised surface. */
 .translucent-tool-page .glass-card {
   overflow: hidden;
   border: 1px solid var(--tool-glass-border) !important;
@@ -70,7 +67,6 @@
   filter: blur(20px);
 }
 
-/* Nested glass surfaces are flattened so one intentional panel cannot become card soup. */
 .translucent-tool-page:not([data-tool-page="onet-master"]):not([data-tool-page="occupational-data-explorer"]) .glass-card .glass-card {
   border-width: 0 0 1px !important;
   border-color: rgba(148,163,184,.09) !important;
@@ -157,6 +153,64 @@
   box-shadow: -30px 0 90px rgba(0,0,0,.44), inset 1px 0 0 rgba(255,255,255,.05) !important;
   backdrop-filter: blur(28px) saturate(1.06) !important;
   -webkit-backdrop-filter: blur(28px) saturate(1.06) !important;
+}
+
+/* The older core-intelligence pages inject a full-screen teal/blue/purple poster layer.
+   Suppress it so the content, not a background effect, carries the hierarchy. */
+.translucent-tool-page:is([data-tool-page="state-agencies"],[data-tool-page="federal-agencies"],[data-tool-page="competitors"]) .pointer-events-none.fixed.inset-0 {
+  background: radial-gradient(ellipse at 16% 8%, rgba(20,184,166,.05), transparent 30%), #020817 !important;
+}
+
+/* State and federal intelligence panels become continuous workstation sections rather
+   than a stack of identical floating tiles. */
+.translucent-tool-page:is([data-tool-page="state-agencies"],[data-tool-page="federal-agencies"],[data-tool-page="competitors"]) main .glass-card {
+  border-width: 0 0 1px !important;
+  border-color: rgba(148,163,184,.10) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.translucent-tool-page:is([data-tool-page="state-agencies"],[data-tool-page="federal-agencies"],[data-tool-page="competitors"]) main .glass-card::before,
+.translucent-tool-page:is([data-tool-page="state-agencies"],[data-tool-page="federal-agencies"],[data-tool-page="competitors"]) main .glass-card::after {
+  display: none !important;
+}
+
+/* Nested bordered content blocks are flattened across non-protected tool pages. This
+   preserves primary interactive surfaces while removing card-inside-card repetition. */
+.translucent-tool-page:not([data-tool-page="onet-master"]):not([data-tool-page="occupational-data-explorer"]) main div[class*="rounded-"][class*="border"] > div[class*="rounded-"][class*="border"],
+.translucent-tool-page:not([data-tool-page="onet-master"]):not([data-tool-page="occupational-data-explorer"]) main section[class*="rounded-"][class*="border"] > article[class*="rounded-"][class*="border"],
+.translucent-tool-page:not([data-tool-page="onet-master"]):not([data-tool-page="occupational-data-explorer"]) main section[class*="rounded-"][class*="border"] > div[class*="rounded-"][class*="border"] {
+  border-width: 0 0 1px !important;
+  border-color: rgba(148,163,184,.09) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Reviewer routes are not wrapped by TranslucentToolPage, so neutralize the original
+   full aurora field here as well. The landing page remains untouched. */
+.reviewer-native-page.aurora-bg {
+  background:
+    radial-gradient(ellipse at 18% -8%, rgba(22,78,99,.14), transparent 34%),
+    radial-gradient(ellipse at 88% 4%, rgba(49,46,129,.09), transparent 32%),
+    linear-gradient(180deg, #050a12 0%, #050912 48%, #040810 100%) !important;
+}
+
+.reviewer-native-page.aurora-bg::before {
+  background:
+    radial-gradient(ellipse at 12% 16%, rgba(20,184,166,.055), transparent 30%),
+    radial-gradient(ellipse at 78% 10%, rgba(59,130,246,.045), transparent 32%) !important;
+  filter: blur(44px) saturate(1.02) !important;
+  opacity: .48 !important;
+  animation: none !important;
+  box-shadow: none !important;
+}
+
+.reviewer-native-page.aurora-bg::after {
+  opacity: .42 !important;
 }
 
 .dba-hub-route main > section > .glass-card.border-amber-200\/14 {
