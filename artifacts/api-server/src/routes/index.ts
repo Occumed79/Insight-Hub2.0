@@ -20,6 +20,11 @@ import crisiswatchRouter from "./crisiswatch";
 import warCostsRouter from "./war-costs";
 import warCostsPagesRouter from "./war-costs-pages";
 import warCostsPriorityPagesRouter from "./war-costs-priority-pages";
+import mapIntelligenceLayersRouter from "./map-intelligence-layers";
+import aorYellowBookRouter from "./aor-yellow-book";
+import aorRespiratorySurveillanceRouter from "./aor-respiratory-surveillance";
+import aorImmunizationRouter from "./aor-immunization";
+import aorFungalBurdenRouter from "./aor-fungal-burden";
 import aorRiskIntelligenceRouter from "./aor-risk-intelligence";
 import aorProductionRepairRouter from "./aor-production-repair";
 import aorCountryResilienceRouter from "./aor-country-resilience";
@@ -66,10 +71,7 @@ router.use(entityDiscoveryRouter);
 router.use(locationsCerebrasV2Router);
 router.use(locationsUnifiedRouter);
 router.post("/entities/import-company-location-text", (_req, res) => {
-  res.status(410).json({
-    ok: false,
-    error: "Company location text import is disabled pending a validated geographic rebuild.",
-  });
+  res.status(410).json({ ok: false, error: "Company location text import is disabled pending a validated geographic rebuild." });
 });
 router.use(bulkManualLocationsRouter);
 router.use(intelligenceRouter);
@@ -81,7 +83,12 @@ router.use(crisiswatchRouter);
 router.use(warCostsRouter);
 router.use(warCostsPagesRouter);
 router.use(warCostsPriorityPagesRouter);
+router.use(mapIntelligenceLayersRouter);
+router.use(aorYellowBookRouter);
 router.use(aorTravelHealthRouter);
+router.use(aorRespiratorySurveillanceRouter);
+router.use(aorImmunizationRouter);
+router.use(aorFungalBurdenRouter);
 // Country-specific WHO/GDACS handlers must run before the older command-wide AOR handlers.
 router.use(aorCountryResilienceRouter);
 router.use(aorProductionRepairRouter);
@@ -95,9 +102,7 @@ router.use(dbaIntelligenceRouter);
 router.use("/dba/hub", (_req, res, next) => {
   const originalJson = res.json.bind(res);
   res.json = ((body: unknown) => {
-    if (body && typeof body === "object" && !Array.isArray(body)) {
-      delete (body as Record<string, unknown>).warning;
-    }
+    if (body && typeof body === "object" && !Array.isArray(body)) delete (body as Record<string, unknown>).warning;
     return originalJson(body);
   }) as typeof res.json;
   next();

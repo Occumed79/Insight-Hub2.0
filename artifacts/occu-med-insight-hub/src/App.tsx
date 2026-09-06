@@ -63,13 +63,22 @@ function RouteLoading() {
   );
 }
 
+function CompetitorsLoading() {
+  return (
+    <main className="min-h-screen bg-[#020817] px-5 py-8 text-white lg:ml-[210px] lg:px-10">
+      <h1 className="text-4xl font-black tracking-[-0.04em]">Competitors</h1>
+      <p className="mt-3 text-sm text-cyan-100/58">Loading competitor intelligence…</p>
+    </main>
+  );
+}
+
 function TranslucentToolPage({ page, children }: { page: string; children: React.ReactNode }) {
   return <div className="translucent-tool-page" data-tool-page={page}>{children}</div>;
 }
 
 function EntitiesRoute() { return <EntitiesPage defaultTab="prospects" />; }
 function ClientsRoute() { return <EntitiesPage defaultTab="clients" />; }
-function CompetitorsRoute() { return <TranslucentToolPage page="competitors"><CompetitorsPage /></TranslucentToolPage>; }
+function CompetitorsRoute() { return <TranslucentToolPage page="competitors"><React.Suspense fallback={<CompetitorsLoading />}><CompetitorsPage /></React.Suspense></TranslucentToolPage>; }
 function FederalAgenciesRoute() { return <TranslucentToolPage page="federal-agencies"><FederalAgenciesPage /></TranslucentToolPage>; }
 function StateAgenciesRoute() { return <TranslucentToolPage page="state-agencies"><StateAgenciesPage /></TranslucentToolPage>; }
 function DbaRoute() { return <div className="dba-hub-route"><DbaIntelligence /></div>; }
