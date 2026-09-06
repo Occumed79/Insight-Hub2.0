@@ -14,6 +14,15 @@ test("active WHO route disambiguates Guinea-family country names and never subst
   assert.match(text, /fallbackUsed: false/);
 });
 
+test("country resilience remains the active WHO outbreak route before the older risk router", () => {
+  const text = source("src/routes/index.ts");
+  const activeRoute = text.indexOf("router.use(aorCountryResilienceRouter)");
+  const olderRoute = text.indexOf("router.use(aorRiskIntelligenceRouter)");
+  assert.notEqual(activeRoute, -1);
+  assert.notEqual(olderRoute, -1);
+  assert.ok(activeRoute < olderRoute, "aorCountryResilienceRouter must own duplicate country-health routes first");
+});
+
 test("CDC destination route validates pages, exposes cache state and fails closed", () => {
   const text = source("src/routes/aor-travel-health.ts");
   assert.match(text, /validateDestinationPage/);
