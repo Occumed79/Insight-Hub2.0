@@ -21,7 +21,10 @@ import {
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
-const navGroups = [
+type NavItem = { href: string; label: string; icon: typeof Home };
+type NavGroup = { label: string; items: NavItem[] };
+
+const navGroups: NavGroup[] = [
   {
     label: "Workspace",
     items: [
@@ -56,9 +59,9 @@ const navGroups = [
       { href: "/public-legal-references", label: "Legal & Injury Intelligence", icon: Scale },
     ],
   },
-] as const;
+];
 
-const nav = navGroups.flatMap((group) => group.items);
+const nav: NavItem[] = navGroups.flatMap((group) => group.items);
 
 const WAR_COSTS_SUBNAV = [
   { href: "/war-costs-intelligence", label: "Overview & Data" },
