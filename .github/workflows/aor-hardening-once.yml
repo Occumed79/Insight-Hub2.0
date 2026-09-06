@@ -22,6 +22,7 @@ jobs:
       - name: Apply reviewed hardening patch
         run: |
           sed -i 's|resolve(import.meta.dirname, "../../../..")|resolve(import.meta.dirname, "../../..")|' scripts/aor-hardening-once.py
+          sed -i 's|re.subn(pattern, replacement, text, count=1, flags=flags)|re.subn(pattern, lambda _match: replacement, text, count=1, flags=flags)|' scripts/aor-hardening-once.py
           python3 scripts/aor-hardening-once.py
           rm -f scripts/aor-hardening-once.py .github/workflows/aor-hardening-once.yml
 
