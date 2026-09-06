@@ -2,9 +2,10 @@ import { Router, type IRouter } from "express";
 
 const router: IRouter = Router();
 const CACHE_TTL = 45 * 60_000;
+const CACHE_STALE_TTL = 24 * 60 * 60_000;
 
 export type CsvRow = Record<string, string>;
-type CachedPayload = { expiresAt: number; value: unknown };
+type CachedPayload = { expiresAt: number; staleUntil: number; value: Record<string, unknown> };
 let cache: CachedPayload | null = null;
 let inFlight: Promise<unknown> | null = null;
 
@@ -222,8 +223,10 @@ async function loadPayload() {
     };
   });
 
+  if (!sourceHealth.some((source) => source.ok)) throw new Error("All CDC respiratory surveillance sources failed or returned unusable schemas.");
+
   return {
-    ok: sourceHealth.some((source) => source.ok),
+    ok: true,
     partial: sourceHealth.some((source) => !source.ok),
     retrievedAt: new Date().toISOString(),
     sourceHealth,
@@ -239,12 +242,17 @@ async function loadPayload() {
 }
 
 async function getPayload() {
-  if (cache && cache.expiresAt > Date.now()) return cache.value;
+  const now = Date.now();
+  if (cache && cache.expiresAt > now) return { ...cache.value, cacheState: "fresh" as const };
   if (!inFlight) inFlight = loadPayload();
   try {
-    const loaded = await inFlight;
-    cache = { expiresAt: Date.now() + CACHE_TTL, value: loaded };
-    return loaded;
+    const loaded = await inFlight as Record<string, unknown>;
+    if (!loaded?.ok) throw new Error("CDC respiratory surveillance returned no usable source signal.");
+    cache = { expiresAt: Date.now() + CACHE_TTL, staleUntil: Date.now() + CACHE_TTL + CACHE_STALE_TTL, value: loaded };
+    return { ...loaded, cacheState: "refreshed" as const };
+  } catch (error) {
+    if (cache && cache.staleUntil > now) return { ...cache.value, cacheState: "stale" as const };
+    throw error;
   } finally { inFlight = null; }
 }
 

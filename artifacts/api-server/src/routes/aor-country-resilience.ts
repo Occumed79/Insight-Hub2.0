@@ -66,6 +66,10 @@ function countryTerms(country: string): string[] {
     "democratic republic of congo": ["democratic republic of the congo", "democratic republic of congo", "dr congo", "drc", "congo kinshasa"],
     "republic of the congo": ["republic of the congo", "republic of congo", "congo brazzaville"],
     "republic of congo": ["republic of the congo", "republic of congo", "congo brazzaville"],
+    "guinea": ["guinea", "republic of guinea"],
+    "guinea bissau": ["guinea bissau", "republic of guinea bissau"],
+    "equatorial guinea": ["equatorial guinea", "republic of equatorial guinea"],
+    "papua new guinea": ["papua new guinea"],
     "cote d ivoire": ["cote d ivoire", "ivory coast"],
     "czechia": ["czechia", "czech republic"],
     "timor leste": ["timor leste", "east timor"],
@@ -79,10 +83,20 @@ function countryTerms(country: string): string[] {
 
 function matchesCountry(country: string, ...values: unknown[]): boolean {
   const terms = countryTerms(country);
+  const selected = normalize(country);
   return values.some((value) => {
-    const candidate = normalize(text(value));
+    let candidate = normalize(text(value));
     if (!candidate) return false;
-    return terms.some((term) => candidate === term || candidate.startsWith(`${term} `) || candidate.endsWith(` ${term}`) || candidate.includes(` ${term} `));
+    // "Guinea" must not match Guinea-Bissau, Equatorial Guinea or Papua New Guinea.
+    if (selected === "guinea" || selected === "republic of guinea") {
+      candidate = candidate
+        .replace(/\bpapua new guinea\b/g, " ")
+        .replace(/\bequatorial guinea\b/g, " ")
+        .replace(/\b(?:republic of )?guinea bissau\b/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+    return terms.some((term) => candidate === term || (` ${candidate} `).includes(` ${term} `));
   });
 }
 

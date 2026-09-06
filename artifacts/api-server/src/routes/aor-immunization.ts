@@ -4,10 +4,11 @@ import * as XLSX from "xlsx";
 const router: IRouter = Router();
 const BASE_URL = "https://srhdpeuwpubsa-geecgzbpd5h0fueu.z01.azurefd.net/whdh/WIISE/export";
 const CACHE_TTL = 24 * 60 * 60_000;
+const CACHE_STALE_TTL = 7 * 24 * 60 * 60_000;
 
 type DatasetKey = "coverage" | "incidence" | "cases" | "introduction" | "indicators" | "wuenic";
 type Row = Record<string, unknown>;
-type CachedWorkbook = { expiresAt: number; rows: Row[]; sourceUrl: string };
+type CachedWorkbook = { expiresAt: number; staleUntil: number; rows: Row[]; sourceUrl: string };
 
 const DATASETS: Record<DatasetKey, { file: string; sheet: string; itemFields: string[]; valueFields: string[]; descriptionFields: string[] }> = {
   coverage: { file: "coverage-data.xlsx", sheet: "Data", itemFields: ["ANTIGEN"], valueFields: ["COVERAGE"], descriptionFields: ["ANTIGEN_DESCRIPTION"] },
@@ -95,19 +96,26 @@ async function downloadWorkbook(dataset: DatasetKey): Promise<CachedWorkbook> {
       if (!sheet) throw new Error(`sheet ${config.sheet} was not present`);
       const rows = XLSX.utils.sheet_to_json<Row>(sheet, { defval: null, raw: true });
       if (!rows.length) throw new Error("workbook contained no data rows");
-      return { rows, sourceUrl, expiresAt: Date.now() + CACHE_TTL };
+      return { rows, sourceUrl, expiresAt: Date.now() + CACHE_TTL, staleUntil: Date.now() + CACHE_TTL + CACHE_STALE_TTL };
     } catch (error) { failures.push(`${sourceUrl}: ${error instanceof Error ? error.message : String(error)}`); }
   }
   throw new Error(`WHO Immunization Data Portal workbook failed: ${failures.join(" | ").slice(0, 900)}`);
 }
 
 async function workbook(dataset: DatasetKey) {
+  const now = Date.now();
   const hit = caches.get(dataset);
-  if (hit && hit.expiresAt > Date.now()) return hit;
+  if (hit && hit.expiresAt > now) return { loaded: hit, cacheState: "fresh" as const };
   let promise = inFlight.get(dataset);
   if (!promise) { promise = downloadWorkbook(dataset); inFlight.set(dataset, promise); }
-  try { const loaded = await promise; caches.set(dataset, loaded); return loaded; }
-  finally { inFlight.delete(dataset); }
+  try {
+    const loaded = await promise;
+    caches.set(dataset, loaded);
+    return { loaded, cacheState: "refreshed" as const };
+  } catch (error) {
+    if (hit && hit.staleUntil > now) return { loaded: hit, cacheState: "stale" as const };
+    throw error;
+  } finally { inFlight.delete(dataset); }
 }
 
 function rowCountry(row: Row, dataset: DatasetKey) { return text(value(row, dataset === "wuenic" ? ["Country", "COUNTRY", "NAME"] : ["NAME", "COUNTRYNAME", "Country", "COUNTRY_NAME"])); }
@@ -159,7 +167,8 @@ router.get("/aor/immunization", async (req, res) => {
   if (!dataset) return res.status(400).json({ ok: false, error: "Unsupported immunization dataset." });
 
   try {
-    const loaded = await workbook(dataset);
+    const workbookResult = await workbook(dataset);
+    const loaded = workbookResult.loaded;
     const recognizableRows = loaded.rows.filter((row) => rowCountry(row, dataset) && rowYear(row, dataset) != null && rowItem(row, dataset));
     if (!recognizableRows.length) throw new Error("WHO workbook downloaded, but its current columns did not match the recognized country/year/metric schema.");
 
@@ -189,7 +198,7 @@ router.get("/aor/immunization", async (req, res) => {
     const mappedRows = output.filter((row) => row.iso2).length;
 
     return res.json({
-      ok: true, dataset, retrievedAt: new Date().toISOString(), source: "WHO Immunization Data Portal", sourceUrl: loaded.sourceUrl,
+      ok: true, dataset, cacheState: workbookResult.cacheState, retrievedAt: new Date().toISOString(), source: "WHO Immunization Data Portal", sourceUrl: loaded.sourceUrl,
       selected: { year: selectedYear, item: selectedItem || null, itemMatched, requestedItem: requestedItem || null, category: selectedCategory || null, country: countryQuery || null },
       facets: { years: years.slice(0, 60), items: itemLabels, categories },
       rows: output.slice(0, countryQuery ? 1500 : 350), totalMatched: output.length,
