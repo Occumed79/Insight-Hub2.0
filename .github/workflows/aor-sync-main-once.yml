@@ -1,0 +1,52 @@
+name: One-time PR 186 main sync
+
+on:
+  push:
+    branches:
+      - integrate-defense-health-map-layers
+    paths:
+      - .github/workflows/aor-sync-main-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integrate-defense-health-map-layers
+          fetch-depth: 0
+
+      - name: Merge current main, preserving hardened PR hunks on overlap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git merge --no-ff -X ours origin/main -m "Merge current main into PR #186"
+          rm -f .github/workflows/aor-sync-main-once.yml
+          git add -A
+          git diff --cached --check
+          git commit -m "Remove one-time PR sync workflow"
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Focused AOR regressions
+        run: pnpm --filter @workspace/api-server exec tsx --test src/services/__tests__/aor-regressions.test.ts
+
+      - name: Typecheck and production builds
+        run: |
+          pnpm run typecheck
+          pnpm --filter @workspace/api-server run build
+          pnpm --filter @workspace/occu-med-insight-hub run build
+
+      - name: Push synchronized branch
+        run: git push origin HEAD:integrate-defense-health-map-layers
