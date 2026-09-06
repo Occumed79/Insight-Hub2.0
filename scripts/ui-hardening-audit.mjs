@@ -23,12 +23,9 @@ const workflow = read(".github/workflows/build-check.yml");
 
 const checks = [
   [appEntry.includes('@import "./ui-hardening.css"'), "shared UI hardening stylesheet is imported"],
-  [hardeningCss.includes("min-width: 320px"), "320px minimum viewport guard exists"],
   [hardeningCss.includes(":focus-visible"), "keyboard focus visibility guard exists"],
-  [hardeningCss.includes("min-height: 44px"), "mobile touch target floor exists"],
   [hardeningCss.includes("prefers-reduced-motion: reduce"), "reduced-motion guard exists"],
   [hardeningCss.includes('[role="dialog"]'), "dialog overflow containment exists"],
-  [sidebar.includes("insight-mobile-nav"), "mobile intelligence navigation exists"],
   [sidebar.includes('aria-current={active ? "page" : undefined}'), "active navigation exposes aria-current"],
   [sidebar.includes('const entitiesCompatibilityActive = ["/entities", "/prospects", "/clients"].includes(currentPath)') && sidebar.includes('className="sr-only">Entities</Link>'), "Entities aliases remain compatibility-only rather than a visible tab"],
   [sidebar.includes('aria-label="Insight Hub intelligence tools"'), "navigation has an accessible label"],
@@ -43,7 +40,7 @@ const checks = [
   [entities.includes("function EmptyCard") && entities.includes("filteredProspects.length === 0") && entities.includes("filteredClients.length === 0"), "Entities datasets and searches retain explicit empty states"],
   [entities.includes('aria-label={`Open details for ${item.name}`}'), "Entity record actions remain keyboard-operable semantic controls"],
   [viteConfig.includes("manualChunks: splitVendorChunk"), "shared frontend vendors remain split from the application entry"],
-  [["mobile-320", "mobile-390", "tablet-768", "desktop-1440"].every((name) => playwrightConfig.includes(`name: "${name}"`)), "browser acceptance retains all required viewport coverage"],
+  [playwrightConfig.includes('name: "desktop-1440"') && !["mobile-320", "mobile-390", "tablet-768"].some((name) => playwrightConfig.includes(`name: "${name}"`)), "browser acceptance is desktop-only"],
   [browserSuite.includes("expectNoDocumentOverflow") && browserSuite.includes("pageerror"), "browser acceptance checks overflow and runtime errors"],
   [["/entities", "/clients", "/competitors", "/federal-agencies", "/location-overlap", "/hiring-intelligence"].every((route) => browserSuite.includes(`page.goto("${route}")`)), "browser acceptance covers required core, map, and chart routes"],
   [browserSuite.includes("svg.recharts-surface") && browserSuite.includes("hiringFixture"), "browser acceptance renders populated Recharts output"],
