@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
-import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
-import { GlassCard } from "@/components/insight/GlassCard";
 import { WarCostsWorkspaceNav } from "@/components/insight/WarCostsWorkspaceNav";
 import { getWarCostsDataset, type WarCostsDatasetResponse } from "@/data/warCostsApi";
 import { WarCostsArcGisMap } from "./war-costs-arcgis-map";
@@ -55,7 +53,7 @@ export default function WarCostsMap() {
       setResponses(next);
       setDefensePresence(defense);
       const warnings = [
-        !next["conflicts.json"] || !next["base-index.json"] ? "Some WarCosts map feeds are unavailable; every successful WarCosts layer will still render." : "",
+        !next["conflicts.json"] || !next["base-index.json"] ? "Some WarCosts map feeds are unavailable; every successful layer will still render." : "",
         ...(defense.warnings || []),
       ].filter(Boolean);
       if (warnings.length) setError(warnings.join(" "));
@@ -69,19 +67,57 @@ export default function WarCostsMap() {
 
   useEffect(() => { void load(false); }, []);
   const data = useMemo(() => Object.fromEntries(Object.entries(responses).map(([name, response]) => [name, response.data])) as Record<string, unknown>, [responses]);
+  const feedCount = Object.keys(responses).length;
+  const personnelCount = defensePresence?.current?.length ?? 0;
 
   return (
     <main className="aurora-bg min-h-screen text-white">
       <Sidebar />
-      <section className="relative z-10 px-5 py-8 lg:ml-[210px] lg:px-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <HeaderBar eyebrow="WarCosts Intelligence" title="War Map" subtitle="Independent ArcGIS defense intelligence: WarCosts conflict/base/operation data plus Michael Allen / troopdata force-presence and construction layers. It does not reuse the AOR MapTiler map, AOR state, or AOR health layers." />
-          <button type="button" onClick={() => void load(true)} disabled={refreshing} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-200/20 bg-cyan-300/10 px-4 text-xs font-bold text-cyan-50 disabled:opacity-50"><RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />Refresh defense data</button>
-        </div>
-        <WarCostsWorkspaceNav />
-        {error && <GlassCard className="mt-5 border-amber-300/18 p-4 text-xs text-amber-100">{error}</GlassCard>}
-        <div className="mt-5">
-          {loading ? <GlassCard className="grid min-h-[720px] place-items-center"><div className="text-center"><Loader2 className="mx-auto h-9 w-9 animate-spin text-cyan-200" /><p className="mt-3 text-sm font-bold">Loading independent defense-intelligence feeds…</p></div></GlassCard> : <WarCostsArcGisMap conflicts={wcRows(data["conflicts.json"])} bases={wcRows(data["base-index.json"])} deployments={wcRows(data["overseas-presence.json"])} operations={wcRows(data["operations.json"])} strikes={wcRows(data["drone-strikes.json"])} personnel={defensePresence?.current || []} construction={defensePresence?.construction || []} personnelYear={defensePresence?.latestYear ?? null} />}
+      <section className="relative z-10 flex min-h-screen flex-col px-5 pb-5 pt-5 lg:ml-[210px] lg:px-6">
+        <header className="flex shrink-0 items-start justify-between gap-6 border-b border-slate-300/10 pb-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">WarCosts Intelligence</p>
+              <span className="h-1 w-1 rounded-full bg-slate-700" />
+              <p className="text-[11px] font-semibold text-slate-500">ArcGIS defense workspace</p>
+            </div>
+            <h1 className="mt-1 text-[28px] font-black tracking-[-0.04em] text-white">War Map</h1>
+            <p className="mt-1 max-w-4xl text-[13px] leading-5 text-slate-400">
+              Independent defense intelligence combining WarCosts conflict, base and operation records with force-presence and military-construction layers.
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-3 pt-1">
+            <div className="hidden items-center gap-4 border-r border-slate-300/10 pr-4 xl:flex">
+              <div className="text-right"><p className="text-[10px] uppercase tracking-[0.12em] text-slate-600">Feeds</p><p className="mt-0.5 text-sm font-bold text-slate-200">{loading ? "—" : `${feedCount}/${MAP_DATASETS.length}`}</p></div>
+              <div className="text-right"><p className="text-[10px] uppercase tracking-[0.12em] text-slate-600">Presence rows</p><p className="mt-0.5 text-sm font-bold text-slate-200">{loading ? "—" : personnelCount.toLocaleString()}</p></div>
+            </div>
+            <button type="button" onClick={() => void load(true)} disabled={refreshing} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300/14 bg-white/[0.035] px-3 text-[12px] font-semibold text-slate-200 transition hover:border-cyan-200/24 hover:bg-white/[0.055] disabled:opacity-50">
+              <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />Refresh
+            </button>
+          </div>
+        </header>
+
+        <div className="shrink-0"><WarCostsWorkspaceNav /></div>
+
+        {error ? <div className="mt-3 shrink-0 border-l-2 border-amber-300/50 bg-amber-300/[0.035] px-3 py-2 text-[12px] leading-5 text-amber-100/80">{error}</div> : null}
+
+        <div className="relative mt-3 min-h-[680px] flex-1">
+          <WarCostsArcGisMap
+            conflicts={wcRows(data["conflicts.json"])}
+            bases={wcRows(data["base-index.json"])}
+            deployments={wcRows(data["overseas-presence.json"])}
+            operations={wcRows(data["operations.json"])}
+            strikes={wcRows(data["drone-strikes.json"])}
+            personnel={defensePresence?.current || []}
+            construction={defensePresence?.construction || []}
+            personnelYear={defensePresence?.latestYear ?? null}
+          />
+          {loading ? (
+            <div className="pointer-events-none absolute left-1/2 top-4 z-40 -translate-x-1/2 rounded-full border border-slate-300/12 bg-[#07101b]/88 px-4 py-2 shadow-xl backdrop-blur-xl">
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-200"><Loader2 size={14} className="animate-spin text-cyan-200" />Syncing defense feeds…</div>
+            </div>
+          ) : null}
         </div>
       </section>
     </main>
