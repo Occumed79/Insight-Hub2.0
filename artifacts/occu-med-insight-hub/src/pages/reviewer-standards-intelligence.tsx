@@ -414,10 +414,13 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
   return (
     <label className="flex min-h-10 cursor-pointer items-center justify-between gap-3 py-2.5">
       <span className={`text-[12px] font-medium ${checked ? "text-white" : "text-slate-400"}`}>{label}</span>
-      <span className={`relative h-5 w-9 shrink-0 rounded-full border transition ${checked ? "border-cyan-200/30 bg-cyan-300/20" : "border-slate-300/12 bg-white/[.025]"}`}>
-        <input aria-label={label} type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="sr-only" />
-        <span className={`absolute top-0.5 h-3.5 w-3.5 rounded-full transition ${checked ? "left-[18px] bg-cyan-100" : "left-0.5 bg-slate-500"}`} />
-      </span>
+      <input
+        aria-label={label}
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-4 w-4 shrink-0 cursor-pointer accent-cyan-300"
+      />
     </label>
   );
 }
