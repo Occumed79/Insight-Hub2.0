@@ -155,14 +155,10 @@
   -webkit-backdrop-filter: blur(28px) saturate(1.06) !important;
 }
 
-/* The older core-intelligence pages inject a full-screen teal/blue/purple poster layer.
-   Suppress it so the content, not a background effect, carries the hierarchy. */
 .translucent-tool-page:is([data-tool-page="state-agencies"],[data-tool-page="federal-agencies"],[data-tool-page="competitors"]) .pointer-events-none.fixed.inset-0 {
   background: radial-gradient(ellipse at 16% 8%, rgba(20,184,166,.05), transparent 30%), #020817 !important;
 }
 
-/* State and federal intelligence panels become continuous workstation sections rather
-   than a stack of identical floating tiles. */
 .translucent-tool-page:is([data-tool-page="state-agencies"],[data-tool-page="federal-agencies"],[data-tool-page="competitors"]) main .glass-card {
   border-width: 0 0 1px !important;
   border-color: rgba(148,163,184,.10) !important;
@@ -178,8 +174,6 @@
   display: none !important;
 }
 
-/* Nested bordered content blocks are flattened across non-protected tool pages. This
-   preserves primary interactive surfaces while removing card-inside-card repetition. */
 .translucent-tool-page:not([data-tool-page="onet-master"]):not([data-tool-page="occupational-data-explorer"]) main div[class*="rounded-"][class*="border"] > div[class*="rounded-"][class*="border"],
 .translucent-tool-page:not([data-tool-page="onet-master"]):not([data-tool-page="occupational-data-explorer"]) main section[class*="rounded-"][class*="border"] > article[class*="rounded-"][class*="border"],
 .translucent-tool-page:not([data-tool-page="onet-master"]):not([data-tool-page="occupational-data-explorer"]) main section[class*="rounded-"][class*="border"] > div[class*="rounded-"][class*="border"] {
@@ -190,8 +184,6 @@
   box-shadow: none !important;
 }
 
-/* Reviewer routes are not wrapped by TranslucentToolPage, so neutralize the original
-   full aurora field here as well. The landing page remains untouched. */
 .reviewer-native-page.aurora-bg {
   background:
     radial-gradient(ellipse at 18% -8%, rgba(22,78,99,.14), transparent 34%),
@@ -211,6 +203,22 @@
 
 .reviewer-native-page.aurora-bg::after {
   opacity: .42 !important;
+}
+
+/* Native checkbox remains the full hit target for compact reviewer toggle rows. */
+.reviewer-native-page label:has(input[type="checkbox"].sr-only) {
+  position: relative;
+}
+
+.reviewer-native-page label:has(input[type="checkbox"].sr-only) input[type="checkbox"].sr-only {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 4 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  opacity: 0 !important;
+  cursor: pointer !important;
 }
 
 .dba-hub-route main > section > .glass-card.border-amber-200\/14 {
