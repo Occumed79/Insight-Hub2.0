@@ -19,12 +19,21 @@ jobs:
           ref: integrate-defense-health-map-layers
           fetch-depth: 0
 
-      - name: Merge current main, preserving hardened PR hunks on overlap
+      - name: Merge current main, preserving hardened PR ownership
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
+          PRE_MERGE="$(git rev-parse HEAD)"
           git merge --no-ff -X ours origin/main -m "Merge current main into PR #186"
+          # PR #186 owns the richer CDC destination/cache implementation and
+          # MapTiler synchronization. Restore those complete reviewed files after
+          # the merge so PR #187's narrower overlapping edits cannot create a
+          # semantically mixed implementation.
+          git checkout "$PRE_MERGE" -- artifacts/api-server/src/routes/aor-travel-health.ts
+          git checkout "$PRE_MERGE" -- artifacts/occu-med-insight-hub/src/pages/reviewer-aor-factors-v2.tsx
+          git add artifacts/api-server/src/routes/aor-travel-health.ts artifacts/occu-med-insight-hub/src/pages/reviewer-aor-factors-v2.tsx
+          git commit -m "Preserve hardened AOR ownership after main sync" || true
           rm -f .github/workflows/aor-sync-main-once.yml
           git add -A
           git diff --cached --check
@@ -33,7 +42,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
