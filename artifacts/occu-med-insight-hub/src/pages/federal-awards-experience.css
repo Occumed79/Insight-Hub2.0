@@ -3,9 +3,9 @@
   min-height: 100vh;
   overflow: hidden;
   background:
-    radial-gradient(circle at 78% 18%, rgba(72, 139, 255, .10), transparent 30rem),
-    radial-gradient(circle at 28% 74%, rgba(91, 197, 189, .06), transparent 30rem),
-    #06090d;
+    radial-gradient(ellipse at 77% 15%, rgba(65, 131, 238, .08), transparent 33rem),
+    radial-gradient(ellipse at 29% 78%, rgba(70, 190, 180, .045), transparent 32rem),
+    #05080c;
 }
 
 .federal-awards-timefield {
@@ -13,8 +13,8 @@
   position: fixed;
   inset: 0;
   z-index: 0;
-  opacity: .58;
-  background: repeating-linear-gradient(90deg, transparent 0 109px, rgba(122, 178, 255, .028) 110px 111px);
+  opacity: .46;
+  background: repeating-linear-gradient(90deg, transparent 0 119px, rgba(122, 178, 255, .022) 120px 121px);
   mask-image: linear-gradient(to bottom, #000 0 74%, transparent 92%);
 }
 
@@ -23,17 +23,17 @@
   left: 210px;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(107, 169, 255, .19), transparent);
+  background: linear-gradient(90deg, transparent, rgba(107, 169, 255, .14), transparent);
 }
 .federal-awards-band-a { top: 27%; }
-.federal-awards-band-b { top: 49%; opacity: .58; }
-.federal-awards-band-c { top: 71%; opacity: .34; }
+.federal-awards-band-b { top: 49%; opacity: .45; }
+.federal-awards-band-c { top: 71%; opacity: .26; }
 
 .federal-awards-experience > main,
 .federal-awards-experience main {
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, rgba(7, 11, 16, .92), rgba(5, 8, 12, .96)) !important;
+  background: linear-gradient(180deg, rgba(7, 10, 15, .93), rgba(4, 7, 10, .98)) !important;
 }
 
 .federal-awards-experience [class*="text-[8px]"],
@@ -43,25 +43,120 @@
 }
 
 .federal-awards-experience [class*="uppercase"] {
-  letter-spacing: .06em;
+  letter-spacing: .055em;
 }
 
 .federal-awards-experience button,
 .federal-awards-experience input,
 .federal-awards-experience select {
-  border-radius: 4px !important;
+  border-radius: 2px !important;
 }
 
 .federal-awards-experience [class*="rounded-xl"],
 .federal-awards-experience [class*="rounded-2xl"] {
-  border-radius: 7px !important;
+  border-radius: 4px !important;
 }
 
 .federal-awards-experience [class*="bg-white/[0.025]"],
 .federal-awards-experience [class*="bg-black/20"] {
-  background-color: rgba(5, 9, 14, .67) !important;
+  background-color: rgba(5, 9, 14, .68) !important;
 }
 
-.federal-awards-experience aside {
+@media (min-width: 1280px) {
+  .federal-awards-experience main > section > div.grid[class*="grid-cols-[270px"] {
+    grid-template-columns: 248px minmax(0,1fr) 430px !important;
+  }
+}
+
+.federal-awards-experience main > section > div.grid > aside {
   backdrop-filter: blur(18px);
+}
+
+.federal-awards-experience main > section > div.grid > aside:first-of-type {
+  background: linear-gradient(180deg, rgba(6, 10, 15, .97), rgba(4, 8, 12, .98)) !important;
+  border-right-color: rgba(94, 159, 224, .11) !important;
+}
+
+.federal-awards-experience main > section > div.grid > section {
+  position: relative;
+  background:
+    linear-gradient(rgba(112, 154, 211, .014) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(112, 154, 211, .011) 1px, transparent 1px),
+    #05090d !important;
+  background-size: 68px 68px, 68px 68px, auto;
+}
+
+/* Existing award rows become one continuous value/time stream. */
+.federal-awards-experience [class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"] {
+  position: relative;
+}
+
+.federal-awards-experience button[class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"] {
+  min-height: 70px;
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+  border-bottom-color: rgba(108, 153, 202, .07) !important;
+  background: transparent !important;
+}
+
+.federal-awards-experience button[class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"]::before {
+  content: "";
+  position: absolute;
+  right: 112px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(105, 165, 220, .105);
+}
+
+.federal-awards-experience button[class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"]::after {
+  content: "";
+  position: absolute;
+  right: 108px;
+  top: 27px;
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgba(125, 196, 244, .4);
+  border-radius: 50%;
+  background: #061019;
+  box-shadow: 0 0 0 4px rgba(72, 166, 225, .025);
+  transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
+}
+
+.federal-awards-experience button[class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"]:hover::after {
+  background: rgba(74, 179, 238, .24);
+  box-shadow: 0 0 18px rgba(73, 177, 237, .12);
+}
+
+.federal-awards-experience button[class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"][class*="bg-sky-400"] {
+  background: linear-gradient(90deg, rgba(55, 145, 211, .055), rgba(55, 145, 211, .014) 68%, transparent) !important;
+  box-shadow: inset 2px 0 rgba(93, 190, 244, .54);
+}
+
+.federal-awards-experience button[class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"][class*="bg-sky-400"]::after {
+  transform: scale(1.24);
+  border-color: rgba(182, 229, 255, .88);
+  background: #5bc3fb;
+  box-shadow: 0 0 0 5px rgba(91, 195, 251, .05), 0 0 22px rgba(91, 195, 251, .18);
+}
+
+/* The summary strip becomes a thin live readout rather than four hero cards. */
+.federal-awards-experience main > section > div.grid > section > div[class*="grid-cols-4"] {
+  min-height: 58px;
+  background: rgba(6, 10, 15, .94) !important;
+  border-bottom-color: rgba(100, 154, 211, .1) !important;
+}
+
+.federal-awards-experience main > section > div.grid > aside:last-of-type {
+  border-left-color: rgba(89, 196, 184, .12) !important;
+  background: linear-gradient(180deg, rgba(7, 13, 16, .98), rgba(5, 9, 12, .99)) !important;
+  box-shadow: -28px 0 80px rgba(0,0,0,.22);
+}
+
+.federal-awards-experience a[target="_blank"] {
+  text-underline-offset: 3px;
+}
+
+.federal-awards-experience ::selection {
+  background: rgba(81, 166, 226, .2);
 }

@@ -3,9 +3,9 @@
   min-height: 100vh;
   overflow: hidden;
   background:
-    radial-gradient(circle at 74% 16%, rgba(117, 111, 255, .13), transparent 28rem),
-    radial-gradient(circle at 36% 76%, rgba(59, 203, 214, .08), transparent 30rem),
-    #05060b;
+    radial-gradient(ellipse at 72% 14%, rgba(112, 96, 255, .12), transparent 34rem),
+    radial-gradient(ellipse at 34% 78%, rgba(47, 204, 220, .075), transparent 32rem),
+    #040509;
 }
 
 .leadership-topology-field {
@@ -13,31 +13,31 @@
   position: fixed;
   inset: 0;
   z-index: 0;
-  opacity: .68;
+  opacity: .52;
   background:
-    linear-gradient(rgba(155, 164, 255, .018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(155, 164, 255, .014) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: radial-gradient(circle at 58% 48%, #000, rgba(0,0,0,.65) 54%, transparent 88%);
+    linear-gradient(rgba(155, 164, 255, .017) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(155, 164, 255, .013) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(ellipse at 58% 47%, #000, rgba(0,0,0,.62) 56%, transparent 90%);
 }
 
 .leadership-orbit {
   position: absolute;
-  border: 1px solid rgba(164, 149, 255, .13);
+  border: 1px solid rgba(164, 149, 255, .105);
   border-radius: 50%;
   transform: rotate(-11deg);
 }
-.leadership-orbit-one { width: 52vw; height: 28vw; left: 34%; top: 17%; }
-.leadership-orbit-two { width: 42vw; height: 22vw; left: 24%; top: 54%; opacity: .55; transform: rotate(17deg); }
+.leadership-orbit-one { width: 54vw; height: 27vw; left: 33%; top: 17%; }
+.leadership-orbit-two { width: 43vw; height: 21vw; left: 25%; top: 55%; opacity: .42; transform: rotate(17deg); }
 
 .leadership-node {
   position: absolute;
-  width: 8px;
-  height: 8px;
-  border: 1px solid rgba(199, 196, 255, .72);
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(199, 196, 255, .68);
   border-radius: 50%;
   background: rgba(113, 212, 226, .72);
-  box-shadow: 0 0 24px rgba(117, 205, 229, .34), 0 0 0 8px rgba(113, 212, 226, .025);
+  box-shadow: 0 0 22px rgba(117, 205, 229, .3), 0 0 0 7px rgba(113, 212, 226, .02);
 }
 .leadership-node-one { top: 28%; left: 52%; }
 .leadership-node-two { top: 48%; left: 74%; }
@@ -61,14 +61,14 @@
 }
 
 .leadership-map-experience [class*="uppercase"] {
-  letter-spacing: .065em;
+  letter-spacing: .06em;
 }
 
 .leadership-map-experience button,
 .leadership-map-experience input,
 .leadership-map-experience select,
 .leadership-map-experience textarea {
-  border-radius: 5px !important;
+  border-radius: 4px !important;
 }
 
 .leadership-map-experience svg {
@@ -76,7 +76,7 @@
 }
 
 .leadership-map-experience [class*="border-y"] {
-  border-color: rgba(170, 170, 255, .12) !important;
+  border-color: rgba(170, 170, 255, .105) !important;
 }
 
 .leadership-map-experience [class*="2xl:grid-cols-[minmax(0,1fr)_360px]"] {
@@ -84,18 +84,99 @@
 }
 
 .leadership-map-experience aside.sticky {
-  background: linear-gradient(180deg, rgba(10, 11, 20, .86), rgba(7, 9, 14, .88));
+  background: linear-gradient(180deg, rgba(8, 9, 17, .9), rgba(5, 7, 12, .92));
   border-color: rgba(158, 157, 235, .13) !important;
   backdrop-filter: blur(24px);
-  box-shadow: -22px 0 54px rgba(0, 0, 0, .18);
+  box-shadow: -24px 0 64px rgba(0, 0, 0, .2);
 }
 
 .leadership-map-experience [class*="bg-black/10"],
 .leadership-map-experience [class*="bg-black/16"],
 .leadership-map-experience [class*="bg-black/20"] {
-  background-color: rgba(5, 7, 12, .68) !important;
+  background-color: rgba(5, 7, 12, .7) !important;
 }
 
-.leadership-map-experience [class*="rounded-xl"] {
-  border-radius: 6px !important;
+/* The topology is the application: make the real hierarchy canvas read as a
+   spatial instrument instead of a collection of profile cards. */
+.leadership-map-experience [data-testid="organizational-topology"] {
+  min-height: 690px;
+  border: 1px solid rgba(157, 170, 255, .11) !important;
+  border-left-color: rgba(88, 220, 229, .16) !important;
+  background:
+    radial-gradient(circle at 52% 22%, rgba(98, 105, 255, .075), transparent 30%),
+    radial-gradient(circle at 48% 74%, rgba(45, 211, 222, .055), transparent 34%),
+    #030509 !important;
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, .36), 0 30px 80px rgba(0, 0, 0, .28);
+}
+
+.leadership-map-experience [data-testid="organizational-topology"] > div.sticky {
+  min-height: 52px;
+  background: rgba(5, 7, 13, .92) !important;
+  border-bottom-color: rgba(153, 168, 255, .10) !important;
+  backdrop-filter: blur(18px);
+}
+
+.leadership-map-experience [data-testid="organizational-topology"] > div.relative {
+  background:
+    linear-gradient(rgba(137, 161, 226, .022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(137, 161, 226, .018) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+.leadership-map-experience [data-testid="organizational-topology"] button.group.absolute {
+  width: 190px !important;
+  transform-origin: center;
+}
+
+.leadership-map-experience [data-testid="organizational-topology"] button.group.absolute > div {
+  min-height: 104px;
+  overflow: visible !important;
+  border: 0 !important;
+  border-left: 2px solid rgba(127, 224, 235, .28) !important;
+  border-radius: 2px !important;
+  padding: 10px 12px !important;
+  background: linear-gradient(90deg, rgba(9, 13, 22, .94), rgba(7, 9, 16, .76) 72%, rgba(7, 9, 16, .3)) !important;
+  box-shadow: 14px 18px 38px rgba(0,0,0,.2) !important;
+  backdrop-filter: blur(14px);
+}
+
+.leadership-map-experience [data-testid="organizational-topology"] button.group.absolute:hover > div {
+  border-left-color: rgba(127, 224, 235, .62) !important;
+  background: linear-gradient(90deg, rgba(10, 17, 27, .97), rgba(8, 11, 19, .82) 72%, rgba(8, 11, 19, .36)) !important;
+}
+
+.leadership-map-experience [data-testid="organizational-topology"] button.group.absolute.z-20 > div {
+  border-left-color: rgba(115, 238, 245, .92) !important;
+  background: linear-gradient(90deg, rgba(12, 25, 35, .98), rgba(11, 13, 27, .88) 76%, rgba(11, 13, 27, .4)) !important;
+  box-shadow: 0 0 0 1px rgba(112, 224, 239, .08), 0 0 46px rgba(71, 210, 226, .12) !important;
+}
+
+.leadership-map-experience [data-testid="organizational-topology"] button.group.absolute > div > div:first-of-type > span:first-child {
+  width: 27px !important;
+  height: 27px !important;
+  border-radius: 50% !important;
+  background: rgba(92, 214, 228, .045) !important;
+}
+
+.leadership-map-experience [data-testid="organizational-topology"] button.group.absolute h3 {
+  margin-top: 3px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
+  letter-spacing: -.015em;
+}
+
+.leadership-map-experience [data-testid="organizational-topology"] button.group.absolute p {
+  line-height: 15px;
+}
+
+.leadership-map-experience [data-testid="organizational-topology"] svg path {
+  transition: stroke .2s ease, stroke-width .2s ease, opacity .2s ease;
+}
+
+.leadership-map-experience [data-testid="organizational-topology"] svg {
+  filter: drop-shadow(0 0 5px rgba(75, 214, 230, .055));
+}
+
+.leadership-map-experience ::selection {
+  background: rgba(118, 222, 235, .22);
 }

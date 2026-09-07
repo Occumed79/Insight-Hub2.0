@@ -3,7 +3,8 @@
   min-height: 100vh;
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(5, 9, 15, .98), rgba(4, 7, 11, 1));
+    radial-gradient(ellipse at 72% 12%, rgba(63, 153, 232, .08), transparent 32rem),
+    linear-gradient(180deg, rgba(5, 9, 15, .99), rgba(3, 6, 10, 1));
   color: #eef6ff;
 }
 
@@ -12,12 +13,12 @@
   position: fixed;
   inset: 0;
   z-index: 0;
-  opacity: .62;
+  opacity: .48;
   background:
-    linear-gradient(rgba(120, 189, 255, .035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(120, 189, 255, .025) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.22) 74%, transparent);
+    linear-gradient(rgba(120, 189, 255, .028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 189, 255, .02) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.86), rgba(0,0,0,.18) 78%, transparent);
 }
 
 .sec-filings-axis {
@@ -25,54 +26,60 @@
   left: 210px;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(124, 197, 255, .24), transparent);
+  background: linear-gradient(90deg, transparent, rgba(124, 197, 255, .18), transparent);
 }
 
 .sec-filings-axis::after {
   content: "";
   position: absolute;
   inset: -4px 0;
-  background: repeating-linear-gradient(90deg, transparent 0 83px, rgba(151, 210, 255, .17) 84px 85px);
+  background: repeating-linear-gradient(90deg, transparent 0 95px, rgba(151, 210, 255, .12) 96px 97px);
 }
 
 .sec-filings-axis-a { top: 31vh; }
-.sec-filings-axis-b { top: 67vh; opacity: .42; }
+.sec-filings-axis-b { top: 67vh; opacity: .34; }
 
 .sec-filings-trace {
   position: absolute;
-  left: 30%;
-  top: 11%;
+  left: 31%;
+  top: 10%;
   width: 52vw;
-  height: 42vh;
-  border-top: 1px solid rgba(79, 183, 255, .16);
-  border-right: 1px solid rgba(79, 183, 255, .07);
+  height: 41vh;
+  border-top: 1px solid rgba(79, 183, 255, .12);
+  border-right: 1px solid rgba(79, 183, 255, .05);
   transform: skewY(-7deg);
-  filter: drop-shadow(0 0 18px rgba(70, 170, 255, .08));
+  filter: drop-shadow(0 0 16px rgba(70, 170, 255, .05));
 }
 
 .sec-filings-experience > main,
 .sec-filings-experience .reviewer-native-page {
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, rgba(8, 12, 18, .90), rgba(5, 8, 12, .96)) !important;
+  background: linear-gradient(180deg, rgba(8, 12, 18, .91), rgba(5, 8, 12, .97)) !important;
 }
 
 .sec-filings-experience .reviewer-native-page > section {
   background: transparent !important;
 }
 
+@media (min-width: 1280px) {
+  .sec-filings-experience .reviewer-native-page > section > .grid {
+    grid-template-columns: 252px minmax(0,1fr) 430px !important;
+  }
+}
+
 .sec-filings-experience .reviewer-native-page > section > .grid {
-  border-color: rgba(131, 188, 233, .14) !important;
-  box-shadow: 0 34px 110px rgba(0, 0, 0, .34);
+  border-color: rgba(131, 188, 233, .13) !important;
+  box-shadow: 0 36px 120px rgba(0, 0, 0, .36);
 }
 
 .sec-filings-experience aside {
-  background: rgba(8, 12, 18, .91) !important;
-  backdrop-filter: blur(22px);
+  background: rgba(7, 11, 17, .94) !important;
+  backdrop-filter: blur(20px);
 }
 
 .sec-filings-experience .reviewer-native-page > section > .grid > section {
-  background: rgba(6, 10, 15, .78) !important;
+  background: rgba(4, 8, 13, .83) !important;
 }
 
 .sec-filings-experience [class*="text-[8px]"],
@@ -82,33 +89,92 @@
 }
 
 .sec-filings-experience [class*="uppercase"] {
-  letter-spacing: .06em;
+  letter-spacing: .055em;
 }
 
-.sec-filings-experience button {
-  border-radius: 4px !important;
-}
-
+.sec-filings-experience button,
 .sec-filings-experience input,
 .sec-filings-experience select {
-  border-radius: 3px !important;
+  border-radius: 2px !important;
 }
 
+/* The filing stream is rendered as a real chronological rail. Dates and
+   filing events align to one continuous spine; selection becomes a document
+   event focus instead of another highlighted row. */
 .sec-filings-experience [class*="grid-cols-[78px_92px"] {
   position: relative;
+  min-height: 66px;
+  padding-top: 13px !important;
+  padding-bottom: 13px !important;
+  border-bottom-color: rgba(130, 173, 209, .07) !important;
+  background: transparent !important;
 }
 
 .sec-filings-experience [class*="grid-cols-[78px_92px"]::before {
   content: "";
   position: absolute;
-  left: 84px;
+  left: 85px;
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(120, 190, 255, .055);
+  background: rgba(112, 184, 236, .12);
+}
+
+.sec-filings-experience [class*="grid-cols-[78px_92px"]::after {
+  content: "";
+  position: absolute;
+  left: 81px;
+  top: 24px;
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgba(151, 210, 255, .38);
+  border-radius: 50%;
+  background: #07111a;
+  box-shadow: 0 0 0 4px rgba(85, 176, 239, .025);
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.sec-filings-experience [class*="grid-cols-[78px_92px"]:hover::after {
+  border-color: rgba(173, 224, 255, .7);
+  background: rgba(77, 180, 245, .22);
+  box-shadow: 0 0 18px rgba(74, 178, 245, .12);
+}
+
+.sec-filings-experience [class*="grid-cols-[78px_92px"][class*="bg-sky-400"] {
+  background: linear-gradient(90deg, rgba(44, 145, 216, .075), rgba(44, 145, 216, .018) 66%, transparent) !important;
+  box-shadow: inset 2px 0 rgba(99, 196, 255, .58);
+}
+
+.sec-filings-experience [class*="grid-cols-[78px_92px"][class*="bg-sky-400"]::after {
+  transform: scale(1.28);
+  border-color: rgba(196, 235, 255, .9);
+  background: #62c7ff;
+  box-shadow: 0 0 0 5px rgba(98, 199, 255, .055), 0 0 24px rgba(83, 190, 255, .22);
+}
+
+.sec-filings-experience [class*="grid-cols-[78px_92px"] > span:first-child {
+  padding-left: 2px;
+  font-size: 12px !important;
+  letter-spacing: -.01em;
+}
+
+.sec-filings-experience [class*="grid-cols-[78px_92px"] > span:first-child + span {
+  padding-left: 15px;
+  color: rgba(169, 185, 200, .62) !important;
+}
+
+.sec-filings-experience .reviewer-native-page > section > .grid > aside:last-child {
+  border-left-color: rgba(112, 184, 236, .14) !important;
+  background:
+    linear-gradient(180deg, rgba(9, 14, 21, .97), rgba(5, 9, 14, .96)) !important;
+  box-shadow: -24px 0 80px rgba(0,0,0,.22);
 }
 
 .sec-filings-experience a[target="_blank"] {
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
+}
+
+.sec-filings-experience ::selection {
+  background: rgba(84, 184, 248, .22);
 }

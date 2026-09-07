@@ -3,9 +3,9 @@
   min-height: 100vh;
   overflow: hidden;
   background:
-    radial-gradient(circle at 76% 18%, rgba(89, 161, 255, .10), transparent 31rem),
-    radial-gradient(circle at 28% 78%, rgba(141, 106, 255, .08), transparent 30rem),
-    #06080c;
+    radial-gradient(ellipse at 77% 15%, rgba(78, 149, 255, .085), transparent 34rem),
+    radial-gradient(ellipse at 31% 82%, rgba(136, 101, 255, .055), transparent 32rem),
+    #05070a;
 }
 
 .industry-impact-field {
@@ -13,23 +13,23 @@
   position: fixed;
   inset: 0;
   z-index: 0;
-  opacity: .6;
-  perspective: 900px;
+  opacity: .46;
+  perspective: 1000px;
 }
 
 .impact-surface {
   position: absolute;
   left: 210px;
-  right: -8vw;
-  bottom: -22vh;
-  height: 62vh;
-  transform: rotateX(64deg) translateZ(-40px);
+  right: -9vw;
+  bottom: -24vh;
+  height: 65vh;
+  transform: rotateX(65deg) translateZ(-42px);
   transform-origin: center bottom;
   background:
-    linear-gradient(rgba(117, 169, 255, .06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(117, 169, 255, .045) 1px, transparent 1px);
-  background-size: 54px 54px;
-  mask-image: linear-gradient(to top, #000 20%, rgba(0,0,0,.52) 58%, transparent 100%);
+    linear-gradient(rgba(117, 169, 255, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(117, 169, 255, .033) 1px, transparent 1px);
+  background-size: 62px 62px;
+  mask-image: linear-gradient(to top, #000 18%, rgba(0,0,0,.44) 60%, transparent 100%);
 }
 
 .impact-horizon {
@@ -37,16 +37,16 @@
   left: 210px;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(119, 174, 255, .19), rgba(160, 118, 255, .18), transparent);
+  background: linear-gradient(90deg, transparent, rgba(119, 174, 255, .15), rgba(160, 118, 255, .14), transparent);
 }
 .impact-horizon-one { top: 36%; }
-.impact-horizon-two { top: 62%; opacity: .45; }
+.impact-horizon-two { top: 62%; opacity: .36; }
 
 .industry-impact-experience > main,
 .industry-impact-experience main {
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, rgba(7, 10, 15, .91), rgba(5, 8, 12, .96)) !important;
+  background: linear-gradient(180deg, rgba(6, 9, 13, .93), rgba(4, 7, 10, .97)) !important;
 }
 
 .industry-impact-experience [class*="text-[8px]"],
@@ -62,25 +62,120 @@
 .industry-impact-experience button,
 .industry-impact-experience input,
 .industry-impact-experience select {
-  border-radius: 4px !important;
+  border-radius: 3px !important;
 }
 
 .industry-impact-experience [class*="rounded-2xl"],
 .industry-impact-experience [class*="rounded-[24px]"],
 .industry-impact-experience [class*="rounded-[28px]"] {
-  border-radius: 10px !important;
+  border-radius: 6px !important;
 }
 
 .industry-impact-experience [class*="bg-white/[0.025]"],
 .industry-impact-experience [class*="bg-white/[0.03]"] {
-  background-color: rgba(255,255,255,.018) !important;
+  background-color: rgba(255,255,255,.014) !important;
 }
 
 .industry-impact-experience input[type="range"] {
   accent-color: #86a8ff;
 }
 
+@media (min-width: 1536px) {
+  .industry-impact-experience main > section > div.grid {
+    grid-template-columns: 330px minmax(0,1fr) !important;
+  }
+}
+
+/* Assumptions remain a control console while the right side becomes one
+   continuous response field instead of a stack of unrelated dashboard cards. */
+.industry-impact-experience main aside {
+  background: linear-gradient(180deg, rgba(5, 9, 14, .98), rgba(4, 7, 11, .98)) !important;
+  border-right-color: rgba(111, 152, 218, .12) !important;
+  box-shadow: 24px 0 72px rgba(0,0,0,.18);
+}
+
+.industry-impact-experience main aside section {
+  position: relative;
+  border-bottom-color: rgba(115, 151, 205, .075) !important;
+}
+
+.industry-impact-experience main aside section::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 24px;
+  width: 2px;
+  height: 26px;
+  background: linear-gradient(to bottom, rgba(111, 164, 245, .4), rgba(111, 164, 245, .03));
+}
+
+.industry-impact-experience main div.min-w-0 {
+  position: relative;
+  background:
+    radial-gradient(circle at 68% 12%, rgba(83, 139, 225, .05), transparent 26%),
+    linear-gradient(rgba(127, 153, 205, .015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(127, 153, 205, .011) 1px, transparent 1px);
+  background-size: auto, 72px 72px, 72px 72px;
+}
+
+.industry-impact-experience main div.min-w-0::before {
+  content: "LIVE SCENARIO FIELD";
+  position: absolute;
+  right: 28px;
+  top: 17px;
+  z-index: 2;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  color: rgba(143, 174, 226, .28);
+}
+
+.industry-impact-experience main div.min-w-0 > section {
+  position: relative;
+  margin-top: 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(119, 151, 205, .08) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.industry-impact-experience main div.min-w-0 > section > div[class*="border-b"] {
+  border-bottom-color: rgba(119, 151, 205, .075) !important;
+  background: linear-gradient(90deg, rgba(78, 126, 205, .028), transparent 72%);
+}
+
+.industry-impact-experience main div.min-w-0 > section [class*="grid sm:grid-cols"] > div {
+  position: relative;
+  min-height: 116px;
+  border-right-color: rgba(119, 151, 205, .075) !important;
+  background: transparent !important;
+}
+
+.industry-impact-experience main div.min-w-0 > section [class*="grid sm:grid-cols"] > div::after {
+  content: "";
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(117, 165, 236, .12), transparent);
+}
+
+.industry-impact-experience main div.min-w-0 > section [class*="text-2xl"] {
+  font-size: 30px !important;
+  letter-spacing: -.04em !important;
+}
+
+.industry-impact-experience main div.min-w-0 svg {
+  filter: drop-shadow(0 0 11px rgba(108, 156, 255, .08));
+}
+
 .industry-impact-experience table {
   border-collapse: separate;
   border-spacing: 0;
+}
+
+.industry-impact-experience ::selection {
+  background: rgba(115, 151, 245, .2);
 }
