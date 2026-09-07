@@ -1,72 +1,70 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Globe2, Loader2, RefreshCw, ShipWheel } from "lucide-react";
+import { Building2, Loader2, RefreshCw, Search, Users } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
-import { GlassCard } from "@/components/insight/GlassCard";
 import { WarCostsWorkspaceNav } from "@/components/insight/WarCostsWorkspaceNav";
 import { getWarCostsDataset, type WarCostsDatasetResponse } from "@/data/warCostsApi";
-import { wcConflictName, wcNumber, wcRows, wcText, type WarCostsRow } from "./war-costs-utils";
+import { wcNumber, wcRows, wcText, type WarCostsRow } from "./war-costs-utils";
 
-type Tool = "countries" | "naval" | "regional";
+type Tool = "installations" | "personnel" | "service-prompts";
 
-const DATASETS = ["base-countries.json", "overseas-presence.json", "operations.json", "conflicts.json"] as const;
+type DefensePresence = {
+  ok: boolean;
+  partial?: boolean;
+  latestYear?: number | null;
+  current?: WarCostsRow[];
+  construction?: WarCostsRow[];
+  warnings?: string[];
+};
 
-const TOOLS: Array<{ key: Tool; label: string; note: string; icon: typeof Globe2 }> = [
-  { key: "countries", label: "Country Footprint", note: "Installations and personnel context", icon: Globe2 },
-  { key: "naval", label: "Naval Context", note: "Maritime deployment records", icon: ShipWheel },
-  { key: "regional", label: "Regional Instability", note: "Conflict and operational context", icon: Activity },
+const TOOLS: Array<{ key: Tool; label: string; note: string; icon: typeof Building2 }> = [
+  { key: "installations", label: "Installation Explorer", note: "Search sites by country, type and status", icon: Building2 },
+  { key: "personnel", label: "Personnel Detail", note: "Branch composition by country", icon: Users },
+  { key: "service-prompts", label: "Medical Planning Prompts", note: "Translate footprint evidence into review questions", icon: Search },
 ];
 
-function place(row: WarCostsRow) {
-  return wcText(row, "country", "countryName", "location", "region", "hostCountry", "aor");
+async function getDefensePresence(force = false): Promise<DefensePresence> {
+  const response = await fetch(`/api/war-costs/defense-presence${force ? "?refresh=1" : ""}`, { headers: { Accept: "application/json" }, cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok && !payload?.partial) throw new Error(payload?.error || `Defense-presence request failed (${response.status}).`);
+  return payload;
 }
 
-function CountryFootprint({ countries, deployments }: { countries: WarCostsRow[]; deployments: WarCostsRow[] }) {
+function nation(row: WarCostsRow): string {
+  return wcText(row, "country", "countryName", "hostCountry", "location") || "Unknown";
+}
+
+function InstallationExplorer({ rows }: { rows: WarCostsRow[] }) {
   const [query, setQuery] = useState("");
-  const merged = useMemo(() => {
-    const map = new Map<string, { country: string; bases: number; personnel: number; records: number }>();
-    for (const row of countries) {
-      const country = place(row) || wcText(row, "name");
-      if (!country) continue;
-      map.set(country, {
-        country,
-        bases: wcNumber(row, "bases", "baseCount", "installations", "count"),
-        personnel: wcNumber(row, "personnel", "troops"),
-        records: 1,
-      });
-    }
-    for (const row of deployments) {
-      const country = place(row);
-      if (!country) continue;
-      const current = map.get(country) || { country, bases: 0, personnel: 0, records: 0 };
-      current.personnel = Math.max(current.personnel, wcNumber(row, "personnel", "troops", "count"));
-      current.records += 1;
-      map.set(country, current);
-    }
+  const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return [...map.values()].filter((item) => !needle || item.country.toLowerCase().includes(needle)).sort((a, b) => (b.personnel + b.bases * 100) - (a.personnel + a.bases * 100));
-  }, [countries, deployments, query]);
-
-  return <GlassCard className="p-5"><h3 className="text-lg font-black">Country Defense Footprint</h3><p className="mt-1 text-xs text-cyan-100/42">Country-level installation and personnel context.</p><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search country…" className="mt-4 min-h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm outline-none" /><div className="mt-4 overflow-x-auto"><table className="w-full min-w-[680px] text-left text-xs"><thead className="text-[9px] uppercase tracking-wider text-cyan-100/35"><tr><th className="p-2">Country</th><th className="p-2">Installations</th><th className="p-2">Personnel signal</th><th className="p-2">Source records</th></tr></thead><tbody>{merged.map((item) => <tr key={item.country} className="border-t border-white/7"><td className="p-2 font-bold">{item.country}</td><td className="p-2">{item.bases || "—"}</td><td className="p-2">{item.personnel ? item.personnel.toLocaleString() : "—"}</td><td className="p-2">{item.records}</td></tr>)}</tbody></table></div></GlassCard>;
+    return rows.filter((row) => !needle || JSON.stringify(row).toLowerCase().includes(needle)).sort((a, b) => nation(a).localeCompare(nation(b)) || wcText(a, "name", "baseName", "installation").localeCompare(wcText(b, "name", "baseName", "installation")));
+  }, [query, rows]);
+  return <section className="border border-white/10 bg-[#080c12]"><header className="border-b border-white/10 p-5"><p className="text-[10px] font-black uppercase tracking-[.15em] text-slate-500">Installation explorer</p><h2 className="mt-1 text-xl font-black text-white">Defense sites that may require medical-network support</h2><p className="mt-2 text-xs leading-6 text-slate-400">This view is for geography and site-context research. It does not assume an Occu-Med relationship or demand level.</p><div className="mt-4 flex min-h-11 items-center gap-2 border border-white/10 bg-black/25 px-3"><Search size={15} className="text-slate-500" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search installation, country, city, type, status…" className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600" /><span className="text-[10px] font-black text-slate-500">{visible.length}</span></div></header><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-xs"><thead className="border-b border-white/8 text-[9px] uppercase tracking-[.12em] text-slate-500"><tr><th className="p-3">Installation</th><th className="p-3">Country</th><th className="p-3">City / location</th><th className="p-3">Type</th><th className="p-3">Status</th><th className="p-3">Planning use</th></tr></thead><tbody>{visible.slice(0, 240).map((row, index) => <tr key={`${wcText(row, "name", "baseName", "installation")}-${index}`} className="border-b border-white/[.055]"><td className="p-3 font-black text-white">{wcText(row, "name", "baseName", "installation", "site", "facility") || `Installation ${index + 1}`}</td><td className="p-3 text-slate-300">{nation(row)}</td><td className="p-3 text-slate-400">{wcText(row, "city", "location", "state") || "—"}</td><td className="p-3 text-slate-400">{wcText(row, "type", "baseType", "category") || "—"}</td><td className="p-3 text-slate-400">{wcText(row, "status") || "—"}</td><td className="p-3 text-[11px] leading-5 text-slate-500">Check contractor/client footprint and nearby fixed provider capacity.</td></tr>)}</tbody></table></div></section>;
 }
 
-function NavalContext({ deployments, operations }: { deployments: WarCostsRow[]; operations: WarCostsRow[] }) {
-  const keyword = /(navy|naval|carrier|fleet|warship|ship|maritime|red sea|arabian sea|persian gulf|strait|sea of oman|mediterranean)/i;
-  const rows = useMemo(() => [...deployments, ...operations].filter((row) => keyword.test(JSON.stringify(row))).slice(0, 180), [deployments, operations]);
-  return <GlassCard className="p-5"><h3 className="text-lg font-black">Naval Deployment Context</h3><p className="mt-1 text-xs text-cyan-100/42">Maritime deployment and naval operational records remain available as an approved defense-intelligence category.</p><div className="mt-4 divide-y divide-white/7">{rows.map((row, index) => <div key={`${place(row)}-${index}`} className="grid gap-2 py-3 md:grid-cols-[1fr_220px_100px] text-xs"><strong>{wcText(row, "name", "title", "operation", "deployment") || `Naval record ${index + 1}`}</strong><span className="text-cyan-100/45">{place(row) || "—"}</span><span>{wcNumber(row, "year") || "—"}</span></div>)}</div></GlassCard>;
+function PersonnelDetail({ rows, year }: { rows: WarCostsRow[]; year?: number | null }) {
+  const sorted = useMemo(() => [...rows].filter((row) => wcNumber(row, "personnel", "troops") > 0).sort((a, b) => wcNumber(b, "personnel", "troops") - wcNumber(a, "personnel", "troops")), [rows]);
+  return <section className="border border-white/10 bg-[#080c12]"><header className="border-b border-white/10 p-5"><p className="text-[10px] font-black uppercase tracking-[.15em] text-slate-500">Personnel detail</p><h2 className="mt-1 text-xl font-black text-white">Country-level personnel composition</h2><p className="mt-2 text-xs leading-6 text-slate-400">Personnel counts are context for where network depth may matter; they are not contractor counts, referral forecasts, or Occu-Med volume estimates.{year ? ` Dataset year: ${year}.` : ""}</p></header><div className="overflow-x-auto"><table className="w-full min-w-[820px] text-left text-xs"><thead className="border-b border-white/8 text-[9px] uppercase tracking-[.12em] text-slate-500"><tr><th className="p-3">Country</th><th className="p-3 text-right">Total</th><th className="p-3 text-right">Army</th><th className="p-3 text-right">Navy</th><th className="p-3 text-right">Air Force</th><th className="p-3 text-right">Marines</th></tr></thead><tbody>{sorted.slice(0, 180).map((row, index) => <tr key={`${nation(row)}-${index}`} className="border-b border-white/[.055]"><td className="p-3 font-black text-white">{nation(row)}</td><td className="p-3 text-right font-black text-slate-200">{wcNumber(row, "personnel", "troops").toLocaleString()}</td><td className="p-3 text-right text-slate-400">{wcNumber(row, "army") ? wcNumber(row, "army").toLocaleString() : "—"}</td><td className="p-3 text-right text-slate-400">{wcNumber(row, "navy") ? wcNumber(row, "navy").toLocaleString() : "—"}</td><td className="p-3 text-right text-slate-400">{wcNumber(row, "airForce", "air_force") ? wcNumber(row, "airForce", "air_force").toLocaleString() : "—"}</td><td className="p-3 text-right text-slate-400">{wcNumber(row, "marines", "marineCorps") ? wcNumber(row, "marines", "marineCorps").toLocaleString() : "—"}</td></tr>)}</tbody></table></div></section>;
 }
 
-function RegionalInstability({ conflicts, operations }: { conflicts: WarCostsRow[]; operations: WarCostsRow[] }) {
-  const rows = useMemo(() => [
-    ...conflicts.map((row) => ({ year: wcNumber(row, "startYear", "year"), title: wcConflictName(row), location: place(row), type: "Conflict" })),
-    ...operations.map((row) => ({ year: wcNumber(row, "year", "startYear"), title: wcText(row, "name", "title", "operation") || "Operation", location: place(row), type: "Operation" })),
-  ].filter((item) => item.year >= 2001).sort((a, b) => b.year - a.year), [conflicts, operations]);
-  return <GlassCard className="p-5"><h3 className="text-lg font-black">Regional Instability Context</h3><p className="mt-1 text-xs text-cyan-100/42">Operational and conflict chronology for regional context. Covert-operations content is excluded.</p><div className="mt-4 divide-y divide-white/7">{rows.slice(0, 180).map((item, index) => <div key={`${item.year}-${item.title}-${index}`} className="grid gap-2 py-3 md:grid-cols-[80px_100px_1fr_200px] text-xs"><strong>{item.year}</strong><span className="text-rose-100/55">{item.type}</span><strong>{item.title}</strong><span className="text-cyan-100/45">{item.location || "—"}</span></div>)}</div></GlassCard>;
+function MedicalPlanningPrompts() {
+  const prompts = [
+    ["Provider density", "Are there fixed clinics close enough to likely contractor duty locations to support routine referrals without excessive travel?"],
+    ["Core exam capability", "Can local providers complete pre-placement / annual physicals, ECG, labs, vision, and basic diagnostics at one site or through a reliable referral chain?"],
+    ["Specialty gaps", "Are audiology, PFT/spirometry, chest X-ray, treadmill stress testing, dental evaluation, vaccines, and travel-health services locally available?"],
+    ["Result quality", "Can providers deliver records in English, with the forms, test parameters, turnaround, and documentation quality required by the client program?"],
+    ["Commercial workflow", "Will the provider accept direct referral, self-pay / invoicing, and Occu-Med’s documentation workflow without acting as a TPA or employment-clearance authority?"],
+    ["Expansion timing", "If a defense site is expanding, should provider recruitment begin before contractor staffing and medical demand materialize?"],
+    ["Redundancy", "Is there a second usable provider or referral path if the primary site becomes unavailable, refuses a service, or cannot meet turnaround?"],
+  ];
+  return <section className="border border-white/10 bg-[#080c12]"><header className="border-b border-white/10 p-5"><p className="text-[10px] font-black uppercase tracking-[.15em] text-slate-500">Medical planning prompts</p><h2 className="mt-1 text-xl font-black text-white">Questions that footprint data should trigger</h2><p className="mt-2 text-xs leading-6 text-slate-400">These are review prompts, not modeled outputs. They convert installation, personnel, and expansion evidence into the next network-management questions.</p></header><div className="divide-y divide-white/[.06]">{prompts.map(([label, prompt], index) => <div key={label} className="grid grid-cols-[42px_170px_1fr] gap-4 p-4"><span className="text-[10px] font-black text-slate-600">{String(index + 1).padStart(2, "0")}</span><strong className="text-sm text-white">{label}</strong><p className="text-xs leading-6 text-slate-400">{prompt}</p></div>)}</div></section>;
 }
 
 export default function WarCostsSpecialTools() {
-  const [responses, setResponses] = useState<Record<string, WarCostsDatasetResponse>>({});
-  const [active, setActive] = useState<Tool>("countries");
+  const [installationResponse, setInstallationResponse] = useState<WarCostsDatasetResponse | null>(null);
+  const [defensePresence, setDefensePresence] = useState<DefensePresence | null>(null);
+  const [active, setActive] = useState<Tool>("installations");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -75,14 +73,14 @@ export default function WarCostsSpecialTools() {
     force ? setRefreshing(true) : setLoading(true);
     setError("");
     try {
-      const pairs = await Promise.all(DATASETS.map(async (name) => {
-        try { return [name, await getWarCostsDataset(name, force)] as const; }
-        catch { return [name, null] as const; }
-      }));
-      const next: Record<string, WarCostsDatasetResponse> = {};
-      for (const [name, response] of pairs) if (response) next[name] = response;
-      setResponses(next);
-      if (!Object.keys(next).length) setError("Specialized operational datasets are unavailable.");
+      const [installations, defense] = await Promise.all([
+        getWarCostsDataset("base-index.json", force).catch(() => null),
+        getDefensePresence(force).catch((reason) => ({ ok: false, partial: true, current: [], construction: [], warnings: [reason instanceof Error ? reason.message : "Defense-presence feed failed."] } as DefensePresence)),
+      ]);
+      setInstallationResponse(installations);
+      setDefensePresence(defense);
+      const warnings = [!installations ? "Installation data unavailable." : "", ...(defense.warnings || [])].filter(Boolean);
+      if (warnings.length) setError(warnings.join(" "));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -90,23 +88,7 @@ export default function WarCostsSpecialTools() {
   }
 
   useEffect(() => { void load(false); }, []);
-  const data = useMemo(() => Object.fromEntries(Object.entries(responses).map(([name, response]) => [name, wcRows(response.data)])) as Record<string, WarCostsRow[]>, [responses]);
+  const installations = useMemo(() => wcRows(installationResponse?.data), [installationResponse]);
 
-  return (
-    <main className="aurora-bg min-h-screen pb-24 text-white">
-      <Sidebar />
-      <section className="relative z-10 px-5 py-8 lg:ml-[210px] lg:px-10">
-        <div className="flex flex-wrap items-start justify-between gap-4"><HeaderBar eyebrow="WarCosts Intelligence" title="Specialized Tools" subtitle="Country footprint, naval context and regional instability only. Personal-cost, taxpayer-cost, draft and weapons tools are removed." /><button type="button" onClick={() => void load(true)} disabled={refreshing} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-200/20 bg-cyan-300/10 px-4 text-xs font-bold"><RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />Refresh data</button></div>
-        <WarCostsWorkspaceNav />
-        {error ? <p className="mt-4 text-xs text-rose-100">{error}</p> : null}
-        <div className="mt-5 flex gap-2 overflow-x-auto">{TOOLS.map((tool) => { const Icon = tool.icon; return <button key={tool.key} type="button" onClick={() => setActive(tool.key)} className={`min-w-[180px] rounded-xl border p-3 text-left ${active === tool.key ? "border-cyan-200/30 bg-cyan-300/10" : "border-white/8 bg-black/10"}`}><div className="flex items-center gap-2"><Icon size={14} /><strong className="text-xs">{tool.label}</strong></div><p className="mt-1 text-[9px] text-cyan-100/38">{tool.note}</p></button>; })}</div>
-        <div className="mt-5">
-          {loading ? <GlassCard className="grid min-h-64 place-items-center p-6"><div className="text-center"><Loader2 className="mx-auto animate-spin text-cyan-200" /><p className="mt-3 text-xs text-cyan-100/45">Loading specialized data…</p></div></GlassCard> : null}
-          {!loading && active === "countries" ? <CountryFootprint countries={data["base-countries.json"] || []} deployments={data["overseas-presence.json"] || []} /> : null}
-          {!loading && active === "naval" ? <NavalContext deployments={data["overseas-presence.json"] || []} operations={data["operations.json"] || []} /> : null}
-          {!loading && active === "regional" ? <RegionalInstability conflicts={data["conflicts.json"] || []} operations={data["operations.json"] || []} /> : null}
-        </div>
-      </section>
-    </main>
-  );
+  return <main className="min-h-screen bg-[#06090d] pb-24 text-white"><Sidebar /><section className="px-5 py-8 lg:ml-[210px] lg:px-10"><div className="flex flex-wrap items-start justify-between gap-4"><HeaderBar eyebrow="Occu-Med · Defense network planning" title="Site & Coverage Workbench" subtitle="Specialized installation, personnel, and medical-network planning tools. Naval deployments, regional conflict chronology, weapons, and generic military operations are excluded." /><button type="button" onClick={() => void load(true)} disabled={refreshing} className="inline-flex min-h-11 items-center gap-2 border border-cyan-200/20 bg-cyan-300/[.08] px-4 text-xs font-bold"><RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />Refresh data</button></div><WarCostsWorkspaceNav />{error ? <div className="mt-4 border border-amber-200/15 bg-amber-300/[.035] p-3 text-xs text-amber-100/75">{error}</div> : null}<div className="mt-5 grid grid-cols-[220px_minmax(0,1fr)] border border-white/10 bg-[#070b10]"><aside className="border-r border-white/10"><div className="border-b border-white/10 p-4 text-[10px] font-black uppercase tracking-[.14em] text-slate-500">Specialized views</div>{TOOLS.map((tool) => { const Icon = tool.icon; return <button key={tool.key} type="button" onClick={() => setActive(tool.key)} className={`w-full border-b border-white/[.06] p-4 text-left transition ${active === tool.key ? "bg-white/[.04] text-white" : "text-slate-400 hover:bg-white/[.02]"}`}><div className="flex items-center gap-2"><Icon size={14} /><strong className="text-xs">{tool.label}</strong></div><p className="mt-1.5 text-[9px] leading-4 text-slate-600">{tool.note}</p></button>; })}</aside><div className="min-w-0 p-5">{loading ? <div className="grid min-h-[520px] place-items-center"><div className="text-center"><Loader2 className="mx-auto animate-spin text-cyan-200" /><p className="mt-3 text-xs text-slate-500">Loading site and personnel context…</p></div></div> : null}{!loading && active === "installations" ? <InstallationExplorer rows={installations} /> : null}{!loading && active === "personnel" ? <PersonnelDetail rows={defensePresence?.current || []} year={defensePresence?.latestYear} /> : null}{!loading && active === "service-prompts" ? <MedicalPlanningPrompts /> : null}</div></div></section></main>;
 }
