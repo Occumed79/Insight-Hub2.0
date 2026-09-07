@@ -5,8 +5,9 @@ import { getWarCostsDataset, type WarCostsDatasetResponse } from "@/data/warCost
 import { WarCostsArcGisMap } from "./war-costs-arcgis-map";
 import { wcRows } from "./war-costs-utils";
 
-const INSTALLATION_DATASET = "base-index.json" as const;
+const MAP_DATASETS = ["base-index.json", "conflicts.json", "drone-strikes.json", "operations.json", "overseas-presence.json"] as const;
 
+type DatasetName = typeof MAP_DATASETS[number];
 type DefensePresence = {
   ok: boolean;
   partial?: boolean;
@@ -27,7 +28,7 @@ async function getDefensePresence(force = false): Promise<DefensePresence> {
 }
 
 export default function WarCostsMap() {
-  const [installationResponse, setInstallationResponse] = useState<WarCostsDatasetResponse | null>(null);
+  const [datasets, setDatasets] = useState<Partial<Record<DatasetName, WarCostsDatasetResponse>>>({});
   const [defensePresence, setDefensePresence] = useState<DefensePresence | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -37,8 +38,8 @@ export default function WarCostsMap() {
     force ? setRefreshing(true) : setLoading(true);
     setError("");
     try {
-      const [installations, defense] = await Promise.all([
-        getWarCostsDataset(INSTALLATION_DATASET, force).catch(() => null),
+      const [entries, defense] = await Promise.all([
+        Promise.all(MAP_DATASETS.map(async (name) => [name, await getWarCostsDataset(name, force).catch(() => null)] as const)),
         getDefensePresence(force).catch((reason) => ({
           ok: false,
           partial: true,
@@ -47,15 +48,15 @@ export default function WarCostsMap() {
           warnings: [reason instanceof Error ? reason.message : "Defense-presence feed failed."],
         } as DefensePresence)),
       ]);
-      setInstallationResponse(installations);
+      const next: Partial<Record<DatasetName, WarCostsDatasetResponse>> = {};
+      for (const [name, response] of entries) if (response) next[name] = response;
+      setDatasets(next);
       setDefensePresence(defense);
-      const warnings = [
-        !installations ? "Defense installation locations are temporarily unavailable." : "",
-        ...(defense.warnings || []),
-      ].filter(Boolean);
+      const missing = entries.filter(([, response]) => !response).map(([name]) => name);
+      const warnings = [missing.length ? `Some approved War Map feeds are temporarily unavailable: ${missing.join(", ")}.` : "", ...(defense.warnings || [])].filter(Boolean);
       if (warnings.length) setError(warnings.join(" "));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Defense medical-support context could not load.");
+      setError(loadError instanceof Error ? loadError.message : "Defense intelligence context could not load.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -66,6 +67,8 @@ export default function WarCostsMap() {
 
   const personnelCount = defensePresence?.current?.length ?? 0;
   const constructionCount = defensePresence?.construction?.length ?? 0;
+  const instabilityCount = wcRows(datasets["conflicts.json"]?.data).length + wcRows(datasets["drone-strikes.json"]?.data).length;
+  const navalCount = wcRows(datasets["operations.json"]?.data).length + wcRows(datasets["overseas-presence.json"]?.data).length;
 
   return (
     <main className="war-map-operations-page min-h-screen bg-[#090c10] text-slate-100">
@@ -73,14 +76,15 @@ export default function WarCostsMap() {
       <section className="flex min-h-screen flex-col lg:ml-[210px]">
         <header className="flex min-h-[68px] shrink-0 items-center justify-between gap-6 border-b border-white/8 bg-[#0b0f14] px-6 py-3">
           <div className="min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-[.14em] text-slate-500">Occu-Med / Defense network planning</div>
+            <div className="text-[10px] font-semibold uppercase tracking-[.14em] text-slate-500">Occu-Med / Defense intelligence</div>
             <h1 className="mt-1 text-[24px] font-semibold tracking-[-.035em] text-white">Defense Medical Support Footprint</h1>
           </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-6 text-right">
               <Metric label="Personnel locations" value={loading ? "—" : personnelCount.toLocaleString()} />
               <Metric label="Expansion sites" value={loading ? "—" : constructionCount.toLocaleString()} />
-              <Metric label="Personnel year" value={defensePresence?.latestYear ? String(defensePresence.latestYear) : "—"} />
+              <Metric label="Instability signals" value={loading ? "—" : instabilityCount.toLocaleString()} />
+              <Metric label="Naval signals" value={loading ? "—" : navalCount.toLocaleString()} />
             </div>
             <button type="button" onClick={() => void load(true)} disabled={refreshing} className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-white/[.035] px-3 text-[11px] font-semibold text-slate-200 transition hover:bg-white/[.06] disabled:opacity-50">
               <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />Refresh
@@ -92,14 +96,18 @@ export default function WarCostsMap() {
 
         <div className="relative min-h-[720px] flex-1 overflow-hidden bg-[#05080c]">
           <WarCostsArcGisMap
-            bases={wcRows(installationResponse?.data)}
+            bases={wcRows(datasets["base-index.json"]?.data)}
             personnel={defensePresence?.current || []}
             construction={defensePresence?.construction || []}
+            conflicts={wcRows(datasets["conflicts.json"]?.data)}
+            strikes={wcRows(datasets["drone-strikes.json"]?.data)}
+            operations={wcRows(datasets["operations.json"]?.data)}
+            deployments={wcRows(datasets["overseas-presence.json"]?.data)}
             personnelYear={defensePresence?.latestYear ?? null}
           />
           {loading ? (
             <div className="pointer-events-none absolute left-1/2 top-4 z-40 -translate-x-1/2 rounded-md border border-white/10 bg-[#0a0f15]/92 px-3 py-2 shadow-xl backdrop-blur-xl">
-              <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-200"><Loader2 size={13} className="animate-spin text-sky-300" />Syncing Occu-Med-relevant defense context…</div>
+              <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-200"><Loader2 size={13} className="animate-spin text-sky-300" />Syncing approved defense intelligence…</div>
             </div>
           ) : null}
         </div>
