@@ -1,5 +1,5 @@
 import { motion, useMotionTemplate, useMotionValue, useSpring } from "framer-motion";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export type CinematicVariant = "corridors" | "climate" | "anima" | "zero" | "nasdaq" | "world";
@@ -11,8 +11,139 @@ type CinematicStageProps = {
   className?: string;
 };
 
+type Particle = { x: number; y: number; vx: number; vy: number; size: number; phase: number };
+
 const nodes = Array.from({ length: 18 }, (_, index) => index);
 const ticks = Array.from({ length: 24 }, (_, index) => index);
+const fieldColor: Record<CinematicVariant, [number, number, number]> = {
+  corridors: [104, 226, 255],
+  climate: [94, 234, 190],
+  anima: [181, 139, 255],
+  zero: [162, 190, 255],
+  nasdaq: [91, 178, 255],
+  world: [120, 216, 255],
+};
+
+function ReactiveField({ variant }: { variant: CinematicVariant }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d", { alpha: true });
+    if (!context) return;
+
+    let width = 0;
+    let height = 0;
+    let frame = 0;
+    let animation = 0;
+    let pointerX = window.innerWidth * .5;
+    let pointerY = window.innerHeight * .42;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const [red, green, blue] = fieldColor[variant];
+    const particles: Particle[] = Array.from({ length: reduced ? 24 : 64 }, (_, index) => ({
+      x: Math.random(),
+      y: Math.random(),
+      vx: (Math.random() - .5) * (.00008 + (index % 5) * .000012),
+      vy: (Math.random() - .5) * (.00006 + (index % 7) * .000008),
+      size: .7 + Math.random() * 1.8,
+      phase: Math.random() * Math.PI * 2,
+    }));
+
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    const onPointer = (event: PointerEvent) => {
+      pointerX = event.clientX;
+      pointerY = event.clientY;
+    };
+
+    const draw = () => {
+      frame += 1;
+      context.clearRect(0, 0, width, height);
+      context.globalCompositeOperation = "lighter";
+
+      const px = pointerX / Math.max(1, width);
+      const py = pointerY / Math.max(1, height);
+      for (let index = 0; index < particles.length; index += 1) {
+        const particle = particles[index];
+        if (!reduced) {
+          const parallax = (index % 6) * .000004;
+          particle.x += particle.vx + (px - .5) * parallax;
+          particle.y += particle.vy + (py - .5) * parallax;
+          if (particle.x < -.06) particle.x = 1.06;
+          if (particle.x > 1.06) particle.x = -.06;
+          if (particle.y < -.06) particle.y = 1.06;
+          if (particle.y > 1.06) particle.y = -.06;
+        }
+        const x = particle.x * width;
+        const y = particle.y * height;
+        const pulse = .42 + Math.sin(frame * .018 + particle.phase) * .22;
+        context.beginPath();
+        context.arc(x, y, particle.size + Math.max(0, pulse), 0, Math.PI * 2);
+        context.fillStyle = `rgba(${red},${green},${blue},${Math.max(.06, pulse)})`;
+        context.fill();
+
+        for (let next = index + 1; next < Math.min(particles.length, index + 9); next += 1) {
+          const other = particles[next];
+          const ox = other.x * width;
+          const oy = other.y * height;
+          const dx = ox - x;
+          const dy = oy - y;
+          const distance = Math.hypot(dx, dy);
+          const threshold = variant === "world" ? 190 : variant === "anima" ? 145 : 165;
+          if (distance > threshold) continue;
+          const alpha = (1 - distance / threshold) * (variant === "world" ? .13 : .07);
+          context.beginPath();
+          context.moveTo(x, y);
+          if (variant === "corridors" || variant === "climate") {
+            context.bezierCurveTo(x + dx * .26, y - 18, ox - dx * .2, oy + 14, ox, oy);
+          } else {
+            context.lineTo(ox, oy);
+          }
+          context.strokeStyle = `rgba(${red},${green},${blue},${alpha})`;
+          context.lineWidth = .7;
+          context.stroke();
+        }
+      }
+
+      if (variant === "nasdaq") {
+        const baseline = height * .7;
+        context.beginPath();
+        for (let x = -40; x <= width + 40; x += 36) {
+          const normalized = x / Math.max(1, width);
+          const y = baseline - Math.sin(normalized * 9 + frame * .012) * 34 - Math.cos(normalized * 17) * 18;
+          if (x === -40) context.moveTo(x, y); else context.lineTo(x, y);
+        }
+        context.strokeStyle = `rgba(${red},${green},${blue},.10)`;
+        context.lineWidth = 1;
+        context.stroke();
+      }
+
+      if (!reduced) animation = requestAnimationFrame(draw);
+    };
+
+    resize();
+    window.addEventListener("resize", resize);
+    window.addEventListener("pointermove", onPointer, { passive: true });
+    draw();
+    return () => {
+      cancelAnimationFrame(animation);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", onPointer);
+    };
+  }, [variant]);
+
+  return <canvas ref={canvasRef} className="cinematic-reactive-field" aria-hidden="true" />;
+}
 
 function CorridorsScene() {
   return (
@@ -136,6 +267,7 @@ export function CinematicStage({ children, variant, page, className }: Cinematic
       transition={{ duration: .42, ease: [0.22, 1, 0.36, 1] }}
     >
       <div className="cinematic-scene" aria-hidden="true">
+        <ReactiveField variant={variant} />
         <div className="cinematic-vignette" />
         <div className="cinematic-noise" />
         <motion.div className="cinematic-pointer-light" style={{ background: spotlight }} />
