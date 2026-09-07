@@ -42,7 +42,7 @@ const ReviewerStandardsIntelligencePage = React.lazy(() => import("@/pages/revie
 const EntitiesPage = React.lazy(() => import("@/pages/entities-contextual").then((module) => ({ default: module.ContextualEntitiesPage })));
 const CompetitorsPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.CompetitorsPage })));
 const FederalAgenciesPage = React.lazy(() => import("@/pages/federal-agencies-v2"));
-const StateAgenciesPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.StateAgenciesPage })));
+const StateAgenciesPage = React.lazy(() => import("@/pages/state-agencies-v2"));
 const FecFilingsPage = React.lazy(() => import("@/pages/entity-public-intelligence").then((module) => ({ default: module.EntityFecFilingsPage })));
 const FederalAwardsPage = React.lazy(() => import("@/pages/federal-awards-v2"));
 const LegalReferencesPage = React.lazy(() => import("@/pages/legal-injury-intelligence-v2"));
