@@ -43,8 +43,8 @@ const CompetitorsPage = React.lazy(() => import("@/pages/core-intelligence").the
 const FederalAgenciesPage = React.lazy(() => import("@/pages/federal-agencies-v2"));
 const StateAgenciesPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.StateAgenciesPage })));
 const FecFilingsPage = React.lazy(() => import("@/pages/entity-public-intelligence").then((module) => ({ default: module.EntityFecFilingsPage })));
-const FederalAwardsPage = React.lazy(() => import("@/pages/entity-public-intelligence").then((module) => ({ default: module.EntityFederalAwardsPage })));
-const LegalReferencesPage = React.lazy(() => import("@/pages/entity-public-intelligence").then((module) => ({ default: module.EntityLegalReferencesPage })));
+const FederalAwardsPage = React.lazy(() => import("@/pages/federal-awards-v2"));
+const LegalReferencesPage = React.lazy(() => import("@/pages/legal-injury-intelligence-v2"));
 const OnetMasterTool = React.lazy(() => import("@/pages/onet-master-tool"));
 const OccupationalDataExplorer = React.lazy(() => import("@/pages/occupational-data-explorer"));
 const IndustryImpactCalculator = React.lazy(() => import("@/pages/industry-impact-calculator-v2"));
