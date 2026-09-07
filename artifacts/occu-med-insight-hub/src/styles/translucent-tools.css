@@ -233,3 +233,126 @@
   margin-left: 0 !important;
   padding-top: 5.75rem !important;
 }
+
+/* War Map follows the OSIRIS command-map pattern: the map is the workstation and
+   its data layers live in a permanent rail rather than floating dashboard cards. */
+.war-map-command-page .war-map-surface > div:first-child {
+  min-height: 690px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #05080c !important;
+  box-shadow: none !important;
+}
+
+.war-map-command-page .war-map-surface > div:first-child > div:first-child {
+  height: calc(100vh - 117px) !important;
+  min-height: 690px !important;
+}
+
+/* The old explanatory map card becomes the source/placement footer of the rail. */
+.war-map-command-page .war-map-surface > div:first-child > div:nth-child(2) {
+  left: 0 !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: 0 !important;
+  width: 248px !important;
+  max-width: none !important;
+  min-height: 64px !important;
+  border-width: 1px 1px 0 0 !important;
+  border-color: rgba(148, 163, 184, .12) !important;
+  border-radius: 0 !important;
+  background: rgba(7, 11, 16, .96) !important;
+  padding: 11px 12px !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+}
+
+.war-map-command-page .war-map-surface > div:first-child > div:nth-child(2) > :not(:last-child) {
+  display: none !important;
+}
+
+.war-map-command-page .war-map-surface > div:first-child > div:nth-child(2) > :last-child {
+  margin: 0 !important;
+  font-size: 9px !important;
+  line-height: 1.45 !important;
+  color: rgba(148, 163, 184, .68) !important;
+}
+
+/* OSIRIS-style fixed layer rail with live counts. */
+.war-map-command-page .war-map-surface > div:first-child > div:nth-child(3) {
+  left: 0 !important;
+  right: auto !important;
+  top: 0 !important;
+  bottom: 64px !important;
+  width: 248px !important;
+  overflow-y: auto !important;
+  border-width: 0 1px 0 0 !important;
+  border-color: rgba(148, 163, 184, .12) !important;
+  border-radius: 0 !important;
+  background: rgba(7, 11, 16, .93) !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(20px) saturate(1.05) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.05) !important;
+}
+
+.war-map-command-page .war-map-surface > div:first-child > div:nth-child(3) > p:first-child {
+  margin: 0 !important;
+  border-bottom: 1px solid rgba(148, 163, 184, .10) !important;
+  padding: 15px 13px 11px !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: .16em !important;
+  color: rgba(148, 163, 184, .64) !important;
+}
+
+.war-map-command-page .war-map-surface > div:first-child > div:nth-child(3) > button {
+  margin: 0 !important;
+  min-height: 67px !important;
+  width: 100% !important;
+  gap: 10px !important;
+  border-width: 0 0 1px !important;
+  border-color: rgba(148, 163, 184, .075) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 11px 12px !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.war-map-command-page .war-map-surface > div:first-child > div:nth-child(3) > button:hover {
+  background: rgba(148, 163, 184, .055) !important;
+}
+
+.war-map-command-page .war-map-surface > div:first-child > div:nth-child(3) > button[class*="opacity-55"] {
+  opacity: .46 !important;
+}
+
+.war-map-command-page .war-map-surface > div:first-child > div:nth-child(3) > button p {
+  font-size: 10px !important;
+  line-height: 1.35 !important;
+}
+
+.war-map-command-page .war-map-surface > div:first-child > div:nth-child(3) > button p + p {
+  margin-top: 2px !important;
+  font-size: 9px !important;
+  line-height: 1.35 !important;
+  color: rgba(148, 163, 184, .48) !important;
+}
+
+/* Keep ArcGIS zoom/navigation controls clear of the fixed rail. */
+.war-map-command-page .esri-ui-top-left {
+  left: 260px !important;
+  top: 12px !important;
+}
+
+.war-map-command-page .esri-ui-bottom-left {
+  left: 260px !important;
+}
+
+.war-map-command-page .esri-widget,
+.war-map-command-page .esri-component {
+  border-radius: 4px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.22) !important;
+}
