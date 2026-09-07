@@ -87,7 +87,7 @@ export default function WarCostsMap() {
   const constructionCount = defensePresence?.construction?.length ?? 0;
 
   return (
-    <main className="war-map-command-page min-h-screen bg-[#090c10] text-slate-100">
+    <main className="war-map-operations-page min-h-screen bg-[#090c10] text-slate-100">
       <Sidebar />
       <section className="flex min-h-screen flex-col lg:ml-[210px]">
         <header className="flex min-h-[68px] shrink-0 items-center justify-between gap-6 border-b border-white/8 bg-[#0b0f14] px-6 py-3">
@@ -109,7 +109,7 @@ export default function WarCostsMap() {
 
         {error ? <div className="shrink-0 border-b border-amber-300/15 bg-amber-400/[.035] px-6 py-2 text-[11px] leading-5 text-amber-100/80">{error}</div> : null}
 
-        <div className="war-map-surface relative min-h-[690px] flex-1 overflow-hidden bg-[#05080c]">
+        <div className="relative min-h-[720px] flex-1 overflow-hidden bg-[#05080c]">
           <WarCostsArcGisMap
             bases={wcRows(data["base-index.json"])}
             conflicts={wcRows(data["conflicts.json"])}
