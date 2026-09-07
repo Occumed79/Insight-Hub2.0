@@ -245,7 +245,7 @@ test("Drug Checker surfaces FDA label evidence and regimen overlap without fabri
   await page.goto("/drug-checker");
   await page.getByPlaceholder("Add medication").fill("gabapentin");
   await page.getByRole("button", { name: /gabapentin 300 MG Oral Capsule/ }).click();
-  await expect(page.getByText("04 · FDA label intelligence", { exact: true })).toBeVisible();
+  await expect(page.getByText("FDA label intelligence", { exact: true })).toBeVisible();
   await expect(page.getByText("Alertness / psychomotor").first()).toBeVisible();
 
   await page.getByPlaceholder("Add medication").fill("metoprolol");
