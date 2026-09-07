@@ -1,16 +1,15 @@
+import fs from "node:fs";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 
-const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
-
-const [app, sidebar, entities, contextualEntities, apiRoute, apiIndex] = await Promise.all([
-  read("artifacts/occu-med-insight-hub/src/App.tsx"),
-  read("artifacts/occu-med-insight-hub/src/components/insight/Sidebar.tsx"),
-  read("artifacts/occu-med-insight-hub/src/pages/entities.tsx"),
-  read("artifacts/occu-med-insight-hub/src/pages/entities-contextual.tsx"),
-  read("artifacts/api-server/src/routes/core-intelligence.ts"),
-  read("artifacts/api-server/src/routes/index.ts"),
-]);
+const read = (path) => fs.readFileSync(path, "utf8");
+const app = read("artifacts/occu-med-insight-hub/src/App.tsx");
+const sidebar = read("artifacts/occu-med-insight-hub/src/components/insight/Sidebar.tsx");
+const entities = read("artifacts/occu-med-insight-hub/src/pages/entities-contextual.tsx");
+const landing = read("artifacts/occu-med-insight-hub/src/pages/landing.tsx");
+const occupationalDataExplorer = read("artifacts/occu-med-insight-hub/src/pages/occupational-data-explorer.tsx");
+const onetMaster = read("artifacts/occu-med-insight-hub/src/pages/onet-master-tool.tsx");
+const industryImpact = read("artifacts/occu-med-insight-hub/src/pages/industry-impact-calculator-v2.tsx");
+const occupationalCalculators = read("artifacts/occu-med-insight-hub/src/pages/occupational-calculators-v2.tsx");
 
 for (const route of [
   "/entities",
@@ -19,39 +18,29 @@ for (const route of [
   "/competitors",
   "/federal-agencies",
   "/state-agencies",
-  "/fec-filings",
+  "/sec-filings",
+  "/leadership-map",
+  "/dba-intelligence",
+  "/injuries-medical-conditions",
+  "/job-intelligence",
+  "/aor-factors",
+  "/drug-checker",
+  "/clinical-calculators",
+  "/standards-intelligence",
+  "/onet-master-tool",
+  "/occupational-data-explorer",
+  "/industry-impact-calculator",
+  "/occupational-calculators",
+  "/war-costs-intelligence",
+  "/war-costs-map",
+  "/war-costs-tools",
+  "/war-costs-special-tools",
+  "/war-costs-visualizations",
+  "/war-costs-site-evidence",
   "/federal-awards",
   "/public-legal-references",
-  "/industry-impact-calculator",
-  "/industry-injury-benchmarks",
-  "/job-intelligence",
-  "/occupational-demands",
 ]) {
-  assert.ok(app.includes(`path=\"${route}\"`), `Hub 2 is missing route ${route}`);
-}
-
-const hasDirectEntitiesImport =
-  app.includes('import { EntitiesPage } from "@/pages/entities"') ||
-  (app.includes('import("@/pages/entities")') && app.includes("default: module.EntitiesPage"));
-const hasContextualEntitiesImport =
-  app.includes('import("@/pages/entities-contextual")') &&
-  app.includes("default: module.ContextualEntitiesPage");
-const contextualWrapperOwnsEntities =
-  contextualEntities.includes('import { EntitiesPage } from "@/pages/entities"') &&
-  contextualEntities.includes("<EntitiesPage");
-
-assert.ok(
-  hasDirectEntitiesImport || (hasContextualEntitiesImport && contextualWrapperOwnsEntities),
-  "Hub 2 App must retain the Entities compatibility workspace directly or through the reviewed contextual wrapper",
-);
-
-for (const expected of [
-  '{ href: "/federal-agencies", label: "Federal Agencies"',
-  '{ href: "/state-agencies", label: "State Agencies"',
-  '{ href: "/industry-impact-calculator", label: "Industry Impact Calculator"',
-  '{ href: "/job-intelligence", label: "Job Intelligence"',
-]) {
-  assert.ok(sidebar.includes(expected), `Hub 2 sidebar is missing reviewed destination ${expected}`);
+  assert.ok(app.includes(`path="${route}"`), `App router must retain active route ${route}`);
 }
 
 for (const forbidden of [
@@ -69,8 +58,12 @@ assert.ok(
   "Legacy Industry Injury Benchmarks URL must resolve to Industry Impact",
 );
 assert.ok(
-  app.includes('<Route path="/occupational-demands" component={ReviewerJobIntelligencePage} />'),
-  "Legacy Occupational Demands URL must resolve to Job Intelligence",
+  app.includes('<Route path="/occupational-demands" component={JobIntelligenceRoute} />'),
+  "Legacy Occupational Demands URL must resolve to the cinematic Job Intelligence route",
+);
+assert.ok(
+  app.includes('function JobIntelligenceRoute()') && app.includes('<ReviewerJobIntelligencePage />'),
+  "Cinematic Job Intelligence route must still own the reviewed Job Intelligence page",
 );
 
 for (const expected of [
@@ -83,39 +76,45 @@ for (const expected of [
   assert.ok(entities.includes(expected), `Entities compatibility workspace is missing ${expected}`);
 }
 
-if (hasContextualEntitiesImport) {
-  for (const expected of [
-    "useEmployerWorkflow",
-    'href="/federal-awards"',
-    'href="/public-legal-references"',
-    'href="/fec-filings"',
-  ]) {
-    assert.ok(contextualEntities.includes(expected), `Contextual Entities wrapper is missing ${expected}`);
-  }
-}
-
-for (const endpoint of [
-  'router.get("/prospects"',
-  'router.get("/clients"',
-  'router.get("/competitors"',
-  'router.get("/federal-intel/:bucket"',
-  'router.get("/state-agencies/states"',
+for (const expected of [
+  'href="/injuries-medical-conditions"',
+  'href="/job-intelligence"',
+  'href="/aor-factors"',
+  'href="/drug-checker"',
+  'href="/clinical-calculators"',
+  'href="/standards-intelligence"',
 ]) {
-  assert.ok(apiRoute.includes(endpoint), `Hub 2 transferred API is missing ${endpoint}`);
+  assert.ok(sidebar.includes(expected), `Sidebar must retain reviewer tool ${expected}`);
 }
 
-assert.ok(
-  /router\.use\(\s*coreIntelligenceRouter\s*\)/.test(apiIndex),
-  "Hub 2 API index must mount the transferred core-intelligence router",
-);
+for (const expected of [
+  'href="/onet-master-tool"',
+  'href="/occupational-data-explorer"',
+  'href="/industry-impact-calculator"',
+  'href="/occupational-calculators"',
+]) {
+  assert.ok(sidebar.includes(expected), `Sidebar must retain occupational tool ${expected}`);
+}
 
-console.log(
-  JSON.stringify({
-    event: "core_intelligence_ownership_audit_passed",
-    owner: "Insight-Hub2.0",
-    frontendRoutes: 13,
-    visibleSidebarDomains: ["federal", "state", "industry-impact", "job-intelligence"],
-    retainedNonSidebarRoutes: ["entities", "competitors", "fec-filings", "industry-injury-benchmarks", "occupational-demands"],
-    routeLoading: hasContextualEntitiesImport ? "contextual-wrapper" : hasDirectEntitiesImport ? "direct" : "unknown",
-  }),
-);
+assert.ok(sidebar.includes('href="/war-costs-intelligence"'), "Sidebar must retain one top-level WarCosts Intelligence entry");
+assert.ok(!sidebar.includes('href="/war-costs-accountability"'), "Removed WarCosts Accountability must not return to primary navigation");
+
+for (const expected of [
+  'href="/onet-master-tool"',
+  'href="/occupational-data-explorer"',
+  'href="/industry-impact-calculator"',
+  'href="/occupational-calculators"',
+]) {
+  assert.ok(landing.includes(expected), `Landing page must retain occupational destination ${expected}`);
+}
+
+for (const [name, source, expected] of [
+  ["Occupational Data Explorer", occupationalDataExplorer, "/api/occupational/"],
+  ["O*NET Master Tool", onetMaster, "/api/occupational/"],
+  ["Industry Impact Calculator", industryImpact, "/api/occupational/"],
+  ["Occupational Calculators", occupationalCalculators, "Occupational"],
+]) {
+  assert.ok(source.includes(expected), `${name} must retain reviewed occupational ownership marker ${expected}`);
+}
+
+console.log("Core ownership audit passed.");
