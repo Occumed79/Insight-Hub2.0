@@ -1,7 +1,7 @@
 {
-  "description": "Reviewed structural baseline for Insight Hub 2.0. The active application keeps one shell, three global CSS layers, protected intelligence routes, and the existing AOR MapTiler implementation. The reviewed cinematic scene system adds one reusable React scene component plus one imported cinematic stylesheet to give active intelligence workspaces distinct Blue Corridors / Ghost Recon, Climate TRACE, Riot Anima Squad, Lusion Zero Tech, Nasdaq 50, and system-topology visual languages without creating additional application shells. The complete WarCosts integration remains deliberately contained under one top-level WarCosts Intelligence sidebar entry with approved internal views. The AOR MapTiler map remains the health/risk workspace and the War Map remains the separate defense/geopolitical ArcGIS workspace. Dedicated Federal Awards, Legal & Injury Intelligence, Federal Agencies, and State Agencies workspace files are reviewed architecture rather than generic shared-shell exports. These reviewed visual and task-specific workspace files raise the repository file ceiling to 322. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
+  "description": "Reviewed structural baseline for Insight Hub 2.0. The active application keeps one shell, three global CSS layers, protected intelligence routes, and the existing AOR MapTiler implementation. The reviewed cinematic scene system adds one reusable React scene component plus one imported cinematic stylesheet to give active intelligence workspaces distinct Blue Corridors / Ghost Recon, Climate TRACE, Riot Anima Squad, Lusion Zero Tech, Nasdaq 50, and system-topology visual languages without creating additional application shells. The complete WarCosts integration remains deliberately contained under one top-level WarCosts Intelligence sidebar entry with approved internal views. The AOR MapTiler map remains the health/risk workspace and the War Map remains the separate defense/geopolitical ArcGIS workspace. Dedicated Federal Awards, Legal & Injury Intelligence, Federal Agencies, State Agencies, and focused Occupational Calculators workspace files are reviewed architecture rather than generic shared-shell exports. These reviewed visual and task-specific workspace files raise the repository file ceiling to 323. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
   "maximums": {
-    "totalFiles": 322,
+    "totalFiles": 323,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
@@ -39,6 +39,7 @@
     "artifacts/occu-med-insight-hub/src/pages/occupational-data-explorer.tsx",
     "artifacts/occu-med-insight-hub/src/pages/industry-impact-calculator.tsx",
     "artifacts/occu-med-insight-hub/src/pages/occupational-calculators.tsx",
+    "artifacts/occu-med-insight-hub/src/pages/occupational-calculators-v3.tsx",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-tool-hierarchy.css",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-injuries-medical.tsx",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-injury-hologram.tsx",
