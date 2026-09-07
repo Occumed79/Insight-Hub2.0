@@ -1,21 +1,40 @@
 .injuries-workbench-v2 {
-  --iw-bg: #05080c;
-  --iw-panel: #070b10;
-  --iw-panel-2: #0a0f15;
-  --iw-line: rgba(255, 255, 255, 0.075);
-  --iw-line-strong: rgba(255, 255, 255, 0.12);
+  --iw-bg: #03070a;
+  --iw-panel: #060b0f;
+  --iw-panel-2: #081017;
+  --iw-line: rgba(255, 255, 255, 0.07);
+  --iw-line-strong: rgba(132, 225, 235, 0.13);
   --iw-text: #f4f7f9;
   --iw-muted: #77818d;
   --iw-accent: #86e7f3;
+  position: relative;
   min-height: 100vh;
-  background: var(--iw-bg);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 54% 34%, rgba(77, 208, 220, .09), transparent 24rem),
+    radial-gradient(circle at 54% 72%, rgba(93, 123, 220, .06), transparent 30rem),
+    var(--iw-bg);
   color: var(--iw-text);
 }
 
+.injuries-workbench-v2::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent calc(50% - 1px), rgba(119, 225, 232, .035) 50%, transparent calc(50% + 1px)),
+    repeating-linear-gradient(0deg, transparent 0 43px, rgba(117, 221, 230, .018) 44px 45px);
+  mask-image: radial-gradient(ellipse at 56% 46%, #000 0 31%, rgba(0,0,0,.44) 58%, transparent 84%);
+}
+
 .injuries-workbench-v2 main {
+  position: relative;
+  z-index: 1;
   min-height: 100vh !important;
   padding-bottom: 0 !important;
-  background: var(--iw-bg) !important;
+  background: transparent !important;
 }
 
 .injuries-workbench-v2 main > section {
@@ -60,14 +79,14 @@
   border-left: 1px solid var(--iw-line) !important;
   border-right: 1px solid var(--iw-line) !important;
   border-radius: 0 !important;
-  background: var(--iw-panel) !important;
-  box-shadow: none !important;
+  background: rgba(5, 10, 14, .78) !important;
+  box-shadow: 0 36px 100px rgba(0, 0, 0, .28) !important;
   overflow: hidden !important;
 }
 
 @media (min-width: 1280px) {
   .injuries-workbench-v2 [role="tablist"] + div {
-    grid-template-columns: 286px minmax(0, 1fr) 356px !important;
+    grid-template-columns: 274px minmax(0, 1fr) 348px !important;
   }
 }
 
@@ -78,15 +97,17 @@
 }
 
 .injuries-workbench-v2 [role="tablist"] + div > aside:first-of-type {
-  background: #070b10 !important;
+  background: rgba(6, 12, 16, .91) !important;
+  backdrop-filter: blur(18px);
 }
 
 .injuries-workbench-v2 [role="tablist"] + div > aside:last-of-type {
-  background: #080c11 !important;
+  background: rgba(7, 13, 18, .91) !important;
+  backdrop-filter: blur(18px);
 }
 
 .injuries-workbench-v2 [role="tablist"] + div > section {
-  background: #03070b !important;
+  background: #02070b !important;
 }
 
 .injuries-workbench-v2 input,
@@ -106,20 +127,41 @@
   filter: brightness(1.06);
 }
 
+.injuries-workbench-v2 [class*="text-[8px]"],
+.injuries-workbench-v2 [class*="text-[9px]"] {
+  font-size: 11px !important;
+  letter-spacing: .025em !important;
+}
+
+.injuries-workbench-v2 [class*="uppercase"] {
+  letter-spacing: .06em;
+}
+
 .injuries-workbench-v2 .ih-hologram-shell {
   position: relative;
   display: block;
-  min-height: 690px;
+  min-height: 740px;
   overflow: hidden;
   border: 0;
   border-radius: 0;
-  background: #02070b;
-  box-shadow: none;
+  background: #01060a;
+  box-shadow: inset 0 0 0 1px rgba(118, 224, 231, .045);
   backdrop-filter: none;
 }
 
+.injuries-workbench-v2 .ih-hologram-shell::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 46%, transparent 0 22%, rgba(102, 218, 229, .025) 22.3% 22.7%, transparent 23%),
+    radial-gradient(circle at 50% 46%, transparent 0 34%, rgba(102, 218, 229, .018) 34.3% 34.7%, transparent 35%);
+}
+
 .injuries-workbench-v2 .ih-hologram-stage {
-  min-height: 690px;
+  min-height: 740px;
   border-right: 0;
 }
 
@@ -142,8 +184,8 @@
 .injuries-workbench-v2 .ih-ranking > span,
 .injuries-workbench-v2 .ih-telemetry span,
 .injuries-workbench-v2 .ih-telemetry small {
-  font-size: 8px;
-  letter-spacing: .13em;
+  font-size: 11px;
+  letter-spacing: .04em;
 }
 
 .injuries-workbench-v2 .ih-view-toggle,
@@ -153,47 +195,47 @@
 }
 
 .injuries-workbench-v2 .ih-view-toggle button {
-  min-height: 30px;
+  min-height: 32px;
   border-radius: 3px !important;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .injuries-workbench-v2 .ih-mode-pill {
   min-height: 36px;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .injuries-workbench-v2 .ih-hologram-visual {
-  min-height: 690px;
+  min-height: 740px;
   background:
-    radial-gradient(circle at var(--holo-pointer-x, 50%) var(--holo-pointer-y, 50%), rgba(93, 226, 241, .07), transparent 23%),
-    linear-gradient(rgba(113, 208, 223, .028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(113, 208, 223, .028) 1px, transparent 1px),
-    #02070b;
-  background-size: auto, 28px 28px, 28px 28px, auto;
+    radial-gradient(circle at var(--holo-pointer-x, 50%) var(--holo-pointer-y, 50%), rgba(93, 226, 241, .08), transparent 22%),
+    linear-gradient(rgba(113, 208, 223, .025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(113, 208, 223, .025) 1px, transparent 1px),
+    #01060a;
+  background-size: auto, 32px 32px, 32px 32px, auto;
 }
 
 .injuries-workbench-v2 .ih-hologram-visual::after {
-  background: linear-gradient(90deg, rgba(1,5,8,.72), transparent 15%, transparent 84%, rgba(1,5,8,.72));
+  background: linear-gradient(90deg, rgba(1,5,8,.76), transparent 14%, transparent 85%, rgba(1,5,8,.76));
 }
 
 .injuries-workbench-v2 .ih-hologram-rig {
-  width: min(560px, 70vw);
-  height: 620px;
+  width: min(590px, 72vw);
+  height: 660px;
 }
 
 .injuries-workbench-v2 .ih-body {
-  width: min(520px, 66vw);
-  height: 620px;
+  width: min(548px, 68vw);
+  height: 660px;
 }
 
 .injuries-workbench-v2 .ih-floor-grid {
-  opacity: .28;
+  opacity: .34;
 }
 
 .injuries-workbench-v2 .ih-depth,
 .injuries-workbench-v2 .ih-orbit {
-  opacity: .58;
+  opacity: .64;
 }
 
 .injuries-workbench-v2 .ih-hologram-data {
@@ -201,13 +243,13 @@
   z-index: 22;
   right: 16px;
   bottom: 16px;
-  width: min(292px, calc(100% - 32px));
-  max-height: 260px;
+  width: min(304px, calc(100% - 32px));
+  max-height: 280px;
   overflow-y: auto;
-  border: 1px solid rgba(255,255,255,.09);
-  border-radius: 6px;
-  background: rgba(5, 10, 15, .88);
-  box-shadow: 0 18px 42px rgba(0,0,0,.28);
+  border: 1px solid rgba(122, 223, 232, .11);
+  border-radius: 5px;
+  background: rgba(4, 10, 14, .90);
+  box-shadow: 0 18px 42px rgba(0,0,0,.30);
   backdrop-filter: blur(18px);
 }
 

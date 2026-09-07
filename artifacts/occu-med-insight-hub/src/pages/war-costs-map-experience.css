@@ -1,0 +1,89 @@
+.war-costs-map-experience {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 70% 28%, rgba(67, 154, 224, .09), transparent 28rem),
+    radial-gradient(circle at 38% 78%, rgba(86, 196, 178, .06), transparent 26rem),
+    #05080c;
+}
+
+.war-map-radar-field {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: .58;
+  mask-image: linear-gradient(to bottom, #000 0 78%, transparent);
+}
+
+.war-map-radar-ring {
+  position: absolute;
+  border: 1px solid rgba(121, 186, 227, .10);
+  border-radius: 50%;
+}
+.war-map-radar-ring-a { width: 50vw; height: 50vw; right: -9vw; top: 7vh; }
+.war-map-radar-ring-b { width: 31vw; height: 31vw; right: 1vw; top: 17vh; border-color: rgba(105, 210, 185, .08); }
+
+.war-map-bearing {
+  position: absolute;
+  right: 15vw;
+  top: 30vh;
+  width: 42vw;
+  height: 1px;
+  transform-origin: right center;
+  background: linear-gradient(90deg, transparent, rgba(134, 204, 241, .13));
+}
+.war-map-bearing-a { transform: rotate(17deg); }
+.war-map-bearing-b { transform: rotate(-24deg); opacity: .5; }
+
+.war-costs-map-experience > main,
+.war-costs-map-experience .war-map-operations-page {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+}
+
+.war-costs-map-experience .war-map-operations-page > section > header {
+  background: rgba(8, 13, 18, .92) !important;
+  border-color: rgba(117, 181, 220, .13) !important;
+  backdrop-filter: blur(18px);
+}
+
+.war-costs-map-experience .war-map-operations-page > section > div.relative {
+  min-height: calc(100vh - 68px) !important;
+  background: #03070a !important;
+}
+
+.war-costs-map-experience [class*="text-[8px]"],
+.war-costs-map-experience [class*="text-[9px]"] {
+  font-size: 11px !important;
+  letter-spacing: .02em !important;
+}
+
+.war-costs-map-experience [class*="uppercase"] {
+  letter-spacing: .065em;
+}
+
+.war-costs-map-experience button {
+  border-radius: 3px !important;
+}
+
+.war-costs-map-experience .defense-map-layer-rail,
+.war-costs-map-experience .defense-map-inspector,
+.war-costs-map-experience .defense-map-source-status {
+  backdrop-filter: blur(22px);
+  border-color: rgba(121, 184, 222, .14) !important;
+}
+
+.war-costs-map-experience .defense-map-layer-rail {
+  background: rgba(6, 12, 17, .90) !important;
+}
+
+.war-costs-map-experience .defense-map-inspector {
+  background: rgba(7, 13, 18, .91) !important;
+}
+
+.war-costs-map-experience .defense-map-canvas {
+  box-shadow: inset 0 0 0 1px rgba(115, 185, 220, .05);
+}

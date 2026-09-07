@@ -1,0 +1,7 @@
+.war-costs-special-tools-experience { position:relative; min-height:100vh; overflow:hidden; background:radial-gradient(circle at 76% 20%,rgba(78,180,159,.07),transparent 29rem),#070a09; }
+.war-costs-special-tools-experience::before { content:""; pointer-events:none; position:fixed; inset:0; z-index:0; background:linear-gradient(rgba(91,185,164,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(91,185,164,.012) 1px,transparent 1px); background-size:64px 64px; mask-image:radial-gradient(circle at 58% 45%,#000,transparent 88%); }
+.war-costs-special-tools-experience > main,.war-costs-special-tools-experience main { position:relative; z-index:1; background:linear-gradient(180deg,rgba(8,12,11,.94),rgba(5,9,8,.98)) !important; }
+.war-costs-special-tools-experience [class*="text-[8px]"],.war-costs-special-tools-experience [class*="text-[9px]"] { font-size:11px !important; letter-spacing:.018em !important; }
+.war-costs-special-tools-experience [class*="uppercase"] { letter-spacing:.05em; }
+.war-costs-special-tools-experience button,.war-costs-special-tools-experience input,.war-costs-special-tools-experience select { border-radius:4px !important; }
+.war-costs-special-tools-experience [class*="rounded-xl"],.war-costs-special-tools-experience [class*="rounded-2xl"] { border-radius:6px !important; }

@@ -1,0 +1,71 @@
+.occupational-calculators-experience {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 75% 20%, rgba(218, 151, 67, .07), transparent 28rem),
+    radial-gradient(circle at 26% 76%, rgba(85, 176, 161, .05), transparent 30rem),
+    #080908;
+}
+
+.occupational-instrument-field {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: .5;
+  background: repeating-linear-gradient(90deg, transparent 0 71px, rgba(216, 167, 94, .024) 72px 73px);
+}
+
+.occupational-track {
+  position: absolute;
+  left: 210px;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(211, 165, 94, .16), transparent);
+}
+.occupational-track-a { top: 32%; }
+.occupational-track-b { top: 66%; opacity: .38; }
+
+.occupational-gauge {
+  position: absolute;
+  right: 8vw;
+  top: 14vh;
+  width: 230px;
+  height: 115px;
+  border: 1px solid rgba(216, 167, 94, .08);
+  border-radius: 230px 230px 0 0;
+  border-bottom: 0;
+}
+
+.occupational-calculators-experience > main,
+.occupational-calculators-experience main {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(10, 11, 10, .94), rgba(6, 8, 7, .98)) !important;
+}
+
+.occupational-calculators-experience [class*="text-[8px]"],
+.occupational-calculators-experience [class*="text-[9px]"] {
+  font-size: 11px !important;
+  letter-spacing: .018em !important;
+}
+
+.occupational-calculators-experience [class*="uppercase"] {
+  letter-spacing: .05em;
+}
+
+.occupational-calculators-experience button,
+.occupational-calculators-experience input,
+.occupational-calculators-experience select {
+  border-radius: 4px !important;
+}
+
+.occupational-calculators-experience [class*="rounded-xl"],
+.occupational-calculators-experience [class*="rounded-2xl"] {
+  border-radius: 7px !important;
+}
+
+.occupational-calculators-experience input[type="range"] {
+  accent-color: #d6a55f;
+}

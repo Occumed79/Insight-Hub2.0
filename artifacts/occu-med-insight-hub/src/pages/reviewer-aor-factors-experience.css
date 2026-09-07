@@ -1,0 +1,104 @@
+.aor-factors-experience {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(25, 162, 184, .11), transparent 30rem),
+    radial-gradient(circle at 80% 72%, rgba(64, 92, 174, .10), transparent 33rem),
+    #02070b;
+}
+
+.aor-atmosphere {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: .7;
+  background:
+    linear-gradient(rgba(114, 217, 224, .018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(114, 217, 224, .014) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at 58% 48%, #000 12%, rgba(0,0,0,.72) 48%, transparent 86%);
+}
+
+.aor-latitude {
+  position: absolute;
+  left: 28%;
+  width: 58vw;
+  height: 22vw;
+  border: 1px solid rgba(127, 238, 240, .11);
+  border-radius: 50%;
+  transform: perspective(620px) rotateX(68deg);
+}
+.aor-latitude-one { top: 24%; }
+.aor-latitude-two { top: 47%; opacity: .55; }
+
+.aor-pulse {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(151, 245, 239, .55);
+  border-radius: 50%;
+  box-shadow: 0 0 0 10px rgba(74, 210, 218, .04), 0 0 26px rgba(74, 210, 218, .22);
+}
+.aor-pulse-one { top: 31%; left: 62%; }
+.aor-pulse-two { top: 63%; left: 47%; opacity: .7; }
+
+.aor-factors-experience > main,
+.aor-factors-experience main {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+}
+
+.aor-factors-experience main > section {
+  position: relative;
+}
+
+.aor-factors-experience main > section > .grid {
+  background: rgba(4, 9, 14, .80) !important;
+  border-color: rgba(130, 223, 226, .14) !important;
+  box-shadow: 0 40px 120px rgba(0, 0, 0, .38);
+}
+
+.aor-factors-experience aside[aria-label="AOR scope and layer controls"] {
+  background: rgba(5, 11, 16, .90) !important;
+  backdrop-filter: blur(22px);
+}
+
+.aor-factors-experience aside[aria-label="Map-linked intelligence inspector"] {
+  background: rgba(7, 13, 18, .88) !important;
+  backdrop-filter: blur(22px);
+}
+
+.aor-factors-experience [data-testid="aor-map-shell"] {
+  min-height: 690px !important;
+  height: min(72vh, 820px) !important;
+  box-shadow: inset 0 0 0 1px rgba(138, 230, 232, .06);
+}
+
+.aor-factors-experience [class*="text-[8px]"],
+.aor-factors-experience [class*="text-[9px]"] {
+  font-size: 11px !important;
+  letter-spacing: .025em !important;
+}
+
+.aor-factors-experience [class*="uppercase"] {
+  letter-spacing: .07em;
+}
+
+.aor-factors-experience button,
+.aor-factors-experience input,
+.aor-factors-experience select {
+  border-radius: 2px !important;
+}
+
+.aor-factors-experience aside section {
+  border-color: rgba(141, 223, 226, .09) !important;
+}
+
+.aor-factors-experience .maplibregl-ctrl-group,
+.aor-factors-experience .maptiler-ctrl-group {
+  border-radius: 4px !important;
+  overflow: hidden;
+}

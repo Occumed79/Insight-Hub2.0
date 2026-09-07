@@ -1,0 +1,7 @@
+.war-costs-visualizations-experience { position:relative; min-height:100vh; overflow:hidden; background:radial-gradient(circle at 74% 18%,rgba(124,116,229,.08),transparent 29rem),#07080c; }
+.war-costs-visualizations-experience::before { content:""; pointer-events:none; position:fixed; inset:0; z-index:0; background:repeating-linear-gradient(0deg,transparent 0 43px,rgba(144,139,229,.018) 44px 45px); }
+.war-costs-visualizations-experience > main,.war-costs-visualizations-experience main { position:relative; z-index:1; background:linear-gradient(180deg,rgba(9,10,15,.94),rgba(6,7,11,.98)) !important; }
+.war-costs-visualizations-experience [class*="text-[8px]"],.war-costs-visualizations-experience [class*="text-[9px]"] { font-size:11px !important; letter-spacing:.02em !important; }
+.war-costs-visualizations-experience [class*="uppercase"] { letter-spacing:.055em; }
+.war-costs-visualizations-experience button,.war-costs-visualizations-experience input,.war-costs-visualizations-experience select { border-radius:4px !important; }
+.war-costs-visualizations-experience [class*="rounded-xl"],.war-costs-visualizations-experience [class*="rounded-2xl"] { border-radius:7px !important; }

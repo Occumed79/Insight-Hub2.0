@@ -1,0 +1,75 @@
+.job-intelligence-experience {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 76% 18%, rgba(79, 143, 222, .09), transparent 29rem),
+    radial-gradient(circle at 30% 76%, rgba(73, 205, 157, .06), transparent 30rem),
+    #05090c;
+}
+
+.job-intelligence-field {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: .56;
+  background:
+    linear-gradient(rgba(119, 168, 219, .016) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(119, 168, 219, .014) 1px, transparent 1px);
+  background-size: 70px 70px;
+  mask-image: radial-gradient(circle at 56% 44%, #000, rgba(0,0,0,.6) 60%, transparent 90%);
+}
+
+.job-path {
+  position: absolute;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(103, 169, 226, .17), rgba(75, 207, 163, .14), transparent);
+}
+.job-path-a { left: 28%; right: 7%; top: 37%; transform: rotate(-5deg); }
+.job-path-b { left: 36%; right: 12%; top: 62%; transform: rotate(8deg); opacity: .5; }
+
+.job-node {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(146, 211, 232, .58);
+  border-radius: 50%;
+  background: rgba(71, 190, 173, .64);
+  box-shadow: 0 0 20px rgba(67, 176, 206, .28);
+}
+.job-node-a { top: 35%; left: 57%; }
+.job-node-b { top: 64%; left: 70%; }
+
+.job-intelligence-experience > main,
+.job-intelligence-experience main {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(7, 12, 16, .93), rgba(5, 9, 12, .98)) !important;
+}
+
+.job-intelligence-experience [class*="text-[8px]"],
+.job-intelligence-experience [class*="text-[9px]"] {
+  font-size: 11px !important;
+  letter-spacing: .02em !important;
+}
+
+.job-intelligence-experience [class*="uppercase"] {
+  letter-spacing: .055em;
+}
+
+.job-intelligence-experience button,
+.job-intelligence-experience input,
+.job-intelligence-experience select {
+  border-radius: 4px !important;
+}
+
+.job-intelligence-experience [class*="rounded-xl"],
+.job-intelligence-experience [class*="rounded-2xl"] {
+  border-radius: 7px !important;
+}
+
+.job-intelligence-experience aside,
+.job-intelligence-experience [class*="sticky"] {
+  backdrop-filter: blur(18px);
+}
