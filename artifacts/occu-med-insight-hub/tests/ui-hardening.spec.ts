@@ -422,8 +422,8 @@ test("legal intelligence auto-loads a known entity and excludes generic litigati
   ] }));
   await page.goto("/public-legal-references");
   await expect(page.getByText("V2X", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Workers’ compensation", { exact: true })).toBeVisible();
-  await expect(page.getByText("DBA / overseas contractor", { exact: true })).toBeVisible();
+  await expect(page.getByText("Workers’ compensation", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("DBA / overseas contractor", { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/Why it may matter to Occu-Med/)).toBeVisible();
   await expect(page.getByText("Vendor v. V2X", { exact: true })).toHaveCount(0);
 });
@@ -437,7 +437,7 @@ test("SEC resolves the Insight Hub roster and automatically requests EDGAR filin
   await page.goto("/sec-filings");
   await expect(page.getByText("V2X, Inc.", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Dynamic Public Corp", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("10-K", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /10-K/ }).first()).toBeVisible();
   expect(feedRequests).toBeGreaterThan(0);
 });
 
