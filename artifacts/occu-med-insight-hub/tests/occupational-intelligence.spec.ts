@@ -250,7 +250,8 @@ test("Drug Checker surfaces FDA label evidence and regimen overlap without fabri
 
   await page.getByPlaceholder("Add medication").fill("metoprolol");
   await page.getByRole("button", { name: /metoprolol succinate 50 MG Extended Release Oral Tablet/ }).click();
-  await expect(page.getByText("Combined medication burden")).toBeVisible();
+  await expect(page.getByText("Cross-medication evidence", { exact: true })).toBeVisible();
+  await expect(page.getByText("Shared occupational domains", { exact: true })).toBeVisible();
   await expect(page.getByText("No fabricated interaction severity score is calculated.")).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
