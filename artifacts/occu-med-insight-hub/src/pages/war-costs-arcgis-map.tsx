@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Crosshair, Eye, EyeOff, Layers3, Loader2, MapPinned, MousePointer2, X } from "lucide-react";
-import { wcCivilianDeaths, wcConflictName, wcMoney, wcNumber, wcStringArray, wcText, type WarCostsRow } from "./war-costs-utils";
+import { wcMoney, wcNumber, wcText, type WarCostsRow } from "./war-costs-utils";
 
 declare global {
   interface Window {
@@ -14,7 +14,7 @@ const ARCGIS_SCRIPT = `https://js.arcgis.com/${ARCGIS_VERSION}/`;
 const ARCGIS_CSS = `https://js.arcgis.com/${ARCGIS_VERSION}/esri/themes/dark/main.css`;
 const GEOCODE_URL = "https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates";
 
-type LayerKey = "bases" | "personnel" | "construction" | "instability" | "naval";
+type LayerKey = "bases" | "personnel" | "construction";
 type LayerState = Record<LayerKey, boolean>;
 type MapCounts = Record<LayerKey, number>;
 type MapSelection = {
@@ -31,29 +31,21 @@ type MapSelection = {
 
 type WarCostsArcGisMapProps = {
   bases: WarCostsRow[];
-  conflicts?: WarCostsRow[];
-  strikes?: WarCostsRow[];
-  deployments?: WarCostsRow[];
-  operations?: WarCostsRow[];
   personnel?: WarCostsRow[];
   construction?: WarCostsRow[];
   personnelYear?: number | null;
 };
 
 const LAYER_META: Array<{ key: LayerKey; label: string; note: string }> = [
-  { key: "bases", label: "U.S. Military Installations", note: "Overseas and domestic installation footprint." },
-  { key: "personnel", label: "U.S. Personnel Presence", note: "Country-level troop and personnel posture." },
-  { key: "construction", label: "Military Construction", note: "New facilities and site expansion." },
-  { key: "instability", label: "Conflict / Instability", note: "Active conflict, strike/drone and civilian-impact signals." },
-  { key: "naval", label: "Naval Deployments", note: "Maritime deployment and naval operational presence." },
+  { key: "bases", label: "Defense Installations", note: "Installations that can create contractor medical-support demand." },
+  { key: "personnel", label: "Personnel Footprint", note: "Country-level presence used only as a network-priority signal." },
+  { key: "construction", label: "Site Expansion", note: "Military construction that can signal emerging contractor-support needs." },
 ];
 
 const LAYER_SWATCH: Record<LayerKey, string> = {
   bases: "bg-cyan-300",
   personnel: "bg-emerald-400",
   construction: "bg-amber-300",
-  instability: "bg-rose-400",
-  naval: "bg-blue-400",
 };
 
 async function loadArcGis(apiKey: string) {
@@ -143,45 +135,12 @@ function sourceCoordinate(row: WarCostsRow): [number, number] | null {
   return null;
 }
 
-function activeConflict(row: WarCostsRow) {
-  const status = wcText(row, "status", "outcome").toLowerCase();
-  if (/(ongoing|active|current|in progress)/.test(status)) return true;
-  const startYear = wcNumber(row, "startYear", "year");
-  return !wcNumber(row, "endYear") && startYear >= 2022;
-}
-
-function placeFromRow(row: WarCostsRow): string {
-  const countries = wcStringArray(row, "countries");
-  const direct = countries[0] || wcText(row, "country", "countryName", "location", "city", "region", "targetCountry", "hostCountry", "aor");
-  if (direct) return direct;
-  const conflict = wcText(row, "conflict");
-  return conflict ? conflict.replace(/-/g, " ").replace(/\b(war|intervention|invasion)\b/gi, " ").replace(/\s+/g, " ").trim() : "";
-}
-
 function baseLabel(row: WarCostsRow): string {
-  return wcText(row, "name", "baseName", "installation", "site", "facility") || "U.S. military installation";
+  return wcText(row, "name", "baseName", "installation", "site", "facility") || "Defense installation";
 }
 
 function baseGeocodeLabel(row: WarCostsRow): string {
   return [baseLabel(row), wcText(row, "city", "location"), wcText(row, "state"), wcText(row, "country", "countryName")].filter(Boolean).join(", ");
-}
-
-function rowBlob(row: WarCostsRow): string {
-  try { return JSON.stringify(row).toLowerCase(); }
-  catch { return ""; }
-}
-
-function uniqueByPlace(rows: WarCostsRow[], max: number): WarCostsRow[] {
-  const seen = new Set<string>();
-  const output: WarCostsRow[] = [];
-  for (const row of rows) {
-    const place = placeFromRow(row).toLowerCase();
-    if (!place || seen.has(place)) continue;
-    seen.add(place);
-    output.push(row);
-    if (output.length >= max) break;
-  }
-  return output;
 }
 
 async function inBatches<T>(items: T[], size: number, task: (item: T) => Promise<void>) {
@@ -205,15 +164,15 @@ function selectionFromGraphic(graphic: any): MapSelection | null {
   };
 }
 
-export function WarCostsArcGisMap({ bases, conflicts = [], strikes = [], deployments = [], operations = [], personnel = [], construction = [], personnelYear = null }: WarCostsArcGisMapProps) {
+export function WarCostsArcGisMap({ bases, personnel = [], construction = [], personnelYear = null }: WarCostsArcGisMapProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<any>(null);
   const clickHandleRef = useRef<any>(null);
-  const layerRefs = useRef<Record<LayerKey, any>>({ bases: null, personnel: null, construction: null, instability: null, naval: null });
+  const layerRefs = useRef<Record<LayerKey, any>>({ bases: null, personnel: null, construction: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [counts, setCounts] = useState<MapCounts>({ bases: 0, personnel: 0, construction: 0, instability: 0, naval: 0 });
-  const [visible, setVisible] = useState<LayerState>({ bases: true, personnel: true, construction: true, instability: true, naval: true });
+  const [counts, setCounts] = useState<MapCounts>({ bases: 0, personnel: 0, construction: 0 });
+  const [visible, setVisible] = useState<LayerState>({ bases: true, personnel: true, construction: true });
   const [basePlacement, setBasePlacement] = useState({ direct: 0, geocoded: 0, unplaced: 0 });
   const [selection, setSelection] = useState<MapSelection | null>(null);
 
@@ -221,12 +180,6 @@ export function WarCostsArcGisMap({ bases, conflicts = [], strikes = [], deploym
   const fallbackBaseRows = useMemo(() => bases.filter((row) => !sourceCoordinate(row)).sort((a, b) => wcNumber(b, "personnel", "troops", "size") - wcNumber(a, "personnel", "troops", "size")).slice(0, 50), [bases]);
   const personnelRows = useMemo(() => personnel.filter((row) => wcNumber(row, "personnel", "troops") > 0 && wcText(row, "country", "countryName", "location")).sort((a, b) => wcNumber(b, "personnel", "troops") - wcNumber(a, "personnel", "troops")), [personnel]);
   const constructionRows = useMemo(() => construction.filter((row) => Boolean(sourceCoordinate(row))), [construction]);
-  const conflictRows = useMemo(() => conflicts.filter(activeConflict).slice(0, 18), [conflicts]);
-  const strikeRows = useMemo(() => [...strikes].reverse().slice(0, 24), [strikes]);
-  const navalRows = useMemo(() => {
-    const keyword = /(navy|naval|carrier|fleet|warship|ship|maritime|red sea|arabian sea|persian gulf|strait|sea of oman|mediterranean|pacific fleet|atlantic fleet)/i;
-    return uniqueByPlace([...deployments.filter((row) => keyword.test(rowBlob(row))), ...operations.filter((row) => keyword.test(rowBlob(row)))], 16);
-  }, [deployments, operations]);
 
   useEffect(() => {
     for (const key of Object.keys(visible) as LayerKey[]) if (layerRefs.current[key]) layerRefs.current[key].visible = visible[key];
@@ -249,13 +202,11 @@ export function WarCostsArcGisMap({ bases, conflicts = [], strikes = [], deploym
         if (!viewRef.current) {
           const map = new EsriMap({ basemap: "dark-gray-vector" });
           const created: Record<LayerKey, any> = {
-            bases: new GraphicsLayer({ title: "U.S. Military Installations" }),
-            personnel: new GraphicsLayer({ title: "U.S. Personnel Presence" }),
-            construction: new GraphicsLayer({ title: "Military Construction" }),
-            instability: new GraphicsLayer({ title: "Conflict / Instability" }),
-            naval: new GraphicsLayer({ title: "Naval Deployments" }),
+            bases: new GraphicsLayer({ title: "Defense Installations" }),
+            personnel: new GraphicsLayer({ title: "Personnel Footprint" }),
+            construction: new GraphicsLayer({ title: "Site Expansion" }),
           };
-          map.addMany([created.bases, created.construction, created.personnel, created.naval, created.instability]);
+          map.addMany([created.bases, created.construction, created.personnel]);
           layerRefs.current = created;
           viewRef.current = new MapView({ container: hostRef.current, map, center: [15, 23], zoom: 1.7, constraints: { minZoom: 1 }, popup: { dockEnabled: false } });
           await viewRef.current.when();
@@ -269,7 +220,7 @@ export function WarCostsArcGisMap({ bases, conflicts = [], strikes = [], deploym
         }
 
         for (const key of Object.keys(layerRefs.current) as LayerKey[]) layerRefs.current[key]?.removeAll();
-        const nextCounts: MapCounts = { bases: 0, personnel: 0, construction: 0, instability: 0, naval: 0 };
+        const nextCounts: MapCounts = { bases: 0, personnel: 0, construction: 0 };
         const geoCache = new Map<string, [number, number] | null>();
         const locate = async (place: string) => {
           if (geoCache.has(place)) return geoCache.get(place) ?? null;
@@ -285,7 +236,7 @@ export function WarCostsArcGisMap({ bases, conflicts = [], strikes = [], deploym
         const addBase = (row: WarCostsRow, point: [number, number], placement: "source coordinates" | "ArcGIS fallback") => {
           const name = baseLabel(row);
           const country = wcText(row, "country", "countryName") || "Unknown";
-          const type = wcText(row, "type", "baseType", "category") || "Military installation";
+          const type = wcText(row, "type", "baseType", "category") || "Defense installation";
           const status = wcText(row, "status") || "Status not recorded";
           const personnelCount = wcNumber(row, "personnel", "troops", "assignedPersonnel");
           layerRefs.current.bases.add(new Graphic({
@@ -299,10 +250,10 @@ export function WarCostsArcGisMap({ bases, conflicts = [], strikes = [], deploym
               status,
               metricLabel: personnelCount ? "Personnel" : "Placement",
               metricValue: personnelCount ? personnelCount.toLocaleString() : placement,
-              detail: `Mapped from ${placement}.`,
-              source: "WarCosts base-index",
+              detail: "Occu-Med use: installation geography can identify places where contractor examinations, surveillance, vaccines, labs, dental, audiology, pulmonary testing, or other medical-network capacity may be needed.",
+              source: "Defense installation index",
             },
-            popupTemplate: { title: "{title}", content: `<b>${type}</b><br/>Country: ${country}<br/>Status: ${status}${personnelCount ? `<br/>Personnel: ${personnelCount.toLocaleString()}` : ""}<br/>Placement: ${placement}` },
+            popupTemplate: { title: "{title}", content: `<b>${type}</b><br/>Country: ${country}<br/>Status: ${status}${personnelCount ? `<br/>Personnel: ${personnelCount.toLocaleString()}` : ""}<br/>Occu-Med use: provider-network planning.` },
           }));
           nextCounts.bases += 1;
         };
@@ -341,14 +292,14 @@ export function WarCostsArcGisMap({ bases, conflicts = [], strikes = [], deploym
             attributes: {
               layer: "personnel",
               title: `${country} · U.S. personnel`,
-              subtitle: year ? `Personnel posture · ${year}` : "Personnel posture",
+              subtitle: year ? `Personnel footprint · ${year}` : "Personnel footprint",
               location: country,
               metricLabel: "Total personnel",
               metricValue: total.toLocaleString(),
-              detail: branches || "Branch detail not reported in the source row.",
-              source: "Michael Allen / troopdata defense-presence feed",
+              detail: `Occu-Med use: prioritize countries where contractor medical-network capacity may matter. This is not an Occu-Med demand estimate.${branches ? ` Source detail: ${branches}.` : ""}`,
+              source: "Defense-presence feed",
             },
-            popupTemplate: { title: "{title}", content: `<b>U.S. personnel posture${year ? ` · ${year}` : ""}</b><br/>Total: ${total.toLocaleString()}${army ? `<br/>Army: ${army.toLocaleString()}` : ""}${navy ? `<br/>Navy: ${navy.toLocaleString()}` : ""}${airForce ? `<br/>Air Force: ${airForce.toLocaleString()}` : ""}${marines ? `<br/>Marines: ${marines.toLocaleString()}` : ""}` },
+            popupTemplate: { title: "{title}", content: `<b>U.S. personnel footprint${year ? ` · ${year}` : ""}</b><br/>Total: ${total.toLocaleString()}<br/>Occu-Med use: network-priority context only.` },
           }));
           nextCounts.personnel += 1;
         });
@@ -356,7 +307,7 @@ export function WarCostsArcGisMap({ bases, conflicts = [], strikes = [], deploym
         for (const row of constructionRows) {
           const point = sourceCoordinate(row);
           if (!point || cancelled) continue;
-          const location = wcText(row, "location", "site", "facility", "country") || "Military construction";
+          const location = wcText(row, "location", "site", "facility", "country") || "Defense site expansion";
           const country = wcText(row, "country", "countryName");
           const year = wcNumber(row, "year");
           const spending = wcNumber(row, "spending", "amount", "cost", "total");
@@ -369,84 +320,14 @@ export function WarCostsArcGisMap({ bases, conflicts = [], strikes = [], deploym
               subtitle: "Military construction / new facility",
               location: country || location,
               status: year ? String(year) : undefined,
-              metricLabel: spending ? "Spending" : "Record",
-              metricValue: spending ? wcMoney(spending) : "Mapped construction site",
+              metricLabel: spending ? "Construction investment" : "Record",
+              metricValue: spending ? wcMoney(spending) : "Mapped expansion site",
+              detail: "Occu-Med use: identify emerging locations where contractor medical support or provider recruitment may become necessary.",
               source: "Defense-presence construction feed",
             },
-            popupTemplate: { title: "{title}", content: `<b>Military construction / new facility</b>${country ? `<br/>Country: ${country}` : ""}${year ? `<br/>Year: ${year}` : ""}${spending ? `<br/>Spending: ${wcMoney(spending)}` : ""}` },
+            popupTemplate: { title: "{title}", content: `<b>Military construction / new facility</b>${country ? `<br/>Country: ${country}` : ""}${year ? `<br/>Year: ${year}` : ""}${spending ? `<br/>Construction investment: ${wcMoney(spending)}` : ""}<br/>Occu-Med use: emerging medical-network demand signal.` },
           }));
           nextCounts.construction += 1;
-        }
-
-        for (const row of conflictRows) {
-          const place = placeFromRow(row);
-          const point = sourceCoordinate(row) ?? (place ? await locate(place) : null);
-          if (!point || cancelled) continue;
-          const name = wcConflictName(row);
-          const civilianDeaths = wcCivilianDeaths(row);
-          const size = civilianDeaths > 0 ? Math.max(12, Math.min(24, 11 + Math.log10(Math.max(1, civilianDeaths)) * 2.1)) : 14;
-          layerRefs.current.instability.add(new Graphic({
-            geometry: { type: "point", longitude: point[0], latitude: point[1] },
-            symbol: { type: "simple-marker", color: [251, 113, 133, 0.92], size, outline: { color: [255, 228, 230, 0.96], width: 1.2 } },
-            attributes: {
-              layer: "instability",
-              title: name,
-              subtitle: "Active conflict signal",
-              location: place,
-              metricLabel: civilianDeaths ? "Civilian impact in source" : "Signal",
-              metricValue: civilianDeaths ? civilianDeaths.toLocaleString() : "Active",
-              detail: "Conflict, strike activity and civilian impact are consolidated into the instability layer.",
-              source: "WarCosts conflicts",
-            },
-            popupTemplate: { title: "{title}", content: `<b>Instability signal · active conflict</b>${place ? `<br/>Location: ${place}` : ""}${civilianDeaths ? `<br/>Civilian casualties/deaths in source: ${civilianDeaths.toLocaleString()}` : ""}` },
-          }));
-          nextCounts.instability += 1;
-        }
-
-        for (const row of strikeRows) {
-          const place = placeFromRow(row);
-          const point = sourceCoordinate(row) ?? (place ? await locate(place) : null);
-          if (!point || cancelled) continue;
-          const title = wcText(row, "name", "title", "target", "location", "country") || `Strike activity — ${place}`;
-          const casualties = wcNumber(row, "civilianDeaths", "civilianCasualties", "civiliansKilled", "deaths", "casualties");
-          layerRefs.current.instability.add(new Graphic({
-            geometry: { type: "point", longitude: point[0], latitude: point[1] },
-            symbol: { type: "simple-marker", color: [244, 63, 94, 0.75], size: casualties ? Math.max(7, Math.min(14, 7 + Math.log10(Math.max(1, casualties)) * 1.7)) : 8, outline: { color: [254, 205, 211, 0.90], width: 0.8 } },
-            attributes: {
-              layer: "instability",
-              title,
-              subtitle: "Strike / drone activity",
-              location: place,
-              metricLabel: casualties ? "Civilian casualty signal" : "Signal",
-              metricValue: casualties ? casualties.toLocaleString() : "Mapped strike activity",
-              detail: "Shown as part of instability rather than a separate warfare layer.",
-              source: "WarCosts drone-strikes",
-            },
-            popupTemplate: { title: "{title}", content: `<b>Instability signal · strike / drone activity</b>${place ? `<br/>Location: ${place}` : ""}${casualties ? `<br/>Civilian casualty signal: ${casualties.toLocaleString()}` : ""}` },
-          }));
-          nextCounts.instability += 1;
-        }
-
-        for (const row of navalRows) {
-          const place = placeFromRow(row);
-          const point = sourceCoordinate(row) ?? (place ? await locate(place) : null);
-          if (!point || cancelled) continue;
-          const title = wcText(row, "name", "title", "operation", "deployment") || `Naval deployment — ${place}`;
-          layerRefs.current.naval.add(new Graphic({
-            geometry: { type: "point", longitude: point[0], latitude: point[1] },
-            symbol: { type: "simple-marker", color: [96, 165, 250, 0.92], size: 11, outline: { color: [219, 234, 254, 0.95], width: 1 } },
-            attributes: {
-              layer: "naval",
-              title,
-              subtitle: "Naval deployment / maritime presence",
-              location: place,
-              metricLabel: "Presence",
-              metricValue: "Mapped",
-              source: "WarCosts overseas-presence / operations",
-            },
-            popupTemplate: { title: "{title}", content: `<b>Naval deployment / maritime presence</b>${place ? `<br/>Location: ${place}` : ""}` },
-          }));
-          nextCounts.naval += 1;
         }
 
         for (const key of Object.keys(visible) as LayerKey[]) layerRefs.current[key].visible = visible[key];
@@ -461,14 +342,14 @@ export function WarCostsArcGisMap({ bases, conflicts = [], strikes = [], deploym
       }
     })();
     return () => { cancelled = true; };
-  }, [bases.length, conflictRows, constructionRows, directBaseRows, fallbackBaseRows, navalRows, personnelRows, personnelYear, strikeRows]);
+  }, [bases.length, constructionRows, directBaseRows, fallbackBaseRows, personnelRows, personnelYear]);
 
   useEffect(() => () => {
     clickHandleRef.current?.remove?.();
     clickHandleRef.current = null;
     viewRef.current?.destroy?.();
     viewRef.current = null;
-    layerRefs.current = { bases: null, personnel: null, construction: null, instability: null, naval: null };
+    layerRefs.current = { bases: null, personnel: null, construction: null };
   }, []);
 
   function resetView() {
@@ -478,7 +359,7 @@ export function WarCostsArcGisMap({ bases, conflicts = [], strikes = [], deploym
   return (
     <div className="war-map-operational-workspace grid min-h-[720px] grid-cols-[250px_minmax(0,1fr)_320px] overflow-hidden border-y border-white/8 bg-[#05080c]">
       <aside className="border-r border-white/8 bg-[#070b10]/94">
-        <div className="flex h-14 items-center justify-between border-b border-white/8 px-4"><div className="flex items-center gap-2"><Layers3 className="h-4 w-4 text-cyan-100/55" /><p className="text-[10px] font-black uppercase tracking-[.14em] text-slate-400">Layers</p></div><span className="text-[9px] text-slate-600">{Object.values(visible).filter(Boolean).length}/{LAYER_META.length}</span></div>
+        <div className="flex h-14 items-center justify-between border-b border-white/8 px-4"><div className="flex items-center gap-2"><Layers3 className="h-4 w-4 text-cyan-100/55" /><p className="text-[10px] font-black uppercase tracking-[.14em] text-slate-400">Occu-Med planning layers</p></div><span className="text-[9px] text-slate-600">{Object.values(visible).filter(Boolean).length}/{LAYER_META.length}</span></div>
         <div className="divide-y divide-white/[.055]">
           {LAYER_META.map((meta) => (
             <button key={meta.key} type="button" onClick={() => setVisible((state) => ({ ...state, [meta.key]: !state[meta.key] }))} className={`flex w-full items-start gap-3 px-4 py-4 text-left transition ${visible[meta.key] ? "bg-white/[.018]" : "opacity-45"}`}>
@@ -488,27 +369,27 @@ export function WarCostsArcGisMap({ bases, conflicts = [], strikes = [], deploym
             </button>
           ))}
         </div>
-        <div className="border-t border-white/8 p-4 text-[9px] leading-5 text-slate-600"><p className="font-black uppercase tracking-[.11em] text-slate-500">Base placement</p><p className="mt-2">{basePlacement.direct.toLocaleString()} source coordinates</p><p>{basePlacement.geocoded.toLocaleString()} ArcGIS fallbacks</p><p>{basePlacement.unplaced.toLocaleString()} unplaced</p>{personnelYear ? <p className="mt-2 text-slate-500">Personnel dataset: {personnelYear}</p> : null}</div>
+        <div className="border-t border-white/8 p-4 text-[9px] leading-5 text-slate-600"><p className="font-black uppercase tracking-[.11em] text-slate-500">Installation placement</p><p className="mt-2">{basePlacement.direct.toLocaleString()} source coordinates</p><p>{basePlacement.geocoded.toLocaleString()} ArcGIS fallbacks</p><p>{basePlacement.unplaced.toLocaleString()} unplaced</p>{personnelYear ? <p className="mt-2 text-slate-500">Personnel dataset: {personnelYear}</p> : null}</div>
       </aside>
 
       <section className="relative min-w-0 bg-[#04070a]">
-        <div ref={hostRef} className="h-[calc(100vh-116px)] min-h-[720px] w-full" aria-label="ArcGIS War Map with approved Occu-Med defense intelligence layers" />
-        <div className="pointer-events-none absolute left-4 top-4 z-20 flex items-center gap-2 rounded-md border border-white/10 bg-[#081019]/82 px-3 py-2 text-[9px] font-semibold text-slate-400 shadow-xl backdrop-blur-xl"><MousePointer2 className="h-3 w-3" />Select any mapped feature to inspect its evidence.</div>
+        <div ref={hostRef} className="h-[calc(100vh-116px)] min-h-[720px] w-full" aria-label="Occu-Med defense medical support footprint map" />
+        <div className="pointer-events-none absolute left-4 top-4 z-20 flex items-center gap-2 rounded-md border border-white/10 bg-[#081019]/82 px-3 py-2 text-[9px] font-semibold text-slate-400 shadow-xl backdrop-blur-xl"><MousePointer2 className="h-3 w-3" />Select a mapped feature to inspect its Occu-Med planning context.</div>
         <button type="button" onClick={resetView} className="absolute bottom-5 left-5 z-20 inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-[#081019]/90 px-3 text-[10px] font-black text-slate-300 shadow-xl backdrop-blur-xl"><Crosshair className="h-3.5 w-3.5" />Reset world view</button>
-        {loading ? <div className="absolute inset-0 z-30 grid place-items-center bg-[#020611]/72"><div className="text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-cyan-200" /><p className="mt-3 text-xs font-bold text-cyan-50">Building approved defense layers…</p></div></div> : null}
+        {loading ? <div className="absolute inset-0 z-30 grid place-items-center bg-[#020611]/72"><div className="text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-cyan-200" /><p className="mt-3 text-xs font-bold text-cyan-50">Building Occu-Med defense-support context…</p></div></div> : null}
         {error ? <div className="absolute bottom-5 right-5 z-40 max-w-md rounded-md border border-rose-200/18 bg-[#1a070d]/95 p-3 text-xs text-rose-100"><div className="flex gap-2"><MapPinned className="h-4 w-4 shrink-0" /><span>{error}</span></div></div> : null}
       </section>
 
       <aside className="border-l border-white/8 bg-[#080c12]/94">
         <div className="sticky top-0 max-h-[calc(100vh-116px)] overflow-y-auto">
-          <div className="flex h-14 items-center justify-between border-b border-white/8 px-4"><div><p className="text-[9px] font-black uppercase tracking-[.14em] text-slate-600">Selection inspector</p><p className="mt-0.5 text-[11px] font-black text-slate-300">Mapped evidence</p></div>{selection ? <button onClick={() => setSelection(null)} className="rounded-md border border-white/8 p-1.5 text-slate-600 hover:text-white"><X className="h-3.5 w-3.5" /></button> : null}</div>
+          <div className="flex h-14 items-center justify-between border-b border-white/8 px-4"><div><p className="text-[9px] font-black uppercase tracking-[.14em] text-slate-600">Selection inspector</p><p className="mt-0.5 text-[11px] font-black text-slate-300">Occu-Med planning context</p></div>{selection ? <button onClick={() => setSelection(null)} className="rounded-md border border-white/8 p-1.5 text-slate-600 hover:text-white"><X className="h-3.5 w-3.5" /></button> : null}</div>
           {selection ? <div className="p-5">
             <div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${LAYER_SWATCH[selection.layer]}`} /><span className="text-[9px] font-black uppercase tracking-[.12em] text-slate-500">{LAYER_META.find((item) => item.key === selection.layer)?.label}</span></div>
             <h2 className="mt-4 text-xl font-black leading-6 tracking-[-.025em] text-white">{selection.title}</h2>
             {selection.subtitle ? <p className="mt-2 text-[11px] leading-5 text-slate-400">{selection.subtitle}</p> : null}
             <div className="mt-5 divide-y divide-white/7 border-y border-white/7 text-[10px]">{selection.location ? <InspectorRow label="Location" value={selection.location} /> : null}{selection.status ? <InspectorRow label="Status / year" value={selection.status} /> : null}{selection.metricLabel && selection.metricValue ? <InspectorRow label={selection.metricLabel} value={selection.metricValue} strong /> : null}{selection.source ? <InspectorRow label="Source" value={selection.source} /> : null}</div>
-            {selection.detail ? <section className="mt-5 border-l border-white/10 pl-3"><p className="text-[9px] font-black uppercase tracking-[.12em] text-slate-600">Context</p><p className="mt-2 text-[10px] leading-5 text-slate-500">{selection.detail}</p></section> : null}
-          </div> : <div className="grid min-h-[560px] place-items-center px-6 text-center"><div><MapPinned className="mx-auto h-8 w-8 text-slate-700" /><h2 className="mt-4 text-base font-black text-slate-300">Nothing selected</h2><p className="mt-2 text-[10px] leading-5 text-slate-600">Click an installation, personnel marker, construction site, instability signal, or naval presence on the map. The map stays full size while evidence opens here.</p></div></div>}
+            {selection.detail ? <section className="mt-5 border-l border-white/10 pl-3"><p className="text-[9px] font-black uppercase tracking-[.12em] text-slate-600">Why it matters to Occu-Med</p><p className="mt-2 text-[10px] leading-5 text-slate-500">{selection.detail}</p></section> : null}
+          </div> : <div className="grid min-h-[560px] place-items-center px-6 text-center"><div><MapPinned className="mx-auto h-8 w-8 text-slate-700" /><h2 className="mt-4 text-base font-black text-slate-300">Nothing selected</h2><p className="mt-2 text-[10px] leading-5 text-slate-600">Click a defense installation, personnel-footprint marker, or expansion site. The map remains the primary workspace while Occu-Med planning context opens here.</p></div></div>}
         </div>
       </aside>
     </div>
@@ -516,5 +397,5 @@ export function WarCostsArcGisMap({ bases, conflicts = [], strikes = [], deploym
 }
 
 function InspectorRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-3 py-3"><span className="text-slate-650">{label}</span><span className={strong ? "font-black text-white" : "font-semibold text-slate-300"}>{value}</span></div>;
+  return <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-3 py-3"><span className="text-slate-600">{label}</span><span className={strong ? "font-black text-white" : "font-semibold text-slate-300"}>{value}</span></div>;
 }
