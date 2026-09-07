@@ -1,0 +1,114 @@
+.sec-filings-experience {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(5, 9, 15, .98), rgba(4, 7, 11, 1));
+  color: #eef6ff;
+}
+
+.sec-filings-market-field {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: .62;
+  background:
+    linear-gradient(rgba(120, 189, 255, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 189, 255, .025) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.22) 74%, transparent);
+}
+
+.sec-filings-axis {
+  position: absolute;
+  left: 210px;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(124, 197, 255, .24), transparent);
+}
+
+.sec-filings-axis::after {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+  background: repeating-linear-gradient(90deg, transparent 0 83px, rgba(151, 210, 255, .17) 84px 85px);
+}
+
+.sec-filings-axis-a { top: 31vh; }
+.sec-filings-axis-b { top: 67vh; opacity: .42; }
+
+.sec-filings-trace {
+  position: absolute;
+  left: 30%;
+  top: 11%;
+  width: 52vw;
+  height: 42vh;
+  border-top: 1px solid rgba(79, 183, 255, .16);
+  border-right: 1px solid rgba(79, 183, 255, .07);
+  transform: skewY(-7deg);
+  filter: drop-shadow(0 0 18px rgba(70, 170, 255, .08));
+}
+
+.sec-filings-experience > main,
+.sec-filings-experience .reviewer-native-page {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(8, 12, 18, .90), rgba(5, 8, 12, .96)) !important;
+}
+
+.sec-filings-experience .reviewer-native-page > section {
+  background: transparent !important;
+}
+
+.sec-filings-experience .reviewer-native-page > section > .grid {
+  border-color: rgba(131, 188, 233, .14) !important;
+  box-shadow: 0 34px 110px rgba(0, 0, 0, .34);
+}
+
+.sec-filings-experience aside {
+  background: rgba(8, 12, 18, .91) !important;
+  backdrop-filter: blur(22px);
+}
+
+.sec-filings-experience .reviewer-native-page > section > .grid > section {
+  background: rgba(6, 10, 15, .78) !important;
+}
+
+.sec-filings-experience [class*="text-[8px]"],
+.sec-filings-experience [class*="text-[9px]"] {
+  font-size: 11px !important;
+  letter-spacing: .02em !important;
+}
+
+.sec-filings-experience [class*="uppercase"] {
+  letter-spacing: .06em;
+}
+
+.sec-filings-experience button {
+  border-radius: 4px !important;
+}
+
+.sec-filings-experience input,
+.sec-filings-experience select {
+  border-radius: 3px !important;
+}
+
+.sec-filings-experience [class*="grid-cols-[78px_92px"] {
+  position: relative;
+}
+
+.sec-filings-experience [class*="grid-cols-[78px_92px"]::before {
+  content: "";
+  position: absolute;
+  left: 84px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(120, 190, 255, .055);
+}
+
+.sec-filings-experience a[target="_blank"] {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}

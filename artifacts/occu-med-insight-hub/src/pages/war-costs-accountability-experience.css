@@ -1,0 +1,7 @@
+.war-costs-accountability-experience { position:relative; min-height:100vh; overflow:hidden; background:radial-gradient(circle at 76% 18%,rgba(112,170,154,.06),transparent 29rem),#080a0a; }
+.war-costs-accountability-experience::before { content:""; pointer-events:none; position:fixed; inset:0; z-index:0; background:repeating-linear-gradient(90deg,transparent 0 83px,rgba(133,184,168,.016) 84px 85px); }
+.war-costs-accountability-experience > main,.war-costs-accountability-experience main { position:relative; z-index:1; background:linear-gradient(180deg,rgba(10,12,11,.94),rgba(7,9,8,.98)) !important; }
+.war-costs-accountability-experience [class*="text-[8px]"],.war-costs-accountability-experience [class*="text-[9px]"] { font-size:11px !important; letter-spacing:.018em !important; }
+.war-costs-accountability-experience [class*="uppercase"] { letter-spacing:.05em; }
+.war-costs-accountability-experience button,.war-costs-accountability-experience input,.war-costs-accountability-experience select { border-radius:3px !important; }
+.war-costs-accountability-experience [class*="rounded-xl"],.war-costs-accountability-experience [class*="rounded-2xl"] { border-radius:5px !important; }

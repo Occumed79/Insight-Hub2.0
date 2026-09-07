@@ -1,0 +1,67 @@
+.federal-awards-experience {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 78% 18%, rgba(72, 139, 255, .10), transparent 30rem),
+    radial-gradient(circle at 28% 74%, rgba(91, 197, 189, .06), transparent 30rem),
+    #06090d;
+}
+
+.federal-awards-timefield {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: .58;
+  background: repeating-linear-gradient(90deg, transparent 0 109px, rgba(122, 178, 255, .028) 110px 111px);
+  mask-image: linear-gradient(to bottom, #000 0 74%, transparent 92%);
+}
+
+.federal-awards-band {
+  position: absolute;
+  left: 210px;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(107, 169, 255, .19), transparent);
+}
+.federal-awards-band-a { top: 27%; }
+.federal-awards-band-b { top: 49%; opacity: .58; }
+.federal-awards-band-c { top: 71%; opacity: .34; }
+
+.federal-awards-experience > main,
+.federal-awards-experience main {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(7, 11, 16, .92), rgba(5, 8, 12, .96)) !important;
+}
+
+.federal-awards-experience [class*="text-[8px]"],
+.federal-awards-experience [class*="text-[9px]"] {
+  font-size: 11px !important;
+  letter-spacing: .02em !important;
+}
+
+.federal-awards-experience [class*="uppercase"] {
+  letter-spacing: .06em;
+}
+
+.federal-awards-experience button,
+.federal-awards-experience input,
+.federal-awards-experience select {
+  border-radius: 4px !important;
+}
+
+.federal-awards-experience [class*="rounded-xl"],
+.federal-awards-experience [class*="rounded-2xl"] {
+  border-radius: 7px !important;
+}
+
+.federal-awards-experience [class*="bg-white/[0.025]"],
+.federal-awards-experience [class*="bg-black/20"] {
+  background-color: rgba(5, 9, 14, .67) !important;
+}
+
+.federal-awards-experience aside {
+  backdrop-filter: blur(18px);
+}

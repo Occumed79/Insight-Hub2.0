@@ -1,0 +1,81 @@
+.standards-experience {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 74% 16%, rgba(112, 161, 255, .09), transparent 28rem),
+    radial-gradient(circle at 29% 76%, rgba(106, 208, 186, .06), transparent 30rem),
+    #06090d;
+}
+
+.standards-rule-field {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: .56;
+  background:
+    linear-gradient(rgba(147, 176, 235, .018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(147, 176, 235, .014) 1px, transparent 1px);
+  background-size: 68px 68px;
+  mask-image: radial-gradient(circle at 58% 44%, #000, rgba(0,0,0,.62) 58%, transparent 90%);
+}
+
+.standards-rule-line {
+  position: absolute;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(127, 177, 255, .18), rgba(115, 215, 191, .15), transparent);
+}
+.standards-rule-line-a { left: 29%; right: 5%; top: 37%; transform: rotate(-4deg); }
+.standards-rule-line-b { left: 35%; right: 10%; top: 63%; transform: rotate(6deg); opacity: .5; }
+
+.standards-rule-node {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(150, 213, 232, .56);
+  border-radius: 50%;
+  background: rgba(99, 166, 255, .6);
+  box-shadow: 0 0 18px rgba(90, 169, 255, .28);
+}
+.standards-rule-node-a { top: 35%; left: 58%; }
+.standards-rule-node-b { top: 65%; left: 72%; }
+
+.standards-experience > main,
+.standards-experience main {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(8, 11, 16, .92), rgba(5, 8, 12, .97)) !important;
+}
+
+.standards-experience [class*="text-[8px]"],
+.standards-experience [class*="text-[9px]"] {
+  font-size: 11px !important;
+  letter-spacing: .02em !important;
+}
+
+.standards-experience [class*="uppercase"] {
+  letter-spacing: .06em;
+}
+
+.standards-experience button,
+.standards-experience input,
+.standards-experience select,
+.standards-experience textarea {
+  border-radius: 3px !important;
+}
+
+.standards-experience [class*="rounded-xl"],
+.standards-experience [class*="rounded-2xl"] {
+  border-radius: 5px !important;
+}
+
+.standards-experience aside,
+.standards-experience [class*="sticky"] {
+  backdrop-filter: blur(18px);
+}
+
+.standards-experience table {
+  border-collapse: separate;
+  border-spacing: 0;
+}

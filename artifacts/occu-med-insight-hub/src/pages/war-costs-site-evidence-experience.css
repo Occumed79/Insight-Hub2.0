@@ -1,0 +1,8 @@
+.war-costs-site-evidence-experience { position:relative; min-height:100vh; overflow:hidden; background:radial-gradient(circle at 78% 18%,rgba(94,132,180,.07),transparent 28rem),#08090b; }
+.war-costs-site-evidence-experience::before { content:""; pointer-events:none; position:fixed; inset:0; z-index:0; background:repeating-linear-gradient(0deg,transparent 0 37px,rgba(137,160,190,.016) 38px 39px); }
+.war-costs-site-evidence-experience > main,.war-costs-site-evidence-experience main { position:relative; z-index:1; background:linear-gradient(180deg,rgba(10,11,14,.94),rgba(7,8,10,.98)) !important; }
+.war-costs-site-evidence-experience [class*="text-[8px]"],.war-costs-site-evidence-experience [class*="text-[9px]"] { font-size:11px !important; letter-spacing:.018em !important; }
+.war-costs-site-evidence-experience [class*="uppercase"] { letter-spacing:.05em; }
+.war-costs-site-evidence-experience button,.war-costs-site-evidence-experience input,.war-costs-site-evidence-experience select { border-radius:3px !important; }
+.war-costs-site-evidence-experience [class*="rounded-xl"],.war-costs-site-evidence-experience [class*="rounded-2xl"] { border-radius:5px !important; }
+.war-costs-site-evidence-experience aside,.war-costs-site-evidence-experience [class*="sticky"] { backdrop-filter:blur(18px); }

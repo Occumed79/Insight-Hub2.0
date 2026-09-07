@@ -1,0 +1,75 @@
+.state-agencies-experience {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 74% 18%, rgba(83, 149, 205, .08), transparent 29rem),
+    radial-gradient(circle at 24% 76%, rgba(92, 181, 145, .05), transparent 30rem),
+    #060a0d;
+}
+
+.state-jurisdiction-field {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: .5;
+  background:
+    linear-gradient(rgba(128, 176, 203, .016) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(128, 176, 203, .013) 1px, transparent 1px);
+  background-size: 76px 76px;
+  mask-image: radial-gradient(circle at 56% 46%, #000, rgba(0,0,0,.58) 58%, transparent 88%);
+}
+
+.state-grid-line {
+  position: absolute;
+  left: 210px;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(110, 174, 211, .16), rgba(91, 188, 151, .12), transparent);
+}
+.state-grid-line-a { top: 35%; }
+.state-grid-line-b { top: 68%; opacity: .42; }
+
+.state-focus-ring {
+  position: absolute;
+  right: 9vw;
+  top: 18vh;
+  width: 220px;
+  height: 220px;
+  border: 1px solid rgba(111, 177, 210, .08);
+  border-radius: 50%;
+}
+
+.state-agencies-experience > main,
+.state-agencies-experience main {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(7, 12, 15, .94), rgba(5, 9, 12, .98)) !important;
+}
+
+.state-agencies-experience [class*="text-[8px]"],
+.state-agencies-experience [class*="text-[9px]"] {
+  font-size: 11px !important;
+  letter-spacing: .02em !important;
+}
+
+.state-agencies-experience [class*="uppercase"] {
+  letter-spacing: .055em;
+}
+
+.state-agencies-experience button,
+.state-agencies-experience input,
+.state-agencies-experience select {
+  border-radius: 4px !important;
+}
+
+.state-agencies-experience [class*="rounded-xl"],
+.state-agencies-experience [class*="rounded-2xl"] {
+  border-radius: 7px !important;
+}
+
+.state-agencies-experience aside,
+.state-agencies-experience [class*="sticky"] {
+  backdrop-filter: blur(18px);
+}

@@ -1,0 +1,7 @@
+.war-costs-intelligence-experience { position: relative; min-height: 100vh; overflow: hidden; background: radial-gradient(circle at 78% 20%, rgba(85,151,210,.08), transparent 30rem), #070a0d; }
+.war-costs-intelligence-experience::before { content:""; pointer-events:none; position:fixed; inset:0; z-index:0; background:repeating-linear-gradient(0deg,transparent 0 55px,rgba(123,172,207,.017) 56px 57px); mask-image:linear-gradient(to bottom,#000,transparent 92%); }
+.war-costs-intelligence-experience > main,.war-costs-intelligence-experience main { position:relative; z-index:1; background:linear-gradient(180deg,rgba(8,12,16,.94),rgba(6,9,12,.98)) !important; }
+.war-costs-intelligence-experience [class*="text-[8px]"],.war-costs-intelligence-experience [class*="text-[9px]"] { font-size:11px !important; letter-spacing:.02em !important; }
+.war-costs-intelligence-experience [class*="uppercase"] { letter-spacing:.055em; }
+.war-costs-intelligence-experience button,.war-costs-intelligence-experience input,.war-costs-intelligence-experience select { border-radius:4px !important; }
+.war-costs-intelligence-experience [class*="rounded-xl"],.war-costs-intelligence-experience [class*="rounded-2xl"] { border-radius:6px !important; }

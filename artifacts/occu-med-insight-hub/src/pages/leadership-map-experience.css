@@ -1,0 +1,101 @@
+.leadership-map-experience {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 74% 16%, rgba(117, 111, 255, .13), transparent 28rem),
+    radial-gradient(circle at 36% 76%, rgba(59, 203, 214, .08), transparent 30rem),
+    #05060b;
+}
+
+.leadership-topology-field {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: .68;
+  background:
+    linear-gradient(rgba(155, 164, 255, .018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(155, 164, 255, .014) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(circle at 58% 48%, #000, rgba(0,0,0,.65) 54%, transparent 88%);
+}
+
+.leadership-orbit {
+  position: absolute;
+  border: 1px solid rgba(164, 149, 255, .13);
+  border-radius: 50%;
+  transform: rotate(-11deg);
+}
+.leadership-orbit-one { width: 52vw; height: 28vw; left: 34%; top: 17%; }
+.leadership-orbit-two { width: 42vw; height: 22vw; left: 24%; top: 54%; opacity: .55; transform: rotate(17deg); }
+
+.leadership-node {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(199, 196, 255, .72);
+  border-radius: 50%;
+  background: rgba(113, 212, 226, .72);
+  box-shadow: 0 0 24px rgba(117, 205, 229, .34), 0 0 0 8px rgba(113, 212, 226, .025);
+}
+.leadership-node-one { top: 28%; left: 52%; }
+.leadership-node-two { top: 48%; left: 74%; }
+.leadership-node-three { top: 69%; left: 39%; }
+
+.leadership-map-experience > main,
+.leadership-map-experience .reviewer-native-page {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+}
+
+.leadership-map-experience .reviewer-native-page > section {
+  position: relative;
+}
+
+.leadership-map-experience [class*="text-[8px]"],
+.leadership-map-experience [class*="text-[9px]"] {
+  font-size: 11px !important;
+  letter-spacing: .025em !important;
+}
+
+.leadership-map-experience [class*="uppercase"] {
+  letter-spacing: .065em;
+}
+
+.leadership-map-experience button,
+.leadership-map-experience input,
+.leadership-map-experience select,
+.leadership-map-experience textarea {
+  border-radius: 5px !important;
+}
+
+.leadership-map-experience svg {
+  shape-rendering: geometricPrecision;
+}
+
+.leadership-map-experience [class*="border-y"] {
+  border-color: rgba(170, 170, 255, .12) !important;
+}
+
+.leadership-map-experience [class*="2xl:grid-cols-[minmax(0,1fr)_360px]"] {
+  position: relative;
+}
+
+.leadership-map-experience aside.sticky {
+  background: linear-gradient(180deg, rgba(10, 11, 20, .86), rgba(7, 9, 14, .88));
+  border-color: rgba(158, 157, 235, .13) !important;
+  backdrop-filter: blur(24px);
+  box-shadow: -22px 0 54px rgba(0, 0, 0, .18);
+}
+
+.leadership-map-experience [class*="bg-black/10"],
+.leadership-map-experience [class*="bg-black/16"],
+.leadership-map-experience [class*="bg-black/20"] {
+  background-color: rgba(5, 7, 12, .68) !important;
+}
+
+.leadership-map-experience [class*="rounded-xl"] {
+  border-radius: 6px !important;
+}

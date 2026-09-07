@@ -1,0 +1,70 @@
+.clinical-calculators-experience {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 72% 22%, rgba(72, 188, 206, .08), transparent 28rem),
+    #060a0d;
+}
+
+.clinical-instrument-field {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: .55;
+  background: linear-gradient(180deg, rgba(255,255,255,.012), transparent 42%);
+}
+
+.clinical-scale {
+  position: absolute;
+  left: 210px;
+  right: 0;
+  height: 1px;
+  background: repeating-linear-gradient(90deg, transparent 0 31px, rgba(111, 205, 217, .11) 32px 33px, transparent 34px 62px);
+}
+.clinical-scale-a { top: 35%; }
+.clinical-scale-b { top: 67%; opacity: .42; }
+
+.clinical-reticle {
+  position: absolute;
+  right: 12vw;
+  top: 17vh;
+  width: 190px;
+  height: 190px;
+  border: 1px solid rgba(104, 204, 216, .10);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 38px rgba(104, 204, 216, .012);
+}
+
+.clinical-calculators-experience > main,
+.clinical-calculators-experience main {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(7, 12, 15, .94), rgba(5, 9, 12, .98)) !important;
+}
+
+.clinical-calculators-experience [class*="text-[8px]"],
+.clinical-calculators-experience [class*="text-[9px]"] {
+  font-size: 11px !important;
+  letter-spacing: .015em !important;
+}
+
+.clinical-calculators-experience [class*="uppercase"] {
+  letter-spacing: .045em;
+}
+
+.clinical-calculators-experience button,
+.clinical-calculators-experience input,
+.clinical-calculators-experience select {
+  border-radius: 5px !important;
+}
+
+.clinical-calculators-experience [class*="rounded-xl"],
+.clinical-calculators-experience [class*="rounded-2xl"] {
+  border-radius: 8px !important;
+}
+
+.clinical-calculators-experience input[type="range"] {
+  accent-color: #6dd6df;
+}

@@ -1,0 +1,86 @@
+.industry-impact-experience {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 76% 18%, rgba(89, 161, 255, .10), transparent 31rem),
+    radial-gradient(circle at 28% 78%, rgba(141, 106, 255, .08), transparent 30rem),
+    #06080c;
+}
+
+.industry-impact-field {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: .6;
+  perspective: 900px;
+}
+
+.impact-surface {
+  position: absolute;
+  left: 210px;
+  right: -8vw;
+  bottom: -22vh;
+  height: 62vh;
+  transform: rotateX(64deg) translateZ(-40px);
+  transform-origin: center bottom;
+  background:
+    linear-gradient(rgba(117, 169, 255, .06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(117, 169, 255, .045) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: linear-gradient(to top, #000 20%, rgba(0,0,0,.52) 58%, transparent 100%);
+}
+
+.impact-horizon {
+  position: absolute;
+  left: 210px;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(119, 174, 255, .19), rgba(160, 118, 255, .18), transparent);
+}
+.impact-horizon-one { top: 36%; }
+.impact-horizon-two { top: 62%; opacity: .45; }
+
+.industry-impact-experience > main,
+.industry-impact-experience main {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(7, 10, 15, .91), rgba(5, 8, 12, .96)) !important;
+}
+
+.industry-impact-experience [class*="text-[8px]"],
+.industry-impact-experience [class*="text-[9px]"] {
+  font-size: 11px !important;
+  letter-spacing: .02em !important;
+}
+
+.industry-impact-experience [class*="uppercase"] {
+  letter-spacing: .055em;
+}
+
+.industry-impact-experience button,
+.industry-impact-experience input,
+.industry-impact-experience select {
+  border-radius: 4px !important;
+}
+
+.industry-impact-experience [class*="rounded-2xl"],
+.industry-impact-experience [class*="rounded-[24px]"],
+.industry-impact-experience [class*="rounded-[28px]"] {
+  border-radius: 10px !important;
+}
+
+.industry-impact-experience [class*="bg-white/[0.025]"],
+.industry-impact-experience [class*="bg-white/[0.03]"] {
+  background-color: rgba(255,255,255,.018) !important;
+}
+
+.industry-impact-experience input[type="range"] {
+  accent-color: #86a8ff;
+}
+
+.industry-impact-experience table {
+  border-collapse: separate;
+  border-spacing: 0;
+}

@@ -1,0 +1,79 @@
+.drug-checker-experience {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 72% 18%, rgba(193, 104, 255, .11), transparent 29rem),
+    radial-gradient(circle at 26% 72%, rgba(74, 224, 209, .08), transparent 31rem),
+    #07070b;
+}
+
+.drug-spectrum-field {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: .64;
+  background: linear-gradient(180deg, rgba(255,255,255,.012), transparent 38%);
+}
+
+.drug-spectrum-line {
+  position: absolute;
+  left: 210px;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(126, 229, 215, .17), rgba(193, 123, 255, .18), transparent);
+}
+.drug-spectrum-line-a { top: 34%; transform: rotate(-2deg); }
+.drug-spectrum-line-b { top: 69%; opacity: .45; transform: rotate(3deg); }
+
+.drug-spectrum-ring {
+  position: absolute;
+  border: 1px solid rgba(199, 125, 255, .11);
+  border-radius: 50%;
+}
+.drug-spectrum-ring-a { width: 31vw; height: 31vw; right: 6%; top: 10%; }
+.drug-spectrum-ring-b { width: 17vw; height: 17vw; right: 13%; top: 17%; border-color: rgba(92, 226, 211, .11); }
+
+.drug-checker-experience > main,
+.drug-checker-experience .reviewer-native-page {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(8, 8, 13, .92), rgba(5, 7, 10, .96)) !important;
+}
+
+.drug-checker-experience [class*="text-[8px]"],
+.drug-checker-experience [class*="text-[9px]"] {
+  font-size: 11px !important;
+  letter-spacing: .02em !important;
+}
+
+.drug-checker-experience [class*="uppercase"] {
+  letter-spacing: .055em;
+}
+
+.drug-checker-experience button,
+.drug-checker-experience input,
+.drug-checker-experience select,
+.drug-checker-experience textarea {
+  border-radius: 8px !important;
+}
+
+.drug-checker-experience [class*="rounded-[24px]"],
+.drug-checker-experience [class*="rounded-[28px]"] {
+  border-radius: 12px !important;
+}
+
+.drug-checker-experience [class*="bg-white/[0.025]"],
+.drug-checker-experience [class*="bg-white/[0.03]"] {
+  background-color: rgba(255, 255, 255, .018) !important;
+}
+
+.drug-checker-experience a[target="_blank"] {
+  text-underline-offset: 3px;
+}
+
+.drug-checker-experience [class*="border-violet"],
+.drug-checker-experience [class*="border-cyan"] {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+}
