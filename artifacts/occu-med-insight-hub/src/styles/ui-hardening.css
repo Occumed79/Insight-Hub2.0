@@ -98,12 +98,6 @@ textarea,
     font-size: max(16px, 1em);
   }
 
-  .translucent-tool-page .glass-card,
-  .translucent-tool-page main div[class*="bg-[#"],
-  .translucent-tool-page main section[class*="bg-[#"] {
-    backdrop-filter: blur(18px) saturate(1.2) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(1.2) !important;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -121,8 +115,7 @@ textarea,
   }
 
   .portal-shimmer,
-  .aurora-orbs,
-  .translucent-tool-page::before {
+  .aurora-orbs {
     animation: none !important;
   }
 }
