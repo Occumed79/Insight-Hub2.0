@@ -225,7 +225,7 @@ test("AOR Factors defaults to clean country mode on MapTiler vector tiles", asyn
   expect(Number(dimensions.rect.height)).toBeGreaterThan(50);
   await expect(page.getByText("Select a country to load its CDC travel-health profile.")).toBeVisible();
   await expect(page.getByText("Operational Priority Brief")).toBeVisible();
-  await expect(page.getByText("Global watch")).toBeVisible();
+  await expect(page.getByTestId("aor-priority-brief").getByRole("heading", { name: "Global watch", exact: true })).toBeVisible();
   await expect(page.getByText("RED · Test cyclone requiring attention")).toBeVisible();
 });
 
