@@ -66,7 +66,7 @@ const DESKTOP_SIDEBAR_BACKGROUND = "linear-gradient(180deg, rgba(2,6,17,.99) 0%,
 const MOBILE_SIDEBAR_BACKGROUND = "linear-gradient(180deg, #020611 0%, #030813 100%)";
 
 function isWarCostsPath(path: string) {
-  return ["/war-costs-intelligence", "/war-costs", "/war-costs-map", "/war-costs-tools", "/war-costs-special-tools", "/war-costs-visualizations", "/war-costs-accountability", "/war-costs-site-evidence"].includes(path);
+  return ["/war-costs-intelligence", "/war-costs", "/war-costs-map", "/war-costs-tools", "/war-costs-special-tools", "/war-costs-visualizations", "/war-costs-site-evidence"].includes(path);
 }
 
 function isActivePath(itemHref: string, currentPath: string) {
@@ -112,17 +112,7 @@ export function Sidebar() {
                   const Icon = item.icon;
                   const active = isActivePath(item.href, currentPath);
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      aria-current={active ? "page" : undefined}
-                      className={cn(
-                        "group flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2.5 text-[14px] font-medium leading-5 transition duration-200",
-                        active
-                          ? "border-cyan-200/20 bg-white/[0.065] text-white shadow-[inset_2px_0_0_rgba(103,232,249,.72),inset_0_1px_0_rgba(255,255,255,.045)]"
-                          : "border-transparent bg-transparent text-slate-300/70 hover:border-slate-200/8 hover:bg-white/[0.035] hover:text-white",
-                      )}
-                    >
+                    <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn("group flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2.5 text-[14px] font-medium leading-5 transition duration-200", active ? "border-cyan-200/20 bg-white/[0.065] text-white shadow-[inset_2px_0_0_rgba(103,232,249,.72),inset_0_1px_0_rgba(255,255,255,.045)]" : "border-transparent bg-transparent text-slate-300/70 hover:border-slate-200/8 hover:bg-white/[0.035] hover:text-white")}>
                       <Icon size={16} className={cn("shrink-0 transition", active ? "text-cyan-200/90" : "text-slate-400/70 group-hover:text-slate-200")} />
                       <span>{item.label}</span>
                     </Link>
