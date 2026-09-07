@@ -1,5 +1,5 @@
 {
-  "description": "Reviewed structural baseline for Insight Hub 2.0. The active application keeps one shell, three global CSS layers, protected intelligence routes, and the existing AOR MapTiler implementation. The reviewed cinematic scene system adds one reusable React scene component plus one imported cinematic stylesheet to give active intelligence workspaces distinct Blue Corridors / Ghost Recon, Climate TRACE, Riot Anima Squad, Lusion Zero Tech, Nasdaq 50, and system-topology visual languages without creating additional application shells. The complete WarCosts integration remains deliberately contained under one top-level WarCosts Intelligence sidebar entry with approved internal views. The AOR MapTiler map remains the health/risk workspace and the War Map remains the separate defense/geopolitical ArcGIS workspace. Dedicated Federal Awards, Legal & Injury Intelligence, Federal Agencies, State Agencies, focused Occupational Calculators, live Industry Impact, and map-first AOR Factors workspace files are reviewed architecture rather than generic shared-shell exports. These reviewed visual and task-specific workspace files raise the repository file ceiling to 325. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
+  "description": "Reviewed structural baseline for Insight Hub 2.0. The active application keeps one shell, three global CSS layers, protected intelligence routes, and the existing AOR MapTiler implementation. The reviewed cinematic scene system adds one reusable React scene component plus one imported cinematic stylesheet to give active intelligence workspaces distinct Blue Corridors / Ghost Recon, Climate TRACE, Riot Anima Squad, Lusion Zero Tech, Nasdaq 50, and system-topology visual languages without creating additional application shells. The defense workspace is deliberately constrained to Occu-Med-relevant installation, contractor, personnel/location, expansion, network-planning, source-audit, and source-evidence views. Universal WarCosts calculators, conflict trackers, and priority-page mirrors are retired and removed. The AOR MapTiler map remains the health/risk workspace and the defense footprint map remains a separate ArcGIS workspace. Dedicated Federal Awards, Legal & Injury Intelligence, Federal Agencies, State Agencies, focused Occupational Calculators, live Industry Impact, and map-first AOR Factors workspace files are reviewed architecture rather than generic shared-shell exports. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
   "maximums": {
     "totalFiles": 325,
     "duplicateGroups": 0,
@@ -91,17 +91,14 @@
     "artifacts/occu-med-insight-hub/src/components/insight/aor-command-registry.ts",
     "artifacts/api-server/src/routes/war-costs.ts",
     "artifacts/api-server/src/routes/war-costs-pages.ts",
-    "artifacts/api-server/src/routes/war-costs-priority-pages.ts",
     "artifacts/api-server/src/fetch-json-compat.d.ts",
     "artifacts/occu-med-insight-hub/src/data/warCostsApi.ts",
     "artifacts/occu-med-insight-hub/src/pages/war-costs-intelligence.tsx",
     "artifacts/occu-med-insight-hub/src/pages/war-costs-map.tsx",
     "artifacts/occu-med-insight-hub/src/pages/war-costs-site-evidence.tsx",
     "artifacts/occu-med-insight-hub/src/pages/war-costs-utils.ts",
-    "artifacts/occu-med-insight-hub/src/pages/war-costs-calculators.tsx",
     "artifacts/occu-med-insight-hub/src/pages/war-costs-arcgis-map.tsx",
     "artifacts/occu-med-insight-hub/src/pages/war-costs-tools.tsx",
-    "artifacts/occu-med-insight-hub/src/pages/war-costs-iran-trackers.tsx",
     "artifacts/occu-med-insight-hub/src/pages/war-costs-special-tools.tsx",
     "artifacts/occu-med-insight-hub/src/pages/war-costs-accountability.tsx",
     "artifacts/occu-med-insight-hub/src/pages/war-costs-visualizations.tsx"
