@@ -3,11 +3,25 @@ import { Router, type IRouter, type Request, type Response } from "express";
 
 const router: IRouter = Router();
 const SITE_ORIGIN = "https://www.warcosts.org";
-const USER_AGENT = "Occu-Med Insight Hub 2.0 WarCosts page-evidence ingestion";
-const DEFAULT_MAX_PAGES = 3_000;
+const USER_AGENT = "Occu-Med Insight Hub 2.0 defense medical-support evidence ingestion";
 const MAX_HTML_BYTES = 2_000_000;
 const MAX_EVIDENCE_CHARS = 120_000;
 const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const MAX_PAGES = 750;
+
+const SEED_PATHS = [
+  "/bases/directory",
+  "/contractors/directory",
+  "/countries",
+  "/methodology",
+  "/sources",
+  "/about",
+  "/faq",
+  "/glossary",
+] as const;
+
+const RELEVANT_PATTERN = /(base|installation|garrison|facility|site\s+expansion|military\s+construction|construction|personnel|troop|staffing|contractor|company|recipient|provider|medical|health|clinic|hospital|network|workforce|location|footprint)/i;
+const REJECTED_PATTERN = /(conflict|warfare|airstrike|strike\s+activity|drone|naval|fleet|carrier|maritime\s+operation|weapon|missile|fighter|bomber|tank|arms[- ]?sales|casualt|civilian\s+death|draft|conscription|taxpayer|personal[- ]?cost|war[- ]?cost|budget\s+simulator|military\s+spending|foreign\s+aid|veteran|president|politic|war\s+roi|cost[- ]?per[- ]?life|blowback|constitutional|regime\s+change)/i;
 
 type PageSnapshot = {
   path: string;
@@ -29,38 +43,11 @@ type CrawlStatus = {
   completedAt?: string;
   pagesVisited: number;
   pagesStored: number;
+  pagesRejected: number;
   pagesFailed: number;
   queueSize: number;
   lastError?: string;
 };
-
-const SEED_PATHS = [
-  "/",
-  "/analysis",
-  "/search",
-  "/timeline",
-  "/states",
-  "/countries",
-  "/arms-sales",
-  "/arms-sales/countries",
-  "/bases/directory",
-  "/contractors/directory",
-  "/weapons",
-  "/foreign-aid",
-  "/military-aid",
-  "/pentagon-audit",
-  "/revolving-door",
-  "/cost-overruns",
-  "/cost-per-kill",
-  "/private-war",
-  "/media-coverage",
-  "/the-other-side",
-  "/methodology",
-  "/sources",
-  "/about",
-  "/faq",
-  "/glossary",
-];
 
 let persistenceReady: Promise<void> | null = null;
 let crawlPromise: Promise<CrawlStatus> | null = null;
@@ -68,6 +55,7 @@ let crawlStatus: CrawlStatus = {
   running: false,
   pagesVisited: 0,
   pagesStored: 0,
+  pagesRejected: 0,
   pagesFailed: 0,
   queueSize: SEED_PATHS.length,
 };
@@ -95,8 +83,9 @@ function cleanText(value: string): string {
 }
 
 function tagText(html: string, tag: string): string[] {
-  const matches = [...html.matchAll(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, "gi"))];
-  return matches.map((match) => cleanText(match[1] ?? "")).filter(Boolean);
+  return [...html.matchAll(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, "gi"))]
+    .map((match) => cleanText(match[1] ?? ""))
+    .filter(Boolean);
 }
 
 function metaDescription(html: string): string {
@@ -129,27 +118,26 @@ function normalizePath(input: string): string | null {
   }
 }
 
+function candidatePath(path: string): boolean {
+  return path === "/bases" || path.startsWith("/bases/") ||
+    path === "/contractors" || path.startsWith("/contractors/") ||
+    path === "/countries" || path.startsWith("/countries/") ||
+    ["/methodology", "/sources", "/about", "/faq", "/glossary"].includes(path);
+}
+
 function pageType(path: string): string {
-  if (path === "/" || path === "/search") return "index";
-  if (path.startsWith("/conflicts/")) return "conflict";
+  if (path === "/bases" || path.startsWith("/bases/")) return "base";
+  if (path === "/contractors" || path.startsWith("/contractors/")) return "contractor";
   if (path.startsWith("/countries/")) return "country";
-  if (path.startsWith("/states/")) return "state";
-  if (path.startsWith("/bases/")) return "base";
-  if (path.startsWith("/contractors/")) return "contractor";
-  if (path.startsWith("/weapons/")) return "weapon";
-  if (path.startsWith("/arms-sales/")) return "arms-sales";
-  if (path.startsWith("/analysis/")) return "analysis";
-  if (path.startsWith("/tools/")) return "tool";
-  if (["/private-war", "/media-coverage", "/the-other-side", "/veterans-voices", "/allied-costs", "/military-families"].includes(path)) return "perspective";
   if (["/methodology", "/sources", "/about", "/faq", "/glossary"].includes(path)) return "methodology";
-  return "data-page";
+  return "index";
 }
 
 function extractLinks(html: string): string[] {
   const output = new Set<string>();
   for (const match of html.matchAll(/href\s*=\s*["']([^"'#]+)(?:#[^"']*)?["']/gi)) {
     const path = normalizePath(match[1] ?? "");
-    if (path) output.add(path);
+    if (path && candidatePath(path)) output.add(path);
   }
   return [...output];
 }
@@ -172,6 +160,18 @@ function snapshotFromHtml(path: string, html: string): PageSnapshot {
     contentHash: createHash("sha256").update(evidenceText).digest("hex"),
     fetchedAt: new Date().toISOString(),
   };
+}
+
+function snapshotText(snapshot: PageSnapshot): string {
+  return `${snapshot.path} ${snapshot.title} ${snapshot.description} ${snapshot.headings.join(" ")} ${snapshot.evidenceText}`;
+}
+
+function approvedSnapshot(snapshot: PageSnapshot): boolean {
+  const text = snapshotText(snapshot);
+  if (REJECTED_PATTERN.test(text)) return false;
+  if (snapshot.pageType === "base" || snapshot.pageType === "contractor") return true;
+  if (snapshot.pageType === "methodology") return true;
+  return RELEVANT_PATTERN.test(text);
 }
 
 async function ensurePersistence(): Promise<void> {
@@ -197,33 +197,29 @@ async function ensurePersistence(): Promise<void> {
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS warcosts_page_snapshots_type_idx ON warcosts_page_snapshots (page_type, fetched_at DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS warcosts_page_snapshots_fetched_idx ON warcosts_page_snapshots (fetched_at DESC)`);
+    await pool.query(`DROP TABLE IF EXISTS warcosts_priority_page_structures`);
+    // Remove universal military-intelligence rows previously retained by the older crawler.
+    await pool.query(`DELETE FROM warcosts_page_snapshots WHERE page_type IN ('conflict','state','weapon','arms-sales','analysis','tool','perspective')`);
+    await pool.query(`DELETE FROM warcosts_page_snapshots WHERE NOT (path = '/bases' OR path LIKE '/bases/%' OR path = '/contractors' OR path LIKE '/contractors/%' OR path = '/countries' OR path LIKE '/countries/%' OR path IN ('/methodology','/sources','/about','/faq','/glossary'))`);
   })().catch((error) => {
     persistenceReady = null;
-    console.warn("WarCosts page persistence initialization failed", error);
+    console.warn("Defense evidence persistence initialization failed", error);
   });
   return persistenceReady;
 }
 
 async function persistSnapshot(snapshot: PageSnapshot): Promise<void> {
-  if (!process.env.DATABASE_URL) return;
+  if (!process.env.DATABASE_URL || !approvedSnapshot(snapshot)) return;
   await ensurePersistence();
   const { pool } = await import("@workspace/db");
   await pool.query(
     `INSERT INTO warcosts_page_snapshots
-       (path, url, page_type, title, description, headings, evidence_text, char_count, link_count, content_hash, fetched_at, updated_at)
+       (path,url,page_type,title,description,headings,evidence_text,char_count,link_count,content_hash,fetched_at,updated_at)
      VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11::timestamptz,NOW())
      ON CONFLICT (path) DO UPDATE SET
-       url = EXCLUDED.url,
-       page_type = EXCLUDED.page_type,
-       title = EXCLUDED.title,
-       description = EXCLUDED.description,
-       headings = EXCLUDED.headings,
-       evidence_text = EXCLUDED.evidence_text,
-       char_count = EXCLUDED.char_count,
-       link_count = EXCLUDED.link_count,
-       content_hash = EXCLUDED.content_hash,
-       fetched_at = EXCLUDED.fetched_at,
-       updated_at = NOW()`,
+       url=EXCLUDED.url,page_type=EXCLUDED.page_type,title=EXCLUDED.title,description=EXCLUDED.description,
+       headings=EXCLUDED.headings,evidence_text=EXCLUDED.evidence_text,char_count=EXCLUDED.char_count,
+       link_count=EXCLUDED.link_count,content_hash=EXCLUDED.content_hash,fetched_at=EXCLUDED.fetched_at,updated_at=NOW()`,
     [snapshot.path, snapshot.url, snapshot.pageType, snapshot.title, snapshot.description, JSON.stringify(snapshot.headings), snapshot.evidenceText, snapshot.charCount, snapshot.linkCount, snapshot.contentHash, snapshot.fetchedAt],
   );
 }
@@ -232,7 +228,7 @@ async function fetchPage(path: string): Promise<{ snapshot: PageSnapshot; links:
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15_000);
   try {
-    const response = await fetch(`${SITE_ORIGIN}${path === "/" ? "" : path}`, {
+    const response = await fetch(`${SITE_ORIGIN}${path}`, {
       headers: { Accept: "text/html", "User-Agent": USER_AGENT },
       signal: controller.signal,
       cache: "no-store",
@@ -251,15 +247,9 @@ async function fetchPage(path: string): Promise<{ snapshot: PageSnapshot; links:
   }
 }
 
-function configuredPageLimit(): number {
-  const value = Number(process.env.WARCOSTS_PAGE_MIRROR_MAX || DEFAULT_MAX_PAGES);
-  return Number.isFinite(value) ? Math.max(100, Math.min(5_000, Math.floor(value))) : DEFAULT_MAX_PAGES;
-}
-
 async function refreshPageMirror(force = false): Promise<CrawlStatus> {
   if (crawlPromise && !force) return crawlPromise;
   const task = (async () => {
-    const maxPages = configuredPageLimit();
     const queue: Array<{ path: string; depth: number }> = SEED_PATHS.map((path) => ({ path, depth: 0 }));
     const queued = new Set(queue.map((item) => item.path));
     const visited = new Set<string>();
@@ -268,17 +258,18 @@ async function refreshPageMirror(force = false): Promise<CrawlStatus> {
       startedAt: new Date().toISOString(),
       pagesVisited: 0,
       pagesStored: 0,
+      pagesRejected: 0,
       pagesFailed: 0,
       queueSize: queue.length,
     };
     crawlStatus = status;
 
     let cursor = 0;
-    const maxDepth = 4;
-    const concurrency = 6;
-    while (cursor < queue.length && visited.size < maxPages) {
+    const maxDepth = 3;
+    const concurrency = 5;
+    while (cursor < queue.length && visited.size < MAX_PAGES) {
       const batch: Array<{ path: string; depth: number }> = [];
-      while (cursor < queue.length && batch.length < concurrency && visited.size + batch.length < maxPages) {
+      while (cursor < queue.length && batch.length < concurrency && visited.size + batch.length < MAX_PAGES) {
         const item = queue[cursor++];
         if (!visited.has(item.path)) batch.push(item);
       }
@@ -288,23 +279,25 @@ async function refreshPageMirror(force = false): Promise<CrawlStatus> {
         visited.add(item.path);
         try {
           const result = await fetchPage(item.path);
-          await persistSnapshot(result.snapshot);
-          return { item, links: result.links, ok: true as const };
+          const approved = approvedSnapshot(result.snapshot);
+          if (approved) await persistSnapshot(result.snapshot);
+          return { item, links: result.links, approved, ok: true as const };
         } catch (error) {
-          return { item, links: [] as string[], ok: false as const, error: error instanceof Error ? error.message : "fetch failed" };
+          return { item, links: [] as string[], approved: false, ok: false as const, error: error instanceof Error ? error.message : "fetch failed" };
         }
       }));
 
       for (const result of results) {
         status.pagesVisited += 1;
-        if (result.ok) status.pagesStored += 1;
+        if (result.ok && result.approved) status.pagesStored += 1;
+        else if (result.ok) status.pagesRejected += 1;
         else {
           status.pagesFailed += 1;
           status.lastError = `${result.item.path}: ${result.error}`;
         }
         if (result.ok && result.item.depth < maxDepth) {
           for (const path of result.links) {
-            if (queued.size >= maxPages || queued.has(path)) continue;
+            if (queued.size >= MAX_PAGES || queued.has(path)) continue;
             queued.add(path);
             queue.push({ path, depth: result.item.depth + 1 });
           }
@@ -314,17 +307,14 @@ async function refreshPageMirror(force = false): Promise<CrawlStatus> {
       crawlStatus = { ...status };
     }
 
-    const completed: CrawlStatus = { ...status, running: false, completedAt: new Date().toISOString(), queueSize: queue.length };
+    const completed = { ...status, running: false, completedAt: new Date().toISOString(), queueSize: queue.length };
     crawlStatus = completed;
     return completed;
   })();
 
   crawlPromise = task;
-  try {
-    return await task;
-  } finally {
-    if (crawlPromise === task) crawlPromise = null;
-  }
+  try { return await task; }
+  finally { if (crawlPromise === task) crawlPromise = null; }
 }
 
 async function pageSummary(): Promise<{ total: number; byType: Record<string, number>; latestFetchedAt?: string }> {
@@ -344,18 +334,18 @@ async function pageSummary(): Promise<{ total: number; byType: Record<string, nu
 router.get("/war-costs/pages/overview", async (_req: Request, res: Response) => {
   try {
     const summary = await pageSummary();
-    if (summary.total === 0 && !crawlStatus.running) void refreshPageMirror(false).catch((error) => console.warn("Initial WarCosts page mirror failed", error));
+    if (summary.total === 0 && !crawlStatus.running) void refreshPageMirror(false).catch((error) => console.warn("Initial defense evidence refresh failed", error));
     return res.json({
       ok: true,
-      source: "WarCosts.org public site pages",
+      source: "WarCosts.org public pages",
       attribution: "Source: warcosts.org",
-      mirrorPurpose: "Captures page-specific evidence and analysis facts that are not separately packaged in the downloadable JSON catalog.",
+      mirrorPurpose: "Retains only installation, contractor, personnel/location, and source-method evidence useful to Occu-Med defense medical-support planning.",
       summary,
       crawl: crawlStatus,
-      maxPages: configuredPageLimit(),
+      maxPages: MAX_PAGES,
     });
   } catch (error) {
-    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "WarCosts page mirror overview failed" });
+    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Defense evidence overview failed" });
   }
 });
 
@@ -368,31 +358,27 @@ router.get("/war-costs/pages/catalog", async (req: Request, res: Response) => {
     const limitRaw = Number(req.query.limit || 500);
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(2_000, Math.floor(limitRaw))) : 500;
     const result = type
-      ? await pool.query<{ path: string; url: string; page_type: string; title: string; description: string; char_count: number; fetched_at: Date | string }>(
-          `SELECT path, url, page_type, title, description, char_count, fetched_at FROM warcosts_page_snapshots WHERE page_type = $1 ORDER BY title LIMIT $2`, [type, limit])
-      : await pool.query<{ path: string; url: string; page_type: string; title: string; description: string; char_count: number; fetched_at: Date | string }>(
-          `SELECT path, url, page_type, title, description, char_count, fetched_at FROM warcosts_page_snapshots ORDER BY page_type, title LIMIT $1`, [limit]);
+      ? await pool.query(`SELECT path,url,page_type,title,description,char_count,fetched_at FROM warcosts_page_snapshots WHERE page_type=$1 ORDER BY title LIMIT $2`, [type, limit])
+      : await pool.query(`SELECT path,url,page_type,title,description,char_count,fetched_at FROM warcosts_page_snapshots ORDER BY page_type,title LIMIT $1`, [limit]);
     return res.json({ ok: true, total: result.rows.length, pages: result.rows });
   } catch (error) {
-    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "WarCosts page catalog failed" });
+    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Defense evidence catalog failed" });
   }
 });
 
 router.get("/war-costs/pages/evidence", async (req: Request, res: Response) => {
   if (!process.env.DATABASE_URL) return res.status(503).json({ ok: false, error: "Database is not configured" });
   const path = typeof req.query.path === "string" ? normalizePath(req.query.path) : null;
-  if (!path) return res.status(400).json({ ok: false, error: "A valid WarCosts path is required" });
+  if (!path || !candidatePath(path)) return res.status(400).json({ ok: false, error: "That source path is outside the Occu-Med defense evidence boundary" });
   try {
     await ensurePersistence();
     const { pool } = await import("@workspace/db");
-    const result = await pool.query(
-      `SELECT path, url, page_type, title, description, headings, evidence_text, char_count, link_count, content_hash, fetched_at
-       FROM warcosts_page_snapshots WHERE path = $1 LIMIT 1`, [path]);
+    const result = await pool.query(`SELECT path,url,page_type,title,description,headings,evidence_text,char_count,link_count,content_hash,fetched_at FROM warcosts_page_snapshots WHERE path=$1 LIMIT 1`, [path]);
     const row = result.rows[0];
-    if (!row) return res.status(404).json({ ok: false, error: "WarCosts page has not been mirrored yet" });
+    if (!row) return res.status(404).json({ ok: false, error: "Relevant defense evidence has not been retained for this path" });
     return res.json({ ok: true, source: "WarCosts.org", attribution: "Source: warcosts.org", page: row });
   } catch (error) {
-    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "WarCosts page evidence failed" });
+    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Defense evidence lookup failed" });
   }
 });
 
@@ -400,20 +386,19 @@ router.get("/war-costs/pages/search", async (req: Request, res: Response) => {
   if (!process.env.DATABASE_URL) return res.json({ ok: true, query: "", results: [] });
   const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
   if (query.length < 2) return res.status(400).json({ ok: false, error: "q must be at least 2 characters" });
+  if (REJECTED_PATTERN.test(query)) return res.json({ ok: true, query, total: 0, results: [] });
   try {
     await ensurePersistence();
     const { pool } = await import("@workspace/db");
     const result = await pool.query(
-      `SELECT path, url, page_type, title, description,
-              LEFT(evidence_text, 4000) AS evidence_excerpt,
-              fetched_at
+      `SELECT path,url,page_type,title,description,LEFT(evidence_text,4000) AS evidence_excerpt,fetched_at
        FROM warcosts_page_snapshots
        WHERE POSITION(LOWER($1) IN LOWER(title || ' ' || description || ' ' || evidence_text)) > 0
-       ORDER BY CASE WHEN POSITION(LOWER($1) IN LOWER(title)) > 0 THEN 0 ELSE 1 END, title
+       ORDER BY CASE WHEN POSITION(LOWER($1) IN LOWER(title)) > 0 THEN 0 ELSE 1 END,title
        LIMIT 100`, [query]);
     return res.json({ ok: true, query, total: result.rows.length, results: result.rows });
   } catch (error) {
-    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "WarCosts page search failed" });
+    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Defense evidence search failed" });
   }
 });
 
@@ -425,10 +410,11 @@ router.post("/war-costs/pages/refresh", async (_req: Request, res: Response) => 
   return res.status(202).json({ ok: true, started: true, crawl: { ...crawlStatus, running: true } });
 });
 
-// Keep page-only WarCosts evidence current without burdening the 5-minute structured-data refresh path.
-const initialPageMirror = setTimeout(() => void refreshPageMirror(false).catch((error) => console.warn("WarCosts page mirror startup refresh failed", error)), 5_000);
-initialPageMirror.unref?.();
-const pageMirrorTimer = setInterval(() => void refreshPageMirror(false).catch((error) => console.warn("WarCosts page mirror scheduled refresh failed", error)), REFRESH_INTERVAL_MS);
-pageMirrorTimer.unref?.();
+if (process.env.NODE_ENV !== "test") {
+  const initialPageMirror = setTimeout(() => void refreshPageMirror(false).catch((error) => console.warn("Defense evidence startup refresh failed", error)), 5_000);
+  initialPageMirror.unref?.();
+  const pageMirrorTimer = setInterval(() => void refreshPageMirror(false).catch((error) => console.warn("Defense evidence scheduled refresh failed", error)), REFRESH_INTERVAL_MS);
+  pageMirrorTimer.unref?.();
+}
 
 export default router;
