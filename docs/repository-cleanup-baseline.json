@@ -1,7 +1,7 @@
 {
   "description": "Reviewed structural baseline for Insight Hub 2.0 after the second-pass workspace audit. The application retains one routing shell and only infrastructure/global resilience CSS; shared cinematic and translucent workspace systems were removed. Major tools mount their page-owned visual architecture directly, while protected page source remains unchanged. The Defense Map uses named semantic layer rail, canvas, inspector, and source-status structures rather than positional DOM selectors. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
   "maximums": {
-    "totalFiles": 325,
+    "totalFiles": 365,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
