@@ -48,7 +48,7 @@ const FederalAwardsPage = React.lazy(() => import("@/pages/federal-awards-v2"));
 const LegalReferencesPage = React.lazy(() => import("@/pages/legal-injury-intelligence-v2"));
 const OnetMasterTool = React.lazy(() => import("@/pages/onet-master-tool"));
 const OccupationalDataExplorer = React.lazy(() => import("@/pages/occupational-data-explorer"));
-const IndustryImpactCalculator = React.lazy(() => import("@/pages/industry-impact-calculator-v2"));
+const IndustryImpactCalculator = React.lazy(() => import("@/pages/industry-impact-calculator-v3"));
 const OccupationalCalculators = React.lazy(() => import("@/pages/occupational-calculators-v3"));
 
 const queryClient = new QueryClient();
