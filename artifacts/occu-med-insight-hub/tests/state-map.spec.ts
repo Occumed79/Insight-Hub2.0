@@ -48,7 +48,7 @@ test("State Agencies map opens a preloaded occupational-health compliance worksp
   await california.focus();
   await page.keyboard.press("Enter");
 
-  await expect(page.getByRole("heading", { name: "California", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "California", exact: true }).first()).toBeVisible();
   await expect(page.getByText("State compliance pulse", { exact: true })).toBeVisible();
   await expect(page.getByText("Pre-Employment Medical Examination Update", { exact: true })).toBeVisible();
   await expect(page.getByText("Recent occupational-health compliance leads", { exact: true })).toBeVisible();
