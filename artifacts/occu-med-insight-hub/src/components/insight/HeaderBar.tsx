@@ -2,6 +2,8 @@ import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 
 export function HeaderBar({ eyebrow, title, subtitle, actions, status }: { eyebrow?: string; title: string; subtitle: string; actions?: ReactNode; status?: ReactNode }) {
+  const aorDefaultModeNote = title === "AOR Factors" ? "No AOR is selected by default." : "";
+
   return (
     <motion.header
       className="insight-cinematic-header relative mb-8 flex flex-col gap-6 overflow-hidden border-b border-slate-300/10 pb-7 lg:flex-row lg:items-end lg:justify-between"
@@ -16,6 +18,7 @@ export function HeaderBar({ eyebrow, title, subtitle, actions, status }: { eyebr
           {status}
         </div>
         <p className="mt-4 max-w-4xl text-[15px] leading-7 text-slate-300/82">{subtitle}</p>
+        {aorDefaultModeNote ? <p className="mt-2 text-[11px] font-semibold tracking-[.02em] text-cyan-100/52">{aorDefaultModeNote}</p> : null}
       </div>
       {actions ? <div className="shrink-0 pb-1">{actions}</div> : null}
       <motion.div
