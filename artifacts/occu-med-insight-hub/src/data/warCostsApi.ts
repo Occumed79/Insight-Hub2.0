@@ -19,6 +19,7 @@ export type WarCostsPageCrawlStatus = {
   completedAt?: string;
   pagesVisited: number;
   pagesStored: number;
+  pagesRejected?: number;
   pagesFailed: number;
   queueSize: number;
   lastError?: string;
