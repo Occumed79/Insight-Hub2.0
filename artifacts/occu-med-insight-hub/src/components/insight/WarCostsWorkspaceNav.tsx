@@ -3,19 +3,19 @@ import { Link, useLocation } from "wouter";
 
 const items = [
   { href: "/war-costs-intelligence", label: "Overview", icon: Database },
-  { href: "/war-costs-map", label: "War Map", icon: MapPinned },
-  { href: "/war-costs-tools", label: "Tools", icon: Activity },
-  { href: "/war-costs-special-tools", label: "Specialized", icon: Calculator },
-  { href: "/war-costs-visualizations", label: "Visualizations", icon: BarChart3 },
-  { href: "/war-costs-accountability", label: "Accountability", icon: Scale },
-  { href: "/war-costs-site-evidence", label: "Evidence", icon: FileText },
+  { href: "/war-costs-map", label: "Footprint Map", icon: MapPinned },
+  { href: "/war-costs-tools", label: "Network Priorities", icon: Activity },
+  { href: "/war-costs-special-tools", label: "Site & Coverage", icon: Calculator },
+  { href: "/war-costs-visualizations", label: "Footprint Visuals", icon: BarChart3 },
+  { href: "/war-costs-accountability", label: "Source Audit", icon: Scale },
+  { href: "/war-costs-site-evidence", label: "Source Evidence", icon: FileText },
 ] as const;
 
 export function WarCostsWorkspaceNav() {
   const [location] = useLocation();
   const current = location.split("?")[0];
   return (
-    <nav aria-label="WarCosts workspace" className="flex min-h-12 items-end gap-6 overflow-x-auto border-b border-slate-300/10">
+    <nav aria-label="Defense medical-support workspace" className="flex min-h-12 items-end gap-6 overflow-x-auto border-b border-slate-300/10">
       {items.map((item) => {
         const Icon = item.icon;
         const active = current === item.href || (item.href === "/war-costs-intelligence" && current === "/war-costs");
