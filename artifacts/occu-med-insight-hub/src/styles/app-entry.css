@@ -1,5 +1,6 @@
 @import "./application.css";
 @import "./translucent-tools.css";
+@import "./cinematic-stage.css";
 @import "./ui-hardening.css";
 
 /* Critical MapTiler/MapLibre layout safeguards for the AOR operating picture.
