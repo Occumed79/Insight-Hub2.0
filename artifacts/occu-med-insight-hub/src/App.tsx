@@ -31,6 +31,7 @@ const WarCostsMap = React.lazy(() => import("@/pages/war-costs-map"));
 const WarCostsTools = React.lazy(() => import("@/pages/war-costs-tools"));
 const WarCostsSpecialTools = React.lazy(() => import("@/pages/war-costs-special-tools"));
 const WarCostsVisualizations = React.lazy(() => import("@/pages/war-costs-visualizations"));
+const WarCostsAccountability = React.lazy(() => import("@/pages/war-costs-accountability"));
 const WarCostsSiteEvidence = React.lazy(() => import("@/pages/war-costs-site-evidence"));
 const ReviewerInjuriesMedicalPage = React.lazy(() => import("@/pages/reviewer-injuries-medical"));
 const ReviewerJobIntelligencePage = React.lazy(() => import("@/pages/job-intelligence-v2"));
@@ -104,6 +105,7 @@ function WarCostsMapRoute() { return <CinematicToolPage page="war-costs-map" var
 function WarCostsToolsRoute() { return <CinematicToolPage page="war-costs-tools" variant="zero"><WarCostsTools /></CinematicToolPage>; }
 function WarCostsSpecialToolsRoute() { return <CinematicToolPage page="war-costs-special" variant="zero"><WarCostsSpecialTools /></CinematicToolPage>; }
 function WarCostsVisualizationsRoute() { return <CinematicToolPage page="war-costs-visualizations" variant="nasdaq"><WarCostsVisualizations /></CinematicToolPage>; }
+function WarCostsAccountabilityRoute() { return <CinematicToolPage page="war-costs-accountability" variant="nasdaq"><WarCostsAccountability /></CinematicToolPage>; }
 function WarCostsSiteEvidenceRoute() { return <CinematicToolPage page="war-costs-evidence" variant="nasdaq"><WarCostsSiteEvidence /></CinematicToolPage>; }
 function InjuriesMedicalRoute() { return <CinematicDirectPage page="injuries-medical" variant="anima"><ReviewerInjuriesMedicalPage /></CinematicDirectPage>; }
 function JobIntelligenceRoute() { return <CinematicDirectPage page="job-intelligence" variant="world"><ReviewerJobIntelligencePage /></CinematicDirectPage>; }
@@ -162,6 +164,7 @@ function Router() {
         <Route path="/war-costs-tools" component={WarCostsToolsRoute} />
         <Route path="/war-costs-special-tools" component={WarCostsSpecialToolsRoute} />
         <Route path="/war-costs-visualizations" component={WarCostsVisualizationsRoute} />
+        <Route path="/war-costs-accountability" component={WarCostsAccountabilityRoute} />
         <Route path="/war-costs-site-evidence" component={WarCostsSiteEvidenceRoute} />
         <Route path="/federal-awards" component={FederalAwardsRoute} />
         <Route path="/public-legal-references" component={LegalReferencesRoute} />
