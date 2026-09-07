@@ -162,16 +162,11 @@ function snapshotFromHtml(path: string, html: string): PageSnapshot {
   };
 }
 
-function snapshotText(snapshot: PageSnapshot): string {
-  return `${snapshot.path} ${snapshot.title} ${snapshot.description} ${snapshot.headings.join(" ")} ${snapshot.evidenceText}`;
-}
-
 function approvedSnapshot(snapshot: PageSnapshot): boolean {
-  const text = snapshotText(snapshot);
-  if (REJECTED_PATTERN.test(text)) return false;
-  if (snapshot.pageType === "base" || snapshot.pageType === "contractor") return true;
-  if (snapshot.pageType === "methodology") return true;
-  return RELEVANT_PATTERN.test(text);
+  const identity = `${snapshot.path} ${snapshot.title} ${snapshot.description} ${snapshot.headings.join(" ")}`;
+  if (REJECTED_PATTERN.test(identity)) return false;
+  if (snapshot.pageType === "base" || snapshot.pageType === "contractor" || snapshot.pageType === "methodology") return true;
+  return RELEVANT_PATTERN.test(snapshot.evidenceText);
 }
 
 async function ensurePersistence(): Promise<void> {
@@ -198,8 +193,7 @@ async function ensurePersistence(): Promise<void> {
     await pool.query(`CREATE INDEX IF NOT EXISTS warcosts_page_snapshots_type_idx ON warcosts_page_snapshots (page_type, fetched_at DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS warcosts_page_snapshots_fetched_idx ON warcosts_page_snapshots (fetched_at DESC)`);
     await pool.query(`DROP TABLE IF EXISTS warcosts_priority_page_structures`);
-    // Remove universal military-intelligence rows previously retained by the older crawler.
-    await pool.query(`DELETE FROM warcosts_page_snapshots WHERE page_type IN ('conflict','state','weapon','arms-sales','analysis','tool','perspective')`);
+    await pool.query(`DELETE FROM warcosts_page_snapshots WHERE page_type IN ('conflict','state','weapon','arms-sales','analysis','tool','perspective','country','index')`);
     await pool.query(`DELETE FROM warcosts_page_snapshots WHERE NOT (path = '/bases' OR path LIKE '/bases/%' OR path = '/contractors' OR path LIKE '/contractors/%' OR path = '/countries' OR path LIKE '/countries/%' OR path IN ('/methodology','/sources','/about','/faq','/glossary'))`);
   })().catch((error) => {
     persistenceReady = null;
