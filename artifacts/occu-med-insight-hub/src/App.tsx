@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { EmployerWorkflowProvider } from "@/components/insight/EmployerWorkflowContext";
-import { CinematicStage, type CinematicVariant } from "@/components/insight/CinematicStage";
 
 const NotFound = React.lazy(() => import("@/pages/not-found"));
 const Landing = React.lazy(() => import("@/pages/landing"));
@@ -73,57 +72,47 @@ function CompetitorsLoading() {
   );
 }
 
-function CinematicToolPage({ page, variant, children }: { page: string; variant: CinematicVariant; children: React.ReactNode }) {
-  return (
-    <CinematicStage page={page} variant={variant}>
-      <div className="translucent-tool-page" data-tool-page={page}>{children}</div>
-    </CinematicStage>
-  );
-}
+function EntitiesRoute() { return <EntitiesPage defaultTab="prospects" />; }
+function ClientsRoute() { return <EntitiesPage defaultTab="clients" />; }
+function CompetitorsRoute() { return <React.Suspense fallback={<CompetitorsLoading />}><CompetitorsPage /></React.Suspense>; }
+function FederalAgenciesRoute() { return <FederalAgenciesPage />; }
+function StateAgenciesRoute() { return <StateAgenciesPage />; }
 
-function CinematicDirectPage({ page, variant, children }: { page: string; variant: CinematicVariant; children: React.ReactNode }) {
-  return <CinematicStage page={page} variant={variant}>{children}</CinematicStage>;
-}
+// Protected tools mount without alteration; their own components retain the
+// reviewed presentation while App contributes no visible workspace system.
+function DbaRoute() { return <DbaIntelligence />; }
+function OnetMasterToolRoute() { return <OnetMasterTool />; }
+function OccupationalDataExplorerRoute() { return <OccupationalDataExplorer />; }
 
-function EntitiesRoute() { return <CinematicDirectPage page="entities" variant="world"><EntitiesPage defaultTab="prospects" /></CinematicDirectPage>; }
-function ClientsRoute() { return <CinematicDirectPage page="clients" variant="world"><EntitiesPage defaultTab="clients" /></CinematicDirectPage>; }
-function CompetitorsRoute() { return <CinematicToolPage page="competitors" variant="world"><React.Suspense fallback={<CompetitorsLoading />}><CompetitorsPage /></React.Suspense></CinematicToolPage>; }
-function FederalAgenciesRoute() { return <CinematicToolPage page="federal-agencies" variant="climate"><FederalAgenciesPage /></CinematicToolPage>; }
-function StateAgenciesRoute() { return <CinematicToolPage page="state-agencies" variant="climate"><StateAgenciesPage /></CinematicToolPage>; }
-function DbaRoute() { return <CinematicDirectPage page="dba" variant="nasdaq"><div className="dba-hub-route"><DbaIntelligence /></div></CinematicDirectPage>; }
-function SecFilingsRoute() { return <CinematicToolPage page="sec" variant="nasdaq"><SecFilings /></CinematicToolPage>; }
-function LeadershipMapRoute() { return <CinematicToolPage page="organizational-chart" variant="world"><LeadershipMap /></CinematicToolPage>; }
-function FecFilingsRoute() { return <CinematicToolPage page="fec" variant="nasdaq"><FecFilingsPage /></CinematicToolPage>; }
-function OnetMasterToolRoute() { return <CinematicToolPage page="onet-master" variant="world"><OnetMasterTool /></CinematicToolPage>; }
-function OccupationalDataExplorerRoute() { return <CinematicToolPage page="occupational-data-explorer" variant="climate"><OccupationalDataExplorer /></CinematicToolPage>; }
-function IndustryImpactCalculatorRoute() { return <CinematicToolPage page="industry-impact-calculator" variant="zero"><IndustryImpactCalculator /></CinematicToolPage>; }
-function OccupationalCalculatorsRoute() { return <CinematicToolPage page="occupational-calculators" variant="zero"><OccupationalCalculators /></CinematicToolPage>; }
-function FederalAwardsRoute() { return <CinematicToolPage page="federal-awards" variant="nasdaq"><FederalAwardsPage /></CinematicToolPage>; }
-function LegalReferencesRoute() { return <CinematicToolPage page="legal" variant="nasdaq"><LegalReferencesPage /></CinematicToolPage>; }
-function WarCostsRoute() { return <CinematicToolPage page="war-costs" variant="corridors"><WarCostsIntelligence /></CinematicToolPage>; }
-function WarCostsMapRoute() { return <CinematicToolPage page="war-costs-map" variant="corridors"><WarCostsMap /></CinematicToolPage>; }
-function WarCostsToolsRoute() { return <CinematicToolPage page="war-costs-tools" variant="zero"><WarCostsTools /></CinematicToolPage>; }
-function WarCostsSpecialToolsRoute() { return <CinematicToolPage page="war-costs-special" variant="zero"><WarCostsSpecialTools /></CinematicToolPage>; }
-function WarCostsVisualizationsRoute() { return <CinematicToolPage page="war-costs-visualizations" variant="nasdaq"><WarCostsVisualizations /></CinematicToolPage>; }
-function WarCostsAccountabilityRoute() { return <CinematicToolPage page="war-costs-accountability" variant="nasdaq"><WarCostsAccountability /></CinematicToolPage>; }
-function WarCostsSiteEvidenceRoute() { return <CinematicToolPage page="war-costs-evidence" variant="nasdaq"><WarCostsSiteEvidence /></CinematicToolPage>; }
-function InjuriesMedicalRoute() { return <CinematicDirectPage page="injuries-medical" variant="anima"><ReviewerInjuriesMedicalPage /></CinematicDirectPage>; }
-function JobIntelligenceRoute() { return <CinematicDirectPage page="job-intelligence" variant="world"><ReviewerJobIntelligencePage /></CinematicDirectPage>; }
-function AorRoute() { return <CinematicDirectPage page="aor" variant="corridors"><ReviewerAorFactorsPage /></CinematicDirectPage>; }
-function DrugCheckerRoute() { return <CinematicDirectPage page="drug-checker" variant="anima"><ReviewerDrugCheckerPage /></CinematicDirectPage>; }
-function ClinicalCalculatorsRoute() { return <CinematicDirectPage page="clinical-calculators" variant="zero"><ReviewerClinicalCalculatorsPage /></CinematicDirectPage>; }
-function StandardsRoute() { return <CinematicDirectPage page="standards" variant="nasdaq"><ReviewerStandardsIntelligencePage /></CinematicDirectPage>; }
+function SecFilingsRoute() { return <SecFilings />; }
+function LeadershipMapRoute() { return <LeadershipMap />; }
+function FecFilingsRoute() { return <FecFilingsPage />; }
+function IndustryImpactCalculatorRoute() { return <IndustryImpactCalculator />; }
+function OccupationalCalculatorsRoute() { return <OccupationalCalculators />; }
+function FederalAwardsRoute() { return <FederalAwardsPage />; }
+function LegalReferencesRoute() { return <LegalReferencesPage />; }
+function WarCostsRoute() { return <WarCostsIntelligence />; }
+function WarCostsMapRoute() { return <WarCostsMap />; }
+function WarCostsToolsRoute() { return <WarCostsTools />; }
+function WarCostsSpecialToolsRoute() { return <WarCostsSpecialTools />; }
+function WarCostsVisualizationsRoute() { return <WarCostsVisualizations />; }
+function WarCostsAccountabilityRoute() { return <WarCostsAccountability />; }
+function WarCostsSiteEvidenceRoute() { return <WarCostsSiteEvidence />; }
+function InjuriesMedicalRoute() { return <ReviewerInjuriesMedicalPage />; }
+function JobIntelligenceRoute() { return <ReviewerJobIntelligencePage />; }
+function AorRoute() { return <ReviewerAorFactorsPage />; }
+function DrugCheckerRoute() { return <ReviewerDrugCheckerPage />; }
+function ClinicalCalculatorsRoute() { return <ReviewerClinicalCalculatorsPage />; }
+function StandardsRoute() { return <ReviewerStandardsIntelligencePage />; }
 
 function StandaloneMapPage({ children }: { children: React.ReactNode }) {
   return (
-    <CinematicStage page="standalone-map" variant="corridors">
-      <div className="standalone-map-page">
+      <div className="standalone-map-page min-h-screen bg-[#030b12] text-white">
         <Link href="/" aria-label="Back to the Insight Hub landing page" className="fixed left-4 top-4 z-[850] inline-flex min-h-11 items-center gap-2 rounded-full border border-cyan-100/18 bg-[#06101d]/78 px-4 text-xs font-bold text-cyan-50/76 shadow-[0_16px_48px_rgba(0,0,0,.42),0_0_28px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.12)] backdrop-blur-2xl transition hover:border-cyan-200/34 hover:bg-cyan-300/[0.12] hover:text-white">
           <ArrowLeft size={15} />Back
         </Link>
         {children}
       </div>
-    </CinematicStage>
   );
 }
 

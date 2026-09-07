@@ -1,5 +1,5 @@
 {
-  "description": "Reviewed structural baseline for Insight Hub 2.0. The active application keeps one shell, three global CSS layers, protected intelligence routes, and the existing AOR MapTiler implementation. The reviewed cinematic scene system adds one reusable React scene component plus one imported cinematic stylesheet to give active intelligence workspaces distinct Blue Corridors / Ghost Recon, Climate TRACE, Riot Anima Squad, Lusion Zero Tech, Nasdaq 50, and system-topology visual languages without creating additional application shells. The defense workspace is deliberately constrained to Occu-Med-relevant installation, contractor, personnel/location, expansion, network-planning, source-audit, and source-evidence views. Universal WarCosts calculators, conflict trackers, and priority-page mirrors are retired and removed. The AOR MapTiler map remains the health/risk workspace and the defense footprint map remains a separate ArcGIS workspace. Dedicated Federal Awards, Legal & Injury Intelligence, Federal Agencies, State Agencies, focused Occupational Calculators, live Industry Impact, and map-first AOR Factors workspace files are reviewed architecture rather than generic shared-shell exports. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
+  "description": "Reviewed structural baseline for Insight Hub 2.0 after the second-pass workspace audit. The application retains one routing shell and only infrastructure/global resilience CSS; shared cinematic and translucent workspace systems were removed. Major tools mount their page-owned visual architecture directly, while protected page source remains unchanged. The Defense Map uses named semantic layer rail, canvas, inspector, and source-status structures rather than positional DOM selectors. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
   "maximums": {
     "totalFiles": 325,
     "duplicateGroups": 0,
@@ -27,9 +27,6 @@
     "scripts/osha-persistence-audit.mjs",
     "artifacts/occu-med-insight-hub/src/styles/foundation.css",
     "artifacts/occu-med-insight-hub/src/styles/application.css",
-    "artifacts/occu-med-insight-hub/src/styles/cinematic-stage.css",
-    "artifacts/occu-med-insight-hub/src/components/insight/CinematicStage.tsx",
-    "artifacts/occu-med-insight-hub/src/components/insight/CinematicPortal.tsx",
     "artifacts/occu-med-insight-hub/src/components/insight/OfficialSourcePortal.tsx",
     "artifacts/occu-med-insight-hub/src/components/insight/AuroraMolecule.tsx",
     "artifacts/occu-med-insight-hub/src/components/insight/WarCostsWorkspaceNav.tsx",

@@ -1,6 +1,4 @@
 @import "./application.css";
-@import "./translucent-tools.css";
-@import "./cinematic-stage.css";
 @import "./ui-hardening.css";
 
 /* Critical MapTiler/MapLibre layout safeguards for the AOR operating picture.
@@ -49,14 +47,3 @@
 .aor-map-tiler-host .maplibregl-ctrl-bottom-left { left: 10px !important; bottom: 10px !important; }
 .aor-map-tiler-host .maplibregl-ctrl-top-right { right: 10px !important; top: 10px !important; }
 .aor-map-tiler-host .maplibregl-ctrl-top-left { left: 10px !important; top: 10px !important; }
-
-.cinematic-reactive-field {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  opacity: .72;
-  mix-blend-mode: screen;
-  pointer-events: none;
-}

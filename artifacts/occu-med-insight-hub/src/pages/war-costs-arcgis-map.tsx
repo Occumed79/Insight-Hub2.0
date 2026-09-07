@@ -416,21 +416,21 @@ export function WarCostsArcGisMap({ bases, personnel = [], construction = [], co
 
   return (
     <div className="war-map-operational-workspace grid min-h-[720px] grid-cols-[250px_minmax(0,1fr)_320px] overflow-hidden border-y border-white/8 bg-[#05080c]">
-      <aside className="border-r border-white/8 bg-[#070b10]/94">
-        <div className="flex h-14 items-center justify-between border-b border-white/8 px-4"><div className="flex items-center gap-2"><Layers3 className="h-4 w-4 text-cyan-100/55" /><p className="text-[10px] font-black uppercase tracking-[.14em] text-slate-400">Defense intelligence layers</p></div><span className="text-[9px] text-slate-600">{Object.values(visible).filter(Boolean).length}/{LAYER_META.length}</span></div>
+      <aside className="defense-map-layer-rail border-r border-white/8 bg-[#070b10]/94" aria-label="Defense map layers">
+        <div className="flex h-14 items-center justify-between border-b border-white/8 px-4"><div className="flex items-center gap-2"><Layers3 className="h-4 w-4 text-cyan-100/55" /><p className="text-xs font-bold text-slate-400">Defense intelligence layers</p></div><span className="text-xs text-slate-500">{Object.values(visible).filter(Boolean).length}/{LAYER_META.length}</span></div>
         <div className="divide-y divide-white/[.055]">
           {LAYER_META.map((meta) => (
-            <button key={meta.key} type="button" onClick={() => setVisible((state) => ({ ...state, [meta.key]: !state[meta.key] }))} className={`flex w-full items-start gap-3 px-4 py-4 text-left transition ${visible[meta.key] ? "bg-white/[.018]" : "opacity-45"}`}>
+            <button key={meta.key} type="button" data-layer={meta.key} aria-pressed={visible[meta.key]} onClick={() => setVisible((state) => ({ ...state, [meta.key]: !state[meta.key] }))} className={`flex w-full items-start gap-3 px-4 py-4 text-left transition ${visible[meta.key] ? "bg-white/[.018]" : "opacity-45"}`}>
               <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${LAYER_SWATCH[meta.key]}`} />
-              <div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><p className="text-[10px] font-black leading-4 text-white">{meta.label}</p><span className="shrink-0 text-[10px] font-black text-slate-400">{counts[meta.key].toLocaleString()}</span></div><p className="mt-1.5 text-[9px] leading-4 text-slate-600">{meta.note}</p></div>
+              <div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><p className="text-xs font-bold leading-4 text-white">{meta.label}</p><span className="shrink-0 text-xs font-bold text-slate-400">{counts[meta.key].toLocaleString()}</span></div><p className="mt-1.5 text-[11px] leading-4 text-slate-500">{meta.note}</p></div>
               {visible[meta.key] ? <Eye className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" /> : <EyeOff className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-700" />}
             </button>
           ))}
         </div>
-        <div className="border-t border-white/8 p-4 text-[9px] leading-5 text-slate-600"><p className="font-black uppercase tracking-[.11em] text-slate-500">Installation placement</p><p className="mt-2">{basePlacement.direct.toLocaleString()} source coordinates</p><p>{basePlacement.geocoded.toLocaleString()} ArcGIS fallbacks</p><p>{basePlacement.unplaced.toLocaleString()} unplaced</p>{personnelYear ? <p className="mt-2 text-slate-500">Personnel dataset: {personnelYear}</p> : null}</div>
+        <div className="defense-map-source-status border-t border-white/8 p-4 text-[11px] leading-5 text-slate-500"><p className="font-bold text-slate-400">Installation placement</p><p className="mt-2">{basePlacement.direct.toLocaleString()} source coordinates</p><p>{basePlacement.geocoded.toLocaleString()} ArcGIS fallbacks</p><p>{basePlacement.unplaced.toLocaleString()} unplaced</p>{personnelYear ? <p className="mt-2 text-slate-400">Personnel dataset: {personnelYear}</p> : null}</div>
       </aside>
 
-      <section className="relative min-w-0 bg-[#04070a]">
+      <section className="defense-map-canvas relative min-w-0 bg-[#04070a]">
         <div ref={hostRef} className="h-[calc(100vh-116px)] min-h-[720px] w-full" aria-label="Occu-Med defense medical support footprint map" />
         <div className="pointer-events-none absolute left-4 top-4 z-20 flex items-center gap-2 rounded-md border border-white/10 bg-[#081019]/82 px-3 py-2 text-[9px] font-semibold text-slate-400 shadow-xl backdrop-blur-xl"><MousePointer2 className="h-3 w-3" />Select a mapped feature to inspect its operational context.</div>
         <button type="button" onClick={resetView} className="absolute bottom-5 left-5 z-20 inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-[#081019]/90 px-3 text-[10px] font-black text-slate-300 shadow-xl backdrop-blur-xl"><Crosshair className="h-3.5 w-3.5" />Reset world view</button>
@@ -438,7 +438,7 @@ export function WarCostsArcGisMap({ bases, personnel = [], construction = [], co
         {error ? <div className="absolute bottom-5 right-5 z-40 max-w-md rounded-md border border-rose-200/18 bg-[#1a070d]/95 p-3 text-xs text-rose-100"><div className="flex gap-2"><MapPinned className="h-4 w-4 shrink-0" /><span>{error}</span></div></div> : null}
       </section>
 
-      <aside className="border-l border-white/8 bg-[#080c12]/94">
+      <aside className="defense-map-inspector border-l border-white/8 bg-[#080c12]/94" aria-label="Selected geographic evidence">
         <div className="sticky top-0 max-h-[calc(100vh-116px)] overflow-y-auto">
           <div className="flex h-14 items-center justify-between border-b border-white/8 px-4"><div><p className="text-[9px] font-black uppercase tracking-[.14em] text-slate-600">Selection inspector</p><p className="mt-0.5 text-[11px] font-black text-slate-300">Operational context</p></div>{selection ? <button onClick={() => setSelection(null)} className="rounded-md border border-white/8 p-1.5 text-slate-600 hover:text-white"><X className="h-3.5 w-3.5" /></button> : null}</div>
           {selection ? <div className="p-5">

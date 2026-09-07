@@ -8,6 +8,7 @@ const read = (relativePath) =>
 const app = read("artifacts/occu-med-insight-hub/src/App.tsx");
 const appEntry = read("artifacts/occu-med-insight-hub/src/styles/app-entry.css");
 const hardeningCss = read("artifacts/occu-med-insight-hub/src/styles/ui-hardening.css");
+const defenseMap = read("artifacts/occu-med-insight-hub/src/pages/war-costs-arcgis-map.tsx");
 const sidebar = read("artifacts/occu-med-insight-hub/src/components/insight/Sidebar.tsx");
 const main = read("artifacts/occu-med-insight-hub/src/main.tsx");
 const landing = read("artifacts/occu-med-insight-hub/src/pages/landing.tsx");
@@ -22,6 +23,10 @@ const stateMapSuite = read("artifacts/occu-med-insight-hub/tests/state-map.spec.
 const workflow = read(".github/workflows/build-check.yml");
 
 const checks = [
+  [!app.includes("CinematicStage") && !app.includes("translucent-tool-page"), "App does not route any workspace through a shared visible wrapper"],
+  [["SecFilings", "LeadershipMap", "FederalAwardsPage", "LegalReferencesPage", "WarCostsMap", "ReviewerAorFactorsPage"].every((component) => app.includes(`return <${component}`)), "major intelligence workspaces mount their page-owned roots directly"],
+  [!appEntry.includes("cinematic-stage.css") && !appEntry.includes("translucent-tools.css"), "retired shared visual stylesheets are absent from the application entry"],
+  [["defense-map-layer-rail", "defense-map-canvas", "defense-map-inspector", "defense-map-source-status"].every((name) => defenseMap.includes(name)), "Defense Map exposes semantic page-local layout structures"],
   [appEntry.includes('@import "./ui-hardening.css"'), "shared UI hardening stylesheet is imported"],
   [hardeningCss.includes(":focus-visible"), "keyboard focus visibility guard exists"],
   [hardeningCss.includes("prefers-reduced-motion: reduce"), "reduced-motion guard exists"],
