@@ -1,5 +1,16 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, BriefcaseBusiness, CheckCircle2, Database, Loader2, Radar, Search, Stethoscope } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  BriefcaseBusiness,
+  CheckCircle2,
+  Database,
+  FileText,
+  Loader2,
+  Radar,
+  Search,
+  Stethoscope,
+} from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { ReviewerInjuryHologram } from "./reviewer-injury-hologram";
@@ -47,19 +58,23 @@ async function loadJson(url: string): Promise<any> {
 }
 
 function Loading({ text = "Loading source data…" }: { text?: string }) {
-  return <div className="flex min-h-28 items-center justify-center gap-3 text-sm text-cyan-100/55"><Loader2 size={18} className="animate-spin" />{text}</div>;
+  return <div className="flex min-h-24 items-center justify-center gap-3 text-sm text-slate-400"><Loader2 size={18} className="animate-spin" />{text}</div>;
 }
+
 function ErrorState({ error }: { error: string }) {
-  return <div className="rounded-2xl border border-rose-200/16 bg-rose-300/[.05] p-4 text-sm text-rose-50/75"><AlertTriangle size={16} className="mr-2 inline" />{error}</div>;
+  return <div className="border border-rose-300/20 bg-rose-300/[0.04] p-4 text-sm text-rose-100"><AlertTriangle size={16} className="mr-2 inline" />{error}</div>;
 }
+
 function Metric({ label, value, note }: { label: string; value: string; note?: string }) {
-  return <div className="rh-metric"><span>{label}</span><strong>{value}</strong>{note ? <small className="mt-1 block text-[9px] leading-4 text-cyan-100/35">{note}</small> : null}</div>;
+  return <div className="border-b border-white/8 py-3 last:border-b-0"><p className="text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">{label}</p><p className="mt-1 text-2xl font-black tracking-[-.03em] text-white">{value}</p>{note ? <p className="mt-1 text-[11px] leading-5 text-slate-500">{note}</p> : null}</div>;
 }
+
 function BulletList({ items }: { items: string[] }) {
-  return <div className="space-y-3">{items.map((item) => <div key={item} className="flex gap-2 text-xs leading-6 text-cyan-100/58"><CheckCircle2 size={14} className="mt-1 shrink-0 text-cyan-100/52" />{item}</div>)}</div>;
+  return <div className="divide-y divide-white/7">{items.map((item) => <div key={item} className="flex gap-3 py-3 text-sm leading-6 text-slate-300"><CheckCircle2 size={15} className="mt-1 shrink-0 text-cyan-200/70" />{item}</div>)}</div>;
 }
+
 function Distribution({ title, items, denominatorLabel }: { title: string; items: CaseDimension[]; denominatorLabel: string }) {
-  return <div><div className="rh-label">{title}</div><div className="mt-3 space-y-2">{items.slice(0, 8).map((item) => <div key={`${title}-${item.code}-${item.name}`} className="rounded-2xl border border-white/9 bg-white/[.022] p-3"><div className="flex items-start justify-between gap-3"><strong className="text-xs leading-5 text-white/85">{item.name}</strong><span className="shrink-0 text-[10px] font-black text-cyan-100/65">{item.share.toFixed(1)}%</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[.05]"><div className="h-full rounded-full bg-cyan-200/55" style={{ width: `${Math.min(item.share, 100)}%` }} /></div><p className="mt-2 text-[9px] text-cyan-100/34">{item.count.toLocaleString()} coded case{item.count === 1 ? "" : "s"} · {denominatorLabel}</p></div>)}</div></div>;
+  return <section className="border-t border-white/10 pt-4"><div className="mb-3 flex items-end justify-between gap-4"><h3 className="text-sm font-black text-white">{title}</h3><span className="text-[10px] text-slate-500">{denominatorLabel}</span></div><div className="divide-y divide-white/7">{items.slice(0, 8).map((item) => <div key={`${title}-${item.code}-${item.name}`} className="grid grid-cols-[1fr_74px] gap-4 py-3"><div><div className="flex items-center justify-between gap-3"><span className="text-sm font-semibold text-slate-200">{item.name}</span><span className="text-[11px] font-bold text-slate-400">{item.count.toLocaleString()}</span></div><div className="mt-2 h-1 overflow-hidden bg-white/[.05]"><div className="h-full bg-cyan-200/60" style={{ width: `${Math.min(item.share, 100)}%` }} /></div></div><span className="text-right text-sm font-black text-white">{item.share.toFixed(1)}%</span></div>)}</div></section>;
 }
 
 const CONDITIONS: Condition[] = [
@@ -140,32 +155,92 @@ export default function ReviewerInjuriesMedicalPage() {
     if (!needle) return CONDITIONS;
     return CONDITIONS.filter((item) => [item.label, item.category, ...item.terms].some((value) => value.toLowerCase().includes(needle)));
   }, [conditionQuery]);
+  const conditionGroups = useMemo(() => Array.from(new Set(filteredConditions.map((item) => item.category))), [filteredConditions]);
 
-  return <main className="aurora-bg reviewer-native-page min-h-screen pb-24 text-white"><Sidebar /><section className="relative z-10 px-5 py-8 pt-24 lg:ml-[210px] lg:px-12 lg:pt-8"><HeaderBar eyebrow="Clinical / Occupational Health Intelligence" title="Injuries & Medical Conditions" subtitle="Occupation-resolved OSHA case characteristics, job-demand evidence, anatomical visualization, and a broader condition-review library in one reviewer workspace." />
-    <div className="rh-stack">
-      <div className="rh-tabs" role="tablist"><button role="tab" aria-selected={tab === "injury"} onClick={() => setTab("injury")} className={`rh-tab ${tab === "injury" ? "active" : ""}`}>Injury Intelligence</button><button role="tab" aria-selected={tab === "conditions"} onClick={() => setTab("conditions")} className={`rh-tab ${tab === "conditions" ? "active" : ""}`}>Medical Conditions</button></div>
+  return (
+    <main className="min-h-screen bg-[#06090d] pb-16 text-white">
+      <Sidebar />
+      <section className="px-5 py-8 pt-24 lg:ml-[210px] lg:px-8 lg:pt-8 2xl:px-10">
+        <HeaderBar eyebrow="Clinical / Occupational Health Intelligence" title="Injuries & Medical Conditions" subtitle="Explore occupation-linked injury evidence and reviewer condition context without turning either into an automatic fitness decision." />
 
-      {tab === "injury" ? <>
-        <section className="rh-primary-action"><div className="rh-kicker">01 · Resolve the occupation</div><h2 className="rh-section-title">Start with the job, then connect it to reported cases.</h2><p className="rh-section-copy">The occupation is resolved to an O*NET/SOC identity. Insight Hub then automatically checks imported OSHA Form 300/301 case detail for that SOC so body-part and incident characteristics are tied to the selected occupation rather than unrelated national rankings.</p><div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto]"><div className="flex items-center gap-3 rounded-2xl border border-white/16 bg-black/20 px-4"><Search size={17} className="text-cyan-100/55" /><input value={occupation} onChange={(event) => setOccupation(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void runOccupation()} placeholder="Firefighter, electrician, truck driver…" className="rh-input !border-0 !bg-transparent !px-0" /></div><button type="button" onClick={() => void runOccupation()} disabled={onetLoading || !occupation.trim()} className="rh-action">{onetLoading ? <Loader2 size={16} className="mr-2 inline animate-spin" /> : <Radar size={16} className="mr-2 inline" />}Build injury profile</button></div></section>
+        <div className="mt-4 flex min-h-12 items-end gap-7 border-b border-white/10" role="tablist">
+          <button role="tab" aria-selected={tab === "injury"} onClick={() => setTab("injury")} className={`min-h-12 border-b-2 px-0.5 text-sm font-bold transition ${tab === "injury" ? "border-cyan-200 text-white" : "border-transparent text-slate-500 hover:text-slate-200"}`}>Injury Intelligence</button>
+          <button role="tab" aria-selected={tab === "conditions"} onClick={() => setTab("conditions")} className={`min-h-12 border-b-2 px-0.5 text-sm font-bold transition ${tab === "conditions" ? "border-cyan-200 text-white" : "border-transparent text-slate-500 hover:text-slate-200"}`}>Medical Conditions</button>
+        </div>
 
-        <ReviewerInjuryHologram profile={profile} caseProfile={caseProfile} />
+        {tab === "injury" ? (
+          <div className="mt-5 grid min-h-[760px] gap-0 border border-white/10 bg-[#090d12] xl:grid-cols-[300px_minmax(0,1fr)_340px]">
+            <aside className="border-b border-white/10 p-4 xl:border-b-0 xl:border-r">
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-500"><Radar size={14} />Occupation resolver</div>
+              <p className="mt-3 text-sm leading-6 text-slate-400">Resolve the job first. O*NET supplies the occupation identity; imported OSHA case detail is then matched to that occupation.</p>
+              <div className="mt-5 border border-white/10 bg-black/25 px-3">
+                <div className="flex min-h-12 items-center gap-2"><Search size={15} className="text-slate-500" /><input value={occupation} onChange={(event) => setOccupation(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void runOccupation()} placeholder="Firefighter, electrician, truck driver…" className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600" /></div>
+              </div>
+              <button type="button" onClick={() => void runOccupation()} disabled={onetLoading || !occupation.trim()} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 border border-cyan-200/25 bg-cyan-300/[.08] px-4 text-sm font-black transition hover:bg-cyan-300/[.14] disabled:opacity-40">{onetLoading ? <Loader2 size={16} className="animate-spin" /> : <Radar size={16} />}Build injury profile</button>
 
-        <section className="rh-support-grid">
-          <div className="rh-card is-wide"><div className="flex items-start justify-between gap-4"><div><div className="rh-label">03 · OSHA Form 300/301 case detail</div><h3 className="mt-2">Reported cases for the resolved occupation</h3><p className="mt-2 text-xs leading-5 text-cyan-100/43">Matched by {caseProfile?.matchedBy === "soc" ? `SOC ${caseProfile.matchedSocCode || profile?.occupation?.code || "—"}` : caseProfile ? "occupation title fallback" : "resolved SOC when available"}.</p></div><Database className="text-cyan-100/50" /></div>{caseError ? <div className="mt-4"><ErrorState error={caseError} /></div> : caseLoading ? <Loading text="Matching OSHA case detail to the resolved occupation…" /> : !profile ? <p className="mt-5 text-sm text-cyan-100/48">Search an occupation to load its reported case profile.</p> : !casePayload ? <p className="mt-5 text-sm text-cyan-100/48">The occupation resolved, but the OSHA case-profile request has not completed.</p> : !casePayload.imported ? <div className="mt-5 rounded-2xl border border-amber-200/14 bg-amber-300/[.05] p-4 text-xs leading-6 text-amber-100/65">{casePayload.warning || "OSHA case-detail storage is available but no case dataset is imported yet."}</div> : !caseProfile ? <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.02] p-4 text-xs leading-6 text-cyan-100/50">{casePayload.warning || "No imported case records matched this SOC. That is not evidence that the occupation has no injuries or illnesses."}</div> : <><div className="rh-metric-grid mt-5"><Metric label="Reported cases" value={caseProfile.totalCases.toLocaleString()} note={`CY${caseProfile.selectedYear ?? "—"} imported case detail`} /><Metric label="Days away" value={caseProfile.totalDaysAway.toLocaleString()} note="Sum across matched reported cases" /><Metric label="Restricted days" value={caseProfile.totalRestrictedDays.toLocaleString()} note="Job transfer / restriction days" /><Metric label="Body-part coded (OIICS)" value={caseProfile.codedBodyPartCases.toLocaleString()} note={`CY${caseProfile.oiicsYear ?? "—"} OIICS-coded historical cases · separate from CY${caseProfile.selectedYear ?? "—"} current case totals`} /></div><div className="mt-5 flex flex-wrap gap-2">{caseProfile.outcomes.map((item) => <span key={item.name} className="rounded-full border border-cyan-100/13 bg-cyan-300/[.04] px-3 py-1.5 text-[10px] font-bold text-cyan-50/65">{item.name}: {item.count.toLocaleString()}</span>)}</div></>}</div>
+              <div className="mt-7 border-t border-white/10 pt-5">
+                <p className="text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">Resolved occupation</p>
+                {profile ? <><h2 className="mt-2 text-xl font-black tracking-[-.02em] text-white">{profile.occupation?.title}</h2><p className="mt-1 text-xs font-bold text-cyan-100/60">SOC {profile.occupation?.code || "—"}</p><p className="mt-3 text-xs leading-6 text-slate-400">{profile.occupation?.description}</p></> : <p className="mt-3 text-sm leading-6 text-slate-500">No occupation selected.</p>}
+              </div>
 
-          {caseProfile ? <><div className="rh-card"><Distribution title={`Body parts affected · OIICS CY${caseProfile.oiicsYear ?? "—"}`} items={caseProfile.bodyParts} denominatorLabel={`CY${caseProfile.oiicsYear ?? "—"} · ${caseProfile.codedBodyPartCases.toLocaleString()} body-part-coded cases`} /></div><div className="rh-card"><Distribution title={`Events / exposures · OIICS CY${caseProfile.oiicsYear ?? "—"}`} items={caseProfile.events} denominatorLabel={`CY${caseProfile.oiicsYear ?? "—"} · ${caseProfile.codedEventCases.toLocaleString()} event-coded cases`} /></div><div className="rh-card"><Distribution title={`Nature of injury / illness · OIICS CY${caseProfile.oiicsYear ?? "—"}`} items={caseProfile.natures} denominatorLabel={`CY${caseProfile.oiicsYear ?? "—"} · ${caseProfile.codedNatureCases.toLocaleString()} nature-coded cases`} /></div><div className="rh-card"><Distribution title={`Primary source · OIICS CY${caseProfile.oiicsYear ?? "—"}`} items={caseProfile.sources} denominatorLabel={`CY${caseProfile.oiicsYear ?? "—"} · ${caseProfile.codedSourceCases.toLocaleString()} source-coded cases`} /></div></> : null}
+              <div className="mt-7 border-t border-white/10 pt-5">
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.14em] text-slate-500"><BriefcaseBusiness size={13} />Job-demand context</div>
+                <h3 className="mt-2 text-sm font-black text-white">Job-demand context — not an injury rate</h3>
+                {onetLoading ? <Loading text="Loading O*NET evidence…" /> : onet?.error ? <div className="mt-3"><ErrorState error={onet.error} /></div> : profile ? <div className="mt-3 divide-y divide-white/7">{(profile.serviceMatches || []).slice(0, 8).map((item: any) => <div key={item.id} className="py-3"><div className="flex items-start justify-between gap-3"><span className="text-xs font-bold text-slate-200">{item.label}</span><span className="text-[10px] font-black text-slate-500">{item.count} refs</span></div><p className="mt-1 text-[11px] leading-5 text-slate-500">{item.description}</p></div>)}</div> : <p className="mt-3 text-xs leading-5 text-slate-500">Demand evidence appears after occupation resolution.</p>}
+              </div>
+            </aside>
 
-          <div className="rh-card is-full"><div className="flex items-start justify-between gap-4"><div><div className="rh-label">04 · O*NET demand evidence</div><h3 className="mt-2">Job-demand context — not an injury rate</h3></div><BriefcaseBusiness className="text-violet-100/50" /></div>{onetLoading ? <Loading text="Loading O*NET evidence…" /> : onet?.error ? <div className="mt-4"><ErrorState error={onet.error} /></div> : profile ? <div className="mt-5"><div className="flex flex-wrap items-baseline gap-3"><h4 className="text-xl font-black">{profile.occupation?.title}</h4><span className="text-[10px] font-black uppercase tracking-[.12em] text-violet-100/45">SOC {profile.occupation?.code || "—"}</span></div><p className="mt-2 text-sm leading-6 text-cyan-100/50">{profile.occupation?.description}</p><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{(profile.serviceMatches || []).slice(0, 8).map((item: any) => <div key={item.id} className="rounded-2xl border border-white/10 bg-white/[.022] p-4"><div className="flex items-start justify-between gap-3"><strong className="text-sm">{item.label}</strong><span className="rounded-full border border-violet-100/14 px-2 py-1 text-[9px] font-black text-violet-100/58">{item.count} refs</span></div><p className="mt-2 text-xs leading-5 text-cyan-100/43">{item.description}</p></div>)}</div></div> : <p className="mt-4">Search an occupation to load job-demand context.</p>}</div>
+            <section className="min-w-0 border-b border-white/10 bg-[#05080c] xl:border-b-0 xl:border-r">
+              <div className="border-b border-white/10 px-4 py-3"><div className="flex items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[.15em] text-slate-500">Anatomical explorer</p><p className="mt-1 text-sm text-slate-300">Reported case distribution projected onto the occupation-linked anatomy view.</p></div><Activity size={18} className="text-cyan-200/60" /></div></div>
+              <ReviewerInjuryHologram profile={profile} caseProfile={caseProfile} />
+            </section>
 
-          <div className="rh-card is-full is-quiet"><div className="rh-label">Interpretation boundary</div><p className="mt-2">OSHA OIICS percentages describe the distribution of coded cases from the OIICS evidence year shown on each panel, not the probability that a worker will be injured. Current case totals may use a newer reporting year than the coded OIICS distributions. OSHA ITA reporting does not cover every employer or worker and does not establish fault, negligence, compensability, or causation. O*NET evidence describes job demands and is never presented as an injury rate.</p></div>
-        </section>
-      </> : <>
-        <section className="rh-primary-action"><div className="rh-kicker">01 · Searchable condition library</div><h2 className="rh-section-title">Find the condition, then resolve the reviewer questions.</h2><p className="rh-section-copy">The library now spans cardiovascular, respiratory, neurologic, behavioral-health, musculoskeletal, renal, sensory, endocrine, hematologic, sleep, and GI/hepatic review contexts. It remains reviewer context—not an automatic fitness decision.</p><div className="mt-5 flex items-center gap-3 rounded-2xl border border-white/14 bg-black/20 px-4"><Search size={16} className="text-cyan-100/50" /><input value={conditionQuery} onChange={(event) => setConditionQuery(event.target.value)} placeholder="Search diabetes, migraine, hearing, anticoagulation…" className="rh-input !border-0 !bg-transparent !px-0" /><span className="shrink-0 text-[10px] font-black text-cyan-100/35">{filteredConditions.length} / {CONDITIONS.length}</span></div><div className="mt-5 flex max-h-[260px] flex-wrap gap-2 overflow-y-auto pr-1">{filteredConditions.map((item) => <button key={item.id} onClick={() => setConditionId(item.id)} className={`rh-secondary ${conditionId === item.id ? "!border-cyan-100/28 !bg-cyan-300/[.08] !text-white" : ""}`} title={item.category}>{item.label}</button>)}</div>{filteredConditions.length === 0 ? <p className="mt-4 text-xs text-amber-100/60">No condition in the current reviewer library matches that search.</p> : null}</section>
+            <aside className="p-4">
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.15em] text-slate-500"><Database size={14} />OSHA case inspector</div>
+              <h2 className="mt-2 text-lg font-black text-white">Reported cases for the resolved occupation</h2>
+              <p className="mt-2 text-xs leading-5 text-slate-500">Matched by {caseProfile?.matchedBy === "soc" ? `SOC ${caseProfile.matchedSocCode || profile?.occupation?.code || "—"}` : caseProfile ? "occupation title fallback" : "resolved SOC when available"}.</p>
 
-        <section className="rh-hero"><div className="rh-hero-grid"><div className="rh-hero-main"><div className="flex items-start justify-between"><div><div className="rh-kicker">02 · {condition.category}</div><h2 className="rh-section-title">{condition.label}</h2><p className="rh-section-copy">Reviewer context only. Start with current stability, actual symptoms, treatment effects, and the occupational setting rather than assuming restriction from the diagnosis name.</p></div><Stethoscope className="text-violet-100/50" /></div><div className="mt-7"><div className="rh-label">Questions to resolve</div><div className="mt-4"><BulletList items={condition.prompts} /></div></div></div><aside className="rh-hero-side"><div className="rh-kicker">03 · Functional domains</div><div className="mt-5 space-y-3">{condition.domains.map((domain, index) => <div key={domain} className="rounded-2xl border border-white/10 bg-white/[.022] p-4"><span className="text-[9px] font-black text-cyan-100/35">{String(index + 1).padStart(2, "0")}</span><strong className="mt-1 block text-sm capitalize">{domain}</strong></div>)}</div></aside></div></section>
+              {caseError ? <div className="mt-4"><ErrorState error={caseError} /></div> : caseLoading ? <Loading text="Matching OSHA case detail…" /> : !profile ? <p className="mt-5 text-sm text-slate-500">Select an occupation to inspect its reported case profile.</p> : !casePayload ? <p className="mt-5 text-sm text-slate-500">Waiting for the OSHA case-profile request.</p> : !casePayload.imported ? <div className="mt-5 border border-amber-200/20 bg-amber-300/[.04] p-4 text-xs leading-6 text-amber-100/70">{casePayload.warning || "OSHA case-detail storage is available but no case dataset is imported yet."}</div> : !caseProfile ? <div className="mt-5 border border-white/10 bg-white/[.02] p-4 text-xs leading-6 text-slate-400">{casePayload.warning || "No imported case records matched this SOC. That is not evidence that the occupation has no injuries or illnesses."}</div> : <>
+                <div className="mt-5 border-y border-white/10">
+                  <Metric label="Reported cases" value={caseProfile.totalCases.toLocaleString()} note={`CY${caseProfile.selectedYear ?? "—"} imported case detail`} />
+                  <Metric label="Days away" value={caseProfile.totalDaysAway.toLocaleString()} note="Sum across matched reported cases" />
+                  <Metric label="Restricted days" value={caseProfile.totalRestrictedDays.toLocaleString()} note="Job transfer / restriction days" />
+                  <Metric label="Body-part coded" value={caseProfile.codedBodyPartCases.toLocaleString()} note={`OIICS CY${caseProfile.oiicsYear ?? "—"}`} />
+                </div>
+                <div className="mt-5"><p className="text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">Outcomes</p><div className="mt-2 divide-y divide-white/7">{caseProfile.outcomes.map((item) => <div key={item.name} className="flex items-center justify-between gap-3 py-2.5 text-xs"><span className="text-slate-400">{item.name}</span><strong className="text-white">{item.count.toLocaleString()}</strong></div>)}</div></div>
+                <div className="mt-5"><p className="text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">Top body-part signals</p><div className="mt-2 divide-y divide-white/7">{caseProfile.bodyParts.slice(0, 5).map((item) => <div key={item.code} className="flex items-center justify-between gap-3 py-2.5 text-xs"><span className="text-slate-300">{item.name}</span><span className="font-black text-white">{item.share.toFixed(1)}%</span></div>)}</div></div>
+              </>}
+            </aside>
 
-        <section className="rh-support-grid"><div className="rh-card is-wide"><div className="rh-label">04 · Useful documentation</div><h3 className="mt-2">Evidence to collect</h3><div className="mt-4"><BulletList items={condition.docs} /></div></div><div className="rh-card"><div className="rh-label">Review focus</div><h3 className="mt-2">Function before label</h3><p className="mt-3">Resolve current stability, symptoms, treatment effects, job demands, PPE/egress needs, emergency access, and controlling program requirements.</p></div><div className="rh-card is-full is-quiet"><div className="rh-label">Interpretation boundary</div><p className="mt-2">Condition context supports reviewer questioning; it does not independently determine fitness, disability, causation, deployability, accommodation, or clearance.</p></div></section>
-      </>}
-    </div>
-  </section></main>;
+            {caseProfile ? <div className="col-span-full grid gap-6 border-t border-white/10 bg-[#080c11] p-5 xl:grid-cols-2"><Distribution title={`Body parts affected · OIICS CY${caseProfile.oiicsYear ?? "—"}`} items={caseProfile.bodyParts} denominatorLabel={`${caseProfile.codedBodyPartCases.toLocaleString()} coded`} /><Distribution title={`Events / exposures · OIICS CY${caseProfile.oiicsYear ?? "—"}`} items={caseProfile.events} denominatorLabel={`${caseProfile.codedEventCases.toLocaleString()} coded`} /><Distribution title={`Nature of injury / illness · OIICS CY${caseProfile.oiicsYear ?? "—"}`} items={caseProfile.natures} denominatorLabel={`${caseProfile.codedNatureCases.toLocaleString()} coded`} /><Distribution title={`Primary source · OIICS CY${caseProfile.oiicsYear ?? "—"}`} items={caseProfile.sources} denominatorLabel={`${caseProfile.codedSourceCases.toLocaleString()} coded`} /></div> : null}
+
+            <div className="col-span-full border-t border-white/10 bg-black/20 px-5 py-3 text-[11px] leading-5 text-slate-500">OSHA OIICS percentages describe the distribution of coded cases from the evidence year shown, not an individual worker’s probability of injury. O*NET evidence describes job demands and is never presented as an injury rate.</div>
+          </div>
+        ) : (
+          <div className="mt-5 grid min-h-[720px] border border-white/10 bg-[#090d12] xl:grid-cols-[310px_minmax(0,1fr)_330px]">
+            <aside className="border-b border-white/10 p-4 xl:border-b-0 xl:border-r">
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.15em] text-slate-500"><Search size={14} />Condition library</div>
+              <div className="mt-4 flex min-h-12 items-center gap-2 border border-white/10 bg-black/25 px-3"><Search size={15} className="text-slate-500" /><input value={conditionQuery} onChange={(event) => setConditionQuery(event.target.value)} placeholder="Search diabetes, migraine, hearing, anticoagulation…" className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600" /><span className="shrink-0 text-[10px] font-black text-slate-500">{filteredConditions.length}</span></div>
+              <div className="mt-4 max-h-[610px] overflow-y-auto pr-1">{conditionGroups.map((category) => <section key={category} className="mb-5"><p className="mb-2 text-[10px] font-bold uppercase tracking-[.14em] text-slate-600">{category}</p><div className="divide-y divide-white/7 border-t border-white/7">{filteredConditions.filter((item) => item.category === category).map((item) => <button key={item.id} onClick={() => setConditionId(item.id)} className={`w-full px-1 py-3 text-left text-sm transition ${conditionId === item.id ? "text-white" : "text-slate-400 hover:text-slate-200"}`}><span className="flex items-center justify-between gap-3"><span className="font-semibold">{item.label}</span>{conditionId === item.id ? <span className="h-1.5 w-1.5 rounded-full bg-cyan-200" /> : null}</span></button>)}</div></section>)}</div>
+            </aside>
+
+            <section className="min-w-0 border-b border-white/10 p-6 xl:border-b-0 xl:border-r">
+              <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[.16em] text-cyan-100/55">{condition.category}</p><h2 className="mt-2 text-3xl font-black tracking-[-.035em] text-white">{condition.label}</h2><p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">Reviewer context only. Start with current stability, actual symptoms, treatment effects, and the occupational setting rather than assuming restriction from the diagnosis name.</p></div><Stethoscope size={22} className="text-cyan-200/55" /></div>
+
+              <div className="mt-8 border-t border-white/10 pt-5"><div className="flex items-center gap-2"><Activity size={15} className="text-cyan-200/60" /><h3 className="text-sm font-black text-white">Questions to resolve</h3></div><div className="mt-3"><BulletList items={condition.prompts} /></div></div>
+
+              <div className="mt-8 border-t border-white/10 pt-5"><div className="flex items-center gap-2"><FileText size={15} className="text-cyan-200/60" /><h3 className="text-sm font-black text-white">Evidence to collect</h3></div><div className="mt-3"><BulletList items={condition.docs} /></div></div>
+            </section>
+
+            <aside className="p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[.15em] text-slate-500">Functional domains</p>
+              <div className="mt-3 divide-y divide-white/7 border-y border-white/10">{condition.domains.map((domain, index) => <div key={domain} className="grid grid-cols-[30px_1fr] gap-3 py-4"><span className="text-[10px] font-black text-slate-600">{String(index + 1).padStart(2, "0")}</span><div><p className="text-sm font-bold capitalize text-white">{domain}</p><p className="mt-1 text-[11px] leading-5 text-slate-500">Resolve this domain against the actual job, location, PPE, emergency access, and controlling program.</p></div></div>)}</div>
+              <div className="mt-6 border-t border-white/10 pt-5"><p className="text-[10px] font-bold uppercase tracking-[.15em] text-slate-500">Review boundary</p><p className="mt-2 text-xs leading-6 text-slate-400">Condition context supports reviewer questioning; it does not independently determine fitness, disability, causation, deployability, accommodation, or clearance.</p></div>
+              <div className="mt-6 border-t border-white/10 pt-5"><p className="text-[10px] font-bold uppercase tracking-[.15em] text-slate-500">Review focus</p><p className="mt-2 text-xs leading-6 text-slate-400">Function before label: current stability, symptoms, treatment effects, job demands, PPE/egress needs, emergency access, and controlling program requirements.</p></div>
+            </aside>
+          </div>
+        )}
+      </section>
+    </main>
+  );
 }
