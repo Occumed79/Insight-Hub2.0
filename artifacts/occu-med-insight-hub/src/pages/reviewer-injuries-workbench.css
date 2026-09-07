@@ -1,0 +1,283 @@
+.injuries-workbench-v2 {
+  --iw-bg: #05080c;
+  --iw-panel: #070b10;
+  --iw-panel-2: #0a0f15;
+  --iw-line: rgba(255, 255, 255, 0.075);
+  --iw-line-strong: rgba(255, 255, 255, 0.12);
+  --iw-text: #f4f7f9;
+  --iw-muted: #77818d;
+  --iw-accent: #86e7f3;
+  min-height: 100vh;
+  background: var(--iw-bg);
+  color: var(--iw-text);
+}
+
+.injuries-workbench-v2 main {
+  min-height: 100vh !important;
+  padding-bottom: 0 !important;
+  background: var(--iw-bg) !important;
+}
+
+.injuries-workbench-v2 main > section {
+  padding-top: 22px !important;
+  padding-bottom: 22px !important;
+  padding-right: 22px !important;
+  padding-left: 22px !important;
+}
+
+.injuries-workbench-v2 main > section > header,
+.injuries-workbench-v2 main > section > div:first-child {
+  max-width: none !important;
+}
+
+.injuries-workbench-v2 [role="tablist"] {
+  min-height: 44px !important;
+  margin-top: 16px !important;
+  gap: 28px !important;
+  align-items: stretch !important;
+  border-bottom: 1px solid var(--iw-line-strong) !important;
+}
+
+.injuries-workbench-v2 [role="tab"] {
+  min-height: 44px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 2px !important;
+  font-size: 12px !important;
+  letter-spacing: 0 !important;
+}
+
+.injuries-workbench-v2 [role="tab"][aria-selected="true"] {
+  color: #fff !important;
+  border-bottom-color: var(--iw-accent) !important;
+}
+
+.injuries-workbench-v2 [role="tablist"] + div {
+  min-height: calc(100vh - 188px) !important;
+  margin-top: 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--iw-line) !important;
+  border-left: 1px solid var(--iw-line) !important;
+  border-right: 1px solid var(--iw-line) !important;
+  border-radius: 0 !important;
+  background: var(--iw-panel) !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+@media (min-width: 1280px) {
+  .injuries-workbench-v2 [role="tablist"] + div {
+    grid-template-columns: 286px minmax(0, 1fr) 356px !important;
+  }
+}
+
+.injuries-workbench-v2 [role="tablist"] + div > aside,
+.injuries-workbench-v2 [role="tablist"] + div > section {
+  border-color: var(--iw-line) !important;
+  background: transparent !important;
+}
+
+.injuries-workbench-v2 [role="tablist"] + div > aside:first-of-type {
+  background: #070b10 !important;
+}
+
+.injuries-workbench-v2 [role="tablist"] + div > aside:last-of-type {
+  background: #080c11 !important;
+}
+
+.injuries-workbench-v2 [role="tablist"] + div > section {
+  background: #03070b !important;
+}
+
+.injuries-workbench-v2 input,
+.injuries-workbench-v2 button {
+  border-radius: 4px !important;
+}
+
+.injuries-workbench-v2 input {
+  font-size: 12px !important;
+}
+
+.injuries-workbench-v2 button {
+  box-shadow: none !important;
+}
+
+.injuries-workbench-v2 button:hover {
+  filter: brightness(1.06);
+}
+
+.injuries-workbench-v2 .ih-hologram-shell {
+  position: relative;
+  display: block;
+  min-height: 690px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #02070b;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.injuries-workbench-v2 .ih-hologram-stage {
+  min-height: 690px;
+  border-right: 0;
+}
+
+.injuries-workbench-v2 .ih-hologram-head {
+  min-height: 64px;
+  padding: 16px 18px 10px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  background: rgba(3, 8, 12, .92);
+}
+
+.injuries-workbench-v2 .ih-hologram-head h2 {
+  margin-top: 5px;
+  font-size: 17px;
+  font-weight: 780;
+  letter-spacing: -.02em;
+}
+
+.injuries-workbench-v2 .ih-hologram-head span,
+.injuries-workbench-v2 .ih-focus > span,
+.injuries-workbench-v2 .ih-ranking > span,
+.injuries-workbench-v2 .ih-telemetry span,
+.injuries-workbench-v2 .ih-telemetry small {
+  font-size: 8px;
+  letter-spacing: .13em;
+}
+
+.injuries-workbench-v2 .ih-view-toggle,
+.injuries-workbench-v2 .ih-mode-pill {
+  border-radius: 4px;
+  background: rgba(255,255,255,.025);
+}
+
+.injuries-workbench-v2 .ih-view-toggle button {
+  min-height: 30px;
+  border-radius: 3px !important;
+  font-size: 9px;
+}
+
+.injuries-workbench-v2 .ih-mode-pill {
+  min-height: 36px;
+  font-size: 9px;
+}
+
+.injuries-workbench-v2 .ih-hologram-visual {
+  min-height: 690px;
+  background:
+    radial-gradient(circle at var(--holo-pointer-x, 50%) var(--holo-pointer-y, 50%), rgba(93, 226, 241, .07), transparent 23%),
+    linear-gradient(rgba(113, 208, 223, .028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(113, 208, 223, .028) 1px, transparent 1px),
+    #02070b;
+  background-size: auto, 28px 28px, 28px 28px, auto;
+}
+
+.injuries-workbench-v2 .ih-hologram-visual::after {
+  background: linear-gradient(90deg, rgba(1,5,8,.72), transparent 15%, transparent 84%, rgba(1,5,8,.72));
+}
+
+.injuries-workbench-v2 .ih-hologram-rig {
+  width: min(560px, 70vw);
+  height: 620px;
+}
+
+.injuries-workbench-v2 .ih-body {
+  width: min(520px, 66vw);
+  height: 620px;
+}
+
+.injuries-workbench-v2 .ih-floor-grid {
+  opacity: .28;
+}
+
+.injuries-workbench-v2 .ih-depth,
+.injuries-workbench-v2 .ih-orbit {
+  opacity: .58;
+}
+
+.injuries-workbench-v2 .ih-hologram-data {
+  position: absolute;
+  z-index: 22;
+  right: 16px;
+  bottom: 16px;
+  width: min(292px, calc(100% - 32px));
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 6px;
+  background: rgba(5, 10, 15, .88);
+  box-shadow: 0 18px 42px rgba(0,0,0,.28);
+  backdrop-filter: blur(18px);
+}
+
+.injuries-workbench-v2 .ih-focus {
+  padding: 14px 15px;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.injuries-workbench-v2 .ih-focus h3 {
+  margin-top: 5px;
+  font-size: 15px;
+}
+
+.injuries-workbench-v2 .ih-ranking {
+  display: none;
+}
+
+.injuries-workbench-v2 .ih-telemetry {
+  top: 14px;
+  padding: 5px 8px;
+}
+
+.injuries-workbench-v2 .ih-telemetry-left { left: 14px; }
+.injuries-workbench-v2 .ih-telemetry-right { right: 14px; }
+
+.injuries-workbench-v2 .ih-idle-callout {
+  bottom: 18px;
+  border-radius: 5px;
+  background: rgba(4, 9, 13, .9);
+}
+
+.injuries-workbench-v2 [role="tablist"] + div > aside:first-of-type > div,
+.injuries-workbench-v2 [role="tablist"] + div > aside:last-of-type > div,
+.injuries-workbench-v2 [role="tablist"] + div > section > div {
+  border-color: var(--iw-line) !important;
+}
+
+.injuries-workbench-v2 [role="tablist"] + div > aside:first-of-type p,
+.injuries-workbench-v2 [role="tablist"] + div > aside:last-of-type p {
+  line-height: 1.45;
+}
+
+.injuries-workbench-v2 [role="tablist"] + div > aside:first-of-type .border,
+.injuries-workbench-v2 [role="tablist"] + div > aside:last-of-type .border,
+.injuries-workbench-v2 [role="tablist"] + div > section .border {
+  border-radius: 4px !important;
+}
+
+.injuries-workbench-v2 [role="tablist"] + div > aside:first-of-type .rounded-full,
+.injuries-workbench-v2 [role="tablist"] + div > aside:last-of-type .rounded-full {
+  border-radius: 999px !important;
+}
+
+.injuries-workbench-v2 [role="tablist"] + div > .col-span-full {
+  background: #060a0f !important;
+  border-color: var(--iw-line) !important;
+}
+
+.injuries-workbench-v2 [role="tablist"] + div > .col-span-full:last-child {
+  color: #6f7984 !important;
+  background: #05090d !important;
+}
+
+.injuries-workbench-v2 h1,
+.injuries-workbench-v2 h2,
+.injuries-workbench-v2 h3 {
+  text-wrap: balance;
+}
+
+.injuries-workbench-v2 ::selection {
+  background: rgba(134, 231, 243, .2);
+}
