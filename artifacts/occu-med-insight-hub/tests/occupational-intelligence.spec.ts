@@ -243,12 +243,12 @@ test("O*NET Master Tool renders the official O*NET site through the working webv
 
 test("Drug Checker surfaces FDA label evidence and regimen overlap without fabricated severity", async ({ page }) => {
   await page.goto("/drug-checker");
-  await page.getByPlaceholder("Gabapentin, Eliquis, metoprolol…").fill("gabapentin");
+  await page.getByPlaceholder("Add medication").fill("gabapentin");
   await page.getByRole("button", { name: /gabapentin 300 MG Oral Capsule/ }).click();
   await expect(page.getByText("04 · FDA label intelligence", { exact: true })).toBeVisible();
   await expect(page.getByText("Alertness / psychomotor").first()).toBeVisible();
 
-  await page.getByPlaceholder("Gabapentin, Eliquis, metoprolol…").fill("metoprolol");
+  await page.getByPlaceholder("Add medication").fill("metoprolol");
   await page.getByRole("button", { name: /metoprolol succinate 50 MG Extended Release Oral Tablet/ }).click();
   await expect(page.getByText("Combined medication burden")).toBeVisible();
   await expect(page.getByText("No fabricated interaction severity score is calculated.")).toBeVisible();
