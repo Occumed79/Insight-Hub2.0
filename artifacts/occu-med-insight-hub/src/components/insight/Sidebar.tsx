@@ -54,7 +54,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Defense & Legal",
     items: [
-      { href: "/war-costs-intelligence", label: "WarCosts Intelligence", icon: Radar },
+      { href: "/war-costs-intelligence", label: "Defense Medical Support", icon: Radar },
       { href: "/federal-awards", label: "Federal Awards Intelligence", icon: CircleDollarSign },
       { href: "/public-legal-references", label: "Legal & Injury Intelligence", icon: Scale },
     ],
@@ -66,7 +66,7 @@ const DESKTOP_SIDEBAR_BACKGROUND = "linear-gradient(180deg, rgba(2,6,17,.99) 0%,
 const MOBILE_SIDEBAR_BACKGROUND = "linear-gradient(180deg, #020611 0%, #030813 100%)";
 
 function isWarCostsPath(path: string) {
-  return ["/war-costs-intelligence", "/war-costs", "/war-costs-map", "/war-costs-tools", "/war-costs-special-tools", "/war-costs-visualizations", "/war-costs-site-evidence"].includes(path);
+  return ["/war-costs-intelligence", "/war-costs", "/war-costs-map", "/war-costs-tools", "/war-costs-special-tools", "/war-costs-visualizations", "/war-costs-accountability", "/war-costs-site-evidence"].includes(path);
 }
 
 function isActivePath(itemHref: string, currentPath: string) {
