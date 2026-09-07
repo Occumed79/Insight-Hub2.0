@@ -1,0 +1,202 @@
+.federal-agencies-workbench-v2 {
+  --fa-bg: #05080c;
+  --fa-surface: #070b10;
+  --fa-surface-2: #090e14;
+  --fa-line: rgba(255,255,255,.075);
+  --fa-line-strong: rgba(255,255,255,.12);
+  --fa-muted: #77818d;
+  --fa-accent: #8be9f3;
+  min-height: 100vh;
+  background: var(--fa-bg);
+  color: #f7f9fa;
+}
+
+.federal-agencies-workbench-v2 main {
+  min-height: 100vh !important;
+  padding-bottom: 0 !important;
+  background: var(--fa-bg) !important;
+}
+
+.federal-agencies-workbench-v2 main > section {
+  padding: 22px !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid {
+  min-height: calc(100vh - 132px) !important;
+  margin-top: 18px !important;
+  border: 1px solid var(--fa-line) !important;
+  border-radius: 0 !important;
+  background: var(--fa-surface) !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+@media (min-width: 1536px) {
+  .federal-agencies-workbench-v2 main > section > .mt-5.grid {
+    grid-template-columns: 266px minmax(0,1fr) 340px !important;
+  }
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > aside,
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > section {
+  border-color: var(--fa-line) !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > aside:first-of-type {
+  background: #070b10 !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > section {
+  background: #05090e !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > aside:last-of-type {
+  background: #080c11 !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > aside:first-of-type > div:first-child {
+  padding: 14px !important;
+  border-color: var(--fa-line) !important;
+  background: #080d12 !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > aside:first-of-type input {
+  font-size: 11px !important;
+}
+
+.federal-agencies-workbench-v2 input,
+.federal-agencies-workbench-v2 button,
+.federal-agencies-workbench-v2 .border {
+  border-radius: 4px !important;
+}
+
+.federal-agencies-workbench-v2 button {
+  box-shadow: none !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > aside:first-of-type button {
+  padding: 12px 14px !important;
+  border-radius: 0 !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > aside:first-of-type button p:first-child {
+  font-size: 11px !important;
+  font-weight: 760 !important;
+  letter-spacing: -.01em;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > aside:first-of-type button p:last-child {
+  margin-top: 3px !important;
+  font-size: 8px !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > section > header {
+  padding: 16px 18px 0 !important;
+  border-color: var(--fa-line) !important;
+  background: #070b10 !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > section > header h2 {
+  margin-top: 4px !important;
+  font-size: 24px !important;
+  line-height: 1.1 !important;
+  font-weight: 780 !important;
+  letter-spacing: -.03em !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > section > header > div:first-child > div:last-child {
+  border-color: var(--fa-line) !important;
+  border-radius: 4px !important;
+  background: #05090e !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > section > header > div:first-child > div:last-child > div {
+  min-width: 78px;
+  padding: 9px 12px !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > section > header > div:last-child {
+  margin-top: 14px !important;
+  gap: 22px !important;
+  border-color: var(--fa-line) !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > section > header > div:last-child button {
+  min-height: 38px !important;
+  border-radius: 0 !important;
+  font-size: 10px !important;
+  letter-spacing: .01em;
+}
+
+.federal-agencies-workbench-v2 table {
+  border-collapse: collapse !important;
+  background: transparent !important;
+}
+
+.federal-agencies-workbench-v2 thead {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  border-color: var(--fa-line) !important;
+  background: #080d12 !important;
+  color: #76808b !important;
+}
+
+.federal-agencies-workbench-v2 th {
+  padding: 10px 12px !important;
+  font-size: 8px !important;
+  font-weight: 800 !important;
+  letter-spacing: .1em !important;
+}
+
+.federal-agencies-workbench-v2 td {
+  padding: 11px 12px !important;
+  border-color: rgba(255,255,255,.055) !important;
+  vertical-align: top;
+}
+
+.federal-agencies-workbench-v2 tbody tr {
+  transition: background-color 120ms ease;
+}
+
+.federal-agencies-workbench-v2 tbody tr:hover {
+  background: rgba(139,233,243,.028) !important;
+}
+
+.federal-agencies-workbench-v2 [data-testid="sam-diagnostics"] {
+  padding: 9px 14px !important;
+  border-color: var(--fa-line) !important;
+  background: #060a0f !important;
+  font-size: 9px !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > aside:last-of-type > div > div:first-child {
+  height: 52px !important;
+  border-color: var(--fa-line) !important;
+  background: #080d12 !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > aside:last-of-type h2 {
+  font-size: 17px !important;
+  line-height: 1.25 !important;
+  letter-spacing: -.02em !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > aside:last-of-type a {
+  color: rgba(139,233,243,.8) !important;
+}
+
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > aside:last-of-type .divide-y,
+.federal-agencies-workbench-v2 main > section > .mt-5.grid > aside:last-of-type .border-y {
+  border-color: var(--fa-line) !important;
+}
+
+.federal-agencies-workbench-v2 h1,
+.federal-agencies-workbench-v2 h2,
+.federal-agencies-workbench-v2 h3 {
+  text-wrap: balance;
+}
+
+.federal-agencies-workbench-v2 ::selection {
+  background: rgba(139,233,243,.18);
+}
