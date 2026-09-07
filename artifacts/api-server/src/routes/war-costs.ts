@@ -5,18 +5,33 @@ const BASE_URL = "https://www.warcosts.org/data";
 const SOURCE_URL = "https://www.warcosts.org/downloads";
 const USER_AGENT = "Occu-Med Insight Hub 2.0 defense medical-support ingestion";
 
-type DatasetName = "base-index.json" | "contractors.json";
+type DatasetName =
+  | "base-index.json"
+  | "contractors.json"
+  | "conflicts.json"
+  | "drone-strikes.json"
+  | "operations.json"
+  | "overseas-presence.json";
+
 type DatasetResult = { data: unknown; fetchedAt: string; cached: boolean; source: "live" | "database" };
 type CacheEntry = { data: unknown; fetchedAt: string; expiresAt: number; source: "live" | "database" };
 type DatasetStatus = { name: DatasetName; ok: boolean; count: number; fetchedAt?: string; source?: "live" | "database"; error?: string };
 
-const DATASETS: Record<DatasetName, { category: string; refreshClass: "frequent" | "periodic"; ttlMs: number }> = {
+const DATASETS: Record<DatasetName, { category: string; refreshClass: "live" | "frequent" | "periodic"; ttlMs: number }> = {
   "base-index.json": { category: "Defense Installations", refreshClass: "frequent", ttlMs: 30 * 60 * 1000 },
   "contractors.json": { category: "Defense Contractors", refreshClass: "frequent", ttlMs: 30 * 60 * 1000 },
+  "conflicts.json": { category: "Instability", refreshClass: "live", ttlMs: 5 * 60 * 1000 },
+  "drone-strikes.json": { category: "Instability", refreshClass: "live", ttlMs: 5 * 60 * 1000 },
+  "operations.json": { category: "Naval Deployments", refreshClass: "frequent", ttlMs: 30 * 60 * 1000 },
+  "overseas-presence.json": { category: "Naval Deployments", refreshClass: "frequent", ttlMs: 30 * 60 * 1000 },
 };
+
 const ALLOWED = new Set<DatasetName>(Object.keys(DATASETS) as DatasetName[]);
 const cache = new Map<DatasetName, CacheEntry>();
 let persistenceReady: Promise<void> | null = null;
+
+const NAVAL_PATTERN = /\b(navy|naval|carrier|fleet|warship|ship|maritime|amphibious|expeditionary|red sea|arabian sea|persian gulf|gulf of oman|sea of oman|strait|mediterranean|indo-pacific|south china sea)\b/i;
+const REJECTED_OPERATION_PATTERN = /\b(covert|cia|secret|classified|special operations|special forces|seal team|clandestine)\b/i;
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -35,7 +50,7 @@ function objectRows(value: unknown): Record<string, unknown>[] {
   if (Array.isArray(value)) return value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item)));
   if (!value || typeof value !== "object") return [];
   const record = value as Record<string, unknown>;
-  for (const key of ["records", "data", "results", "items", "bases", "installations", "contractors", "topRecipients"]) {
+  for (const key of ["records", "data", "results", "items", "bases", "installations", "contractors", "topRecipients", "conflicts", "strikes", "operations", "deployments"]) {
     const rows = record[key];
     if (Array.isArray(rows)) return rows.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item)));
   }
@@ -63,6 +78,26 @@ function coordinate(value: unknown): number | undefined {
   return parsed !== undefined && Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function setCoordinateFields(output: Record<string, unknown>, row: Record<string, unknown>) {
+  const lat = coordinate(row.latitude ?? row.lat);
+  const lon = coordinate(row.longitude ?? row.lon ?? row.lng ?? row.long);
+  if (lat !== undefined && Math.abs(lat) <= 90) output.latitude = lat;
+  if (lon !== undefined && Math.abs(lon) <= 180) output.longitude = lon;
+  const coordinates = row.coordinates;
+  if (Array.isArray(coordinates) && coordinates.length >= 2) {
+    const first = coordinate(coordinates[0]);
+    const second = coordinate(coordinates[1]);
+    if (first !== undefined && second !== undefined) output.coordinates = [first, second];
+  }
+}
+
+function setStringArray(output: Record<string, unknown>, row: Record<string, unknown>, key: string) {
+  const value = row[key];
+  if (!Array.isArray(value)) return;
+  const items = value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim());
+  if (items.length) output[key] = items;
+}
+
 function sanitizeInstallation(row: Record<string, unknown>): Record<string, unknown> {
   const output: Record<string, unknown> = {};
   const set = (key: string, value: unknown) => { if (value !== undefined && value !== null && value !== "") output[key] = value; };
@@ -76,16 +111,7 @@ function sanitizeInstallation(row: Record<string, unknown>): Record<string, unkn
   set("branch", firstText(row, "branch", "service", "component"));
   set("operator", firstText(row, "operator", "command", "organization"));
   set("personnel", firstNumber(row, "personnel", "troops", "assignedPersonnel", "personnelCount", "totalPersonnel"));
-  const lat = coordinate(row.latitude ?? row.lat);
-  const lon = coordinate(row.longitude ?? row.lon ?? row.lng ?? row.long);
-  if (lat !== undefined && Math.abs(lat) <= 90) set("latitude", lat);
-  if (lon !== undefined && Math.abs(lon) <= 180) set("longitude", lon);
-  const coordinates = row.coordinates;
-  if (Array.isArray(coordinates) && coordinates.length >= 2) {
-    const first = coordinate(coordinates[0]);
-    const second = coordinate(coordinates[1]);
-    if (first !== undefined && second !== undefined) set("coordinates", [first, second]);
-  }
+  setCoordinateFields(output, row);
   return output;
 }
 
@@ -114,9 +140,54 @@ function sanitizeContractor(row: Record<string, unknown>): Record<string, unknow
   return output;
 }
 
+function sanitizeInstability(row: Record<string, unknown>): Record<string, unknown> {
+  const output: Record<string, unknown> = {};
+  const set = (key: string, value: unknown) => { if (value !== undefined && value !== null && value !== "") output[key] = value; };
+  set("id", firstText(row, "id", "slug"));
+  set("name", firstText(row, "name", "title", "conflict", "event"));
+  set("title", firstText(row, "title"));
+  set("status", firstText(row, "status", "outcome"));
+  set("country", firstText(row, "country", "countryName", "targetCountry", "hostCountry"));
+  set("location", firstText(row, "location", "city", "region", "target"));
+  set("region", firstText(row, "region", "aor"));
+  set("startYear", firstNumber(row, "startYear"));
+  set("endYear", firstNumber(row, "endYear"));
+  set("year", firstNumber(row, "year"));
+  set("date", firstText(row, "date", "occurredAt", "eventDate"));
+  set("civilianDeaths", firstNumber(row, "civilianDeaths", "civilianCasualties"));
+  set("deaths", firstNumber(row, "deaths", "fatalities", "reportedDeaths"));
+  setStringArray(output, row, "countries");
+  setCoordinateFields(output, row);
+  return output;
+}
+
+function sanitizeNaval(row: Record<string, unknown>): Record<string, unknown> | null {
+  let blob = "";
+  try { blob = JSON.stringify(row); } catch { return null; }
+  if (!NAVAL_PATTERN.test(blob) || REJECTED_OPERATION_PATTERN.test(blob)) return null;
+  const output: Record<string, unknown> = {};
+  const set = (key: string, value: unknown) => { if (value !== undefined && value !== null && value !== "") output[key] = value; };
+  set("name", firstText(row, "name", "title", "operation", "deployment"));
+  set("title", firstText(row, "title"));
+  set("operation", firstText(row, "operation"));
+  set("deployment", firstText(row, "deployment"));
+  set("country", firstText(row, "country", "countryName", "hostCountry"));
+  set("location", firstText(row, "location", "region", "aor", "sea", "waterway"));
+  set("region", firstText(row, "region", "aor"));
+  set("status", firstText(row, "status"));
+  set("year", firstNumber(row, "year"));
+  set("date", firstText(row, "date", "startDate", "occurredAt"));
+  setStringArray(output, row, "countries");
+  setCoordinateFields(output, row);
+  return output;
+}
+
 function sanitizeDataset(name: DatasetName, data: unknown): Record<string, unknown>[] {
   const rows = objectRows(data);
-  return name === "base-index.json" ? rows.map(sanitizeInstallation).filter((row) => Object.keys(row).length > 0) : rows.map(sanitizeContractor).filter((row) => Boolean(row.name));
+  if (name === "base-index.json") return rows.map(sanitizeInstallation).filter((row) => Object.keys(row).length > 0);
+  if (name === "contractors.json") return rows.map(sanitizeContractor).filter((row) => Boolean(row.name));
+  if (name === "conflicts.json" || name === "drone-strikes.json") return rows.map(sanitizeInstability).filter((row) => Object.keys(row).length > 0);
+  return rows.map(sanitizeNaval).filter((row): row is Record<string, unknown> => Boolean(row));
 }
 
 function parseDatasetName(value: unknown): DatasetName | null {
@@ -143,8 +214,9 @@ async function ensurePersistence(): Promise<void> {
       )
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS warcosts_dataset_snapshots_fetched_idx ON warcosts_dataset_snapshots (fetched_at DESC)`);
-    // Universal military datasets are no longer part of this product. Purge stale
-    // mirrored rows so database fallback cannot resurrect them later.
+    // Keep only the explicitly approved defense-support feed families. This retains
+    // installations, contractor context, instability, and naval posture while
+    // preventing removed weapons/cost/political/covert datasets from resurfacing.
     await pool.query(`DELETE FROM warcosts_dataset_snapshots WHERE dataset_name <> ALL($1::text[])`, [[...ALLOWED]]);
   })().catch((error) => {
     persistenceReady = null;
@@ -242,7 +314,7 @@ router.get("/war-costs/datasets", (_req: Request, res: Response) => {
     ok: true,
     source: "WarCosts.org",
     attribution: "Source: warcosts.org",
-    scope: "Occu-Med defense medical-support relevance only",
+    scope: "Approved defense-support context only: installations, contractor context, instability, and naval posture.",
     discoveredDatasetCount: ALLOWED.size,
     datasets: ([...ALLOWED] as DatasetName[]).map((name) => ({ name, ...DATASETS[name] })),
   });
@@ -252,14 +324,17 @@ router.get("/war-costs/overview", async (req: Request, res: Response) => {
   const statuses = await refreshAll(req.query.refresh === "1");
   const installations = searchableRows(cache.get("base-index.json")?.data);
   const contractors = searchableRows(cache.get("contractors.json")?.data);
+  const conflicts = searchableRows(cache.get("conflicts.json")?.data);
+  const strikes = searchableRows(cache.get("drone-strikes.json")?.data);
+  const naval = [...searchableRows(cache.get("operations.json")?.data), ...searchableRows(cache.get("overseas-presence.json")?.data)];
   return res.json({
     ok: statuses.every((item) => item.ok),
     source: "WarCosts.org",
     attribution: "Source: warcosts.org",
     sourceUrl: SOURCE_URL,
-    scope: "Occu-Med defense medical-support relevance only",
+    scope: "Approved defense-support context only",
     fetchedAt: statuses.map((item) => item.fetchedAt).filter(Boolean).sort().pop() || new Date().toISOString(),
-    summary: { datasets: ALLOWED.size, installations: installations.length, contractors: contractors.length },
+    summary: { datasets: ALLOWED.size, installations: installations.length, contractors: contractors.length, instabilityRecords: conflicts.length + strikes.length, navalRecords: naval.length },
     datasets: statuses.map((status) => ({ ...DATASETS[status.name], ...status })),
   });
 });
@@ -267,10 +342,10 @@ router.get("/war-costs/overview", async (req: Request, res: Response) => {
 router.get("/war-costs/dataset/:name", async (req: Request, res: Response) => {
   const rawName = Array.isArray(req.params.name) ? req.params.name[0] : req.params.name;
   const name = parseDatasetName(rawName);
-  if (!name) return res.status(404).json({ ok: false, error: "Dataset is outside the Occu-Med defense medical-support allowlist." });
+  if (!name) return res.status(404).json({ ok: false, error: "Dataset is outside the approved defense-support allowlist." });
   try {
     const result = await fetchDataset(name, req.query.refresh === "1");
-    res.setHeader("Cache-Control", "public, max-age=900");
+    res.setHeader("Cache-Control", DATASETS[name].refreshClass === "live" ? "public, max-age=120" : "public, max-age=900");
     return res.json({
       ok: true,
       source: "WarCosts.org",
@@ -333,7 +408,7 @@ router.get("/war-costs/contractor-intelligence", async (req: Request, res: Respo
       attribution: "Source: warcosts.org",
       sourceUrl: SOURCE_URL,
       fetchedAt: result.fetchedAt,
-      scope: "Sanitized contractor/entity context only; war, weapon, strike, and casualty associations are excluded.",
+      scope: "Sanitized contractor/entity context only; weapons and removed political/cost associations are excluded.",
       summary: { contractors: contractors.length },
       contractors,
     });
