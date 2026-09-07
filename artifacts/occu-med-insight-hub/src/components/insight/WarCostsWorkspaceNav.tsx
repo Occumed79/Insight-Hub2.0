@@ -1,4 +1,4 @@
-import { Activity, BarChart3, Calculator, Database, FileText, MapPinned } from "lucide-react";
+import { Activity, BarChart3, Calculator, Database, FileText, MapPinned, Scale } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 const items = [
@@ -7,6 +7,7 @@ const items = [
   { href: "/war-costs-tools", label: "Tools", icon: Activity },
   { href: "/war-costs-special-tools", label: "Specialized", icon: Calculator },
   { href: "/war-costs-visualizations", label: "Visualizations", icon: BarChart3 },
+  { href: "/war-costs-accountability", label: "Accountability", icon: Scale },
   { href: "/war-costs-site-evidence", label: "Evidence", icon: FileText },
 ] as const;
 
