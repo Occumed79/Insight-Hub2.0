@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Building2, Loader2, RefreshCw, Search, Users } from "lucide-react";
+import { Building2, Loader2, MapPinned, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { WarCostsWorkspaceNav } from "@/components/insight/WarCostsWorkspaceNav";
 import { getWarCostsDataset, type WarCostsDatasetResponse } from "@/data/warCostsApi";
-import { wcNumber, wcRows, wcText, type WarCostsRow } from "./war-costs-utils";
-
-type Tool = "installations" | "personnel" | "service-prompts";
+import { wcMoney, wcNumber, wcRows, wcText, type WarCostsRow } from "./war-costs-utils";
 
 type DefensePresence = {
   ok: boolean;
@@ -16,12 +14,6 @@ type DefensePresence = {
   construction?: WarCostsRow[];
   warnings?: string[];
 };
-
-const TOOLS: Array<{ key: Tool; label: string; note: string; icon: typeof Building2 }> = [
-  { key: "installations", label: "Installation Explorer", note: "Search sites by country, type and status", icon: Building2 },
-  { key: "personnel", label: "Personnel Detail", note: "Branch composition by country", icon: Users },
-  { key: "service-prompts", label: "Medical Planning Prompts", note: "Translate footprint evidence into review questions", icon: Search },
-];
 
 async function getDefensePresence(force = false): Promise<DefensePresence> {
   const response = await fetch(`/api/war-costs/defense-presence${force ? "?refresh=1" : ""}`, { headers: { Accept: "application/json" }, cache: "no-store" });
@@ -34,40 +26,36 @@ function nation(row: WarCostsRow): string {
   return wcText(row, "country", "countryName", "hostCountry", "location") || "Unknown";
 }
 
-function InstallationExplorer({ rows }: { rows: WarCostsRow[] }) {
-  const [query, setQuery] = useState("");
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return rows.filter((row) => !needle || JSON.stringify(row).toLowerCase().includes(needle)).sort((a, b) => nation(a).localeCompare(nation(b)) || wcText(a, "name", "baseName", "installation").localeCompare(wcText(b, "name", "baseName", "installation")));
-  }, [query, rows]);
-  return <section className="border border-white/10 bg-[#080c12]"><header className="border-b border-white/10 p-5"><p className="text-[10px] font-black uppercase tracking-[.15em] text-slate-500">Installation explorer</p><h2 className="mt-1 text-xl font-black text-white">Defense sites that may require medical-network support</h2><p className="mt-2 text-xs leading-6 text-slate-400">This view is for geography and site-context research. It does not assume an Occu-Med relationship or demand level.</p><div className="mt-4 flex min-h-11 items-center gap-2 border border-white/10 bg-black/25 px-3"><Search size={15} className="text-slate-500" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search installation, country, city, type, status…" className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600" /><span className="text-[10px] font-black text-slate-500">{visible.length}</span></div></header><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-xs"><thead className="border-b border-white/8 text-[9px] uppercase tracking-[.12em] text-slate-500"><tr><th className="p-3">Installation</th><th className="p-3">Country</th><th className="p-3">City / location</th><th className="p-3">Type</th><th className="p-3">Status</th><th className="p-3">Planning use</th></tr></thead><tbody>{visible.slice(0, 240).map((row, index) => <tr key={`${wcText(row, "name", "baseName", "installation")}-${index}`} className="border-b border-white/[.055]"><td className="p-3 font-black text-white">{wcText(row, "name", "baseName", "installation", "site", "facility") || `Installation ${index + 1}`}</td><td className="p-3 text-slate-300">{nation(row)}</td><td className="p-3 text-slate-400">{wcText(row, "city", "location", "state") || "—"}</td><td className="p-3 text-slate-400">{wcText(row, "type", "baseType", "category") || "—"}</td><td className="p-3 text-slate-400">{wcText(row, "status") || "—"}</td><td className="p-3 text-[11px] leading-5 text-slate-500">Check contractor/client footprint and nearby fixed provider capacity.</td></tr>)}</tbody></table></div></section>;
+function installationName(row: WarCostsRow, index = 0): string {
+  return wcText(row, "name", "baseName", "installation", "site", "facility") || `Installation ${index + 1}`;
 }
 
-function PersonnelDetail({ rows, year }: { rows: WarCostsRow[]; year?: number | null }) {
-  const sorted = useMemo(() => [...rows].filter((row) => wcNumber(row, "personnel", "troops") > 0).sort((a, b) => wcNumber(b, "personnel", "troops") - wcNumber(a, "personnel", "troops")), [rows]);
-  return <section className="border border-white/10 bg-[#080c12]"><header className="border-b border-white/10 p-5"><p className="text-[10px] font-black uppercase tracking-[.15em] text-slate-500">Personnel detail</p><h2 className="mt-1 text-xl font-black text-white">Country-level personnel composition</h2><p className="mt-2 text-xs leading-6 text-slate-400">Personnel counts are context for where network depth may matter; they are not contractor counts, referral forecasts, or Occu-Med volume estimates.{year ? ` Dataset year: ${year}.` : ""}</p></header><div className="overflow-x-auto"><table className="w-full min-w-[820px] text-left text-xs"><thead className="border-b border-white/8 text-[9px] uppercase tracking-[.12em] text-slate-500"><tr><th className="p-3">Country</th><th className="p-3 text-right">Total</th><th className="p-3 text-right">Army</th><th className="p-3 text-right">Navy</th><th className="p-3 text-right">Air Force</th><th className="p-3 text-right">Marines</th></tr></thead><tbody>{sorted.slice(0, 180).map((row, index) => <tr key={`${nation(row)}-${index}`} className="border-b border-white/[.055]"><td className="p-3 font-black text-white">{nation(row)}</td><td className="p-3 text-right font-black text-slate-200">{wcNumber(row, "personnel", "troops").toLocaleString()}</td><td className="p-3 text-right text-slate-400">{wcNumber(row, "army") ? wcNumber(row, "army").toLocaleString() : "—"}</td><td className="p-3 text-right text-slate-400">{wcNumber(row, "navy") ? wcNumber(row, "navy").toLocaleString() : "—"}</td><td className="p-3 text-right text-slate-400">{wcNumber(row, "airForce", "air_force") ? wcNumber(row, "airForce", "air_force").toLocaleString() : "—"}</td><td className="p-3 text-right text-slate-400">{wcNumber(row, "marines", "marineCorps") ? wcNumber(row, "marines", "marineCorps").toLocaleString() : "—"}</td></tr>)}</tbody></table></div></section>;
+function fact(row: WarCostsRow | null, label: string, keys: string[]) {
+  if (!row) return null;
+  const value = wcText(row, ...keys);
+  return value ? { label, value } : null;
 }
 
-function MedicalPlanningPrompts() {
-  const prompts = [
-    ["Provider density", "Are there fixed clinics close enough to likely contractor duty locations to support routine referrals without excessive travel?"],
-    ["Core exam capability", "Can local providers complete pre-placement / annual physicals, ECG, labs, vision, and basic diagnostics at one site or through a reliable referral chain?"],
-    ["Specialty gaps", "Are audiology, PFT/spirometry, chest X-ray, treadmill stress testing, dental evaluation, vaccines, and travel-health services locally available?"],
-    ["Result quality", "Can providers deliver records in English, with the forms, test parameters, turnaround, and documentation quality required by the client program?"],
-    ["Commercial workflow", "Will the provider accept direct referral, self-pay / invoicing, and Occu-Med’s documentation workflow without acting as a TPA or employment-clearance authority?"],
-    ["Expansion timing", "If a defense site is expanding, should provider recruitment begin before contractor staffing and medical demand materialize?"],
-    ["Redundancy", "Is there a second usable provider or referral path if the primary site becomes unavailable, refuses a service, or cannot meet turnaround?"],
-  ];
-  return <section className="border border-white/10 bg-[#080c12]"><header className="border-b border-white/10 p-5"><p className="text-[10px] font-black uppercase tracking-[.15em] text-slate-500">Medical planning prompts</p><h2 className="mt-1 text-xl font-black text-white">Questions that footprint data should trigger</h2><p className="mt-2 text-xs leading-6 text-slate-400">These are review prompts, not modeled outputs. They convert installation, personnel, and expansion evidence into the next network-management questions.</p></header><div className="divide-y divide-white/[.06]">{prompts.map(([label, prompt], index) => <div key={label} className="grid grid-cols-[42px_170px_1fr] gap-4 p-4"><span className="text-[10px] font-black text-slate-600">{String(index + 1).padStart(2, "0")}</span><strong className="text-sm text-white">{label}</strong><p className="text-xs leading-6 text-slate-400">{prompt}</p></div>)}</div></section>;
-}
+const COVERAGE_REVIEW = [
+  ["Core examinations", "Physical examinations, vision, ECG and basic diagnostic capability at a fixed clinic."],
+  ["Laboratory access", "Routine labs, QFT/specimen handling and dependable result delivery."],
+  ["Hearing conservation", "Pure-tone audiometry with occupational baseline/periodic documentation when required."],
+  ["Pulmonary capability", "Spirometry/PFT and respirator-related support where job tasks require it."],
+  ["Imaging", "Chest X-ray and other common diagnostic imaging without fragmented result handling."],
+  ["Cardiac testing", "Treadmill stress testing or cardiology referral capacity when program criteria trigger it."],
+  ["Dental", "Fixed dental clinic capable of comprehensive evaluation, bitewings and panoramic imaging."],
+  ["Vaccines / travel health", "Routine and travel vaccines with employer/self-pay workflow when deployment support requires them."],
+  ["Documentation workflow", "English records, required forms, acceptable turnaround, direct referral and invoice compatibility."],
+] as const;
 
 export default function WarCostsSpecialTools() {
   const [installationResponse, setInstallationResponse] = useState<WarCostsDatasetResponse | null>(null);
   const [defensePresence, setDefensePresence] = useState<DefensePresence | null>(null);
-  const [active, setActive] = useState<Tool>("installations");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [selectedKey, setSelectedKey] = useState("");
 
   async function load(force = false) {
     force ? setRefreshing(true) : setLoading(true);
@@ -88,7 +76,67 @@ export default function WarCostsSpecialTools() {
   }
 
   useEffect(() => { void load(false); }, []);
-  const installations = useMemo(() => wcRows(installationResponse?.data), [installationResponse]);
+  const installations = useMemo(() => wcRows(installationResponse?.data).sort((a, b) => nation(a).localeCompare(nation(b)) || installationName(a).localeCompare(installationName(b))), [installationResponse]);
 
-  return <main className="min-h-screen bg-[#06090d] pb-24 text-white"><Sidebar /><section className="px-5 py-8 lg:ml-[210px] lg:px-10"><div className="flex flex-wrap items-start justify-between gap-4"><HeaderBar eyebrow="Occu-Med · Defense network planning" title="Site & Coverage Workbench" subtitle="Specialized installation, personnel, and medical-network planning tools. Naval deployments, regional conflict chronology, weapons, and generic military operations are excluded." /><button type="button" onClick={() => void load(true)} disabled={refreshing} className="inline-flex min-h-11 items-center gap-2 border border-cyan-200/20 bg-cyan-300/[.08] px-4 text-xs font-bold"><RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />Refresh data</button></div><WarCostsWorkspaceNav />{error ? <div className="mt-4 border border-amber-200/15 bg-amber-300/[.035] p-3 text-xs text-amber-100/75">{error}</div> : null}<div className="mt-5 grid grid-cols-[220px_minmax(0,1fr)] border border-white/10 bg-[#070b10]"><aside className="border-r border-white/10"><div className="border-b border-white/10 p-4 text-[10px] font-black uppercase tracking-[.14em] text-slate-500">Specialized views</div>{TOOLS.map((tool) => { const Icon = tool.icon; return <button key={tool.key} type="button" onClick={() => setActive(tool.key)} className={`w-full border-b border-white/[.06] p-4 text-left transition ${active === tool.key ? "bg-white/[.04] text-white" : "text-slate-400 hover:bg-white/[.02]"}`}><div className="flex items-center gap-2"><Icon size={14} /><strong className="text-xs">{tool.label}</strong></div><p className="mt-1.5 text-[9px] leading-4 text-slate-600">{tool.note}</p></button>; })}</aside><div className="min-w-0 p-5">{loading ? <div className="grid min-h-[520px] place-items-center"><div className="text-center"><Loader2 className="mx-auto animate-spin text-cyan-200" /><p className="mt-3 text-xs text-slate-500">Loading site and personnel context…</p></div></div> : null}{!loading && active === "installations" ? <InstallationExplorer rows={installations} /> : null}{!loading && active === "personnel" ? <PersonnelDetail rows={defensePresence?.current || []} year={defensePresence?.latestYear} /> : null}{!loading && active === "service-prompts" ? <MedicalPlanningPrompts /> : null}</div></div></section></main>;
+  const keyedInstallations = useMemo(() => installations.map((row, index) => ({ row, key: `${installationName(row, index)}|${nation(row)}|${index}`, index })), [installations]);
+  useEffect(() => {
+    if (!selectedKey && keyedInstallations[0]) setSelectedKey(keyedInstallations[0].key);
+    else if (selectedKey && keyedInstallations.length && !keyedInstallations.some((item) => item.key === selectedKey)) setSelectedKey(keyedInstallations[0].key);
+  }, [keyedInstallations, selectedKey]);
+
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return needle ? keyedInstallations.filter(({ row }) => JSON.stringify(row).toLowerCase().includes(needle)) : keyedInstallations;
+  }, [keyedInstallations, query]);
+
+  const selectedItem = keyedInstallations.find((item) => item.key === selectedKey) || keyedInstallations[0] || null;
+  const selected = selectedItem?.row || null;
+  const selectedCountry = selected ? nation(selected) : "";
+  const personnel = useMemo(() => (defensePresence?.current || []).find((row) => nation(row) === selectedCountry) || null, [defensePresence?.current, selectedCountry]);
+  const expansions = useMemo(() => (defensePresence?.construction || []).filter((row) => nation(row) === selectedCountry).sort((a, b) => wcNumber(b, "year") - wcNumber(a, "year") || wcNumber(b, "spending", "amount", "cost", "total") - wcNumber(a, "spending", "amount", "cost", "total")), [defensePresence?.construction, selectedCountry]);
+  const countrySites = useMemo(() => installations.filter((row) => nation(row) === selectedCountry), [installations, selectedCountry]);
+  const detailFacts = [fact(selected, "City / location", ["city", "location", "state"]), fact(selected, "Installation type", ["type", "baseType", "category"]), fact(selected, "Status", ["status"]), fact(selected, "Service / branch", ["branch", "service", "component"]), fact(selected, "Operator", ["operator", "command", "organization"])].filter((item): item is { label: string; value: string } => Boolean(item));
+
+  return <main className="min-h-screen bg-[#05080c] pb-24 text-white">
+    <Sidebar />
+    <section className="px-5 py-8 lg:ml-[210px] lg:px-8">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <HeaderBar eyebrow="Occu-Med · Defense network planning" title="Site & Coverage Workbench" subtitle="Select a defense installation, inspect the surrounding country-level footprint, and use the evidence to drive a fixed-provider coverage review. The tool does not invent provider availability or medical demand." />
+        <button type="button" onClick={() => void load(true)} disabled={refreshing} className="inline-flex min-h-11 items-center gap-2 border border-cyan-200/20 bg-cyan-300/[.07] px-4 text-xs font-bold disabled:opacity-45"><RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />Refresh data</button>
+      </div>
+      <WarCostsWorkspaceNav />
+      {error ? <div className="mt-4 border border-amber-200/15 bg-amber-300/[.035] p-3 text-xs text-amber-100/75">{error}</div> : null}
+
+      {loading ? <div className="mt-5 grid min-h-[650px] place-items-center border border-white/10 bg-[#080c12]"><div className="text-center"><Loader2 className="mx-auto animate-spin text-cyan-200" /><p className="mt-3 text-xs text-slate-500">Loading site and personnel context…</p></div></div> : <div className="mt-5 grid min-h-[780px] overflow-hidden border border-white/10 bg-[#070b10] xl:grid-cols-[300px_minmax(0,1fr)_350px]">
+        <aside className="border-r border-white/10 bg-[#080c12]" aria-label="Installation directory">
+          <div className="border-b border-white/10 p-4"><p className="text-[9px] font-black uppercase tracking-[.16em] text-slate-600">Installation directory</p><label className="mt-3 flex min-h-10 items-center gap-2 border border-white/10 bg-black/20 px-3"><Search size={13} className="text-slate-600" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Installation, country, city, type…" className="min-w-0 flex-1 bg-transparent text-[11px] text-white outline-none placeholder:text-slate-600" /><span className="text-[9px] font-black text-slate-600">{visible.length}</span></label></div>
+          <div className="max-h-[800px] overflow-y-auto divide-y divide-white/[.055]">{visible.map((item) => <button key={item.key} type="button" onClick={() => setSelectedKey(item.key)} className={`w-full px-4 py-3 text-left transition ${selectedItem?.key === item.key ? "bg-cyan-300/[.055] shadow-[inset_2px_0_0_rgba(103,232,249,.7)]" : "hover:bg-white/[.02]"}`}><p className="text-[11px] font-black leading-4 text-white">{installationName(item.row, item.index)}</p><p className="mt-1 text-[9px] text-slate-600">{nation(item.row)}{wcText(item.row, "city", "location", "state") ? ` · ${wcText(item.row, "city", "location", "state")}` : ""}</p><p className="mt-1 text-[9px] text-slate-700">{wcText(item.row, "type", "baseType", "category", "status") || "Installation record"}</p></button>)}</div>
+        </aside>
+
+        <section className="min-w-0 bg-[#05090e]">
+          {selected ? <>
+            <header className="border-b border-white/10 px-5 py-4"><p className="text-[9px] font-black uppercase tracking-[.16em] text-slate-600">Selected installation</p><h2 className="mt-1 text-2xl font-black tracking-[-.03em] text-white">{installationName(selected, selectedItem?.index || 0)}</h2><p className="mt-1 text-[11px] text-slate-500">{selectedCountry}{wcText(selected, "city", "location", "state") ? ` · ${wcText(selected, "city", "location", "state")}` : ""}</p></header>
+
+            <div className="grid border-b border-white/10 sm:grid-cols-2 xl:grid-cols-4"><div className="border-r border-white/8 p-4"><p className="text-[9px] font-black uppercase tracking-[.12em] text-slate-600">Country sites</p><p className="mt-2 text-xl font-black">{countrySites.length.toLocaleString()}</p></div><div className="border-r border-white/8 p-4"><p className="text-[9px] font-black uppercase tracking-[.12em] text-slate-600">Personnel</p><p className="mt-2 text-xl font-black">{personnel ? wcNumber(personnel, "personnel", "troops").toLocaleString() : "—"}</p></div><div className="border-r border-white/8 p-4"><p className="text-[9px] font-black uppercase tracking-[.12em] text-slate-600">Expansion sites</p><p className="mt-2 text-xl font-black">{expansions.length.toLocaleString()}</p></div><div className="p-4"><p className="text-[9px] font-black uppercase tracking-[.12em] text-slate-600">Personnel year</p><p className="mt-2 text-xl font-black">{defensePresence?.latestYear || "—"}</p></div></div>
+
+            <div className="p-5">
+              <div className="grid gap-px bg-white/8 sm:grid-cols-2">{detailFacts.length ? detailFacts.map((item) => <div key={item.label} className="bg-[#05090e] p-4"><p className="text-[9px] font-black uppercase tracking-[.12em] text-slate-600">{item.label}</p><p className="mt-1.5 text-[11px] font-bold text-slate-200">{item.value}</p></div>) : <div className="col-span-full bg-[#05090e] p-5 text-[10px] text-slate-600">No additional installation metadata is present in this source row.</div>}</div>
+
+              <section className="mt-6 border-t border-white/8 pt-5"><div className="flex items-center gap-2"><Users size={15} className="text-cyan-200/55" /><h3 className="text-sm font-black">Country personnel context</h3></div>{personnel ? <div className="mt-3 grid grid-cols-2 gap-px bg-white/8 md:grid-cols-5">{[["Total", wcNumber(personnel, "personnel", "troops")], ["Army", wcNumber(personnel, "army")], ["Navy", wcNumber(personnel, "navy")], ["Air Force", wcNumber(personnel, "airForce", "air_force")], ["Marines", wcNumber(personnel, "marines", "marineCorps")]].map(([label, value]) => <div key={String(label)} className="bg-[#05090e] p-3"><p className="text-[9px] uppercase tracking-[.1em] text-slate-600">{label}</p><p className="mt-1 text-base font-black text-slate-200">{Number(value) ? Number(value).toLocaleString() : "—"}</p></div>)}</div> : <p className="mt-3 text-[10px] text-slate-600">No country-level personnel composition row is available.</p>}</section>
+
+              <section className="mt-6 border-t border-white/8 pt-5"><div className="flex items-center gap-2"><MapPinned size={15} className="text-amber-200/55" /><h3 className="text-sm font-black">Expansion evidence in {selectedCountry}</h3></div><div className="mt-2 divide-y divide-white/[.055]">{expansions.length ? expansions.slice(0, 20).map((row, index) => { const value = wcNumber(row, "spending", "amount", "cost", "total"); return <div key={`${wcText(row, "location", "site", "facility")}-${index}`} className="grid gap-2 py-3 md:grid-cols-[1fr_80px_120px]"><div><p className="text-[11px] font-bold text-slate-200">{wcText(row, "location", "site", "facility") || `Expansion site ${index + 1}`}</p><p className="mt-1 text-[9px] text-slate-600">Investigate whether this location creates a new fixed-provider coverage need.</p></div><span className="text-[10px] text-slate-500">{wcNumber(row, "year") || "—"}</span><span className="text-[10px] font-bold text-slate-400">{value ? wcMoney(value) : "—"}</span></div>; }) : <p className="py-4 text-[10px] text-slate-600">No expansion record for this country.</p>}</div></section>
+            </div>
+          </> : <div className="grid min-h-[650px] place-items-center text-center"><div><Building2 size={30} className="mx-auto text-slate-700" /><p className="mt-3 text-sm font-black text-slate-400">No installation loaded</p></div></div>}
+        </section>
+
+        <aside className="border-l border-white/10 bg-[#080c12] p-4" aria-label="Medical coverage review">
+          <div className="flex items-center gap-2"><ShieldCheck size={15} className="text-emerald-200/60" /><div><p className="text-[9px] font-black uppercase tracking-[.16em] text-slate-600">Medical coverage review</p><h2 className="mt-1 text-base font-black">What must be verified locally</h2></div></div>
+          <p className="mt-3 text-[9px] leading-4 text-slate-600">The defense datasets do not contain Occu-Med provider availability. These are required verification domains triggered by the selected site, not claims that coverage exists or is missing.</p>
+          <div className="mt-4 divide-y divide-white/[.055]">{COVERAGE_REVIEW.map(([label, description], index) => <div key={label} className="py-3"><div className="flex items-start gap-3"><span className="mt-0.5 text-[9px] font-black text-slate-700">{String(index + 1).padStart(2, "0")}</span><div><p className="text-[10px] font-black text-slate-200">{label}</p><p className="mt-1 text-[9px] leading-4 text-slate-500">{description}</p></div></div></div>)}</div>
+
+          <section className="mt-5 border-t border-white/8 pt-4"><p className="text-[9px] font-black uppercase tracking-[.14em] text-slate-600">Decision boundary</p><p className="mt-2 text-[9px] leading-4 text-slate-600">Installation, personnel, and construction evidence can tell Occu-Med where a coverage review deserves attention. It cannot establish contractor headcount, referral volume, provider adequacy, or an active client relationship without additional evidence.</p></section>
+        </aside>
+      </div>}
+    </section>
+  </main>;
 }
