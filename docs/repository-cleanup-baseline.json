@@ -1,7 +1,7 @@
 {
-  "description": "Reviewed structural baseline for Insight Hub 2.0. The active application keeps one shell, three global CSS layers, protected intelligence routes, and the existing AOR MapTiler implementation. The reviewed cinematic scene system adds one reusable React scene component plus one imported cinematic stylesheet to give active intelligence workspaces distinct Blue Corridors / Ghost Recon, Climate TRACE, Riot Anima Squad, Lusion Zero Tech, Nasdaq 50, and system-topology visual languages without creating additional application shells. The complete WarCosts integration remains deliberately contained under one top-level WarCosts Intelligence sidebar entry with approved internal views. The AOR MapTiler map remains the health/risk workspace and the War Map remains the separate defense/geopolitical ArcGIS workspace. These reviewed visual-system files raise the repository file ceiling to 319. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
+  "description": "Reviewed structural baseline for Insight Hub 2.0. The active application keeps one shell, three global CSS layers, protected intelligence routes, and the existing AOR MapTiler implementation. The reviewed cinematic scene system adds one reusable React scene component plus one imported cinematic stylesheet to give active intelligence workspaces distinct Blue Corridors / Ghost Recon, Climate TRACE, Riot Anima Squad, Lusion Zero Tech, Nasdaq 50, and system-topology visual languages without creating additional application shells. The complete WarCosts integration remains deliberately contained under one top-level WarCosts Intelligence sidebar entry with approved internal views. The AOR MapTiler map remains the health/risk workspace and the War Map remains the separate defense/geopolitical ArcGIS workspace. Dedicated Federal Awards and Legal & Injury Intelligence workspace files are now reviewed architecture rather than generic shared-shell exports. These reviewed visual and task-specific workspace files raise the repository file ceiling to 321. Duplicate files, generated artifacts, invalid coordinates, extra app shells, new unreachable frontend files, additional architecture candidates, and additional injected-style files remain prohibited unless this baseline is deliberately reviewed and updated.",
   "maximums": {
-    "totalFiles": 319,
+    "totalFiles": 321,
     "duplicateGroups": 0,
     "duplicateFiles": 0,
     "generatedArtifactCount": 0,
@@ -49,6 +49,9 @@
     "artifacts/occu-med-insight-hub/src/pages/reviewer-clinical-calculators.tsx",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-aor-factors-live.tsx",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-aor-factors-v2.tsx",
+    "artifacts/occu-med-insight-hub/src/pages/reviewer-standards-intelligence.tsx",
+    "artifacts/occu-med-insight-hub/src/pages/federal-awards-v2.tsx",
+    "artifacts/occu-med-insight-hub/src/pages/legal-injury-intelligence-v2.tsx",
     "artifacts/api-server/src/routes/map-intelligence-layers.ts",
     "artifacts/api-server/src/routes/aor-yellow-book.ts",
     "artifacts/api-server/src/routes/aor-yellow-book-data-1.ts",
@@ -61,7 +64,6 @@
     "artifacts/api-server/src/routes/aor-immunization.ts",
     "artifacts/api-server/src/routes/aor-fungal-burden.ts",
     "artifacts/api-server/src/routes/standards-intelligence.ts",
-    "artifacts/occu-med-insight-hub/src/pages/reviewer-standards-intelligence.tsx",
     "artifacts/occu-med-insight-hub/tests/occupational-intelligence.spec.ts",
     "artifacts/occu-med-insight-hub/tests/clinical-calculators.spec.ts",
     "artifacts/occu-med-insight-hub/tests/aor-consolidation.spec.ts",
@@ -97,6 +99,7 @@
     "artifacts/occu-med-insight-hub/src/pages/war-costs-tools.tsx",
     "artifacts/occu-med-insight-hub/src/pages/war-costs-iran-trackers.tsx",
     "artifacts/occu-med-insight-hub/src/pages/war-costs-special-tools.tsx",
+    "artifacts/occu-med-insight-hub/src/pages/war-costs-accountability.tsx",
     "artifacts/occu-med-insight-hub/src/pages/war-costs-visualizations.tsx"
   ],
   "forbiddenNewPatterns": [
