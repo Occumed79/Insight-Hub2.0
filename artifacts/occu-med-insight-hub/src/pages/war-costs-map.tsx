@@ -71,38 +71,33 @@ export default function WarCostsMap() {
   const personnelCount = defensePresence?.current?.length ?? 0;
 
   return (
-    <main className="aurora-bg min-h-screen text-white">
+    <main className="war-map-command-page min-h-screen bg-[#090c10] text-slate-100">
       <Sidebar />
-      <section className="relative z-10 flex min-h-screen flex-col px-5 pb-5 pt-5 lg:ml-[210px] lg:px-6">
-        <header className="flex shrink-0 items-start justify-between gap-6 border-b border-slate-300/10 pb-4">
+      <section className="flex min-h-screen flex-col lg:ml-[210px]">
+        <header className="flex min-h-[68px] shrink-0 items-center justify-between gap-6 border-b border-white/8 bg-[#0b0f14] px-6 py-3">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">WarCosts Intelligence</p>
-              <span className="h-1 w-1 rounded-full bg-slate-700" />
-              <p className="text-[11px] font-semibold text-slate-500">ArcGIS defense workspace</p>
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.14em] text-slate-500">
+              <span>WarCosts Intelligence</span><span className="h-1 w-1 rounded-full bg-slate-700" /><span>ArcGIS command map</span>
             </div>
-            <h1 className="mt-1 text-[28px] font-black tracking-[-0.04em] text-white">War Map</h1>
-            <p className="mt-1 max-w-4xl text-[13px] leading-5 text-slate-400">
-              Independent defense intelligence combining WarCosts conflict, base and operation records with force-presence and military-construction layers.
-            </p>
+            <h1 className="mt-1 text-[24px] font-semibold tracking-[-.035em] text-white">War Map</h1>
           </div>
-
-          <div className="flex shrink-0 items-center gap-3 pt-1">
-            <div className="hidden items-center gap-4 border-r border-slate-300/10 pr-4 xl:flex">
-              <div className="text-right"><p className="text-[10px] uppercase tracking-[0.12em] text-slate-600">Feeds</p><p className="mt-0.5 text-sm font-bold text-slate-200">{loading ? "—" : `${feedCount}/${MAP_DATASETS.length}`}</p></div>
-              <div className="text-right"><p className="text-[10px] uppercase tracking-[0.12em] text-slate-600">Presence rows</p><p className="mt-0.5 text-sm font-bold text-slate-200">{loading ? "—" : personnelCount.toLocaleString()}</p></div>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 text-right">
+              <Metric label="Feeds" value={loading ? "—" : `${feedCount}/${MAP_DATASETS.length}`} />
+              <Metric label="Presence" value={loading ? "—" : personnelCount.toLocaleString()} />
+              <Metric label="Personnel year" value={defensePresence?.latestYear ? String(defensePresence.latestYear) : "—"} />
             </div>
-            <button type="button" onClick={() => void load(true)} disabled={refreshing} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300/14 bg-white/[0.035] px-3 text-[12px] font-semibold text-slate-200 transition hover:border-cyan-200/24 hover:bg-white/[0.055] disabled:opacity-50">
+            <button type="button" onClick={() => void load(true)} disabled={refreshing} className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-white/[.035] px-3 text-[11px] font-semibold text-slate-200 transition hover:bg-white/[.06] disabled:opacity-50">
               <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />Refresh
             </button>
           </div>
         </header>
 
-        <div className="shrink-0"><WarCostsWorkspaceNav /></div>
+        <div className="shrink-0 bg-[#0a0d11] px-6"><WarCostsWorkspaceNav /></div>
 
-        {error ? <div className="mt-3 shrink-0 border-l-2 border-amber-300/50 bg-amber-300/[0.035] px-3 py-2 text-[12px] leading-5 text-amber-100/80">{error}</div> : null}
+        {error ? <div className="shrink-0 border-b border-amber-300/15 bg-amber-400/[.035] px-6 py-2 text-[11px] leading-5 text-amber-100/80">{error}</div> : null}
 
-        <div className="relative mt-3 min-h-[680px] flex-1">
+        <div className="war-map-surface relative min-h-[690px] flex-1 overflow-hidden bg-[#05080c]">
           <WarCostsArcGisMap
             conflicts={wcRows(data["conflicts.json"])}
             bases={wcRows(data["base-index.json"])}
@@ -114,12 +109,16 @@ export default function WarCostsMap() {
             personnelYear={defensePresence?.latestYear ?? null}
           />
           {loading ? (
-            <div className="pointer-events-none absolute left-1/2 top-4 z-40 -translate-x-1/2 rounded-full border border-slate-300/12 bg-[#07101b]/88 px-4 py-2 shadow-xl backdrop-blur-xl">
-              <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-200"><Loader2 size={14} className="animate-spin text-cyan-200" />Syncing defense feeds…</div>
+            <div className="pointer-events-none absolute left-1/2 top-4 z-40 -translate-x-1/2 rounded-md border border-white/10 bg-[#0a0f15]/92 px-3 py-2 shadow-xl backdrop-blur-xl">
+              <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-200"><Loader2 size={13} className="animate-spin text-sky-300" />Syncing defense feeds…</div>
             </div>
           ) : null}
         </div>
       </section>
     </main>
   );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return <div><div className="text-[9px] font-semibold uppercase tracking-[.11em] text-slate-600">{label}</div><div className="mt-0.5 text-[11px] font-medium text-slate-300">{value}</div></div>;
 }
