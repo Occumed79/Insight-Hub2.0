@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
-import { GlassCard } from "@/components/insight/GlassCard";
 import {
   loadSecFilingsFeed,
   searchSecIssuers,
@@ -43,35 +42,41 @@ function readTrackedIssuers(): SecTrackedIssuer[] {
       const cik = typeof record.cik === "string" ? record.cik : "";
       const name = typeof record.name === "string" ? record.name : "";
       if (!cik || !name) return [];
-      return [{
-        cik,
-        name,
-        ticker: typeof record.ticker === "string" ? record.ticker : undefined,
-        exchange: typeof record.exchange === "string" ? record.exchange : undefined,
-      }];
+      return [{ cik, name, ticker: typeof record.ticker === "string" ? record.ticker : undefined, exchange: typeof record.exchange === "string" ? record.exchange : undefined }];
     });
   } catch {
     return KNOWN_ISSUER_MAPPINGS;
   }
 }
 
-function formatDate(value?: string): string {
+function formatDate(value?: string) {
   if (!value) return "Not reported";
   const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function FilingRow({ filing, selected, onSelect }: { filing: SecFiling; selected: boolean; onSelect: () => void }) {
+  return (
+    <button type="button" onClick={onSelect} className={`grid w-full grid-cols-[78px_92px_minmax(0,1fr)_115px] items-start gap-3 border-b border-white/[.055] px-4 py-3 text-left transition ${selected ? "bg-sky-400/[.055]" : "hover:bg-white/[.018]"}`}>
+      <span className="text-[11px] font-black text-sky-100/82">{filing.form}</span>
+      <span className="text-[10px] text-slate-500">{formatDate(filing.filingDate)}</span>
+      <span className="min-w-0"><strong className="block truncate text-[11px] text-slate-100">{filing.companyName}</strong><span className="mt-1 block truncate text-[10px] text-slate-600">{filing.primaryDocumentDescription || filing.primaryDocument || filing.items || filing.accessionNumber}</span></span>
+      <span className="truncate text-right text-[9px] uppercase tracking-[.08em] text-slate-600">{filing.ticker || filing.exchange || `CIK ${filing.cik}`}</span>
+    </button>
+  );
 }
 
 export default function SecFilings() {
   const [trackedIssuers, setTrackedIssuers] = useState<SecTrackedIssuer[]>(readTrackedIssuers);
-  const [query, setQuery] = useState("");
+  const [issuerQuery, setIssuerQuery] = useState("");
+  const [filingQuery, setFilingQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SecTrackedIssuer[]>([]);
   const [loading, setLoading] = useState(false);
   const [feed, setFeed] = useState<SecFilingsFeedResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formFilter, setFormFilter] = useState("all");
+  const [issuerFilter, setIssuerFilter] = useState("all");
   const [selectedFiling, setSelectedFiling] = useState<SecFiling | null>(null);
   const autoLoaded = useRef(false);
 
@@ -96,70 +101,59 @@ export default function SecFilings() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(trackedIssuers));
-    }
-  }, [trackedIssuers]);
+  useEffect(() => { window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(trackedIssuers)); }, [trackedIssuers]);
 
+  const returnedForms = useMemo(() => Array.from(new Set(feed?.filings.map((filing) => filing.form) ?? [])).sort(), [feed]);
   const visibleFilings = useMemo(() => {
-    if (!feed) return [];
-    return formFilter === "all"
-      ? feed.filings
-      : feed.filings.filter((filing) => filing.form === formFilter);
-  }, [feed, formFilter]);
+    const needle = filingQuery.trim().toLowerCase();
+    return (feed?.filings || []).filter((filing) => {
+      if (formFilter !== "all" && filing.form !== formFilter) return false;
+      if (issuerFilter !== "all" && filing.cik !== issuerFilter) return false;
+      if (!needle) return true;
+      return [filing.companyName, filing.ticker, filing.form, filing.items, filing.primaryDocument, filing.primaryDocumentDescription, filing.accessionNumber]
+        .some((value) => String(value || "").toLowerCase().includes(needle));
+    });
+  }, [feed, filingQuery, formFilter, issuerFilter]);
 
-  const returnedForms = useMemo(
-    () => Array.from(new Set(feed?.filings.map((filing) => filing.form) ?? [])).sort(),
-    [feed],
-  );
-
-  async function runIssuerSearch(): Promise<void> {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setError("Enter at least two characters of a ticker or public company name.");
-      return;
-    }
-
+  async function runIssuerSearch() {
+    const trimmed = issuerQuery.trim();
+    if (trimmed.length < 2) { setError("Enter at least two characters of a ticker or public company name."); return; }
     setSearching(true);
     setError(null);
     try {
       const result = await searchSecIssuers(trimmed);
       setSearchResults(result.issuers);
-    } catch (searchError) {
+    } catch (caught) {
       setSearchResults([]);
-      setError(searchError instanceof Error ? searchError.message : "SEC issuer search failed.");
+      setError(caught instanceof Error ? caught.message : "SEC issuer search failed.");
     } finally {
       setSearching(false);
     }
   }
 
-  function addIssuer(issuer: SecTrackedIssuer): void {
+  function addIssuer(issuer: SecTrackedIssuer) {
     setTrackedIssuers((current) => current.some((item) => item.cik === issuer.cik) ? current : [...current, issuer]);
   }
 
-  function removeIssuer(cik: string): void {
+  function removeIssuer(cik: string) {
     setTrackedIssuers((current) => current.filter((issuer) => issuer.cik !== cik));
-    setFeed(null);
+    if (issuerFilter === cik) setIssuerFilter("all");
     setSelectedFiling(null);
   }
 
-  async function refreshFeed(): Promise<void> {
-    if (trackedIssuers.length === 0) {
-      setError("Track at least one public issuer before refreshing SEC filings.");
-      return;
-    }
-
+  async function refreshFeed() {
+    if (!trackedIssuers.length) { setError("Track at least one public issuer before refreshing SEC filings."); return; }
     setLoading(true);
     setError(null);
-    setSelectedFiling(null);
     try {
       const result = await loadSecFilingsFeed(trackedIssuers, DEFAULT_FORMS);
       setFeed(result);
       setFormFilter("all");
-    } catch (refreshError) {
+      setSelectedFiling((current) => current && result.filings.some((filing) => filing.id === current.id) ? current : result.filings[0] || null);
+    } catch (caught) {
       setFeed(null);
-      setError(refreshError instanceof Error ? refreshError.message : "SEC filing refresh failed.");
+      setSelectedFiling(null);
+      setError(caught instanceof Error ? caught.message : "SEC filing refresh failed.");
     } finally {
       setLoading(false);
     }
@@ -172,308 +166,59 @@ export default function SecFilings() {
   }, [trackedIssuers]);
 
   return (
-    <main className="aurora-bg min-h-screen text-white">
+    <main className="reviewer-native-page min-h-screen text-white">
       <Sidebar />
-      <section className="relative z-10 px-5 py-8 lg:ml-[210px] lg:px-12">
-        <HeaderBar
-          eyebrow="Employer Intelligence"
-          title="SEC Filings"
-          subtitle="Known public Insight Hub entities load automatically with recent official EDGAR filings; SEC search is a secondary add-company control."
-        />
+      <section className="relative z-10 min-h-screen lg:ml-[210px]">
+        <div className="px-6 pt-7"><HeaderBar eyebrow="Employer Intelligence" title="SEC Filings" subtitle="Tracked public entities load into a dense EDGAR timeline; issuer discovery is secondary, while filing inspection stays persistent." /></div>
 
-        <GlassCard className="mb-6 border-cyan-100/14 p-4">
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-cyan-200" />
-            <p className="text-xs leading-6 text-cyan-100/62">
-              Known public-company mappings are preloaded for V2X, Amentum, and Jacobs. Filing data is retrieved from the official SEC submissions API and may be refreshed manually.
-            </p>
-          </div>
-        </GlassCard>
+        {error ? <div className="mx-6 mb-3 flex items-start gap-2 border-l-2 border-rose-300/35 pl-3 text-xs leading-5 text-rose-100/74"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{error}</div> : null}
 
-        <section className="grid gap-6 xl:grid-cols-[.9fr_1.1fr]">
-          <GlassCard className="p-5 md:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-100/42">Known public entity roster</p>
-                <h2 className="mt-2 text-2xl font-black tracking-[-0.03em] text-white">Tracked public companies</h2>
-              </div>
-              <Building2 className="h-5 w-5 text-cyan-200/45" />
+        <div className="grid min-h-[calc(100vh-122px)] border-y border-white/8 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
+          <aside className="border-r border-white/8 bg-[#0a0e13]/78">
+            <div className="sticky top-0 max-h-screen overflow-y-auto p-4">
+              <div className="flex items-center justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[.15em] text-slate-500">Tracked issuers</p><h2 className="mt-1 text-lg font-black">{trackedIssuers.length} companies</h2></div><Building2 className="h-5 w-5 text-sky-100/38" /></div>
+              <div className="relative mt-4"><div className="flex min-h-10 items-center gap-2 rounded-md border border-white/9 bg-black/18 px-3"><Search className="h-3.5 w-3.5 text-slate-600" /><input value={issuerQuery} onChange={(event) => setIssuerQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void runIssuerSearch()} placeholder="Add ticker / company" className="min-w-0 flex-1 bg-transparent text-xs outline-none" />{issuerQuery ? <button onClick={() => { setIssuerQuery(""); setSearchResults([]); }} className="text-slate-600 hover:text-white"><X className="h-3 w-3" /></button> : null}</div><button onClick={() => void runIssuerSearch()} disabled={searching || issuerQuery.trim().length < 2} className="mt-2 inline-flex h-8 items-center gap-2 rounded-md border border-sky-300/15 px-3 text-[9px] font-black uppercase tracking-[.08em] text-sky-100/68 disabled:opacity-40">{searching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}Search SEC</button></div>
+              {searchResults.length ? <div className="mt-3 divide-y divide-white/7 border-y border-white/7">{searchResults.slice(0, 12).map((issuer) => { const tracked = trackedIssuers.some((item) => item.cik === issuer.cik); return <div key={`${issuer.cik}-${issuer.ticker || "issuer"}`} className="flex items-start gap-3 py-3"><button onClick={() => addIssuer(issuer)} disabled={tracked} className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded border border-white/10 text-sky-100/60 disabled:text-emerald-200">{tracked ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}</button><div className="min-w-0"><p className="truncate text-[11px] font-bold">{issuer.name}</p><p className="mt-1 text-[9px] text-slate-600">{issuer.ticker || "No ticker"} · CIK {issuer.cik}</p></div></div>; })}</div> : null}
+
+              <div className="mt-5 divide-y divide-white/7 border-y border-white/7">{trackedIssuers.map((issuer) => <div key={issuer.cik} className={`group flex items-center gap-3 py-3 ${issuerFilter === issuer.cik ? "text-white" : "text-slate-400"}`}><button onClick={() => setIssuerFilter(issuerFilter === issuer.cik ? "all" : issuer.cik)} className="min-w-0 flex-1 text-left"><p className="truncate text-[11px] font-bold">{issuer.name}</p><p className="mt-1 text-[9px] text-slate-600">{issuer.ticker || issuer.exchange || `CIK ${issuer.cik}`}</p></button><button aria-label={`Remove ${issuer.name}`} onClick={() => removeIssuer(issuer.cik)} className="text-slate-700 opacity-0 hover:text-white group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5" /></button></div>)}</div>
+              <button onClick={() => void refreshFeed()} disabled={loading || !trackedIssuers.length} className="mt-4 inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border border-white/9 bg-white/[.025] text-[10px] font-black text-slate-300 disabled:opacity-40"><RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />Refresh EDGAR feed</button>
+              <div className="mt-4 flex items-start gap-2 text-[9px] leading-5 text-slate-600"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />Official SEC submissions data. Known public Insight Hub entities are preloaded when resolvable.</div>
+            </div>
+          </aside>
+
+          <section className="min-w-0 bg-[#090c10]/64">
+            <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-white/8 bg-[#0a0e13]/94 px-4 py-3 backdrop-blur-xl">
+              <label className="relative min-w-[240px] flex-1"><FileSearch className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-600" /><input value={filingQuery} onChange={(event) => setFilingQuery(event.target.value)} placeholder="Search filings, items, descriptions, accession" className="h-9 w-full rounded-md border border-white/9 bg-[#101419] pl-9 pr-3 text-[11px] outline-none placeholder:text-slate-700" /></label>
+              <select value={formFilter} onChange={(event) => setFormFilter(event.target.value)} className="h-9 rounded-md border border-white/9 bg-[#101419] px-2 text-[10px] text-slate-300 outline-none"><option value="all">All forms</option>{returnedForms.map((form) => <option key={form} value={form}>{form}</option>)}</select>
+              <select value={issuerFilter} onChange={(event) => setIssuerFilter(event.target.value)} className="h-9 max-w-[190px] rounded-md border border-white/9 bg-[#101419] px-2 text-[10px] text-slate-300 outline-none"><option value="all">All issuers</option>{trackedIssuers.map((issuer) => <option key={issuer.cik} value={issuer.cik}>{issuer.ticker || issuer.name}</option>)}</select>
+              <span className="text-[9px] uppercase tracking-[.1em] text-slate-600">{visibleFilings.length} filings</span>
             </div>
 
-            <div className="mt-5 flex gap-3">
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") void runIssuerSearch();
-                }}
-                placeholder="Ticker or company name"
-                className="min-h-12 flex-1 rounded-2xl border border-cyan-100/12 bg-black/20 px-4 text-sm text-cyan-50 outline-none transition placeholder:text-cyan-100/25 focus:border-cyan-200/32"
-              />
-              <button
-                type="button"
-                onClick={() => void runIssuerSearch()}
-                disabled={searching || query.trim().length < 2}
-                className="inline-flex min-h-12 items-center gap-2 rounded-2xl border border-cyan-200/22 bg-cyan-300/12 px-4 text-sm font-bold text-cyan-50 transition hover:bg-cyan-300/18 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {searching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-                Search SEC
-              </button>
-            </div>
-
-            {searchResults.length > 0 && (
-              <div className="mt-4 max-h-72 space-y-2 overflow-y-auto pr-1">
-                {searchResults.map((issuer) => {
-                  const tracked = trackedIssuers.some((item) => item.cik === issuer.cik);
-                  return (
-                    <div key={`${issuer.cik}-${issuer.ticker ?? "issuer"}`} className="flex items-center justify-between gap-4 rounded-2xl border border-cyan-100/10 bg-white/[0.035] p-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-white">{issuer.name}</p>
-                        <p className="mt-1 text-[10px] text-cyan-100/42">
-                          {issuer.ticker || "No ticker"} · {issuer.exchange || "Exchange unavailable"} · CIK {issuer.cik}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => addIssuer(issuer)}
-                        disabled={tracked}
-                        className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-cyan-100/16 bg-cyan-300/[0.08] px-3 py-2 text-xs font-semibold text-cyan-50 transition hover:bg-cyan-300/14 disabled:opacity-45"
-                      >
-                        {tracked ? <Check size={14} /> : <Plus size={14} />}
-                        {tracked ? "Tracked" : "Add"}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="mt-6 border-t border-cyan-100/10 pt-5">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-bold text-white">Tracked issuers</h3>
-                <span className="rounded-full border border-cyan-100/12 bg-cyan-300/[0.06] px-3 py-1 text-xs text-cyan-100/60">{trackedIssuers.length}</span>
-              </div>
-
-              {trackedIssuers.length === 0 ? (
-                <p className="mt-4 rounded-2xl border border-dashed border-cyan-100/12 p-5 text-center text-xs leading-6 text-cyan-100/42">
-                  Search the SEC directory and explicitly add each public issuer you want included in the feed.
-                </p>
-              ) : (
-                <div className="mt-3 space-y-2">
-                  {trackedIssuers.map((issuer) => (
-                    <div key={issuer.cik} className="flex items-center justify-between gap-4 rounded-2xl border border-cyan-100/10 bg-black/15 px-4 py-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-cyan-50">{issuer.name}</p>
-                        <p className="mt-1 text-[10px] text-cyan-100/38">{issuer.ticker || "—"} · {issuer.exchange || "—"}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeIssuer(issuer.cik)}
-                        className="rounded-xl border border-rose-200/12 p-2 text-rose-100/60 transition hover:bg-rose-300/[0.08] hover:text-rose-100"
-                        aria-label={`Remove ${issuer.name}`}
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </GlassCard>
-
-          <section className="space-y-5">
-            <GlassCard className="p-5 md:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-100/42">Official EDGAR submissions</p>
-                  <h2 className="mt-2 text-2xl font-black tracking-[-0.03em] text-white">Live filing feed</h2>
-                  <p className="mt-2 text-xs leading-6 text-cyan-100/45">No timer, cron job, startup fetch, or unattended refresh.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void refreshFeed()}
-                  disabled={loading || trackedIssuers.length === 0}
-                  className="inline-flex min-h-12 items-center gap-2 rounded-2xl border border-emerald-200/20 bg-emerald-300/10 px-5 text-sm font-bold text-emerald-50 transition hover:bg-emerald-300/16 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {loading ? <Loader2 size={17} className="animate-spin" /> : <RefreshCw size={17} />}
-                  {loading ? "Refreshing SEC…" : "Refresh SEC filings"}
-                </button>
-              </div>
-
-              {error && (
-                <div className="mt-4 flex items-start gap-3 rounded-2xl border border-rose-200/18 bg-rose-300/[0.07] p-4 text-sm text-rose-100">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{error}</span>
-                </div>
-              )}
-            </GlassCard>
-
-            {!feed && !loading ? (
-              <GlassCard className="p-10 text-center">
-                <FileSearch className="mx-auto h-10 w-10 text-cyan-100/28" />
-                <p className="mt-3 text-sm font-semibold text-cyan-50">No SEC feed has been refreshed</p>
-                <p className="mx-auto mt-2 max-w-xl text-xs leading-6 text-cyan-100/42">Track one or more public issuers, then run the manual refresh.</p>
-              </GlassCard>
-            ) : loading ? (
-              <GlassCard className="p-10 text-center">
-                <Loader2 className="mx-auto h-9 w-9 animate-spin text-cyan-200/60" />
-                <p className="mt-3 text-sm font-semibold text-cyan-50">Fetching official submissions for {trackedIssuers.length} issuer{trackedIssuers.length === 1 ? "" : "s"}…</p>
-              </GlassCard>
-            ) : feed ? (
-              <>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <SummaryMetric label="Issuers checked" value={String(feed.issuerCount)} />
-                  <SummaryMetric label="Filings returned" value={String(feed.filingCount)} />
-                  <SummaryMetric label="Last refreshed" value={new Date(feed.completedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} />
-                </div>
-
-                {feed.errors.length > 0 && (
-                  <GlassCard className="border-amber-200/14 p-4">
-                    <p className="text-xs font-semibold text-amber-100">Partial SEC refresh</p>
-                    {feed.errors.map((item) => <p key={item.cik} className="mt-2 text-xs text-amber-100/60">{item.companyName}: {item.error}</p>)}
-                  </GlassCard>
-                )}
-
-                <GlassCard className="overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-4 border-b border-cyan-100/10 p-4">
-                    <div>
-                      <p className="text-sm font-bold text-white">Latest filings</p>
-                      <p className="mt-1 text-[10px] text-cyan-100/38">Click View evidence for filing details. Rows themselves do not navigate.</p>
-                      {returnedForms.length > 0 && (
-                        <div className="mt-2" aria-label="Forms returned">
-                          <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-cyan-100/38">Forms returned</p>
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {returnedForms.map((form) => <span key={form} className="rounded-full border border-violet-200/14 bg-violet-300/[0.07] px-2.5 py-1 text-[10px] font-bold text-violet-100/78">{form}</span>)}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <select
-                      value={formFilter}
-                      onChange={(event) => setFormFilter(event.target.value)}
-                      className="rounded-xl border border-cyan-100/12 bg-[#07101d] px-3 py-2 text-xs text-cyan-50 outline-none"
-                    >
-                      <option value="all">All forms</option>
-                      {returnedForms.map((form) => <option key={form} value={form}>{form}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[760px] border-collapse text-left">
-                      <thead>
-                        <tr className="border-b border-cyan-100/8 text-[10px] uppercase tracking-[0.16em] text-cyan-100/38">
-                          <th className="px-4 py-3 font-semibold">Filed</th>
-                          <th className="px-4 py-3 font-semibold">Company</th>
-                          <th className="px-4 py-3 font-semibold">Form</th>
-                          <th className="px-4 py-3 font-semibold">Description</th>
-                          <th className="px-4 py-3 text-right font-semibold">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {visibleFilings.map((filing) => (
-                          <tr key={filing.id} className="border-b border-cyan-100/[0.06] last:border-b-0">
-                            <td className="whitespace-nowrap px-4 py-4 text-xs text-cyan-100/58">{formatDate(filing.filingDate)}</td>
-                            <td className="px-4 py-4">
-                              <p className="max-w-[230px] truncate text-sm font-semibold text-white">{filing.companyName}</p>
-                              <p className="mt-1 text-[10px] text-cyan-100/36">{filing.ticker || filing.cik}</p>
-                            </td>
-                            <td className="px-4 py-4"><span className="rounded-full border border-violet-200/16 bg-violet-300/[0.08] px-3 py-1 text-xs font-bold text-violet-100">{filing.form}</span></td>
-                            <td className="max-w-[300px] px-4 py-4 text-xs leading-5 text-cyan-100/48">{filing.primaryDocumentDescription || filing.items || filing.primaryDocument || "SEC filing"}</td>
-                            <td className="px-4 py-4 text-right">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedFiling(filing)}
-                                className="inline-flex items-center gap-2 rounded-xl border border-cyan-100/14 bg-cyan-300/[0.07] px-3 py-2 text-xs font-semibold text-cyan-50 transition hover:bg-cyan-300/13"
-                              >
-                                <FileSearch size={14} />
-                                View evidence
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {visibleFilings.length === 0 && <p className="p-8 text-center text-xs text-cyan-100/42">No filings match this form filter.</p>}
-                </GlassCard>
-              </>
-            ) : null}
+            <div className="grid grid-cols-[78px_92px_minmax(0,1fr)_115px] gap-3 border-b border-white/8 bg-[#0c1015] px-4 py-2 text-[8px] font-black uppercase tracking-[.11em] text-slate-650"><span>Form</span><span>Filed</span><span>Issuer / document</span><span className="text-right">Market</span></div>
+            {loading && !feed ? <div className="grid min-h-[520px] place-items-center"><div className="text-center text-xs text-slate-500"><Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin" />Loading recent official filings…</div></div> : visibleFilings.length ? <div>{visibleFilings.map((filing) => <FilingRow key={filing.id} filing={filing} selected={selectedFiling?.id === filing.id} onSelect={() => setSelectedFiling(filing)} />)}</div> : <div className="grid min-h-[520px] place-items-center text-center"><div><FileSearch className="mx-auto h-8 w-8 text-slate-700" /><p className="mt-4 text-sm font-bold text-slate-300">No filings match the current filters.</p><p className="mt-2 text-xs text-slate-600">Adjust form, issuer, or filing text search.</p></div></div>}
           </section>
-        </section>
-      </section>
 
-      {selectedFiling && <FilingDrawer filing={selectedFiling} onClose={() => setSelectedFiling(null)} />}
+          <aside className="border-l border-white/8 bg-[#0d1014]/88">
+            <div className="sticky top-0 max-h-screen overflow-y-auto p-5">
+              {selectedFiling ? <>
+                <div className="flex items-start justify-between gap-4"><div><p className="text-[9px] font-black uppercase tracking-[.14em] text-sky-100/38">Selected filing</p><div className="mt-2 flex items-center gap-2"><span className="rounded border border-sky-300/20 bg-sky-400/[.06] px-2 py-1 text-[10px] font-black text-sky-100">{selectedFiling.form}</span><span className="text-[9px] text-slate-600">{formatDate(selectedFiling.filingDate)}</span></div><h2 className="mt-3 text-xl font-black leading-6 tracking-[-0.025em]">{selectedFiling.companyName}</h2><p className="mt-1 text-[10px] text-slate-500">{selectedFiling.ticker || selectedFiling.exchange || `CIK ${selectedFiling.cik}`}</p></div><button onClick={() => setSelectedFiling(null)} className="rounded-md border border-white/9 p-2 text-slate-600 hover:text-white"><X className="h-3.5 w-3.5" /></button></div>
+
+                <div className="mt-5 divide-y divide-white/7 border-y border-white/7 text-[10px]"><Info label="Accession" value={selectedFiling.accessionNumber} /><Info label="Report date" value={formatDate(selectedFiling.reportDate)} /><Info label="Accepted" value={selectedFiling.acceptanceDateTime || "Not reported"} /><Info label="Document" value={selectedFiling.primaryDocumentDescription || selectedFiling.primaryDocument || "Not reported"} /><Info label="Items" value={selectedFiling.items || "Not reported"} /><Info label="Inline XBRL" value={selectedFiling.isInlineXbrl ? "Yes" : "No"} /></div>
+
+                <div className="mt-5 space-y-2"><a href={selectedFiling.documentUrl || selectedFiling.filingUrl} target="_blank" rel="noreferrer" className="flex min-h-10 items-center justify-between gap-3 rounded-md border border-sky-300/16 bg-sky-400/[.045] px-3 text-[10px] font-black text-sky-100"><span>Open primary SEC document</span><ExternalLink className="h-3.5 w-3.5" /></a><a href={selectedFiling.filingUrl} target="_blank" rel="noreferrer" className="flex min-h-10 items-center justify-between gap-3 rounded-md border border-white/9 px-3 text-[10px] font-black text-slate-400"><span>Open filing index</span><ExternalLink className="h-3.5 w-3.5" /></a></div>
+
+                <section className="mt-6 border-t border-white/8 pt-4"><p className="text-[9px] font-black uppercase tracking-[.13em] text-slate-600">Reader boundary</p><p className="mt-2 text-[10px] leading-5 text-slate-500">Insight Hub indexes filing metadata and routes directly to the official EDGAR document. This pane does not pretend the full filing text has been locally parsed when it has not.</p></section>
+              </> : <div className="grid min-h-[520px] place-items-center text-center"><div><FileSearch className="mx-auto h-8 w-8 text-slate-700" /><h2 className="mt-4 text-lg font-black">Select a filing</h2><p className="mx-auto mt-2 max-w-[260px] text-xs leading-5 text-slate-600">Metadata, dates, filing items, XBRL state, and official document links stay visible here.</p></div></div>}
+
+              {feed ? <section className="mt-6 border-t border-white/8 pt-4"><p className="text-[8px] font-black uppercase tracking-[.12em] text-slate-650">Feed status</p><p className="mt-2 text-[9px] leading-5 text-slate-600">{feed.filingCount} filings · {feed.issuerCount} issuers · {feed.freshness}</p>{feed.errors.length ? <p className="mt-2 text-[9px] leading-5 text-amber-100/58">{feed.errors.length} issuer request{feed.errors.length === 1 ? "" : "s"} returned errors.</p> : null}</section> : null}
+            </div>
+          </aside>
+        </div>
+      </section>
     </main>
   );
 }
 
-function SummaryMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <GlassCard className="p-4">
-      <p className="text-[9px] uppercase tracking-[0.18em] text-cyan-100/40">{label}</p>
-      <p className="mt-2 text-2xl font-black text-white">{value}</p>
-    </GlassCard>
-  );
-}
-
-function FilingDrawer({ filing, onClose }: { filing: SecFiling; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm" role="presentation" onMouseDown={onClose}>
-      <aside
-        className="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto border-l border-cyan-100/14 bg-[#050b15]/98 p-6 shadow-[-30px_0_90px_rgba(0,0,0,.5)]"
-        role="dialog"
-        aria-modal="true"
-        aria-label="SEC filing evidence"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-violet-200/60">SEC filing evidence</p>
-            <h2 className="mt-2 text-2xl font-black text-white">{filing.form} · {filing.companyName}</h2>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-xl border border-cyan-100/12 p-2 text-cyan-100/60 hover:text-white" aria-label="Close filing evidence">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="mt-6 space-y-3">
-          <EvidenceRow label="Filed" value={formatDate(filing.filingDate)} />
-          <EvidenceRow label="Report date" value={formatDate(filing.reportDate)} />
-          <EvidenceRow label="Ticker / exchange" value={[filing.ticker, filing.exchange].filter(Boolean).join(" · ") || "Not reported"} />
-          <EvidenceRow label="CIK" value={filing.cik} />
-          <EvidenceRow label="Accession number" value={filing.accessionNumber} />
-          <EvidenceRow label="Primary document" value={filing.primaryDocumentDescription || filing.primaryDocument || "Not reported"} />
-          <EvidenceRow label="Items" value={filing.items || "Not reported"} />
-          <EvidenceRow label="Structured data" value={filing.isInlineXbrl ? "Inline XBRL" : filing.isXbrl ? "XBRL" : "Not indicated"} />
-        </div>
-
-        <div className="mt-7 flex flex-wrap gap-3">
-          <a href={filing.filingUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-2xl border border-cyan-200/20 bg-cyan-300/10 px-4 py-3 text-sm font-bold text-cyan-50 hover:bg-cyan-300/16">
-            Open SEC filing index
-            <ExternalLink size={15} />
-          </a>
-          {filing.documentUrl && (
-            <a href={filing.documentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-2xl border border-violet-200/18 bg-violet-300/[0.08] px-4 py-3 text-sm font-bold text-violet-50 hover:bg-violet-300/14">
-              Open primary document
-              <ExternalLink size={15} />
-            </a>
-          )}
-        </div>
-
-        <div className="mt-8 rounded-2xl border border-amber-200/12 bg-amber-300/[0.05] p-4 text-xs leading-6 text-amber-100/58">
-          SEC filings are public disclosure evidence. They do not independently establish ownership relationships, workplace conditions, occupational risk, compliance, or liability.
-        </div>
-      </aside>
-    </div>
-  );
-}
-
-function EvidenceRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-cyan-100/10 bg-white/[0.03] p-4">
-      <p className="text-[9px] uppercase tracking-[0.18em] text-cyan-100/38">{label}</p>
-      <p className="mt-2 break-words text-sm leading-6 text-cyan-50/82">{value}</p>
-    </div>
-  );
+function Info({ label, value }: { label: string; value: string }) {
+  return <div className="grid grid-cols-[86px_minmax(0,1fr)] gap-3 py-3"><span className="text-slate-650">{label}</span><strong className="break-words font-semibold text-slate-300">{value}</strong></div>;
 }
