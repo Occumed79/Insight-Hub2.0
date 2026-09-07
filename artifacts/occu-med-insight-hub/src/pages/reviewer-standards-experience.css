@@ -3,9 +3,9 @@
   min-height: 100vh;
   overflow: hidden;
   background:
-    radial-gradient(circle at 74% 16%, rgba(112, 161, 255, .09), transparent 28rem),
-    radial-gradient(circle at 29% 76%, rgba(106, 208, 186, .06), transparent 30rem),
-    #06090d;
+    radial-gradient(ellipse at 70% 13%, rgba(100, 154, 255, .075), transparent 32rem),
+    radial-gradient(ellipse at 34% 82%, rgba(79, 204, 177, .045), transparent 34rem),
+    #05080c;
 }
 
 .standards-rule-field {
@@ -13,30 +13,30 @@
   position: fixed;
   inset: 0;
   z-index: 0;
-  opacity: .56;
+  opacity: .42;
   background:
-    linear-gradient(rgba(147, 176, 235, .018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(147, 176, 235, .014) 1px, transparent 1px);
-  background-size: 68px 68px;
-  mask-image: radial-gradient(circle at 58% 44%, #000, rgba(0,0,0,.62) 58%, transparent 90%);
+    linear-gradient(rgba(147, 176, 235, .015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(147, 176, 235, .012) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(ellipse at 57% 45%, #000, rgba(0,0,0,.56) 58%, transparent 92%);
 }
 
 .standards-rule-line {
   position: absolute;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(127, 177, 255, .18), rgba(115, 215, 191, .15), transparent);
+  background: linear-gradient(90deg, transparent, rgba(127, 177, 255, .13), rgba(115, 215, 191, .11), transparent);
 }
-.standards-rule-line-a { left: 29%; right: 5%; top: 37%; transform: rotate(-4deg); }
-.standards-rule-line-b { left: 35%; right: 10%; top: 63%; transform: rotate(6deg); opacity: .5; }
+.standards-rule-line-a { left: 26%; right: 5%; top: 37%; transform: rotate(-3deg); }
+.standards-rule-line-b { left: 34%; right: 9%; top: 64%; transform: rotate(5deg); opacity: .42; }
 
 .standards-rule-node {
   position: absolute;
-  width: 7px;
-  height: 7px;
-  border: 1px solid rgba(150, 213, 232, .56);
+  width: 6px;
+  height: 6px;
+  border: 1px solid rgba(150, 213, 232, .5);
   border-radius: 50%;
-  background: rgba(99, 166, 255, .6);
-  box-shadow: 0 0 18px rgba(90, 169, 255, .28);
+  background: rgba(99, 166, 255, .5);
+  box-shadow: 0 0 15px rgba(90, 169, 255, .2);
 }
 .standards-rule-node-a { top: 35%; left: 58%; }
 .standards-rule-node-b { top: 65%; left: 72%; }
@@ -45,7 +45,7 @@
 .standards-experience main {
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, rgba(8, 11, 16, .92), rgba(5, 8, 12, .97)) !important;
+  background: linear-gradient(180deg, rgba(7, 10, 14, .93), rgba(4, 7, 10, .98)) !important;
 }
 
 .standards-experience [class*="text-[8px]"],
@@ -55,27 +55,158 @@
 }
 
 .standards-experience [class*="uppercase"] {
-  letter-spacing: .06em;
+  letter-spacing: .055em;
 }
 
 .standards-experience button,
 .standards-experience input,
 .standards-experience select,
 .standards-experience textarea {
-  border-radius: 3px !important;
+  border-radius: 2px !important;
 }
 
 .standards-experience [class*="rounded-xl"],
 .standards-experience [class*="rounded-2xl"] {
-  border-radius: 5px !important;
+  border-radius: 3px !important;
 }
 
-.standards-experience aside,
-.standards-experience [class*="sticky"] {
+@media (min-width: 1280px) {
+  .standards-experience main > section > div.grid {
+    grid-template-columns: 238px minmax(0,1fr) 410px !important;
+  }
+}
+
+/* Catalog = rule index, not a stack of cards. */
+.standards-experience main nav {
+  background: rgba(6, 9, 13, .97) !important;
+  border-right-color: rgba(129, 171, 216, .11) !important;
+}
+
+.standards-experience main nav button.group {
+  position: relative;
+  margin-bottom: 0 !important;
+  border-left-width: 1px !important;
+  padding-top: 11px !important;
+  padding-bottom: 11px !important;
+  background: transparent !important;
+}
+
+.standards-experience main nav button.group:hover {
+  background: linear-gradient(90deg, rgba(78, 148, 203, .045), transparent) !important;
+}
+
+.standards-experience main nav button.group[class*="border-sky-300"] {
+  border-left-width: 2px !important;
+  background: linear-gradient(90deg, rgba(68, 159, 221, .09), rgba(68, 159, 221, .02) 72%, transparent) !important;
+  box-shadow: inset 12px 0 28px rgba(52, 153, 221, .025);
+}
+
+/* The selected standard is the focal plane. */
+.standards-experience main nav + section {
+  position: relative;
+  background:
+    radial-gradient(circle at 54% 21%, rgba(67, 143, 210, .055), transparent 29%),
+    #070a0e !important;
+}
+
+.standards-experience main nav + section::before {
+  content: "";
+  position: absolute;
+  left: 34px;
+  top: 90px;
+  bottom: 48px;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, rgba(101, 174, 229, .16) 12%, rgba(91, 210, 179, .12) 76%, transparent);
+}
+
+.standards-experience main nav + section > div {
+  position: relative;
+  max-width: 980px !important;
+  padding-left: 58px !important;
+  padding-right: 44px !important;
+}
+
+.standards-experience main nav + section > div > div:first-of-type {
+  position: relative;
+}
+
+.standards-experience main nav + section > div > div:first-of-type::before {
+  content: "SELECTED STANDARD";
+  position: absolute;
+  left: -47px;
+  top: 3px;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: rgba(129, 184, 224, .34);
+}
+
+/* Existing matched-rule rows become a connected applicability sequence. */
+.standards-experience main nav + section article {
+  position: relative;
+  margin-left: 7px;
+  padding: 16px 14px 16px 26px !important;
+  border-bottom-color: rgba(112, 155, 190, .075) !important;
+  background: linear-gradient(90deg, rgba(75, 140, 190, .025), transparent 72%);
+}
+
+.standards-experience main nav + section article::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 23px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(117, 191, 231, .55);
+  border-radius: 50%;
+  background: #071019;
+  box-shadow: 0 0 0 5px rgba(79, 171, 220, .025);
+}
+
+.standards-experience main nav + section article::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 31px;
+  bottom: -1px;
+  width: 1px;
+  background: linear-gradient(to bottom, rgba(109, 181, 222, .18), rgba(109, 181, 222, .02));
+}
+
+/* The evaluator is a persistent scientific control surface, visually distinct
+   from the source/evidence plane. */
+.standards-experience main aside {
+  background:
+    linear-gradient(180deg, rgba(10, 15, 19, .98), rgba(7, 10, 14, .99)) !important;
+  border-left-color: rgba(91, 208, 178, .14) !important;
+  box-shadow: -28px 0 74px rgba(0,0,0,.24);
+}
+
+.standards-experience main aside > div {
   backdrop-filter: blur(18px);
+}
+
+.standards-experience main aside section {
+  position: relative;
+}
+
+.standards-experience main aside section::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 15px;
+  width: 2px;
+  height: 18px;
+  background: linear-gradient(to bottom, rgba(99, 221, 186, .5), rgba(99, 221, 186, .04));
 }
 
 .standards-experience table {
   border-collapse: separate;
   border-spacing: 0;
+}
+
+.standards-experience ::selection {
+  background: rgba(100, 181, 225, .2);
 }

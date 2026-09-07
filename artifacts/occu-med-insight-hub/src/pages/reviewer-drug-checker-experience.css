@@ -3,9 +3,9 @@
   min-height: 100vh;
   overflow: hidden;
   background:
-    radial-gradient(circle at 72% 18%, rgba(193, 104, 255, .11), transparent 29rem),
-    radial-gradient(circle at 26% 72%, rgba(74, 224, 209, .08), transparent 31rem),
-    #07070b;
+    radial-gradient(ellipse at 72% 17%, rgba(181, 92, 255, .09), transparent 32rem),
+    radial-gradient(ellipse at 27% 74%, rgba(66, 216, 202, .065), transparent 34rem),
+    #06070a;
 }
 
 .drug-spectrum-field {
@@ -13,8 +13,8 @@
   position: fixed;
   inset: 0;
   z-index: 0;
-  opacity: .64;
-  background: linear-gradient(180deg, rgba(255,255,255,.012), transparent 38%);
+  opacity: .48;
+  background: linear-gradient(180deg, rgba(255,255,255,.01), transparent 42%);
 }
 
 .drug-spectrum-line {
@@ -22,24 +22,24 @@
   left: 210px;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(126, 229, 215, .17), rgba(193, 123, 255, .18), transparent);
+  background: linear-gradient(90deg, transparent, rgba(126, 229, 215, .12), rgba(193, 123, 255, .13), transparent);
 }
 .drug-spectrum-line-a { top: 34%; transform: rotate(-2deg); }
-.drug-spectrum-line-b { top: 69%; opacity: .45; transform: rotate(3deg); }
+.drug-spectrum-line-b { top: 69%; opacity: .34; transform: rotate(3deg); }
 
 .drug-spectrum-ring {
   position: absolute;
-  border: 1px solid rgba(199, 125, 255, .11);
+  border: 1px solid rgba(199, 125, 255, .08);
   border-radius: 50%;
 }
-.drug-spectrum-ring-a { width: 31vw; height: 31vw; right: 6%; top: 10%; }
-.drug-spectrum-ring-b { width: 17vw; height: 17vw; right: 13%; top: 17%; border-color: rgba(92, 226, 211, .11); }
+.drug-spectrum-ring-a { width: 32vw; height: 32vw; right: 5%; top: 9%; }
+.drug-spectrum-ring-b { width: 18vw; height: 18vw; right: 12%; top: 16%; border-color: rgba(92, 226, 211, .08); }
 
 .drug-checker-experience > main,
 .drug-checker-experience .reviewer-native-page {
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, rgba(8, 8, 13, .92), rgba(5, 7, 10, .96)) !important;
+  background: linear-gradient(180deg, rgba(8, 8, 12, .93), rgba(4, 6, 9, .98)) !important;
 }
 
 .drug-checker-experience [class*="text-[8px]"],
@@ -49,24 +49,123 @@
 }
 
 .drug-checker-experience [class*="uppercase"] {
-  letter-spacing: .055em;
+  letter-spacing: .05em;
 }
 
 .drug-checker-experience button,
 .drug-checker-experience input,
 .drug-checker-experience select,
 .drug-checker-experience textarea {
-  border-radius: 8px !important;
+  border-radius: 4px !important;
 }
 
 .drug-checker-experience [class*="rounded-[24px]"],
 .drug-checker-experience [class*="rounded-[28px]"] {
-  border-radius: 12px !important;
+  border-radius: 7px !important;
 }
 
 .drug-checker-experience [class*="bg-white/[0.025]"],
 .drug-checker-experience [class*="bg-white/[0.03]"] {
-  background-color: rgba(255, 255, 255, .018) !important;
+  background-color: rgba(255, 255, 255, .014) !important;
+}
+
+@media (min-width: 1280px) {
+  .drug-checker-experience .reviewer-native-page > section > div.grid {
+    grid-template-columns: 286px minmax(0,1fr) 420px !important;
+  }
+}
+
+/* The regimen rail is a relationship chain rather than a list of pills/cards. */
+.drug-checker-experience .reviewer-native-page > section > div.grid > aside:first-of-type {
+  position: relative;
+  background: linear-gradient(180deg, rgba(6, 11, 16, .97), rgba(5, 8, 13, .98)) !important;
+  border-right-color: rgba(88, 218, 207, .12) !important;
+}
+
+.drug-checker-experience .reviewer-native-page > section > div.grid > aside:first-of-type::after {
+  content: "";
+  position: absolute;
+  left: 35px;
+  top: 150px;
+  bottom: 90px;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, rgba(91, 220, 209, .2) 8%, rgba(171, 112, 244, .14) 78%, transparent);
+  pointer-events: none;
+}
+
+.drug-checker-experience .reviewer-native-page > section > div.grid > aside:first-of-type [class*="divide-y"] > div.group {
+  position: relative;
+  z-index: 1;
+  padding-left: 8px;
+  background: transparent;
+}
+
+.drug-checker-experience .reviewer-native-page > section > div.grid > aside:first-of-type [class*="divide-y"] > div.group button:first-child span[class*="rounded-full"] {
+  background: #071019 !important;
+  border-color: rgba(95, 218, 208, .3) !important;
+  box-shadow: 0 0 0 5px rgba(86, 212, 202, .025);
+}
+
+.drug-checker-experience .reviewer-native-page > section > div.grid > aside:first-of-type [class*="divide-y"] > div.group.text-white button:first-child span[class*="rounded-full"] {
+  border-color: rgba(118, 239, 226, .8) !important;
+  background: rgba(69, 206, 193, .2) !important;
+  box-shadow: 0 0 18px rgba(81, 220, 208, .16), 0 0 0 5px rgba(86, 212, 202, .035);
+}
+
+/* The real PubChem specimen becomes the scientific focal plane. */
+.drug-checker-experience .reviewer-native-page > section > div.grid > section {
+  background:
+    radial-gradient(circle at 50% 26%, rgba(66, 212, 210, .045), transparent 28%),
+    #05080c !important;
+}
+
+.drug-checker-experience .reviewer-native-page > section > div.grid > section [class*="min-h-[360px]"] {
+  min-height: 470px !important;
+  border: 0 !important;
+  border-radius: 2px !important;
+  background:
+    radial-gradient(circle at 50% 43%, rgba(59, 220, 221, .11), transparent 25%),
+    radial-gradient(circle at 67% 66%, rgba(149, 92, 246, .09), transparent 32%),
+    linear-gradient(rgba(95, 216, 218, .025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(95, 216, 218, .02) 1px, transparent 1px),
+    #020609 !important;
+  background-size: auto, auto, 46px 46px, 46px 46px, auto;
+  box-shadow: inset 0 0 90px rgba(0,0,0,.4), 0 30px 90px rgba(0,0,0,.2);
+}
+
+.drug-checker-experience .reviewer-native-page > section > div.grid > section [class*="min-h-[360px]"] > div[class*="place-items-center"] {
+  min-height: 470px !important;
+  padding: 34px !important;
+}
+
+.drug-checker-experience .reviewer-native-page > section > div.grid > section [class*="max-w-[520px]"] {
+  max-width: 650px !important;
+}
+
+/* Cross-medication evidence is a separate relationship analyzer. */
+.drug-checker-experience .reviewer-native-page > section > div.grid > aside:last-of-type {
+  background:
+    linear-gradient(180deg, rgba(12, 9, 18, .97), rgba(7, 8, 13, .99)) !important;
+  border-left-color: rgba(177, 111, 238, .14) !important;
+  box-shadow: -28px 0 82px rgba(0,0,0,.22);
+}
+
+.drug-checker-experience .reviewer-native-page > section > div.grid > aside:last-of-type article {
+  position: relative;
+  padding-left: 18px !important;
+}
+
+.drug-checker-experience .reviewer-native-page > section > div.grid > aside:last-of-type article::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(193, 127, 244, .58);
+  border-radius: 50%;
+  background: #0a0710;
+  box-shadow: 0 0 0 5px rgba(193, 127, 244, .025);
 }
 
 .drug-checker-experience a[target="_blank"] {
@@ -75,5 +174,9 @@
 
 .drug-checker-experience [class*="border-violet"],
 .drug-checker-experience [class*="border-cyan"] {
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.018);
+}
+
+.drug-checker-experience ::selection {
+  background: rgba(141, 101, 231, .22);
 }
