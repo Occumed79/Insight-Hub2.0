@@ -49,7 +49,7 @@ const LegalReferencesPage = React.lazy(() => import("@/pages/legal-injury-intell
 const OnetMasterTool = React.lazy(() => import("@/pages/onet-master-tool"));
 const OccupationalDataExplorer = React.lazy(() => import("@/pages/occupational-data-explorer"));
 const IndustryImpactCalculator = React.lazy(() => import("@/pages/industry-impact-calculator-v2"));
-const OccupationalCalculators = React.lazy(() => import("@/pages/occupational-calculators-v2"));
+const OccupationalCalculators = React.lazy(() => import("@/pages/occupational-calculators-v3"));
 
 const queryClient = new QueryClient();
 
