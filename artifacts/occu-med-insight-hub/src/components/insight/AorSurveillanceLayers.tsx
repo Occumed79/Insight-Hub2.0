@@ -3,6 +3,7 @@ import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { Activity, AlertTriangle, ArrowUpRight, BarChart3, Loader2, Microscope, Syringe, X } from "lucide-react";
 
 type Mode = "respiratory" | "immunization" | "fungal";
+type HealthLayerEventDetail = { owner: "epidemic" | "surveillance"; active: boolean };
 type Props = { map: any; mapStatus: "loading" | "ready" | "error"; selectedCountry?: { name: string; iso2: string } | null };
 type AriRow = { date: string; location: string; stateAbbreviation: string; level: string };
 type RtRow = { asOf: string; date: string; location: string; stateAbbreviation?: string; pathogen: string; epidemicTrend: string; rtEstimate: number | null; rtLower: number | null; rtUpper: number | null; pGrowing: number | null; intervalWidth: number | null; emergencyDepartmentVisitLevel?: string };
@@ -61,15 +62,25 @@ export function AorSurveillanceLayers({ map, mapStatus, selectedCountry }: Props
 
   useEffect(() => {
     const handler = (event: Event) => {
-      if ((event as CustomEvent<{ owner?: string }>).detail?.owner === "epidemic") setMode(null);
+      const detail = (event as CustomEvent<HealthLayerEventDetail>).detail;
+      if (detail?.owner === "epidemic" && detail.active) setMode(null);
     };
     window.addEventListener(HEALTH_LAYER_EVENT, handler as EventListener);
     return () => window.removeEventListener(HEALTH_LAYER_EVENT, handler as EventListener);
   }, []);
 
+  function announceSurveillance(active: boolean) {
+    window.dispatchEvent(new CustomEvent<HealthLayerEventDetail>(HEALTH_LAYER_EVENT, { detail: { owner: "surveillance", active } }));
+  }
+
+  function closeMode() {
+    setMode(null);
+    announceSurveillance(false);
+  }
+
   function chooseMode(next: Mode) {
-    if (mode === next) { setMode(null); return; }
-    window.dispatchEvent(new CustomEvent(HEALTH_LAYER_EVENT, { detail: { owner: "surveillance" } }));
+    if (mode === next) { closeMode(); return; }
+    announceSurveillance(true);
     setMode(next);
   }
 
@@ -100,7 +111,7 @@ export function AorSurveillanceLayers({ map, mapStatus, selectedCountry }: Props
   return <div className="pointer-events-none absolute inset-y-3 left-3 z-[950] isolate flex flex-col-reverse items-start" data-testid="aor-surveillance-layers">
     <div className="pointer-events-auto relative z-30 flex max-w-[94vw] shrink-0 flex-wrap gap-1.5 rounded-2xl border border-white/14 bg-[#020812]/88 p-2 shadow-[0_18px_50px_rgba(0,0,0,.38)] backdrop-blur-2xl"><span className="inline-flex items-center gap-1.5 px-1.5 text-[8px] font-black uppercase tracking-[0.14em] text-cyan-50/45"><BarChart3 size={11} />Surveillance</span>{([ ["respiratory", "U.S. Respiratory", Activity], ["immunization", "WHO Immunization", Syringe], ["fungal", "Fungal Burden", Microscope] ] as const).map(([key, label, Icon]) => <button key={key} type="button" onClick={() => chooseMode(key)} aria-pressed={mode === key} className={`inline-flex min-h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[8px] font-black ${mode === key ? "border-cyan-100/35 bg-cyan-300/[0.12] text-white" : "border-white/9 bg-white/[0.025] text-cyan-100/48"}`}><Icon size={10} />{label}</button>)}</div>
 
-    {mode ? <div className="pointer-events-auto relative z-20 mb-2 max-h-[calc(100%-3.25rem)] w-[min(94vw,610px)] overflow-y-auto rounded-2xl border border-white/14 bg-[#020812]/94 p-3 shadow-[0_20px_60px_rgba(0,0,0,.42)] backdrop-blur-2xl"><div className="flex items-center justify-between"><p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-50/55">{mode === "respiratory" ? "CDC U.S. respiratory surveillance" : mode === "immunization" ? "WHO immunization intelligence" : "Historical fungal disease burden"}</p><button type="button" onClick={() => setMode(null)} className="rounded-lg border border-white/9 p-1.5 text-cyan-100/40 hover:text-white"><X size={11} /></button></div>
+    {mode ? <div className="pointer-events-auto relative z-20 mb-2 max-h-[calc(100%-3.25rem)] w-[min(94vw,610px)] overflow-y-auto rounded-2xl border border-white/14 bg-[#020812]/94 p-3 shadow-[0_20px_60px_rgba(0,0,0,.42)] backdrop-blur-2xl"><div className="flex items-center justify-between"><p className="text-[9px] font-black uppercase tracking-[0.14em] text-cyan-50/55">{mode === "respiratory" ? "CDC U.S. respiratory surveillance" : mode === "immunization" ? "WHO immunization intelligence" : "Historical fungal disease burden"}</p><button type="button" aria-label="Close surveillance layer" onClick={closeMode} className="rounded-lg border border-white/9 p-1.5 text-cyan-100/40 hover:text-white"><X size={11} /></button></div>
 
       {mode === "respiratory" ? !respiratory && !respiratoryError ? <p className="mt-4 inline-flex items-center gap-2 text-[9px] text-cyan-100/45"><Loader2 size={12} className="animate-spin" />Loading CDC ARI, Rt, laboratory and wastewater feeds…</p> : respiratoryError ? <p className="mt-3 text-[9px] text-amber-100/65">{respiratoryError}</p> : <div className="mt-3 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-1">{["Very Low", "Low", "Moderate", "High", "Very High", "Data Unavailable"].map((level) => <span key={level} className="inline-flex items-center gap-1 text-[7px] text-cyan-50/45"><i className="h-2 w-2 rounded-sm border border-white/10" style={{ background: ARI_COLORS[normalize(level)] }} />{level}</span>)}</div><span className="text-[7px] font-bold text-cyan-100/35">ARI through {formatDate(respiratory?.ari?.latestDate)}</span></div>
