@@ -3,6 +3,7 @@ import { Activity, AlertTriangle, ArrowUpRight, BookOpen, History, Loader2, Radi
 import { AorSurveillanceLayers } from "./AorSurveillanceLayers";
 
 type LayerMode = "current" | "notices" | "destination" | "frequency" | "lisa" | "yellowbook";
+type HealthLayerEventDetail = { owner: "epidemic" | "surveillance"; active: boolean };
 type HistoricalRow = { country?: string; iso2: string; outbreakCount: number | null; uniqueDiseases?: number; firstYear?: number; lastYear?: number; diseaseCounts?: Record<string, number>; topDiseases?: Array<{ disease: string; count: number }>; lisa?: "high-high" | "low-high" | "not-significant"; neighboringPressure?: string };
 type HistoricalPayload = { ok: boolean; partial?: boolean; rows: HistoricalRow[]; diseases?: string[]; methodology?: { period?: string; esdaPeriod?: string; globalMoransI?: number; pValue?: string; limitation?: string; lisa?: string }; error?: string };
 type TrackerPayload = { ok: boolean; trackers: Array<{ disease: string; status?: string; location?: string; summary?: string; url?: string }>; error?: string };
@@ -77,7 +78,8 @@ export function AorEpidemicOverlay({ map, mapStatus, selectedCountry, travelHeal
 
   useEffect(() => {
     const handler = (event: Event) => {
-      if ((event as CustomEvent<{ owner?: string }>).detail?.owner === "surveillance") setSurveillanceActive(true);
+      const detail = (event as CustomEvent<HealthLayerEventDetail>).detail;
+      if (detail?.owner === "surveillance") setSurveillanceActive(detail.active);
     };
     window.addEventListener(HEALTH_LAYER_EVENT, handler as EventListener);
     return () => window.removeEventListener(HEALTH_LAYER_EVENT, handler as EventListener);
@@ -85,7 +87,7 @@ export function AorEpidemicOverlay({ map, mapStatus, selectedCountry, travelHeal
 
   function chooseMode(next: LayerMode) {
     setSurveillanceActive(false);
-    window.dispatchEvent(new CustomEvent(HEALTH_LAYER_EVENT, { detail: { owner: "epidemic" } }));
+    window.dispatchEvent(new CustomEvent<HealthLayerEventDetail>(HEALTH_LAYER_EVENT, { detail: { owner: "epidemic", active: true } }));
     setMode(next);
   }
 
