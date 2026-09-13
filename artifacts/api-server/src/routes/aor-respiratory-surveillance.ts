@@ -13,6 +13,7 @@ const SOURCES = {
   ari: "https://data.cdc.gov/api/views/f3zz-zga5/rows.csv?accessType=DOWNLOAD",
   rt: "https://data.cdc.gov/api/views/5dqz-y4ea/rows.csv?accessType=DOWNLOAD",
   positivity: "https://data.cdc.gov/api/views/seuz-s2cv/rows.csv?accessType=DOWNLOAD",
+  ed: "https://data.cdc.gov/resource/rdmq-nq56.csv?%24select=week_end%2Cgeography%2Ccounty%2Cpercent_visits_covid%2Cpercent_visits_influenza%2Cpercent_visits_rsv%2Cpercent_visits_smoothed_covid%2Cpercent_visits_smoothed_influenza%2Cpercent_visits_smoothed_rsv%2Ced_trends_covid%2Ced_trends_influenza%2Ced_trends_rsv%2Ctrend_source%2CBuildNumber&%24where=trend_source%3D%27State%27&%24order=week_end%20DESC&%24limit=10000",
   wastewaterCovid: "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/SC2/nwsssc2stateactivitylevelDL.csv",
   wastewaterFlu: "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/FluA/nwssfluastateactivitylevelDL.csv",
   wastewaterRsv: "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/rsv/nwssrsvstateactivitylevel.csv",
@@ -111,6 +112,7 @@ function latestBy<T>(rows: T[], key: (row: T) => string, date: (row: T) => strin
 export type AriRecord = { date: string; location: string; stateAbbreviation: string; level: string };
 export type RtRecord = { asOf: string; date: string; location: string; stateAbbreviation: string; pathogen: string; epidemicTrend: string; rtEstimate: number | null; rtLower: number | null; rtUpper: number | null; pGrowing: number | null; intervalWidth: number | null; emergencyDepartmentVisitLevel: string };
 export type PositivityRecord = { date: string; pathogen: string; percentPositive: number | null };
+export type EdRecord = { date: string; location: string; stateAbbreviation: string; pathogen: string; percentVisits: number | null; percentVisitsSmoothed: number | null; trend: string; trendSource: string };
 export type WastewaterRecord = { week: string; location: string; stateAbbreviation: string; pathogen: string; activityLevel: string; activityValue: number | null; sitesReporting: number | null; coverage: string; dataCollectionPeriod: string; updatedAt: string };
 
 export function normalizeAriRows(rows: CsvRow[]): AriRecord[] {
@@ -166,6 +168,41 @@ export function normalizePositivityRows(rows: CsvRow[]): PositivityRecord[] {
   return positivityRows.sort((a, b) => dateNumber(a.date) - dateNumber(b.date));
 }
 
+export function normalizeEdRows(rows: CsvRow[]): EdRecord[] {
+  const normalized: EdRecord[] = [];
+  const metrics = [
+    { pathogen: "COVID-19", percent: ["percent_visits_covid", "percent visits covid"], smoothed: ["percent_visits_smoothed_covid", "percent visits smoothed covid"], trend: ["ed_trends_covid", "ed trends covid"] },
+    { pathogen: "Influenza", percent: ["percent_visits_influenza", "percent visits influenza"], smoothed: ["percent_visits_smoothed_influenza", "percent visits smoothed influenza"], trend: ["ed_trends_influenza", "ed trends influenza"] },
+    { pathogen: "RSV", percent: ["percent_visits_rsv", "percent visits rsv"], smoothed: ["percent_visits_smoothed_rsv", "percent visits smoothed rsv"], trend: ["ed_trends_rsv", "ed trends rsv"] },
+  ] as const;
+  for (const row of rows) {
+    const county = value(row, "county");
+    const trendSource = value(row, "trend_source", "trend source");
+    if (county && normalizeKey(county) !== "all") continue;
+    if (trendSource && normalizeKey(trendSource) !== "state") continue;
+    const date = value(row, "week_end", "week end", "date");
+    const location = value(row, "geography", "state", "location");
+    if (!date || !location) continue;
+    for (const metric of metrics) {
+      const percentRaw = value(row, ...metric.percent);
+      const smoothedRaw = value(row, ...metric.smoothed);
+      const trend = value(row, ...metric.trend);
+      if (!percentRaw && !smoothedRaw && !trend) continue;
+      normalized.push({
+        date,
+        location,
+        stateAbbreviation: value(row, "state_abbreviation", "state abbreviation", "state abbrev"),
+        pathogen: metric.pathogen,
+        percentVisits: numeric(percentRaw),
+        percentVisitsSmoothed: numeric(smoothedRaw),
+        trend,
+        trendSource: trendSource || "State",
+      });
+    }
+  }
+  return latestBy(normalized, (row) => `${row.location}|${row.pathogen}`, (row) => row.date);
+}
+
 export function normalizeWastewaterRows(rows: CsvRow[], fallbackPathogen: string): WastewaterRecord[] {
   const wastewaterRows: WastewaterRecord[] = [];
   for (const row of rows) {
@@ -191,7 +228,7 @@ export function normalizeWastewaterRows(rows: CsvRow[], fallbackPathogen: string
 
 async function loadPayload() {
   const settled = await Promise.allSettled([
-    fetchCsv(SOURCES.ari), fetchCsv(SOURCES.rt, 36_000_000), fetchCsv(SOURCES.positivity),
+    fetchCsv(SOURCES.ari), fetchCsv(SOURCES.rt, 36_000_000), fetchCsv(SOURCES.positivity), fetchCsv(SOURCES.ed, 12_000_000),
     fetchCsv(SOURCES.wastewaterCovid), fetchCsv(SOURCES.wastewaterFlu), fetchCsv(SOURCES.wastewaterRsv),
   ]);
   const rows = (index: number): CsvRow[] => settled[index].status === "fulfilled" ? settled[index].value : [];
@@ -199,12 +236,13 @@ async function loadPayload() {
   const ariRows = normalizeAriRows(rows(0));
   const rtRows = normalizeRtRows(rows(1));
   const positivityRows = normalizePositivityRows(rows(2));
-  const wastewaterCovid = normalizeWastewaterRows(rows(3), "COVID-19");
-  const wastewaterFlu = normalizeWastewaterRows(rows(4), "Influenza A");
-  const wastewaterRsv = normalizeWastewaterRows(rows(5), "RSV");
+  const edRows = normalizeEdRows(rows(3));
+  const wastewaterCovid = normalizeWastewaterRows(rows(4), "COVID-19");
+  const wastewaterFlu = normalizeWastewaterRows(rows(5), "Influenza A");
+  const wastewaterRsv = normalizeWastewaterRows(rows(6), "RSV");
   const latestWastewater = [...wastewaterCovid, ...wastewaterFlu, ...wastewaterRsv];
 
-  const normalizedCounts = [ariRows.length, rtRows.length, positivityRows.length, wastewaterCovid.length, wastewaterFlu.length, wastewaterRsv.length];
+  const normalizedCounts = [ariRows.length, rtRows.length, positivityRows.length, edRows.length, wastewaterCovid.length, wastewaterFlu.length, wastewaterRsv.length];
   const sourceNames = Object.keys(SOURCES);
   const sourceHealth = sourceNames.map((name, index) => {
     const fetched = settled[index].status === "fulfilled";
@@ -234,10 +272,12 @@ async function loadPayload() {
     ari: { rows: ariRows, latestDate: ariRows.map((row) => row.date).sort().at(-1) || null },
     rt: { rows: rtRows, latestDate: rtRows.map((row) => row.date).sort().at(-1) || null, latestModelRun: rtRows.map((row) => row.asOf).filter(Boolean).sort().at(-1) || null },
     positivity: { rows: positivityRows.slice(-900), latestDate: positivityRows.map((row) => row.date).sort().at(-1) || null },
+    ed: { rows: edRows, latestDate: edRows.map((row) => row.date).sort().at(-1) || null },
     wastewater: { rows: latestWastewater, latestDate: latestWastewater.map((row) => row.week).sort().at(-1) || null },
-    rtMethodologyNotice: "CDC changed the Epidemic Trends and Rt modeling method on June 1, 2026; archived estimates spanning that change are not method-identical. This feed preserves the published median, credible interval, P(Rt > 1), epidemic-trend category, estimate date and model-run date. Emergency-department visit level is also preserved when the source schema supplies it.",
-    seasonalRtNotice: "The CDC Epidemic Trends and Rt dataset documents estimates for COVID-19 and influenza. RSV remains available in the laboratory-positivity and wastewater panels, but a missing RSV Rt row is not treated as zero or inferred from another signal.",
-    limitation: "CDC respiratory surveillance is provisional and source-specific. ARI is an all-acute-respiratory-illness activity measure; epidemic trend/Rt is pathogen-specific; laboratory positivity is national in this feed; wastewater is state/territory and pathogen-specific. These signals measure different concepts and are not interchangeable case counts or a synthetic respiratory-risk score.",
+    rtMethodologyNotice: "CDC changed the Epidemic Trends and Rt modeling method on June 1, 2026; archived estimates spanning that change are not method-identical. This feed preserves the published median, credible interval, P(Rt > 1), epidemic-trend category, estimate date and model-run date.",
+    edMethodologyNotice: "The NSSP emergency-department feed reports the weekly percentage of all ED visits associated with COVID-19, influenza or RSV and CDC's published state trend. It is a separate surveillance signal from ARI level and Rt and is not converted into an invented severity category.",
+    seasonalRtNotice: "The CDC Epidemic Trends and Rt dataset documents estimates for COVID-19 and influenza. RSV remains available in emergency-department, laboratory-positivity and wastewater panels, but a missing RSV Rt row is not treated as zero or inferred from another signal.",
+    limitation: "CDC respiratory surveillance is provisional and source-specific. ARI is an all-acute-respiratory-illness activity measure; epidemic trend/Rt is pathogen-specific; NSSP ED visits are the pathogen-specific percentage of all ED visits; laboratory positivity is national in this feed; wastewater is state/territory and pathogen-specific. These signals measure different concepts and are not interchangeable case counts or a synthetic respiratory-risk score.",
   };
 }
 

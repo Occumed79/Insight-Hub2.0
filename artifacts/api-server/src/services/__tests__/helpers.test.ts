@@ -16,6 +16,7 @@ import {
 import { deriveServiceTags, getOccupationFamily } from "../onetService";
 import {
   normalizeAriRows,
+  normalizeEdRows,
   normalizePositivityRows,
   normalizeRtRows,
   normalizeWastewaterRows,
@@ -220,6 +221,44 @@ describe("CDC respiratory source schema normalization", () => {
     ]);
     assert.deepEqual(rows[0], { date: "2026-07-18", pathogen: "Influenza", percentPositive: 1.7 });
     assert.deepEqual(rows[1], { date: "2026-07-18", pathogen: "RSV", percentPositive: 0.8 });
+  });
+
+  it("normalizes state-level NSSP ED visit percentages and trends for all three pathogens", () => {
+    const rows = normalizeEdRows([
+      {
+        week_end: "2026-09-05T00:00:00.000",
+        geography: "California",
+        county: "All",
+        percent_visits_covid: "0.74",
+        percent_visits_smoothed_covid: "0.71",
+        percent_visits_influenza: "0.21",
+        percent_visits_smoothed_influenza: "0.19",
+        percent_visits_rsv: "0.08",
+        percent_visits_smoothed_rsv: "0.07",
+        ed_trends_covid: "Decreasing",
+        ed_trends_influenza: "No Change",
+        ed_trends_rsv: "Increasing",
+        trend_source: "State",
+      },
+    ]);
+    assert.equal(rows.length, 3);
+    const covid = rows.find((row) => row.pathogen === "COVID-19");
+    const flu = rows.find((row) => row.pathogen === "Influenza");
+    const rsv = rows.find((row) => row.pathogen === "RSV");
+    assert.equal(covid?.location, "California");
+    assert.equal(covid?.percentVisits, 0.74);
+    assert.equal(covid?.percentVisitsSmoothed, 0.71);
+    assert.equal(covid?.trend, "Decreasing");
+    assert.equal(flu?.trend, "No Change");
+    assert.equal(rsv?.percentVisits, 0.08);
+    assert.equal(rsv?.trend, "Increasing");
+  });
+
+  it("ignores sub-state ED rows", () => {
+    const rows = normalizeEdRows([
+      { week_end: "2026-09-05", geography: "California", county: "Los Angeles", percent_visits_covid: "1.2", ed_trends_covid: "Increasing", trend_source: "Substate" },
+    ]);
+    assert.equal(rows.length, 0);
   });
 
   it("normalizes WVAL columns and ignores non-All Results collection periods", () => {
