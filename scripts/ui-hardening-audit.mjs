@@ -12,7 +12,7 @@ const defenseMap = read("artifacts/occu-med-insight-hub/src/pages/war-costs-arcg
 const sidebar = read("artifacts/occu-med-insight-hub/src/components/insight/Sidebar.tsx");
 const main = read("artifacts/occu-med-insight-hub/src/main.tsx");
 const landing = read("artifacts/occu-med-insight-hub/src/pages/landing.tsx");
-const entities = read("artifacts/occu-med-insight-hub/src/pages/entities.tsx");
+const companyLibrary = read("artifacts/occu-med-insight-hub/src/pages/public-company-library.tsx");
 const viteConfig = read("artifacts/occu-med-insight-hub/vite.config.ts");
 const rootPackage = read("package.json");
 const frontendPackage = read("artifacts/occu-med-insight-hub/package.json");
@@ -32,18 +32,18 @@ const checks = [
   [hardeningCss.includes("prefers-reduced-motion: reduce"), "reduced-motion guard exists"],
   [hardeningCss.includes('[role="dialog"]'), "dialog overflow containment exists"],
   [sidebar.includes('aria-current={active ? "page" : undefined}'), "active navigation exposes aria-current"],
-  [sidebar.includes('const entitiesCompatibilityActive = ["/entities", "/prospects", "/clients"].includes(currentPath)') && sidebar.includes('className="sr-only">Entities</Link>'), "Entities aliases remain compatibility-only rather than a visible tab"],
+  [sidebar.includes('const entitiesCompatibilityActive = ["/entities", "/prospects", "/clients"].includes(currentPath)') && sidebar.includes('className="sr-only">Entities</Link>'), "Company Library aliases remain compatibility-only rather than a visible tab"],
   [sidebar.includes('aria-label="Insight Hub intelligence tools"'), "navigation has an accessible label"],
   [main.includes("class AppErrorBoundary"), "global UI error boundary exists"],
   [main.includes('role="alert"'), "crash recovery surface is announced accessibly"],
   [landing.includes('import * as DialogPrimitive from "@radix-ui/react-dialog"') && landing.includes("<DialogPrimitive.Content") && landing.includes("onCloseAutoFocus"), "landing link manager uses managed modal focus behavior"],
   [app.includes("React.lazy") && app.includes("React.Suspense"), "workspace routes remain code-split behind a suspense boundary"],
   [app.includes('role="status"') && app.includes("Loading workspace"), "route loading state remains accessible"],
-  [entities.includes('import * as DialogPrimitive from "@radix-ui/react-dialog"'), "Entities details use managed modal primitives"],
-  [entities.includes("restoreTriggerFocus") && entities.includes("onCloseAutoFocus"), "Entities details restore focus to the record trigger after close"],
-  [entities.includes('role="tablist"') && entities.includes('role="tabpanel"'), "Entities tabs retain semantic tab structure"],
-  [entities.includes("function EmptyCard") && entities.includes("filteredProspects.length === 0") && entities.includes("filteredClients.length === 0"), "Entities datasets and searches retain explicit empty states"],
-  [entities.includes('aria-label={`Open details for ${item.name}`}'), "Entity record actions remain keyboard-operable semantic controls"],
+  [companyLibrary.includes('import * as DialogPrimitive from "@radix-ui/react-dialog"'), "Company Library details use managed modal primitives"],
+  [companyLibrary.includes("restoreTriggerFocus") && companyLibrary.includes("onCloseAutoFocus"), "Company Library details restore focus to the record trigger after close"],
+  [companyLibrary.includes('aria-label={`Open details for ${entity.name}`}'), "Company Library record actions remain keyboard-operable semantic controls"],
+  [companyLibrary.includes("No saved public company records are available yet.") && companyLibrary.includes("No saved companies match"), "Company Library retains explicit empty and no-match states"],
+  [!companyLibrary.includes("Prospect Profiles") && !companyLibrary.includes("Client Records"), "Company Library does not expose client/prospect relationship labels"],
   [viteConfig.includes("manualChunks: splitVendorChunk"), "shared frontend vendors remain split from the application entry"],
   [playwrightConfig.includes('name: "desktop-1440"') && !["mobile-320", "mobile-390", "tablet-768"].some((name) => playwrightConfig.includes(`name: "${name}"`)), "browser acceptance is desktop-only"],
   [browserSuite.includes("expectNoDocumentOverflow") && browserSuite.includes("pageerror"), "browser acceptance checks overflow and runtime errors"],

@@ -3,12 +3,13 @@ import { readFile } from "node:fs/promises";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-const [app, sidebar, entities, contextualEntities, apiRoute, apiIndex] = await Promise.all([
+const [app, sidebar, companyLibrary, contextualEntities, apiRoute, entityDiscovery, apiIndex] = await Promise.all([
   read("artifacts/occu-med-insight-hub/src/App.tsx"),
   read("artifacts/occu-med-insight-hub/src/components/insight/Sidebar.tsx"),
-  read("artifacts/occu-med-insight-hub/src/pages/entities.tsx"),
+  read("artifacts/occu-med-insight-hub/src/pages/public-company-library.tsx"),
   read("artifacts/occu-med-insight-hub/src/pages/entities-contextual.tsx"),
   read("artifacts/api-server/src/routes/core-intelligence.ts"),
+  read("artifacts/api-server/src/routes/entityDiscovery.ts"),
   read("artifacts/api-server/src/routes/index.ts"),
 ]);
 
@@ -30,19 +31,16 @@ for (const route of [
   assert.ok(app.includes(`path=\"${route}\"`), `Hub 2 is missing route ${route}`);
 }
 
-const hasDirectEntitiesImport =
-  app.includes('import { EntitiesPage } from "@/pages/entities"') ||
-  (app.includes('import("@/pages/entities")') && app.includes("default: module.EntitiesPage"));
 const hasContextualEntitiesImport =
   app.includes('import("@/pages/entities-contextual")') &&
   app.includes("default: module.ContextualEntitiesPage");
-const contextualWrapperOwnsEntities =
-  contextualEntities.includes('import { EntitiesPage } from "@/pages/entities"') &&
-  contextualEntities.includes("<EntitiesPage");
+const contextualWrapperOwnsLibrary =
+  contextualEntities.includes('import { PublicCompanyLibraryPage } from "@/pages/public-company-library"') &&
+  contextualEntities.includes("<PublicCompanyLibraryPage />");
 
 assert.ok(
-  hasDirectEntitiesImport || (hasContextualEntitiesImport && contextualWrapperOwnsEntities),
-  "Hub 2 App must retain the Entities compatibility workspace directly or through the reviewed contextual wrapper",
+  hasContextualEntitiesImport && contextualWrapperOwnsLibrary,
+  "Hub 2 entity compatibility routes must resolve through the neutral public Company Library",
 );
 
 for (const expected of [
@@ -70,34 +68,49 @@ assert.ok(
 );
 assert.ok(
   app.includes('<Route path="/occupational-demands" component={JobIntelligenceRoute} />'),
-  "Legacy Occupational Demands URL must resolve to Job Intelligence through the reviewed cinematic route wrapper",
+  "Legacy Occupational Demands URL must resolve to Job Intelligence",
 );
 assert.ok(
   app.includes('function JobIntelligenceRoute()') && app.includes('<ReviewerJobIntelligencePage />'),
-  "Cinematic Job Intelligence route wrapper must retain the reviewed Job Intelligence page",
+  "Job Intelligence route wrapper must retain the reviewed Job Intelligence page",
 );
 
 for (const expected of [
+  "getSavedGeographicEntities",
+  'title="Company Library"',
+  "Saved public-source company intelligence",
+  "Public research target",
+  "Opening this library never triggers an external scan.",
+]) {
+  assert.ok(companyLibrary.includes(expected), `Public Company Library is missing ${expected}`);
+}
+
+for (const forbidden of [
+  "Prospect Profiles",
+  "Client Records",
   'fetchJson<{ prospects: Prospect[] }>("prospects")',
   'fetchJson<{ clients: Client[] }>("clients")',
-  'title="Entities"',
-  'Prospect Profiles',
-  'Client Records',
+  "procurement hub",
 ]) {
-  assert.ok(entities.includes(expected), `Entities compatibility workspace is missing ${expected}`);
+  assert.ok(!companyLibrary.includes(forbidden), `Public Company Library must not expose relationship classification: ${forbidden}`);
 }
 
-if (hasContextualEntitiesImport) {
-  for (const expected of [
-    "useEmployerWorkflow",
-    'href="/federal-awards"',
-    'href="/public-legal-references"',
-    'href="/fec-filings"',
-  ]) {
-    assert.ok(contextualEntities.includes(expected), `Contextual Entities wrapper is missing ${expected}`);
-  }
+for (const expected of [
+  "useEmployerWorkflow",
+  'href="/federal-awards"',
+  'href="/public-legal-references"',
+  'href="/fec-filings"',
+  "Selected Company",
+]) {
+  assert.ok(contextualEntities.includes(expected), `Contextual Company Library wrapper is missing ${expected}`);
 }
 
+assert.ok(
+  entityDiscovery.includes('router.get("/entities/saved"'),
+  "Public Company Library requires the neutral saved-entities endpoint",
+);
+
+// Legacy transferred APIs may remain for internal compatibility, but public entity routes must not consume them.
 for (const endpoint of [
   'router.get("/prospects"',
   'router.get("/clients"',
@@ -118,8 +131,10 @@ console.log(
     event: "core_intelligence_ownership_audit_passed",
     owner: "Insight-Hub2.0",
     frontendRoutes: 13,
+    publicCompanyLibrary: "neutral-saved-entities",
+    relationshipLabelsPublished: false,
     visibleSidebarDomains: ["federal", "state", "industry-impact", "job-intelligence"],
-    retainedNonSidebarRoutes: ["entities", "competitors", "fec-filings", "industry-injury-benchmarks", "occupational-demands"],
-    routeLoading: hasContextualEntitiesImport ? "contextual-wrapper" : hasDirectEntitiesImport ? "direct" : "unknown",
+    retainedCompatibilityRoutes: ["entities", "prospects", "clients", "competitors", "fec-filings", "industry-injury-benchmarks", "occupational-demands"],
+    routeLoading: "contextual-company-library-wrapper",
   }),
 );
