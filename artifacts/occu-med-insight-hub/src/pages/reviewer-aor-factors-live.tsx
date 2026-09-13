@@ -89,6 +89,8 @@ function patchMapTilerForAor() {
 
   const OriginalMap = sdk.Map;
   class AorAwareMap extends OriginalMap {
+    __insightHubAor = false;
+
     constructor(options: any) {
       const host = typeof options?.container === "string" ? document.getElementById(options.container) : options?.container;
       const isAor = host instanceof HTMLElement && host.classList.contains("aor-map-tiler-host");
@@ -98,7 +100,19 @@ function patchMapTilerForAor() {
         halo: options?.halo ?? true,
         space: options?.space ?? { color: "#01050a" },
       } : options);
+      this.__insightHubAor = isAor;
       if (isAor) queueMicrotask(() => this.addControl?.(createProjectionControl(this), "top-right"));
+    }
+
+    addSource(id: string, source: any) {
+      const result = super.addSource(id, source);
+      // The active v3 page historically renamed this source, while the epidemic
+      // and surveillance modules still consume the stable `aor-countries` id.
+      // Mirror the same vector source so all health layers attach to the active map.
+      if (this.__insightHubAor && id === "aor-v3-countries" && !this.getSource?.("aor-countries")) {
+        super.addSource("aor-countries", source);
+      }
+      return result;
     }
   }
 
