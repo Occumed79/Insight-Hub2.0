@@ -256,8 +256,10 @@ export function WarCostsMapTilerGlobe({ bases, personnel = [], construction = []
         mapRef.current = map;
         if (sdk.NavigationControl) map.addControl(new sdk.NavigationControl({ visualizePitch: true }), "bottom-right");
 
+        let attached = false;
         const attach = () => {
-          if (cancelled) return;
+          if (cancelled || attached) return;
+          attached = true;
           for (const meta of LAYER_META) {
             const sourceId = `defense-globe-${meta.key}`;
             const glowId = `${sourceId}-glow`;
@@ -397,8 +399,8 @@ export function WarCostsMapTilerGlobe({ bases, personnel = [], construction = []
   }
 
   return (
-    <div className="war-map-operational-workspace grid min-h-[720px] grid-cols-[250px_minmax(0,1fr)_320px] overflow-hidden border-y border-white/8 bg-[#05080c]">
-      <aside className="defense-map-layer-rail border-r border-white/8 bg-[#070b10]/94" aria-label="Defense globe layers">
+    <div className="war-map-operational-workspace grid min-h-[720px] grid-cols-1 overflow-hidden border-y border-white/8 bg-[#05080c] lg:grid-cols-[250px_minmax(0,1fr)_320px]">
+      <aside className="defense-map-layer-rail border-b border-white/8 bg-[#070b10]/94 lg:border-b-0 lg:border-r" aria-label="Defense globe layers">
         <div className="flex h-14 items-center justify-between border-b border-white/8 px-4"><div className="flex items-center gap-2"><Globe2 className="h-4 w-4 text-cyan-100/60" /><p className="text-xs font-bold text-slate-400">3D defense globe layers</p></div><span className="text-xs text-slate-500">{Object.values(visible).filter(Boolean).length}/{LAYER_META.length}</span></div>
         <div className="divide-y divide-white/[.055]">
           {LAYER_META.map((meta) => (
@@ -421,7 +423,7 @@ export function WarCostsMapTilerGlobe({ bases, personnel = [], construction = []
         {error ? <div className="absolute bottom-5 right-5 z-40 max-w-md rounded-md border border-rose-200/18 bg-[#1a070d]/95 p-3 text-xs text-rose-100"><div className="flex gap-2"><MapPinned className="h-4 w-4 shrink-0" /><span>{error}</span></div></div> : null}
       </section>
 
-      <aside className="defense-map-inspector border-l border-white/8 bg-[#080c12]/94" aria-label="Selected globe evidence">
+      <aside className="defense-map-inspector border-t border-white/8 bg-[#080c12]/94 lg:border-l lg:border-t-0" aria-label="Selected globe evidence">
         <div className="sticky top-0 max-h-[calc(100vh-116px)] overflow-y-auto">
           <div className="flex h-14 items-center justify-between border-b border-white/8 px-4"><div><p className="text-[9px] font-black uppercase tracking-[.14em] text-slate-600">Globe inspector</p><p className="mt-0.5 text-[11px] font-black text-slate-300">Operational context</p></div>{selection ? <button type="button" onClick={() => setSelection(null)} className="rounded-md border border-white/8 p-1.5 text-slate-600 hover:text-white" aria-label="Clear globe selection"><X className="h-3.5 w-3.5" /></button> : null}</div>
           {selection ? <div className="p-5">
