@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Globe2, Loader2, Map as MapIcon, RefreshCw } from "lucide-react";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { getWarCostsDataset, type WarCostsDatasetResponse } from "@/data/warCostsApi";
 import { WarCostsArcGisMap } from "./war-costs-arcgis-map";
+import { WarCostsMapTilerGlobe } from "./war-costs-maptiler-globe";
 import { wcRows } from "./war-costs-utils";
 
 const MAP_DATASETS = ["base-index.json", "conflicts.json", "drone-strikes.json", "operations.json", "overseas-presence.json"] as const;
 
 type DatasetName = typeof MAP_DATASETS[number];
+type MapDimension = "2d" | "3d";
 type DefensePresence = {
   ok: boolean;
   partial?: boolean;
@@ -33,6 +35,7 @@ export default function WarCostsMap() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [mapDimension, setMapDimension] = useState<MapDimension>("2d");
 
   async function load(force = false) {
     force ? setRefreshing(true) : setLoading(true);
@@ -70,16 +73,31 @@ export default function WarCostsMap() {
   const instabilityCount = wcRows(datasets["conflicts.json"]?.data).length + wcRows(datasets["drone-strikes.json"]?.data).length;
   const navalCount = wcRows(datasets["operations.json"]?.data).length + wcRows(datasets["overseas-presence.json"]?.data).length;
 
+  const mapProps = {
+    bases: wcRows(datasets["base-index.json"]?.data),
+    personnel: defensePresence?.current || [],
+    construction: defensePresence?.construction || [],
+    conflicts: wcRows(datasets["conflicts.json"]?.data),
+    strikes: wcRows(datasets["drone-strikes.json"]?.data),
+    operations: wcRows(datasets["operations.json"]?.data),
+    deployments: wcRows(datasets["overseas-presence.json"]?.data),
+    personnelYear: defensePresence?.latestYear ?? null,
+  };
+
   return (
     <main className="war-map-operations-page min-h-screen bg-[#090c10] text-slate-100">
       <Sidebar />
       <section className="flex min-h-screen flex-col lg:ml-[210px]">
-        <header className="flex min-h-[68px] shrink-0 items-center justify-between gap-6 border-b border-white/8 bg-[#0b0f14] px-6 py-3">
+        <header className="flex min-h-[68px] shrink-0 flex-wrap items-center justify-between gap-4 border-b border-white/8 bg-[#0b0f14] px-6 py-3">
           <div className="min-w-0">
             <div className="text-[10px] font-semibold uppercase tracking-[.14em] text-slate-500">Occu-Med / Defense intelligence</div>
             <h1 className="mt-1 text-[24px] font-semibold tracking-[-.035em] text-white">Defense Medical Support Footprint</h1>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="inline-flex h-10 items-center rounded-md border border-white/10 bg-black/20 p-1" aria-label="Defense map dimensional view">
+              <button type="button" aria-pressed={mapDimension === "2d"} onClick={() => setMapDimension("2d")} className={`inline-flex h-8 items-center gap-2 rounded px-3 text-[11px] font-bold transition ${mapDimension === "2d" ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-200"}`}><MapIcon size={13} />2D Map</button>
+              <button type="button" aria-pressed={mapDimension === "3d"} onClick={() => setMapDimension("3d")} className={`inline-flex h-8 items-center gap-2 rounded px-3 text-[11px] font-bold transition ${mapDimension === "3d" ? "bg-cyan-300/12 text-cyan-50" : "text-slate-500 hover:text-slate-200"}`}><Globe2 size={13} />3D Globe</button>
+            </div>
             <div className="flex items-center gap-6 text-right">
               <Metric label="Personnel locations" value={loading ? "—" : personnelCount.toLocaleString()} />
               <Metric label="Expansion sites" value={loading ? "—" : constructionCount.toLocaleString()} />
@@ -95,16 +113,7 @@ export default function WarCostsMap() {
         {error ? <div className="shrink-0 border-b border-amber-300/15 bg-amber-400/[.035] px-6 py-2 text-[11px] leading-5 text-amber-100/80">{error}</div> : null}
 
         <div className="relative min-h-[720px] flex-1 overflow-hidden bg-[#05080c]">
-          <WarCostsArcGisMap
-            bases={wcRows(datasets["base-index.json"]?.data)}
-            personnel={defensePresence?.current || []}
-            construction={defensePresence?.construction || []}
-            conflicts={wcRows(datasets["conflicts.json"]?.data)}
-            strikes={wcRows(datasets["drone-strikes.json"]?.data)}
-            operations={wcRows(datasets["operations.json"]?.data)}
-            deployments={wcRows(datasets["overseas-presence.json"]?.data)}
-            personnelYear={defensePresence?.latestYear ?? null}
-          />
+          {mapDimension === "2d" ? <WarCostsArcGisMap {...mapProps} /> : <WarCostsMapTilerGlobe {...mapProps} />}
           {loading ? (
             <div className="pointer-events-none absolute left-1/2 top-4 z-40 -translate-x-1/2 rounded-md border border-white/10 bg-[#0a0f15]/92 px-3 py-2 shadow-xl backdrop-blur-xl">
               <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-200"><Loader2 size={13} className="animate-spin text-sky-300" />Syncing approved defense intelligence…</div>
