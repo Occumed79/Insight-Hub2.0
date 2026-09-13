@@ -6,36 +6,6 @@ const portalLinks = {
   federal: "/federal-agencies",
 };
 
-const prospects = [
-  {
-    id: "prospect-v2x",
-    name: "V2X",
-    website: "https://www.v2x.com",
-    description: "Public research target used by deterministic browser acceptance.",
-    industry: "Government services",
-    headquarters: "McLean, VA",
-    employeeCount: "10,000+",
-    status: "active",
-    tier: "Tier 1",
-    researchSummary: "Deterministic browser fixture.",
-    opportunitySignals: JSON.stringify(["global footprint", "safety-sensitive workforce"]),
-    lastResearched: "2026-08-07T00:00:00.000Z",
-  },
-];
-
-const clients = [
-  {
-    id: "client-demo",
-    name: "Demo Client",
-    website: "https://example.com",
-    industry: "Engineering",
-    headquarters: "Fresno, CA",
-    overallHiringTrend: "stable",
-    branches: [{ id: "branch-1", name: "West", city: "Fresno", state: "CA", country: "US" }],
-    contacts: [{ id: "contact-1", name: "Demo Contact", title: "Operations", email: "demo@example.com" }],
-  },
-];
-
 const savedGeographicEntities = [
   {
     id: 1,
@@ -190,8 +160,6 @@ async function installDeterministicApi(page: Page) {
     const path = url.pathname;
 
     if (path.endsWith("/api/portal-links")) return fulfillJson(route, { links: portalLinks });
-    if (path.endsWith("/api/prospects")) return fulfillJson(route, { prospects });
-    if (path.endsWith("/api/clients")) return fulfillJson(route, { clients });
     if (path.endsWith("/api/entities/saved")) return fulfillJson(route, { ok: true, entities: savedGeographicEntities });
     if (path.endsWith("/api/hiring-intelligence/analyze")) return fulfillJson(route, hiringFixture);
     if (path.endsWith("/api/occupational-discovery/bls-overview")) return fulfillJson(route, blsOverviewFixture);
@@ -267,13 +235,15 @@ test("landing page is contained and portal-link modal is keyboard-safe", async (
   expect(pageErrors).toEqual([]);
 });
 
-test("Entities routes preserve navigation, selection shortcuts, keyboard cards, modal focus, and layout", async ({ page }) => {
+test("Company Library aliases remain relationship-neutral and keyboard-safe", async ({ page }) => {
   const pageErrors = collectPageErrors(page);
   await page.goto("/entities");
 
-  await expect(page.getByRole("heading", { name: "Entities", exact: true })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Search prospects" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Company Library", exact: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Search researched companies" })).toBeVisible();
   await expect(page.locator('a[aria-current="page"]').filter({ hasText: "Entities" })).toHaveCount(2);
+  await expect(page.getByText("Prospect Profiles", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Client Records", { exact: true })).toHaveCount(0);
   await expectNoDocumentOverflow(page);
 
   const record = page.getByRole("button", { name: "Open details for V2X" });
@@ -282,19 +252,24 @@ test("Entities routes preserve navigation, selection shortcuts, keyboard cards, 
 
   const details = page.getByRole("dialog", { name: "V2X" });
   await expect(details).toBeVisible();
+  await expect(details.getByText(/No client or commercial relationship is implied/i)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(details).toBeHidden();
   await expect(record).toBeFocused();
 
-  await expect(page.getByText("Selected Entity", { exact: true })).toBeVisible();
+  await expect(page.getByText("Selected Company", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Federal Awards", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Legal & Injury", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "FEC Relationship", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "FEC Evidence", exact: true })).toBeVisible();
 
   await page.goto("/clients");
-  await expect(page.getByRole("tab", { name: "Client Records" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "Company Library", exact: true })).toBeVisible();
+  await expect(page.getByText("Client Records", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Prospect Profiles", { exact: true })).toHaveCount(0);
   await expect(page.locator('a[aria-current="page"]').filter({ hasText: "Entities" })).toHaveCount(2);
-  await expect(page.getByRole("button", { name: "Open details for Demo Client" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open details for V2X" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open details for Demo Engineering" })).toBeVisible();
+  await expect(page.getByText("Demo Client", { exact: true })).toHaveCount(0);
   await expectNoDocumentOverflow(page);
   expect(pageErrors).toEqual([]);
 });
