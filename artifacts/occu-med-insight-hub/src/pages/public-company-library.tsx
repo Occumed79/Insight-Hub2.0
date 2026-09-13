@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   BadgeCheck,
   Building2,
@@ -35,59 +36,89 @@ function CompanyDetail({ entity, onClose }: { entity: SavedGeographicEntity; onC
   const countries = Array.from(new Set(entity.locations.map((location) => location.country).filter(Boolean))).sort();
   const verified = entity.locations.filter((location) => location.reviewStatus === "verified").length;
 
+  function restoreTriggerFocus() {
+    window.setTimeout(() => {
+      const trigger = Array.from(
+        document.querySelectorAll<HTMLButtonElement>('button[aria-label^="Open details for "]'),
+      ).find((button) => button.getAttribute("aria-label") === `Open details for ${entity.name}`);
+      trigger?.focus({ preventScroll: true });
+    }, 0);
+  }
+
   return (
-    <aside className="fixed inset-y-0 right-0 z-[1100] w-full max-w-[560px] overflow-y-auto border-l border-cyan-100/14 bg-[#04101d]/98 p-6 text-white shadow-[-30px_0_90px_rgba(0,0,0,.62)] backdrop-blur-2xl">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-100/42">Public company record</p>
-          <h2 className="mt-2 text-3xl font-black tracking-[-.04em]">{entity.name}</h2>
-          <p className="mt-2 text-sm text-cyan-50/55">Saved public-source intelligence only. No client or commercial relationship is implied.</p>
-        </div>
-        <button type="button" onClick={onClose} aria-label="Close company details" className="rounded-xl border border-white/10 bg-white/[0.035] p-2 text-cyan-100/55 transition hover:text-white">
-          <X size={18} />
-        </button>
-      </div>
-
-      <div className="mt-6 grid grid-cols-3 gap-3">
-        <GlassCard variant="glass" className="p-4"><p className="text-[9px] uppercase tracking-[.14em] text-cyan-100/35">Locations</p><p className="mt-1 text-2xl font-black">{entity.locations.length}</p></GlassCard>
-        <GlassCard variant="glass" className="p-4"><p className="text-[9px] uppercase tracking-[.14em] text-cyan-100/35">Countries</p><p className="mt-1 text-2xl font-black">{countries.length}</p></GlassCard>
-        <GlassCard variant="glass" className="p-4"><p className="text-[9px] uppercase tracking-[.14em] text-cyan-100/35">Verified</p><p className="mt-1 text-2xl font-black">{verified}</p></GlassCard>
-      </div>
-
-      <section className="mt-5 rounded-[24px] border border-white/9 bg-white/[0.025] p-5">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-[.16em] text-cyan-100/38">Saved source state</p>
-            <p className="mt-1 text-sm font-bold text-white/82">{entity.discoveryStatus || entity.status || "Saved"}</p>
-          </div>
-          <BadgeCheck size={20} className="text-cyan-200/62" />
-        </div>
-        <p className="mt-3 text-xs text-cyan-100/42">Last public-source discovery: {formatDate(entity.lastDiscoveryAt)}</p>
-        {entity.wikidataId ? <p className="mt-1 text-xs text-cyan-100/42">Wikidata: {entity.wikidataId}</p> : null}
-        {entity.officialWebsite ? <a href={entity.officialWebsite} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-cyan-200/70 hover:text-white">Official website <ExternalLink size={12} /></a> : null}
-      </section>
-
-      <section className="mt-5">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-black">Saved public locations</h3>
-          <span className="text-[10px] text-cyan-100/36">{entity.locations.length} records</span>
-        </div>
-        <div className="mt-3 space-y-2">
-          {entity.locations.length === 0 ? <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4 text-xs text-cyan-100/45">No saved public locations yet.</div> : entity.locations.slice(0, 40).map((location) => (
-            <div key={location.id} className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
-              <div className="flex items-start gap-3">
-                <MapPin size={15} className="mt-0.5 shrink-0 text-cyan-200/55" />
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-white/80">{location.placeName || location.formattedAddress || [location.city, location.state, location.country].filter(Boolean).join(", ")}</p>
-                  <p className="mt-1 text-xs text-cyan-100/42">{[location.city, location.state, location.country].filter(Boolean).join(", ")}</p>
-                  <p className="mt-1 text-[10px] text-cyan-100/32">{location.facilityType || "Public location"} · {location.reviewStatus}</p>
-                </div>
-              </div>
+    <DialogPrimitive.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+          restoreTriggerFocus();
+        }
+      }}
+    >
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[1099] bg-black/52 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0" />
+        <DialogPrimitive.Content
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            restoreTriggerFocus();
+          }}
+          className="fixed inset-y-0 right-0 z-[1100] h-dvh w-full max-w-[560px] overflow-y-auto border-l border-cyan-100/14 bg-[#04101d]/98 p-6 text-white shadow-[-30px_0_90px_rgba(0,0,0,.62)] outline-none backdrop-blur-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-100/42">Public company record</p>
+              <DialogPrimitive.Title className="mt-2 text-3xl font-black tracking-[-.04em]">{entity.name}</DialogPrimitive.Title>
+              <DialogPrimitive.Description className="mt-2 text-sm text-cyan-50/55">Saved public-source intelligence only. No client or commercial relationship is implied.</DialogPrimitive.Description>
             </div>
-          ))}
-        </div>
-      </section>
-    </aside>
+            <DialogPrimitive.Close asChild>
+              <button type="button" aria-label="Close company details" className="rounded-xl border border-white/10 bg-white/[0.035] p-2 text-cyan-100/55 transition hover:text-white">
+                <X size={18} />
+              </button>
+            </DialogPrimitive.Close>
+          </div>
+
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            <GlassCard variant="glass" className="p-4"><p className="text-[9px] uppercase tracking-[.14em] text-cyan-100/35">Locations</p><p className="mt-1 text-2xl font-black">{entity.locations.length}</p></GlassCard>
+            <GlassCard variant="glass" className="p-4"><p className="text-[9px] uppercase tracking-[.14em] text-cyan-100/35">Countries</p><p className="mt-1 text-2xl font-black">{countries.length}</p></GlassCard>
+            <GlassCard variant="glass" className="p-4"><p className="text-[9px] uppercase tracking-[.14em] text-cyan-100/35">Verified</p><p className="mt-1 text-2xl font-black">{verified}</p></GlassCard>
+          </div>
+
+          <section className="mt-5 rounded-[24px] border border-white/9 bg-white/[0.025] p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[.16em] text-cyan-100/38">Saved source state</p>
+                <p className="mt-1 text-sm font-bold text-white/82">{entity.discoveryStatus || entity.status || "Saved"}</p>
+              </div>
+              <BadgeCheck size={20} className="text-cyan-200/62" />
+            </div>
+            <p className="mt-3 text-xs text-cyan-100/42">Last public-source discovery: {formatDate(entity.lastDiscoveryAt)}</p>
+            {entity.wikidataId ? <p className="mt-1 text-xs text-cyan-100/42">Wikidata: {entity.wikidataId}</p> : null}
+            {entity.officialWebsite ? <a href={entity.officialWebsite} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-cyan-200/70 hover:text-white">Official website <ExternalLink size={12} /></a> : null}
+          </section>
+
+          <section className="mt-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-black">Saved public locations</h3>
+              <span className="text-[10px] text-cyan-100/36">{entity.locations.length} records</span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {entity.locations.length === 0 ? <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4 text-xs text-cyan-100/45">No saved public locations yet.</div> : entity.locations.slice(0, 40).map((location) => (
+                <div key={location.id} className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
+                  <div className="flex items-start gap-3">
+                    <MapPin size={15} className="mt-0.5 shrink-0 text-cyan-200/55" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-white/80">{location.placeName || location.formattedAddress || [location.city, location.state, location.country].filter(Boolean).join(", ")}</p>
+                      <p className="mt-1 text-xs text-cyan-100/42">{[location.city, location.state, location.country].filter(Boolean).join(", ")}</p>
+                      <p className="mt-1 text-[10px] text-cyan-100/32">{location.facilityType || "Public location"} · {location.reviewStatus}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
