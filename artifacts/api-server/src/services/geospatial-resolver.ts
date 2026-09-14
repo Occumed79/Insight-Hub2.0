@@ -78,15 +78,25 @@ export async function resolveGeospatialBatch(
   requests: GeospatialResolveRequest[],
   deps: ResolverDependencies = {},
 ): Promise<GeospatialResolution[]> {
-  const work = new Map<string, Promise<GeospatialResolution>>();
-  return Promise.all(requests.map((request) => {
-    const key = geospatialCacheKey(request);
-    const existing = work.get(key);
-    if (existing) return existing;
-    const promise = resolveGeospatialLocation(request, deps);
-    work.set(key, promise);
-    return promise;
-  }));
+  const orderedKeys = requests.map(geospatialCacheKey);
+  const unique = new Map<string, GeospatialResolveRequest>();
+  requests.forEach((request, index) => {
+    if (!unique.has(orderedKeys[index])) unique.set(orderedKeys[index], request);
+  });
+
+  const entries = [...unique.entries()];
+  const resolved = new Map<string, GeospatialResolution>();
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < entries.length) {
+      const index = cursor;
+      cursor += 1;
+      const [key, request] = entries[index];
+      resolved.set(key, await resolveGeospatialLocation(request, deps));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, entries.length) }, () => worker()));
+  return orderedKeys.map((key) => resolved.get(key) as GeospatialResolution);
 }
 
 export function getGeospatialResolverStatus(deps: ResolverDependencies = {}) {
