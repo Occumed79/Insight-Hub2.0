@@ -7,6 +7,8 @@ import {
   type GeospatialResolveRequest,
 } from "../geospatial-resolver";
 
+type FetchInput = Parameters<typeof fetch>[0];
+
 const managedEnv = [
   "GEOCODIO_API_KEY", "GEOCODIO_API_KEY_2", "GEOCODIO_API_KEY_3", "GEOCODIO_API_KEY_4", "GEOCODIO_API_KEY_5",
   "LOCATIONIQ_API_KEY", "LOCATIONIQ_API_KEY_2", "LOCATIONIQ_API_KEY_3", "LOCATIONIQ_API_KEY_4", "LOCATIONIQ_API_KEY_5",
@@ -80,7 +82,7 @@ test("global installation requests use LocationIQ country restriction", async ()
     expectedIso2: "DE",
     expectedRegion: "Rhineland-Palatinate",
   }, {
-    fetchImpl: (async (input: RequestInfo | URL) => {
+    fetchImpl: (async (input: FetchInput) => {
       requested = String(input);
       return new Response(JSON.stringify([{
         lat: "49.4369",
@@ -110,7 +112,7 @@ test("North American installation requests use Geocodio first", async () => {
     expectedRegion: "Massachusetts",
     city: "Devens",
   }, {
-    fetchImpl: (async (input: RequestInfo | URL) => {
+    fetchImpl: (async (input: FetchInput) => {
       requested = String(input);
       return new Response(JSON.stringify({
         results: [{
@@ -162,7 +164,7 @@ test("LocationIQ 429 cools down one slot and fails over to the next key", async 
     expectedIso2: "IT",
   }, {
     now: () => 1000,
-    fetchImpl: (async (input: RequestInfo | URL) => {
+    fetchImpl: (async (input: FetchInput) => {
       const url = String(input);
       seen.push(url);
       if (url.includes("test-locationiq-1")) return new Response("rate limited", { status: 429 });
