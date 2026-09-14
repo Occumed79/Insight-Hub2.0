@@ -1,4 +1,4 @@
-import { expectedIso2, normalizeIso2, validCoordinates } from "./geospatial-country";
+import { canonicalCountry, expectedIso2, normalizeIso2, validCoordinates } from "./geospatial-country";
 import type { GeospatialCandidate, GeospatialResolveRequest, ResolverDependencies } from "./geospatial-types";
 
 export async function arcGisCandidate(request: GeospatialResolveRequest, deps: ResolverDependencies): Promise<GeospatialCandidate | null> {
@@ -19,14 +19,15 @@ export async function arcGisCandidate(request: GeospatialResolveRequest, deps: R
 
   for (const item of Array.isArray(payload?.candidates) ? payload.candidates : []) {
     const attrs = item?.attributes || {};
+    const country = String(attrs?.Country || "") || undefined;
     const candidate: GeospatialCandidate = {
       provider: "arcgis",
       slot: 1,
       lon: Number(item?.location?.x),
       lat: Number(item?.location?.y),
       matchedAddress: String(item?.address || attrs?.Match_addr || "") || undefined,
-      country: String(attrs?.Country || "") || undefined,
-      iso2: normalizeIso2(attrs?.Country),
+      country,
+      iso2: normalizeIso2(attrs?.Country) || canonicalCountry(country)?.iso2,
       region: String(attrs?.Region || "") || undefined,
       city: String(attrs?.City || "") || undefined,
       confidence: Number.isFinite(Number(item?.score)) ? Number(item.score) / 100 : undefined,
