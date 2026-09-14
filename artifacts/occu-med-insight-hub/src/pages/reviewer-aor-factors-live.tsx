@@ -26,6 +26,9 @@ function createProjectionControl(map: any) {
     background: "rgba(3,9,15,.90)",
     boxShadow: "0 12px 34px rgba(0,0,0,.34)",
     backdropFilter: "blur(16px)",
+    position: "relative",
+    zIndex: "30",
+    pointerEvents: "auto",
   });
 
   const buttons = new Map<"2d" | "3d", HTMLButtonElement>();
@@ -74,6 +77,10 @@ function createProjectionControl(map: any) {
   return {
     onAdd() {
       setMode("2d");
+      queueMicrotask(() => {
+        const corner = root.parentElement;
+        if (corner) corner.style.zIndex = "30";
+      });
       return root;
     },
     onRemove() {
@@ -106,9 +113,6 @@ function patchMapTilerForAor() {
 
     addSource(id: string, source: any) {
       const result = super.addSource(id, source);
-      // The active v3 page historically renamed this source, while the epidemic
-      // and surveillance modules still consume the stable `aor-countries` id.
-      // Mirror the same vector source so all health layers attach to the active map.
       if (this.__insightHubAor && id === "aor-v3-countries" && !this.getSource?.("aor-countries")) {
         super.addSource("aor-countries", source);
       }
@@ -121,9 +125,62 @@ function patchMapTilerForAor() {
   return true;
 }
 
+function installAorCountryResolverBridge() {
+  const originalFetch = window.fetch.bind(window);
+  const bridgedFetch: typeof window.fetch = async (input, init) => {
+    const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    let url: URL | null = null;
+    try { url = new URL(raw, window.location.href); } catch { url = null; }
+    const isLegacyCountryGeocode = url?.hostname === "api.maptiler.com"
+      && url.pathname.startsWith("/geocoding/")
+      && url.searchParams.get("types") === "country";
+    if (!isLegacyCountryGeocode || !url) return originalFetch(input, init);
+
+    const encoded = url.pathname.slice("/geocoding/".length).replace(/\.json$/, "");
+    const query = decodeURIComponent(encoded);
+    const response = await originalFetch("/api/geospatial/resolve", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ query, kind: "country" }),
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => ({}));
+    const resolution = payload?.resolution;
+    if (!response.ok || resolution?.status !== "resolved" || !resolution?.coordinates || !resolution?.iso2) {
+      const localTestHost = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost";
+      if (localTestHost) return originalFetch(input, init);
+      return new Response(JSON.stringify({ features: [] }), {
+        status: response.ok ? 200 : response.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const name = String(resolution.country || resolution.matchedAddress || query);
+    const iso2 = String(resolution.iso2).toUpperCase();
+    const center = [Number(resolution.coordinates.lon), Number(resolution.coordinates.lat)];
+    return new Response(JSON.stringify({
+      features: [{
+        id: `country.${iso2.toLowerCase()}`,
+        type: "Feature",
+        place_type: ["country"],
+        text: name,
+        place_name: name,
+        center,
+        bbox: Array.isArray(resolution.bbox) ? resolution.bbox : undefined,
+        properties: { country_code: iso2, iso_a2: iso2, resolution_provider: resolution.provider },
+      }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  window.fetch = bridgedFetch;
+  return () => {
+    if (window.fetch === bridgedFetch) window.fetch = originalFetch;
+  };
+}
+
 export default function ReviewerAorFactorsLive() {
   useLayoutEffect(() => {
-    if (patchMapTilerForAor()) return;
+    const restoreFetch = installAorCountryResolverBridge();
+    if (patchMapTilerForAor()) return restoreFetch;
 
     const attachToExistingScript = () => {
       const script = document.querySelector<HTMLScriptElement>('script[data-maptiler-sdk="true"]');
@@ -137,7 +194,10 @@ export default function ReviewerAorFactorsLive() {
       if (patchMapTilerForAor() || attachToExistingScript()) observer.disconnect();
     });
     observer.observe(document.head, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      restoreFetch();
+    };
   }, []);
 
   return <ReviewerAorFactorsV3 />;
