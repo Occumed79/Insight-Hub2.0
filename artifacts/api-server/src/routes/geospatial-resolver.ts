@@ -49,13 +49,13 @@ router.post("/geospatial/resolve", async (req, res) => {
 });
 
 router.post("/geospatial/resolve-batch", async (req, res) => {
-  const raw = Array.isArray(req.body?.requests) ? req.body.requests : [];
+  const raw: unknown[] = Array.isArray(req.body?.requests) ? req.body.requests as unknown[] : [];
   if (!raw.length || raw.length > 250) {
     res.status(400).json({ ok: false, error: "Batch requests must contain between 1 and 250 items." });
     return;
   }
-  const requests = raw.map(parseRequest);
-  if (requests.some((item) => !item)) {
+  const requests = raw.map((item: unknown) => parseRequest(item));
+  if (requests.some((item: GeospatialResolveRequest | null) => !item)) {
     res.status(400).json({ ok: false, error: "Every batch item must be a valid geospatial request." });
     return;
   }
