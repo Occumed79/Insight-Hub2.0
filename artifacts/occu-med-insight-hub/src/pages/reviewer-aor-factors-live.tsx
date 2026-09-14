@@ -26,6 +26,9 @@ function createProjectionControl(map: any) {
     background: "rgba(3,9,15,.90)",
     boxShadow: "0 12px 34px rgba(0,0,0,.34)",
     backdropFilter: "blur(16px)",
+    position: "relative",
+    zIndex: "30",
+    pointerEvents: "auto",
   });
 
   const buttons = new Map<"2d" | "3d", HTMLButtonElement>();
@@ -74,6 +77,10 @@ function createProjectionControl(map: any) {
   return {
     onAdd() {
       setMode("2d");
+      queueMicrotask(() => {
+        const corner = root.parentElement;
+        if (corner) corner.style.zIndex = "30";
+      });
       return root;
     },
     onRemove() {
