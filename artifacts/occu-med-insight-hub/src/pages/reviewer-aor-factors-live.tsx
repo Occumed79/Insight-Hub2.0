@@ -121,9 +121,60 @@ function patchMapTilerForAor() {
   return true;
 }
 
+function installAorCountryResolverBridge() {
+  const originalFetch = window.fetch.bind(window);
+  const bridgedFetch: typeof window.fetch = async (input, init) => {
+    const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    let url: URL | null = null;
+    try { url = new URL(raw, window.location.href); } catch { url = null; }
+    const isLegacyCountryGeocode = url?.hostname === "api.maptiler.com"
+      && url.pathname.startsWith("/geocoding/")
+      && url.searchParams.get("types") === "country";
+    if (!isLegacyCountryGeocode || !url) return originalFetch(input, init);
+
+    const encoded = url.pathname.slice("/geocoding/".length).replace(/\.json$/, "");
+    const query = decodeURIComponent(encoded);
+    const response = await originalFetch("/api/geospatial/resolve", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ query, kind: "country" }),
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => ({}));
+    const resolution = payload?.resolution;
+    if (!response.ok || resolution?.status !== "resolved" || !resolution?.coordinates || !resolution?.iso2) {
+      return new Response(JSON.stringify({ features: [] }), {
+        status: response.ok ? 200 : response.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const name = String(resolution.country || resolution.matchedAddress || query);
+    const iso2 = String(resolution.iso2).toUpperCase();
+    const center = [Number(resolution.coordinates.lon), Number(resolution.coordinates.lat)];
+    return new Response(JSON.stringify({
+      features: [{
+        id: `country.${iso2.toLowerCase()}`,
+        type: "Feature",
+        place_type: ["country"],
+        text: name,
+        place_name: name,
+        center,
+        bbox: Array.isArray(resolution.bbox) ? resolution.bbox : undefined,
+        properties: { country_code: iso2, iso_a2: iso2, resolution_provider: resolution.provider },
+      }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  window.fetch = bridgedFetch;
+  return () => {
+    if (window.fetch === bridgedFetch) window.fetch = originalFetch;
+  };
+}
+
 export default function ReviewerAorFactorsLive() {
   useLayoutEffect(() => {
-    if (patchMapTilerForAor()) return;
+    const restoreFetch = installAorCountryResolverBridge();
+    if (patchMapTilerForAor()) return restoreFetch;
 
     const attachToExistingScript = () => {
       const script = document.querySelector<HTMLScriptElement>('script[data-maptiler-sdk="true"]');
@@ -137,7 +188,10 @@ export default function ReviewerAorFactorsLive() {
       if (patchMapTilerForAor() || attachToExistingScript()) observer.disconnect();
     });
     observer.observe(document.head, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      restoreFetch();
+    };
   }, []);
 
   return <ReviewerAorFactorsV3 />;
