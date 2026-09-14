@@ -1,4 +1,4 @@
-import { expectedIso2, normalizeIso2, validCoordinates } from "./geospatial-country";
+import { canonicalCountry, expectedIso2, normalizeIso2, validCoordinates } from "./geospatial-country";
 import { ProviderHttpError, withProviderKey } from "./geospatial-key-pool";
 import type { GeospatialCandidate, GeospatialResolveRequest, ResolverDependencies } from "./geospatial-types";
 
@@ -16,14 +16,15 @@ export async function geocodioCandidate(request: GeospatialResolveRequest, deps:
     const payload: any = await response.json().catch(() => ({}));
     for (const item of Array.isArray(payload?.results) ? payload.results : []) {
       const components = item?.address_components || {};
+      const country = String(components?.country || "") || undefined;
       const candidate: GeospatialCandidate = {
         provider: "geocodio",
         slot,
         lat: Number(item?.location?.lat),
         lon: Number(item?.location?.lng),
         matchedAddress: String(item?.formatted_address || "") || undefined,
-        country: String(components?.country || "") || undefined,
-        iso2: normalizeIso2(components?.country_code || components?.country),
+        country,
+        iso2: normalizeIso2(components?.country_code) || canonicalCountry(country)?.iso2,
         region: String(components?.state || components?.state_province || "") || undefined,
         city: String(components?.city || "") || undefined,
         confidence: Number.isFinite(Number(item?.accuracy)) ? Number(item.accuracy) : undefined,
