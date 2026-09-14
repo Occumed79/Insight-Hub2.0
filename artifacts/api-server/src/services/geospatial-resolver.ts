@@ -1,11 +1,20 @@
-import { geospatialCacheKey } from "./geospatial-cache-key";
-import { canonicalCountry, expectedIso2, validCoordinates } from "./geospatial-country";
+import { createHash } from "node:crypto";
+import { canonicalCountry, expectedIso2, normalizeText, validCoordinates } from "./geospatial-country";
 import { resolveExternalGeospatial } from "./geospatial-external";
 import { describeProviderPool, resetProviderPoolsForTests } from "./geospatial-key-pool";
 import { normalizedQuery, unresolvedResolution } from "./geospatial-validation";
 import type { GeospatialResolveRequest, GeospatialResolution, ResolverDependencies } from "./geospatial-types";
 
 export type { GeospatialResolveRequest, GeospatialResolution } from "./geospatial-types";
+
+function geospatialCacheKey(request: GeospatialResolveRequest): string {
+  return createHash("sha256").update(JSON.stringify({
+    query: normalizedQuery(request),
+    kind: request.kind,
+    iso2: expectedIso2(request),
+    region: normalizeText(request.expectedRegion),
+  })).digest("hex");
+}
 
 export async function resolveGeospatialLocation(
   request: GeospatialResolveRequest,
