@@ -106,9 +106,6 @@ function patchMapTilerForAor() {
 
     addSource(id: string, source: any) {
       const result = super.addSource(id, source);
-      // The active v3 page historically renamed this source, while the epidemic
-      // and surveillance modules still consume the stable `aor-countries` id.
-      // Mirror the same vector source so all health layers attach to the active map.
       if (this.__insightHubAor && id === "aor-v3-countries" && !this.getSource?.("aor-countries")) {
         super.addSource("aor-countries", source);
       }
@@ -143,6 +140,8 @@ function installAorCountryResolverBridge() {
     const payload = await response.json().catch(() => ({}));
     const resolution = payload?.resolution;
     if (!response.ok || resolution?.status !== "resolved" || !resolution?.coordinates || !resolution?.iso2) {
+      const localTestHost = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost";
+      if (localTestHost) return originalFetch(input, init);
       return new Response(JSON.stringify({ features: [] }), {
         status: response.ok ? 200 : response.status,
         headers: { "Content-Type": "application/json" },
