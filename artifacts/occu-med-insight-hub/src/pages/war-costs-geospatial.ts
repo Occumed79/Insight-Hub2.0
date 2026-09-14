@@ -27,6 +27,12 @@ type Resolution = {
   confidence?: number;
 };
 
+type PreparedLayer = {
+  direct: WarCostsRow[];
+  pending: Array<{ row: WarCostsRow; request: ResolveRequest }>;
+  originalCount: number;
+};
+
 function directionalNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "string" || !value.trim()) return null;
@@ -101,6 +107,19 @@ function requestFor(row: WarCostsRow, kind: ResolveRequest["kind"]): ResolveRequ
   return { query, kind, expectedCountry: expectedCountry || undefined };
 }
 
+function prepareLayer(rows: WarCostsRow[], kind: ResolveRequest["kind"]): PreparedLayer {
+  const direct: WarCostsRow[] = [];
+  const pending: PreparedLayer["pending"] = [];
+  for (const row of rows) {
+    if (warCostsSourceCoordinate(row)) direct.push(row);
+    else {
+      const request = requestFor(row, kind);
+      if (request) pending.push({ row, request });
+    }
+  }
+  return { direct, pending, originalCount: rows.length };
+}
+
 function applyResolution(row: WarCostsRow, resolution: Resolution | undefined): WarCostsRow | null {
   const lat = Number(resolution?.coordinates?.lat);
   const lon = Number(resolution?.coordinates?.lon);
@@ -133,19 +152,15 @@ async function resolveRequests(requests: ResolveRequest[], force = false): Promi
   return output;
 }
 
-async function enrichRows(rows: WarCostsRow[], kind: ResolveRequest["kind"], force = false): Promise<{ rows: WarCostsRow[]; unresolved: number }> {
-  const direct: WarCostsRow[] = [];
-  const pending: Array<{ row: WarCostsRow; request: ResolveRequest }> = [];
-  for (const row of rows) {
-    if (warCostsSourceCoordinate(row)) direct.push(row);
-    else {
-      const request = requestFor(row, kind);
-      if (request) pending.push({ row, request });
-    }
-  }
-  const resolutions = await resolveRequests(pending.map((item) => item.request), force);
-  const resolved = pending.map((item, index) => applyResolution(item.row, resolutions[index])).filter((row): row is WarCostsRow => Boolean(row));
-  return { rows: [...direct, ...resolved], unresolved: rows.length - direct.length - resolved.length };
+function finishLayer(layer: PreparedLayer, resolutions: Resolution[], offset: number) {
+  const resolved = layer.pending
+    .map((item, index) => applyResolution(item.row, resolutions[offset + index]))
+    .filter((row): row is WarCostsRow => Boolean(row));
+  return {
+    rows: [...layer.direct, ...resolved],
+    unresolved: layer.originalCount - layer.direct.length - resolved.length,
+    nextOffset: offset + layer.pending.length,
+  };
 }
 
 export async function resolveDefenseMapInputs(input: {
@@ -163,22 +178,30 @@ export async function resolveDefenseMapInputs(input: {
     .sort((a, b) => wcNumber(b, "personnel", "troops", "size") - wcNumber(a, "personnel", "troops", "size"))
     .slice(0, 50);
 
-  const [bases, personnel, conflicts, strikes, operations, deployments] = await Promise.all([
-    enrichRows([...directBases, ...fallbackBases], "installation", input.force),
-    enrichRows(input.personnel, "country", input.force),
-    enrichRows(input.conflicts, "event", input.force),
-    enrichRows(input.strikes, "event", input.force),
-    enrichRows(input.operations, "event", input.force),
-    enrichRows(input.deployments, "event", input.force),
-  ]);
+  const layers = [
+    prepareLayer([...directBases, ...fallbackBases], "installation"),
+    prepareLayer(input.personnel, "country"),
+    prepareLayer(input.conflicts, "event"),
+    prepareLayer(input.strikes, "event"),
+    prepareLayer(input.operations, "event"),
+    prepareLayer(input.deployments, "event"),
+  ] as const;
+  const resolutions = await resolveRequests(layers.flatMap((layer) => layer.pending.map((item) => item.request)), input.force);
+
+  let offset = 0;
+  const finished = layers.map((layer) => {
+    const value = finishLayer(layer, resolutions, offset);
+    offset = value.nextOffset;
+    return value;
+  });
 
   return {
-    bases: bases.rows,
-    personnel: personnel.rows,
-    conflicts: conflicts.rows,
-    strikes: strikes.rows,
-    operations: operations.rows,
-    deployments: deployments.rows,
-    unresolved: bases.unresolved + personnel.unresolved + conflicts.unresolved + strikes.unresolved + operations.unresolved + deployments.unresolved,
+    bases: finished[0].rows,
+    personnel: finished[1].rows,
+    conflicts: finished[2].rows,
+    strikes: finished[3].rows,
+    operations: finished[4].rows,
+    deployments: finished[5].rows,
+    unresolved: finished.reduce((sum, layer) => sum + layer.unresolved, 0),
   };
 }
