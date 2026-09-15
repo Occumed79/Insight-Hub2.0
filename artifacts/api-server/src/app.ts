@@ -65,9 +65,9 @@ app.head("/api/health", (_req, res) => {
   res.status(200).end();
 });
 
-// The holographic AOR globe gets its own MapTiler key so its traffic stays
-// isolated. Keep the original AOR key as a compatibility fallback while the
-// dedicated key is rolled out across environments.
+// The AOR 3D globe gets its own MapTiler key so its traffic stays isolated.
+// Keep the original AOR key as a compatibility fallback while the dedicated
+// key is rolled out across environments.
 app.get("/api/map-config", (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
   const dedicatedApiKey = process.env.MAP_TILER_API_KEY_6?.trim() ?? "";
