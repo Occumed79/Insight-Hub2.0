@@ -37,6 +37,25 @@ test("MapTiler layer synchronization reruns after sources attach", () => {
   assert.match(text, /setMapLayersRevision/);
 });
 
+test("AOR globe uses dedicated key 6, starts in 3D, disables MapTiler halo, and does not synthesize an unapproved orb", () => {
+  const app = source("src/app.ts");
+  const live = source("../occu-med-insight-hub/src/pages/reviewer-aor-factors-live.tsx");
+
+  const key6 = app.indexOf("MAP_TILER_API_KEY_6");
+  const baseKey = app.indexOf("MAP_TILER_API_KEY?.trim()", key6 + 1);
+  assert.notEqual(key6, -1);
+  assert.notEqual(baseKey, -1);
+  assert.ok(key6 < baseKey, "AOR map config must prefer MAP_TILER_API_KEY_6 before the legacy AOR key");
+
+  assert.match(live, /projection: options\?\.projection \|\| "globe"/);
+  assert.match(live, /halo: options\?\.halo \?\? false/);
+  assert.match(live, /setMode\("3d"\)/);
+  assert.doesNotMatch(live, /aor-holographic-shell/);
+  assert.doesNotMatch(live, /installHolographicShell/);
+  assert.doesNotMatch(live, /conic-gradient/);
+  assert.doesNotMatch(live, /AOR_SHELL_STYLE_ID/);
+});
+
 test("respiratory feed preserves partial data but rejects total upstream failure and supports stale LKG", () => {
   const text = source("src/routes/aor-respiratory-surveillance.ts");
   assert.match(text, /All CDC respiratory surveillance sources failed/);

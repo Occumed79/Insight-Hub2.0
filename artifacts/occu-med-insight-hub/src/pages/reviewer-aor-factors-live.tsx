@@ -73,7 +73,7 @@ function createProjectionControl(map: any) {
 
   return {
     onAdd() {
-      setMode("2d");
+      setMode("3d");
       return root;
     },
     onRemove() {
@@ -96,8 +96,8 @@ function patchMapTilerForAor() {
       const isAor = host instanceof HTMLElement && host.classList.contains("aor-map-tiler-host");
       super(isAor ? {
         ...options,
-        projection: options?.projection || "mercator",
-        halo: options?.halo ?? true,
+        projection: options?.projection || "globe",
+        halo: options?.halo ?? false,
         space: options?.space ?? { color: "#01050a" },
       } : options);
       this.__insightHubAor = isAor;
