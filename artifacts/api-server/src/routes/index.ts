@@ -23,6 +23,7 @@ import mapIntelligenceLayersRouter from "./map-intelligence-layers";
 import aorYellowBookRouter from "./aor-yellow-book";
 import aorRespiratorySurveillanceRouter from "./aor-respiratory-surveillance";
 import aorImmunizationRouter from "./aor-immunization";
+import aorFungalSourceEvidenceRouter from "./aor-fungal-source-evidence";
 import aorFungalBurdenRouter from "./aor-fungal-burden";
 import aorRiskIntelligenceRouter from "./aor-risk-intelligence";
 import aorProductionRepairRouter from "./aor-production-repair";
@@ -86,6 +87,7 @@ router.use(aorYellowBookRouter);
 router.use(aorTravelHealthRouter);
 router.use(aorRespiratorySurveillanceRouter);
 router.use(aorImmunizationRouter);
+router.use(aorFungalSourceEvidenceRouter);
 router.use(aorFungalBurdenRouter);
 // Country-specific WHO/GDACS handlers must run before the older command-wide AOR handlers.
 router.use(aorCountryResilienceRouter);
