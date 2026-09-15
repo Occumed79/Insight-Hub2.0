@@ -65,16 +65,20 @@ app.head("/api/health", (_req, res) => {
   res.status(200).end();
 });
 
-// AOR uses its own MapTiler key so health/risk mapping can be managed
-// independently from the Defense globe.
+// The holographic AOR globe gets its own MapTiler key so its traffic stays
+// isolated. Keep the original AOR key as a compatibility fallback while the
+// dedicated key is rolled out across environments.
 app.get("/api/map-config", (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
-  const apiKey = process.env.MAP_TILER_API_KEY?.trim() ?? "";
+  const dedicatedApiKey = process.env.MAP_TILER_API_KEY_6?.trim() ?? "";
+  const legacyApiKey = process.env.MAP_TILER_API_KEY?.trim() ?? "";
+  const apiKey = dedicatedApiKey || legacyApiKey;
   res.status(apiKey ? 200 : 503).json({
     configured: Boolean(apiKey),
     apiKey,
     sdkVersion: "4.0.2",
     provider: "MapTiler",
+    keySlot: dedicatedApiKey ? 6 : legacyApiKey ? 1 : null,
   });
 });
 
