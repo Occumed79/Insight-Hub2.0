@@ -37,7 +37,7 @@ test("MapTiler layer synchronization reruns after sources attach", () => {
   assert.match(text, /setMapLayersRevision/);
 });
 
-test("AOR globe uses dedicated key 6, starts in 3D, disables MapTiler halo, and keeps the visual shell click-through", () => {
+test("AOR globe uses dedicated key 6, starts in 3D, disables MapTiler halo, and does not synthesize an unapproved orb", () => {
   const app = source("src/app.ts");
   const live = source("../occu-med-insight-hub/src/pages/reviewer-aor-factors-live.tsx");
 
@@ -50,11 +50,10 @@ test("AOR globe uses dedicated key 6, starts in 3D, disables MapTiler halo, and 
   assert.match(live, /projection: options\?\.projection \|\| "globe"/);
   assert.match(live, /halo: options\?\.halo \?\? false/);
   assert.match(live, /setMode\("3d"\)/);
-  assert.match(live, /aor-holographic-shell/);
-  assert.match(live, /pointerEvents: "none"/);
-  assert.match(live, /#101c4f/i);
-  assert.match(live, /#01efac/i);
-  assert.match(live, /#5f2a84/i);
+  assert.doesNotMatch(live, /aor-holographic-shell/);
+  assert.doesNotMatch(live, /installHolographicShell/);
+  assert.doesNotMatch(live, /conic-gradient/);
+  assert.doesNotMatch(live, /AOR_SHELL_STYLE_ID/);
 });
 
 test("respiratory feed preserves partial data but rejects total upstream failure and supports stale LKG", () => {
