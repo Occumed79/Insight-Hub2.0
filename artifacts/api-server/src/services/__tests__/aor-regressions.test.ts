@@ -52,19 +52,13 @@ test("MapTiler layer synchronization reruns after sources attach", () => {
   assert.match(text, /setMapLayersRevision/);
 });
 
-test("AOR globe uses dedicated key 6, starts in 3D, and disables MapTiler halo", () => {
+test("AOR map config preserves dedicated key 6 preference for the rebuild", () => {
   const app = source("src/app.ts");
-  const live = source("../occu-med-insight-hub/src/pages/reviewer-aor-factors-live.tsx");
-
   const key6 = app.indexOf("MAP_TILER_API_KEY_6");
   const baseKey = app.indexOf("MAP_TILER_API_KEY?.trim()", key6 + 1);
   assert.notEqual(key6, -1);
   assert.notEqual(baseKey, -1);
   assert.ok(key6 < baseKey, "AOR map config must prefer MAP_TILER_API_KEY_6 before the legacy AOR key");
-
-  assert.match(live, /projection: options\?\.projection \|\| "globe"/);
-  assert.match(live, /halo: options\?\.halo \?\? false/);
-  assert.match(live, /setMode\("3d"\)/);
 });
 
 test("removed AOR sources stay removed from active route registration", () => {
@@ -91,7 +85,10 @@ test("WHO workbooks remain lazy and expose stale last-known-good cache state", (
 
 test("AOR Factors tab is intentionally reset to a blank workspace", () => {
   const page = source("../occu-med-insight-hub/src/pages/reviewer-aor-factors-v3.tsx");
+  const live = source("../occu-med-insight-hub/src/pages/reviewer-aor-factors-live.tsx");
   assert.match(page, /data-testid="aor-factors-reset-canvas"/);
   assert.match(page, /<Sidebar \/>/);
+  assert.match(live, /return <ReviewerAorFactorsV3 \/>/);
   assert.doesNotMatch(page, /AorEpidemicOverlay|AorPriorityBrief|Country mode|AOR mode|WHO Immunization|Operational watch|Work conditions|Map-linked intelligence inspector/);
+  assert.doesNotMatch(live, /AorOrbOverlay|maptilersdk|Preparing AOR globe|aor:projection-change/);
 });
