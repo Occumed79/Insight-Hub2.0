@@ -8,13 +8,13 @@ The rule is chronological: **later explicit user decisions override earlier prop
 
 ## Completion status — 2026-09-16
 
-The focused recovery implementation is now complete on PR #198. The previously missing 197-country baseline is source-controlled and wired to the selected-country AOR flow; baseline factors are evidence-backed and kept separate from reviewer-entered work conditions; the transient medical-condition × deployment-context lens is implemented; the MapTiler AOR surface defaults to 3D globe with a retained 2D fallback; `MAP_TILER_API_KEY_6` is preferred; MapTiler's built-in halo is disabled; and no synthetic CSS orb or custom shader was introduced. Existing State/WHO/GDACS/USGS/CrisisWatch/CDC and AOR health/surveillance capabilities remain in place. The separate visual sphere/orb remains deliberately pending an actual asset/component selection and visual approval.
+The focused recovery implementation is now complete on PR #198. The previously missing 197-country baseline is source-controlled and wired to the selected-country AOR flow; baseline factors are evidence-backed and kept separate from reviewer-entered work conditions; the transient medical-condition × deployment-context lens is implemented; the MapTiler AOR surface defaults to 3D globe with a retained 2D fallback; `MAP_TILER_API_KEY_6` is preferred; MapTiler's built-in halo is disabled; and no synthetic CSS orb or custom shader was introduced. Existing State/WHO/GDACS/USGS/CrisisWatch/CDC and AOR health/surveillance capabilities remain in place. The user-approved transparent particle-shell image is now implemented as the separate click-through outer orb overlay.
 
 ## Product boundary
 
 AOR Factors is a **MapTiler health/risk operating picture**, not the Defense War Map. The map is the application: country/AOR selection, map-linked evidence, meaningful layers, geographic focus, contextual country intelligence, and in-map/edge-drawer controls should dominate. Do not convert it back into a card dashboard.
 
-The current globe work must preserve all valid AOR intelligence while changing only the map projection/surface. `MAP_TILER_API_KEY_6` is the dedicated preferred AOR key on the globe branch. MapTiler's built-in halo stays disabled. A separate orb/sphere is a later visual layer and is not part of this recovery implementation.
+The current globe work must preserve all valid AOR intelligence while changing only the map projection/surface. `MAP_TILER_API_KEY_6` is the dedicated preferred AOR key on the globe branch. MapTiler's built-in halo stays disabled. The approved outer shell is a separate visual layer above the real MapTiler globe, not part of MapTiler's atmosphere or renderer.
 
 ## Status vocabulary
 
@@ -178,7 +178,7 @@ The recovered design direction remains binding:
 
 ### Globe-specific boundary
 
-PR #198 changes AOR to a 3D globe default while retaining a 2D fallback and existing data capabilities. No custom shaders are required. The separate visual orb remains pending an actual selected asset/component.
+PR #198 changes AOR to a 3D globe default while retaining a 2D fallback and existing data capabilities. The approved particle-shell image is implemented as a separate `AorOrbOverlay` above the real globe, with `pointer-events: none`, reduced-motion support, and automatic hide/show on 2D↔3D projection changes. No custom shaders, Three.js renderer, CSS-generated orb, or MapTiler halo is used.
 
 ## Guardrails retained after completion
 
@@ -191,7 +191,7 @@ PR #198 changes AOR to a 3D globe default while retaining a 2D fallback and exis
 - No fabricated live environmental measurements.
 - No ACLED, ReliefWeb, Healthsites, FIRMS, UCDP, or CFR restoration.
 - Do not duplicate the open PR #197 geospatial-resolver work.
-- Do not add the pending visual orb until an actual asset/component is selected and visually approved.
+- Keep the approved orb isolated from the MapTiler renderer and non-interactive so map gestures/clicks remain owned by MapTiler.
 - No unrelated workspace redesign.
 
 ## Acceptance definition
@@ -207,4 +207,4 @@ The recovery implementation is complete when a selected country on the MapTiler 
 7. source provenance and limitations for every non-live baseline signal;
 8. the existing 2D fallback without loss of data or controls.
 
-All eight items are implemented and browser-tested on PR #198. Anything older that conflicts with the explicit removed/superseded list is not to be restored.
+All eight items are implemented and browser-tested on PR #198. The approved outer orb is also implemented and kept separate from the functional acceptance criteria so it cannot interfere with map/data behavior. Anything older that conflicts with the explicit removed/superseded list is not to be restored.
