@@ -6,6 +6,10 @@ This document is the recovery ledger for the Insight Hub 2.0 **AOR Factors** wor
 
 The rule is chronological: **later explicit user decisions override earlier proposals**. A source that was once discussed but later removed is not a missing feature.
 
+## Completion status — 2026-09-16
+
+The focused recovery implementation is now complete on PR #198. The previously missing 197-country baseline is source-controlled and wired to the selected-country AOR flow; baseline factors are evidence-backed and kept separate from reviewer-entered work conditions; the transient medical-condition × deployment-context lens is implemented; the MapTiler AOR surface defaults to 3D globe with a retained 2D fallback; `MAP_TILER_API_KEY_6` is preferred; MapTiler's built-in halo is disabled; and no synthetic CSS orb or custom shader was introduced. Existing State/WHO/GDACS/USGS/CrisisWatch/CDC and AOR health/surveillance capabilities remain in place. The separate visual sphere/orb remains deliberately pending an actual asset/component selection and visual approval.
+
 ## Product boundary
 
 AOR Factors is a **MapTiler health/risk operating picture**, not the Defense War Map. The map is the application: country/AOR selection, map-linked evidence, meaningful layers, geographic focus, contextual country intelligence, and in-map/edge-drawer controls should dominate. Do not convert it back into a card dashboard.
@@ -82,9 +86,13 @@ The map-ready import contains these fields:
 - live-advisory-required marker
 - search text
 
-### Current finding
+### Recovery finding
 
-**DATA EXISTS BUT NOT WIRED.** Current AOR production code does not consume this spreadsheet or an equivalent generated data module. This is the clearest recovered implementation gap.
+The dataset existed but was not wired into AOR before this focused recovery run.
+
+### Completion state
+
+**IMPLEMENTED + VERIFIED.** All 197 reviewed profiles are now available to the AOR backend and selected-country inspector by exact ISO2 lookup, with provenance, review date, baseline/live distinction, and fail-closed behavior.
 
 ### Required treatment
 
@@ -112,11 +120,13 @@ Recovered retained country/deployment factors include:
 - occupational exposure context
 - remote / austere-site access constraints
 
-### Current finding
+### Recovery finding
 
-The AOR UI currently has manual work-condition buttons for heat, cold, altitude, poor air, fatigue, PPE burden, and night/circadian disruption. Country baseline fields that could support heat/cold/altitude/dust/medical-access/evacuation context are not wired into those controls.
+The pre-recovery AOR UI had manual work-condition buttons for heat, cold, altitude, poor air, fatigue, PPE burden, and night/circadian disruption, while the country baseline fields were not connected to those controls.
 
-Classify this as **UI EXISTS BUT MANUAL / IMPLEMENTED BUT PARTIAL**.
+### Completion state
+
+**IMPLEMENTED + VERIFIED.** Explicit country-profile evidence now produces separately labeled baseline signals such as heat, cold, altitude, dust/air, remote care, specialty access, evacuation, medication continuity, severe weather, seismic exposure, vector exposure, and food/water exposure. Reviewer-entered work factors remain independent and are never silently auto-selected from baseline data.
 
 ### Required behavior
 
@@ -136,9 +146,13 @@ The recovered requirement explicitly asked the country profile to interact with 
 - cardiac history + extreme heat / heavy exertion → cardiovascular review consideration
 - sleep apnea + unreliable power / CPAP access → treatment-continuity review consideration
 
-### Current finding
+### Recovery finding
 
-**REQUESTED BUT MISSING.** AOR currently has no shared case/condition context and no deterministic country-factor interaction layer.
+The pre-recovery AOR had no shared condition-context interaction layer.
+
+### Completion state
+
+**IMPLEMENTED + VERIFIED.** A transient, non-persistent condition/medication/work-context lens now evaluates the recovered explicit interactions against country evidence and returns evidence-linked **review considerations** only. It does not issue diagnoses, clearance decisions, fit/unfit determinations, or composite danger scores.
 
 ### Required implementation boundary
 
@@ -164,39 +178,9 @@ The recovered design direction remains binding:
 
 ### Globe-specific boundary
 
-PR #198 may change AOR to a 3D globe default, but it must not delete or hide retained data capabilities. No custom shaders are required. The separate visual orb remains pending an actual selected asset/component.
+PR #198 changes AOR to a 3D globe default while retaining a 2D fallback and existing data capabilities. No custom shaders are required. The separate visual orb remains pending an actual selected asset/component.
 
-## Completion-run implementation targets
-
-### P0 — wire the missing country baseline
-
-1. Convert the authoritative `Map_Import` sheet to a reviewed source-controlled data module containing all 197 profiles.
-2. Add a server endpoint for exact ISO2 profile lookup and optional full profile collection for map/inspector use.
-3. Return provenance fields including source name, profile review date, baseline/live distinction, and dataset coverage.
-4. Load the profile with every selected country.
-5. Add country-baseline context to the selected-country inspector without replacing live source sections.
-
-### P0 — data-backed factor state
-
-1. Derive conservative country baseline flags only from explicit dataset text/watch items.
-2. Auto-surface heat/cold/altitude/dust/air-access/remote-care/evacuation/watch signals where the dataset actually supports them.
-3. Keep fatigue/PPE/night manual.
-4. Preserve manual reviewer override/selection separately from baseline evidence.
-5. Show the evidence text that caused each baseline signal; never infer an unsupported numeric value.
-
-### P1 — condition lens
-
-1. Add optional condition/medication/context inputs or reuse an existing safe reviewer-context API if one is already present.
-2. Implement transparent rule matches for the recovered interaction examples.
-3. Every match must identify the country factor(s) and condition/context term(s) that triggered it.
-4. Label output as reviewer consideration, not determination.
-5. Keep this transient unless an existing authenticated persistence model already owns case context.
-
-### P1 — priority integration
-
-Feed country baseline access/evacuation/watch signals into the existing country inspector/priority surface as separately labeled baseline evidence. Do not merge them mathematically with WHO, CDC, GDACS, USGS, or CrisisWatch.
-
-## Guardrails for the completion run
+## Guardrails retained after completion
 
 - Preserve all merged AOR health/surveillance work from PRs #185–#194.
 - Preserve strict selected-country isolation; never substitute unrelated global/AOR records.
@@ -207,12 +191,12 @@ Feed country baseline access/evacuation/watch signals into the existing country 
 - No fabricated live environmental measurements.
 - No ACLED, ReliefWeb, Healthsites, FIRMS, UCDP, or CFR restoration.
 - Do not duplicate the open PR #197 geospatial-resolver work.
-- Do not add the pending visual orb during the data-completion run.
+- Do not add the pending visual orb until an actual asset/component is selected and visually approved.
 - No unrelated workspace redesign.
 
 ## Acceptance definition
 
-The AOR replacement is not complete until a selected country on the MapTiler globe can drive, on one operating picture:
+The recovery implementation is complete when a selected country on the MapTiler globe can drive, on one operating picture:
 
 1. the authoritative 197-country baseline profile;
 2. retained State/WHO/GDACS/USGS/CrisisWatch/CDC live intelligence;
@@ -223,4 +207,4 @@ The AOR replacement is not complete until a selected country on the MapTiler glo
 7. source provenance and limitations for every non-live baseline signal;
 8. the existing 2D fallback without loss of data or controls.
 
-Anything older that conflicts with the explicit removed/superseded list is not to be restored.
+All eight items are implemented and browser-tested on PR #198. Anything older that conflicts with the explicit removed/superseded list is not to be restored.
