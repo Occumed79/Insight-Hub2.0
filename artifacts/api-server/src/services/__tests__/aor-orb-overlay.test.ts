@@ -8,10 +8,9 @@ const source = (path: string) => readFileSync(resolve(root, path), "utf8");
 
 test("AOR globe mounts the approved transparent shell as a click-through overlay", () => {
   const live = source("../occu-med-insight-hub/src/pages/reviewer-aor-factors-live.tsx");
-  const v3 = source("../occu-med-insight-hub/src/pages/reviewer-aor-factors-v3.tsx");
   const overlay = source("../occu-med-insight-hub/src/components/insight/AorOrbOverlay.tsx");
 
-  assert.match(v3, /<AorOrbOverlay/);
+  assert.match(live, /<AorOrbOverlay/);
   assert.match(overlay, /aor-orb-shell\.webp/);
   assert.match(overlay, /pointer-events-none/);
   assert.match(overlay, /aria-hidden="true"/);
