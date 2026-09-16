@@ -1,4 +1,4 @@
-import { useLayoutEffect } from "react";
+import { useEffect, useState } from "react";
 import ReviewerAorFactorsV3 from "./reviewer-aor-factors-v3";
 
 export { default as LegacyAorFactorsV2 } from "./reviewer-aor-factors-v2";
@@ -9,6 +9,8 @@ declare global {
   }
 }
 
+const MAPTILER_VERSION = "4.0.2";
+const MAPTILER_SCRIPT = `https://cdn.maptiler.com/maptiler-sdk-js/v${MAPTILER_VERSION}/maptiler-sdk.umd.min.js`;
 const AOR_PATCH_FLAG = "__insightHubAorProjectionPatched";
 
 function createProjectionControl(map: any) {
@@ -49,15 +51,15 @@ function createProjectionControl(map: any) {
     button.textContent = label;
     button.title = title;
     button.setAttribute("aria-label", title);
-    button.setAttribute("aria-pressed", String(mode === "2d"));
+    button.setAttribute("aria-pressed", "false");
     Object.assign(button.style, {
       minWidth: mode === "3d" ? "78px" : "48px",
       height: "30px",
       padding: "0 10px",
       border: "1px solid transparent",
       borderRadius: "5px",
-      background: mode === "2d" ? "rgba(255,255,255,.10)" : "transparent",
-      color: mode === "2d" ? "#ecfeff" : "rgba(203,213,225,.58)",
+      background: "transparent",
+      color: "rgba(203,213,225,.58)",
       fontSize: "11px",
       fontWeight: "800",
       letterSpacing: ".01em",
@@ -106,9 +108,6 @@ function patchMapTilerForAor() {
 
     addSource(id: string, source: any) {
       const result = super.addSource(id, source);
-      // The active v3 page historically renamed this source, while the epidemic
-      // and surveillance modules still consume the stable `aor-countries` id.
-      // Mirror the same vector source so all health layers attach to the active map.
       if (this.__insightHubAor && id === "aor-v3-countries" && !this.getSource?.("aor-countries")) {
         super.addSource("aor-countries", source);
       }
@@ -121,24 +120,49 @@ function patchMapTilerForAor() {
   return true;
 }
 
-export default function ReviewerAorFactorsLive() {
-  useLayoutEffect(() => {
-    if (patchMapTilerForAor()) return;
+function ensureMapTilerPatch(): Promise<void> {
+  if (patchMapTilerForAor()) return Promise.resolve();
 
-    const attachToExistingScript = () => {
-      const script = document.querySelector<HTMLScriptElement>('script[data-maptiler-sdk="true"]');
-      if (!script) return false;
-      script.addEventListener("load", patchMapTilerForAor, { once: true });
-      return true;
+  return new Promise<void>((resolve, reject) => {
+    const finish = () => {
+      if (patchMapTilerForAor()) resolve();
+      else reject(new Error("MapTiler SDK loaded before the AOR globe patch could be installed."));
     };
 
-    attachToExistingScript();
-    const observer = new MutationObserver(() => {
-      if (patchMapTilerForAor() || attachToExistingScript()) observer.disconnect();
-    });
-    observer.observe(document.head, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
+    const existing = document.querySelector<HTMLScriptElement>('script[data-maptiler-sdk="true"]');
+    if (existing) {
+      existing.addEventListener("load", finish, { once: true });
+      existing.addEventListener("error", () => reject(new Error("MapTiler SDK failed to load.")), { once: true });
+      if (window.maptilersdk) finish();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = MAPTILER_SCRIPT;
+    script.async = true;
+    script.dataset.maptilerSdk = "true";
+    script.addEventListener("load", finish, { once: true });
+    script.addEventListener("error", () => reject(new Error("MapTiler SDK failed to load.")), { once: true });
+    document.head.appendChild(script);
+  });
+}
+
+export default function ReviewerAorFactorsLive() {
+  const [ready, setReady] = useState(() => patchMapTilerForAor());
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    if (ready) return;
+    let active = true;
+    ensureMapTilerPatch()
+      .then(() => { if (active) setReady(true); })
+      .catch((reason) => { if (active) setLoadError(reason instanceof Error ? reason.message : "MapTiler SDK failed to initialize."); });
+    return () => { active = false; };
+  }, [ready]);
+
+  if (!ready) {
+    return <main className="min-h-screen bg-[#05080c] text-white"><div className="grid min-h-screen place-items-center px-6 text-center"><div><p className="text-xs font-bold text-slate-400">Preparing AOR globe…</p>{loadError ? <p className="mt-2 text-[10px] text-amber-100/65">{loadError}</p> : null}</div></div></main>;
+  }
 
   return <ReviewerAorFactorsV3 />;
 }
