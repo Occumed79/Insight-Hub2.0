@@ -5,6 +5,7 @@ import path from "path";
 import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import router from "./routes";
+import geospatialResolverRouter from "./routes/geospatial-resolver";
 import { logger } from "./lib/logger";
 
 // Serper has been retired from Insight Hub 2. Clear any stale Render value so
@@ -104,6 +105,9 @@ app.get("/api/war-costs/arcgis-config", (_req, res) => {
   });
 });
 
+// Shared AOR/Defense location resolution stays server-side so Geocodio and
+// LocationIQ credentials never reach the browser.
+app.use("/api", geospatialResolverRouter);
 app.use("/api", router);
 
 // Serve the built React frontend for all non-API routes
