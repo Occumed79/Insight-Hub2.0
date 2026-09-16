@@ -76,7 +76,7 @@ test("condition lens returns transparent reviewer considerations only when profi
   const asthma = evaluateDeploymentConditionLens({ profile: kuwait, condition: "asthma" });
   assert.ok(asthma.some((item) => item.ruleId === "asthma-dust-air"));
   assert.ok(asthma.every((item) => item.evidenceText.length > 0));
-  assert.ok(asthma.every((item) => /review consideration/i.test(item.classification)));
+  assert.ok(asthma.every((item) => /reviewer consideration/i.test(item.classification)));
   assert.ok(asthma.every((item) => !/\b(?:fit|unfit|cleared|not cleared)\b/i.test(item.summary)));
 
   const cardiac = evaluateDeploymentConditionLens({ profile: kuwait, condition: "cardiac history", workContext: "heavy exertion outdoors" });
