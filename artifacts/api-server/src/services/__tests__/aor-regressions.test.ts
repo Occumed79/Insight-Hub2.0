@@ -23,6 +23,21 @@ test("country resilience remains the active WHO outbreak route before the older 
   assert.ok(activeRoute < olderRoute, "aorCountryResilienceRouter must own duplicate country-health routes first");
 });
 
+test("recovered country baseline routes are registered before broad AOR handlers and remain fail-closed", () => {
+  const index = source("src/routes/index.ts");
+  const route = source("src/routes/aor-country-profiles.ts");
+  const baselineRoute = index.indexOf("router.use(aorCountryProfilesRouter)");
+  const riskRoute = index.indexOf("router.use(aorRiskIntelligenceRouter)");
+  assert.notEqual(baselineRoute, -1);
+  assert.notEqual(riskRoute, -1);
+  assert.ok(baselineRoute < riskRoute, "country baseline routes must be mounted before broad AOR handlers");
+  assert.match(route, /\/aor\/country-profile/);
+  assert.match(route, /\/aor\/country-condition-lens/);
+  assert.match(route, /status\(400\)/);
+  assert.match(route, /status\(404\)/);
+  assert.match(route, /Baseline reviewer orientation/);
+});
+
 test("CDC destination route validates pages, exposes cache state and fails closed", () => {
   const text = source("src/routes/aor-travel-health.ts");
   assert.match(text, /validateDestinationPage/);
@@ -54,6 +69,13 @@ test("AOR globe uses dedicated key 6, starts in 3D, disables MapTiler halo, and 
   assert.doesNotMatch(live, /installHolographicShell/);
   assert.doesNotMatch(live, /conic-gradient/);
   assert.doesNotMatch(live, /AOR_SHELL_STYLE_ID/);
+});
+
+test("removed AOR sources stay removed from active route registration", () => {
+  const index = source("src/routes/index.ts");
+  for (const removed of ["ReliefWeb", "Healthsites", "FIRMS", "UCDP", "ACLED", "Global Conflict Tracker"]) {
+    assert.doesNotMatch(index, new RegExp(removed, "i"));
+  }
 });
 
 test("respiratory feed preserves partial data but rejects total upstream failure and supports stale LKG", () => {
