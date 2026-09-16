@@ -34,6 +34,54 @@ const kuwaitSeismicFixture = {
   earthquakes: [{ id: "kw-usgs", title: "M5.1 · Kuwait test earthquake", place: "Kuwait", magnitude: 5.1, occurredAt: new Date().toISOString(), url: "https://earthquake.usgs.gov/", tsunami: false, latitude: 29.2, longitude: 47.4, depthKm: 9 }],
 };
 
+const kuwaitBaselineFixture = {
+  ok: true,
+  profile: {
+    profileId: "aor-kwt",
+    country: "Kuwait",
+    iso2: "KW",
+    iso3: "KWT",
+    mapTilerIsoA2: "KW",
+    aorRegion: "Middle East",
+    unSubregion: "Western Asia",
+    capital: "Kuwait City",
+    latitude: 29.5,
+    longitude: 45.75,
+    climateEnvironment: "Extreme summer heat, dust, and high outdoor thermal load",
+    medicalAccess: "Urban medical care is available; program/site access still matters.",
+    securityAccess: "Confirm current advisory and employer/site security plan.",
+    travelHealthContext: "Review current destination guidance for heat, hydration, air-quality/dust, food/water, and medication-storage considerations.",
+    escalationEvacuation: "Program-specific escalation may still apply; confirm specialty referral, after-hours care, and transfer pathways.",
+    reviewWatchItems: ["Heat-sensitive conditions", "Hydration / renal issues", "Cardiovascular exertion", "Medication storage"],
+    medicalAccessTier: "Advanced",
+    legacyBuiltIn: true,
+    liveAdvisoryRequired: true,
+  },
+  baselineSignals: [
+    { key: "heat", label: "Heat exposure", evidenceField: "climateEnvironment", evidenceText: "Extreme summer heat, dust, and high outdoor thermal load" },
+    { key: "dustAir", label: "Dust / air quality", evidenceField: "climateEnvironment", evidenceText: "Extreme summer heat, dust, and high outdoor thermal load" },
+    { key: "medicationContinuity", label: "Medication / treatment continuity", evidenceField: "travelHealthContext", evidenceText: "Review current destination guidance for heat, hydration, air-quality/dust, food/water, and medication-storage considerations." },
+  ],
+  source: { name: "AOR_Global_Country_Profiles_MapTiler.xlsx", reviewedAt: "2026-08-10", profileType: "baseline", coverage: 197 },
+  limitation: "Baseline reviewer orientation; not a live advisory or environmental measurement.",
+};
+
+const asthmaConditionLensFixture = {
+  ok: true,
+  iso2: "KW",
+  country: "Kuwait",
+  classification: "Reviewer consideration — not a determination",
+  considerations: [{
+    ruleId: "asthma-dust-air",
+    classification: "Reviewer consideration — not a determination",
+    summary: "Dust or air-quality context may warrant review of respiratory symptom control, exposure mitigation, and rescue-treatment access.",
+    matchedTerms: ["asthma", "dust / air-quality context"],
+    countrySignals: ["dustAir"],
+    evidenceField: "climateEnvironment",
+    evidenceText: "Extreme summer heat, dust, and high outdoor thermal load",
+  }],
+};
+
 const cdcFixture = {
   ok: true,
   country: "Kuwait",
@@ -102,6 +150,7 @@ const mapTilerStub = String.raw`
       this.host = options.container;
       this.sources = {};
       this.layers = {};
+      this.projection = options.projection || 'mercator';
       const shell = document.createElement('div');
       shell.className = 'maplibregl-map';
       shell.style.position = 'absolute';
@@ -124,6 +173,7 @@ const mapTilerStub = String.raw`
       this.host.appendChild(shell);
       this.canvas = canvas;
       this.controls = controls;
+      this.host.dataset.projection = this.projection;
     }
     on(event, layerOrHandler, maybeHandler) {
       const handler = typeof layerOrHandler === 'function' ? layerOrHandler : maybeHandler;
@@ -132,14 +182,22 @@ const mapTilerStub = String.raw`
       if (event === 'idle') window.setTimeout(() => handler(), 35);
       return this;
     }
-    addControl() {
-      const corner = document.createElement('div');
-      corner.className = 'maplibregl-ctrl-bottom-right';
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.setAttribute('aria-label', 'Map navigation');
-      corner.appendChild(button);
-      this.controls.appendChild(corner);
+    addControl(control, position = 'bottom-right') {
+      const className = 'maplibregl-ctrl-' + position;
+      let corner = this.controls.querySelector('.' + className);
+      if (!corner) {
+        corner = document.createElement('div');
+        corner.className = className;
+        this.controls.appendChild(corner);
+      }
+      if (control && typeof control.onAdd === 'function') {
+        corner.appendChild(control.onAdd(this));
+      } else {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.setAttribute('aria-label', 'Map navigation');
+        corner.appendChild(button);
+      }
     }
     addSource(id, definition) {
       const source = { ...definition, data: definition.data, setData(next) { this.data = next; } };
@@ -153,6 +211,7 @@ const mapTilerStub = String.raw`
     getStyle() { return { layers: [] }; }
     getCanvas() { return this.canvas; }
     areTilesLoaded() { return true; }
+    setProjection(value) { this.projection = value; this.host.dataset.projection = String(value); }
     resize() {
       const rect = this.host.getBoundingClientRect();
       this.canvas.width = Math.max(1200, Math.round(rect.width || 0));
@@ -175,6 +234,8 @@ async function mockAor(page: Page) {
   await page.route("**/api/aor/unified-command?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(aorFixture) }));
   await page.route("**/api/aor/global-watch", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(globalWatchFixture) }));
   await page.route("**/api/aor/seismic-activity?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(kuwaitSeismicFixture) }));
+  await page.route("**/api/aor/country-profile?**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(kuwaitBaselineFixture) }));
+  await page.route("**/api/aor/country-condition-lens", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(asthmaConditionLensFixture) }));
   await page.route("**/api/map-config", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: true, apiKey: "test-maptiler-key" }) }));
   await page.route("**/maptiler-sdk.umd.min.js", async (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: mapTilerStub }));
   await page.route("**/maptiler-sdk.css", async (route) => route.fulfill({ status: 200, contentType: "text/css", body: ".maplibregl-map,.maplibregl-canvas-container,.maplibregl-canvas{width:100%;height:100%}" }));
@@ -227,9 +288,10 @@ test("AOR Factors defaults to clean country mode on MapTiler vector tiles", asyn
   await expect(page.getByText("Operational Priority Brief")).toBeVisible();
   await expect(page.getByTestId("aor-priority-brief").getByRole("heading", { name: "Global watch", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "RED · Test cyclone requiring attention", exact: true })).toBeVisible();
+  await expect(page.locator(".aor-holographic-shell")).toHaveCount(0);
 });
 
-test("country mode loads vaccines and travel-relevant infectious disease context without AOR fallback", async ({ page }) => {
+test("country mode loads baseline, vaccines and country-specific evidence without AOR fallback", async ({ page }) => {
   await page.goto("/aor-factors");
   await expect(page.getByText("Bright Dark vector tiles rendered")).toBeVisible();
 
@@ -238,6 +300,12 @@ test("country mode loads vaccines and travel-relevant infectious disease context
   await page.getByRole("button", { name: "Load country" }).click();
 
   await expect(page.getByText("Country-only intelligence for Kuwait.")).toBeVisible();
+  await expect(page.getByText("Baseline profile — not live")).toBeVisible();
+  await expect(page.getByText(/Reviewed 2026-08-10/)).toBeVisible();
+  await expect(page.getByText("Extreme summer heat, dust, and high outdoor thermal load").first()).toBeVisible();
+  await expect(page.getByText(/Medical access tier: Advanced/)).toBeVisible();
+  const heatButton = page.getByRole("button", { name: /Heat exposure/ });
+  await expect(heatButton).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByText("Hepatitis A")).toBeVisible();
   await expect(page.getByText("Typhoid")).toBeVisible();
   await expect(page.getByText("Dengue")).toBeVisible();
@@ -248,6 +316,38 @@ test("country mode loads vaccines and travel-relevant infectious disease context
   await expect(page.getByText("M4.2 · 24 km ESE of Norak, Tajikistan")).toHaveCount(0);
   await expect(page.getByText("No GDACS event whose returned country metadata matches Kuwait.")).toBeVisible();
   await expect(page.getByText("WHO returned no text-matched outbreak item for Kuwait; unrelated outbreaks are not substituted.")).toBeVisible();
+});
+
+test("condition lens returns a transient evidence-linked reviewer consideration", async ({ page }) => {
+  await page.goto("/aor-factors");
+  await page.getByPlaceholder("Search or click a country").fill("Kuwait");
+  await page.getByRole("button", { name: "Load country" }).click();
+  await expect(page.getByText("Baseline profile — not live")).toBeVisible();
+
+  await page.getByPlaceholder(/Condition \(e.g., asthma/).fill("asthma");
+  await page.getByRole("button", { name: "Evaluate context" }).click();
+  await expect(page.getByText("Reviewer consideration — not a determination").last()).toBeVisible();
+  await expect(page.getByText(/respiratory symptom control/)).toBeVisible();
+  await expect(page.getByText(/Country evidence: Extreme summer heat, dust/)).toBeVisible();
+  await expect(page.getByText(/cleared|unfit/i)).toHaveCount(0);
+});
+
+test("3D and 2D projection switches preserve the selected country intelligence", async ({ page }) => {
+  await page.goto("/aor-factors");
+  await page.getByPlaceholder("Search or click a country").fill("Kuwait");
+  await page.getByRole("button", { name: "Load country" }).click();
+  await expect(page.getByText("Baseline profile — not live")).toBeVisible();
+
+  const map = page.getByLabel("Interactive MapTiler AOR intelligence map");
+  await expect(page.getByRole("button", { name: "Show 3D globe AOR map" })).toHaveAttribute("aria-pressed", "true");
+  await expect(map).toHaveAttribute("data-projection", "globe");
+  await page.getByRole("button", { name: "Show flat 2D AOR map" }).click();
+  await expect(map).toHaveAttribute("data-projection", "mercator");
+  await expect(page.getByText("Baseline profile — not live")).toBeVisible();
+  await expect(page.getByText("Hepatitis A")).toBeVisible();
+  await page.getByRole("button", { name: "Show 3D globe AOR map" }).click();
+  await expect(map).toHaveAttribute("data-projection", "globe");
+  await expect(page.locator(".aor-holographic-shell")).toHaveCount(0);
 });
 
 test("AOR mode is explicit and restores command-wide operational intelligence", async ({ page }) => {
