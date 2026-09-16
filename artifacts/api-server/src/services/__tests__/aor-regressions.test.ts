@@ -61,6 +61,26 @@ test("AOR map config preserves dedicated key 6 preference for the rebuild", () =
   assert.ok(key6 < baseKey, "AOR map config must prefer MAP_TILER_API_KEY_6 before the legacy AOR key");
 });
 
+test("AOR Factors is an immersive map with one floating double-border glass sidebar", () => {
+  const page = source("../occu-med-insight-hub/src/pages/reviewer-aor-factors-v3.tsx");
+  const panel = source("../occu-med-insight-hub/src/components/insight/AorGlassSidebar.tsx");
+
+  assert.match(page, /data-testid="aor-map-shell"/);
+  assert.match(page, /absolute inset-0/);
+  assert.match(page, /<AorGlassSidebar/);
+  assert.doesNotMatch(page, /HeaderBar/);
+  assert.doesNotMatch(page, /AorEpidemicOverlay/);
+  assert.doesNotMatch(page, /grid-cols-\[238px_minmax\(0,1fr\)_360px\]/);
+
+  assert.match(panel, /300_000/);
+  assert.match(panel, /backdrop-blur/);
+  assert.match(panel, /border-white\/\[0\.16\]/);
+  assert.match(panel, /border-white\/\[0\.08\]/);
+  for (const tab of ["Explore", "Health", "Conditions", "Intel", "Info"]) assert.match(panel, new RegExp(tab));
+  assert.match(panel, /data-testid="aor-glass-sidebar"/);
+  assert.match(panel, /data-testid="aor-sidebar-handle"/);
+});
+
 test("removed AOR sources stay removed from active route registration", () => {
   const index = source("src/routes/index.ts");
   for (const removed of ["ReliefWeb", "Healthsites", "FIRMS", "UCDP", "ACLED", "Global Conflict Tracker"]) {
@@ -81,14 +101,4 @@ test("WHO workbooks remain lazy and expose stale last-known-good cache state", (
   assert.match(text, /CACHE_STALE_TTL/);
   assert.match(text, /cacheState: "stale"/);
   assert.match(text, /requestedItemNormalized/);
-});
-
-test("AOR Factors tab is intentionally reset to a blank workspace", () => {
-  const page = source("../occu-med-insight-hub/src/pages/reviewer-aor-factors-v3.tsx");
-  const live = source("../occu-med-insight-hub/src/pages/reviewer-aor-factors-live.tsx");
-  assert.match(page, /data-testid="aor-factors-reset-canvas"/);
-  assert.match(page, /<Sidebar \/>/);
-  assert.match(live, /return <ReviewerAorFactorsV3 \/>/);
-  assert.doesNotMatch(page, /AorEpidemicOverlay|AorPriorityBrief|Country mode|AOR mode|WHO Immunization|Operational watch|Work conditions|Map-linked intelligence inspector/);
-  assert.doesNotMatch(live, /AorOrbOverlay|maptilersdk|Preparing AOR globe|aor:projection-change/);
 });
