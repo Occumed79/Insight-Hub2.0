@@ -92,3 +92,12 @@ test("WHO workbooks remain lazy and expose stale last-known-good cache state", (
   assert.match(text, /cacheState: "stale"/);
   assert.match(text, /requestedItemNormalized/);
 });
+
+test("AOR MapLibre match expressions never emit zero-pair match arrays", () => {
+  const epidemic = source("../occu-med-insight-hub/src/components/insight/AorEpidemicOverlay.tsx");
+  const surveillance = source("../occu-med-insight-hub/src/components/insight/AorSurveillanceLayers.tsx");
+
+  assert.match(epidemic, /function matchExpression[\s\S]*if \(!rows\.length\) return fallback;/);
+  assert.match(epidemic, /if \(!highest\.size\) return \{ expression: "rgba\(255,255,255,0\)", count: 0 \};/);
+  assert.match(surveillance, /if \(!unique\.size\) return "rgba\(255,255,255,0\)";/);
+});
