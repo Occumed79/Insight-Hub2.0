@@ -34,16 +34,57 @@ const countryFilter = (iso2s: readonly string[]) => ["all", ["==", "level", 0], 
 type MapMode = "country" | "aor";
 type SelectedCountry = { name: string; iso2: string; center?: [number, number]; bbox?: [number, number, number, number] };
 type SourceResult = { data: any; error: string; loading: boolean };
-type CountrySources = { travel: SourceResult; who: SourceResult; gdacs: SourceResult; usgs: SourceResult; crisiswatch: SourceResult; health: SourceResult };
+type CountrySources = { baseline: SourceResult; travel: SourceResult; who: SourceResult; gdacs: SourceResult; usgs: SourceResult; crisiswatch: SourceResult; health: SourceResult };
 type EnvironmentKey = "heat" | "cold" | "altitude" | "poorAir" | "fatigue" | "ppe" | "night";
 type AorResponse = { ok: boolean; command: CommandId; commandLabel: string; partial: boolean; sourceHealth: Array<{ provider: string; ok: boolean; count: number; error?: string }>; outbreaks: any[]; disasters: any[]; earthquakes: any[] };
 type GlobalWatchResponse = { ok: boolean; partial: boolean; sourceHealth: Array<{ provider: string; ok: boolean; count: number; error?: string }>; outbreaks: any[]; disasters: any[]; earthquakes: any[] };
+type BaselineSignal = { key: string; label: string; evidenceField: string; evidenceText: string };
+type CountryBaselineResponse = {
+  ok: boolean;
+  profile: {
+    profileId: string;
+    country: string;
+    iso2: string;
+    iso3: string;
+    mapTilerIsoA2: string;
+    aorRegion: string;
+    unSubregion: string;
+    capital: string;
+    latitude: number | null;
+    longitude: number | null;
+    climateEnvironment: string;
+    medicalAccess: string;
+    securityAccess: string;
+    travelHealthContext: string;
+    escalationEvacuation: string;
+    reviewWatchItems: string[];
+    medicalAccessTier: string;
+    legacyBuiltIn: boolean;
+    liveAdvisoryRequired: boolean;
+  };
+  baselineSignals: BaselineSignal[];
+  source: { name: string; reviewedAt: string; profileType: "baseline"; coverage: number };
+  limitation: string;
+};
+type ConditionLensResponse = {
+  ok: boolean;
+  classification: string;
+  considerations: Array<{
+    ruleId: string;
+    classification: string;
+    summary: string;
+    matchedTerms: string[];
+    countrySignals: string[];
+    evidenceField: string;
+    evidenceText: string;
+  }>;
+};
 
 const ENVIRONMENT_LABELS: Record<EnvironmentKey, string> = {
-  heat: "Heat / high WBGT",
+  heat: "Heat exposure",
   cold: "Cold exposure",
   altitude: "Altitude",
-  poorAir: "Poor air quality",
+  poorAir: "Poor air / dust",
   fatigue: "Fatigue / long shift",
   ppe: "PPE burden",
   night: "Night / circadian disruption",
@@ -59,12 +100,20 @@ const ENVIRONMENT_PROMPTS: Record<EnvironmentKey, string> = {
   night: "Confirm circadian timing, sleep opportunity, lighting, vigilance demand and commute/driving exposure.",
 };
 
+const BASELINE_ENVIRONMENT_KEYS: Partial<Record<string, EnvironmentKey>> = {
+  heat: "heat",
+  cold: "cold",
+  altitude: "altitude",
+  dustAir: "poorAir",
+};
+
 function emptyResult(loading = false): SourceResult { return { data: null, error: "", loading }; }
-function emptyCountrySources(loading = false): CountrySources { return { travel: emptyResult(loading), who: emptyResult(loading), gdacs: emptyResult(loading), usgs: emptyResult(loading), crisiswatch: emptyResult(loading), health: emptyResult(loading) }; }
+function emptyCountrySources(loading = false): CountrySources { return { baseline: emptyResult(loading), travel: emptyResult(loading), who: emptyResult(loading), gdacs: emptyResult(loading), usgs: emptyResult(loading), crisiswatch: emptyResult(loading), health: emptyResult(loading) }; }
 function externalUrl(value?: string) { if (!value) return ""; try { const url = new URL(value); return url.protocol === "https:" ? url.toString() : ""; } catch { return ""; } }
 function errorMessage(error: unknown) { return error instanceof Error ? error.message : "Source request failed."; }
 function formatDate(value?: string | null) { if (!value) return "Date not supplied"; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); }
 async function loadJson(url: string) { const response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" }); const payload = await response.json().catch(() => ({})); if (!response.ok && payload?.configured !== false) throw new Error(payload?.error || `Request failed (${response.status}).`); return payload; }
+async function postJson(url: string, body: unknown) { const response = await fetch(url, { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(body), cache: "no-store" }); const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload?.error || `Request failed (${response.status}).`); return payload; }
 
 async function loadMapTilerSdk() {
   let css = document.querySelector<HTMLLinkElement>(`link[href="${MAPTILER_CSS}"]`);
@@ -154,10 +203,26 @@ export default function ReviewerAorFactorsV3Page() {
   const [mapError, setMapError] = useState("");
   const [mapLayersRevision, setMapLayersRevision] = useState(0);
   const [environment, setEnvironment] = useState<Record<EnvironmentKey, boolean>>({ heat: false, cold: false, altitude: false, poorAir: false, fatigue: false, ppe: false, night: false });
+  const [condition, setCondition] = useState("");
+  const [medication, setMedication] = useState("");
+  const [workContext, setWorkContext] = useState("");
+  const [conditionLens, setConditionLens] = useState<ConditionLensResponse | null>(null);
+  const [conditionLensLoading, setConditionLensLoading] = useState(false);
+  const [conditionLensError, setConditionLensError] = useState("");
 
   const mappedCountryCommand = selectedCountry?.iso2 ? COMMAND_BY_COUNTRY.get(selectedCountry.iso2) ?? null : null;
   const selectedEnvironment = (Object.keys(environment) as EnvironmentKey[]).filter((key) => environment[key]);
   const contextLabel = selectedCountry?.name || (mapMode === "aor" ? selectedCommand.label : "Global watch");
+  const countryBaseline = countrySources.baseline.data as CountryBaselineResponse | null;
+  const baselineSignals = countryBaseline?.baselineSignals || [];
+  const baselineEnvironment = useMemo(() => {
+    const result = new Map<EnvironmentKey, BaselineSignal>();
+    baselineSignals.forEach((signal) => {
+      const key = BASELINE_ENVIRONMENT_KEYS[signal.key];
+      if (key && !result.has(key)) result.set(key, signal);
+    });
+    return result;
+  }, [baselineSignals]);
 
   useEffect(() => { modeRef.current = mapMode; }, [mapMode]);
 
@@ -183,12 +248,15 @@ export default function ReviewerAorFactorsV3Page() {
   }, [command, mapMode]);
 
   useEffect(() => {
+    setConditionLens(null);
+    setConditionLensError("");
     if (!selectedCountry) { setCountrySources(emptyCountrySources()); return; }
     let active = true;
     const name = selectedCountry.name;
     const encoded = encodeURIComponent(name);
     setCountrySources(emptyCountrySources(true));
     const entries: Array<[keyof CountrySources, string]> = [
+      ["baseline", `/api/aor/country-profile?iso2=${encodeURIComponent(selectedCountry.iso2)}`],
       ["travel", `/api/public-data/aor-risk?country=${encoded}`],
       ["who", `/api/aor/health-outbreaks?country=${encoded}`],
       ["gdacs", `/api/aor/disaster-alerts?country=${encoded}`],
@@ -356,6 +424,26 @@ export default function ReviewerAorFactorsV3Page() {
     finally { setCountrySearchLoading(false); }
   }
 
+  async function evaluateConditionContext() {
+    if (!selectedCountry || (!condition.trim() && !medication.trim() && !workContext.trim())) return;
+    setConditionLensLoading(true);
+    setConditionLensError("");
+    try {
+      const payload = await postJson("/api/aor/country-condition-lens", {
+        iso2: selectedCountry.iso2,
+        condition: condition.trim(),
+        medication: medication.trim(),
+        workContext: workContext.trim(),
+      });
+      setConditionLens(payload as ConditionLensResponse);
+    } catch (reason) {
+      setConditionLens(null);
+      setConditionLensError(errorMessage(reason));
+    } finally {
+      setConditionLensLoading(false);
+    }
+  }
+
   function switchMode(mode: MapMode) {
     setMapMode(mode); setError("");
     if (mode === "aor") { setSelectedCountry(null); setCountryQuery(""); }
@@ -390,18 +478,22 @@ export default function ReviewerAorFactorsV3Page() {
           </RailSection>}
 
           <RailSection label="Work conditions">
-            <div className="space-y-1">{(Object.keys(ENVIRONMENT_LABELS) as EnvironmentKey[]).map((key) => <button key={key} type="button" aria-pressed={environment[key]} onClick={() => setEnvironment((current) => ({ ...current, [key]: !current[key] }))} className={`w-full border px-2.5 py-2 text-left text-[9px] font-bold ${environment[key] ? "border-amber-200/20 bg-amber-300/[.06] text-amber-50" : "border-transparent text-slate-500 hover:bg-white/[.02]"}`}>{ENVIRONMENT_LABELS[key]}</button>)}</div>
+            <div className="space-y-1">{(Object.keys(ENVIRONMENT_LABELS) as EnvironmentKey[]).map((key) => {
+              const baselineSignal = baselineEnvironment.get(key);
+              return <button key={key} type="button" aria-pressed={environment[key]} onClick={() => setEnvironment((current) => ({ ...current, [key]: !current[key] }))} className={`w-full border px-2.5 py-2 text-left text-[9px] font-bold ${environment[key] ? "border-amber-200/20 bg-amber-300/[.06] text-amber-50" : baselineSignal ? "border-cyan-200/12 bg-cyan-300/[.025] text-slate-300" : "border-transparent text-slate-500 hover:bg-white/[.02]"}`} title={baselineSignal ? `Baseline evidence: ${baselineSignal.evidenceText}` : undefined}><span className="flex items-center justify-between gap-2"><span>{ENVIRONMENT_LABELS[key]}</span>{baselineSignal ? <span className="text-[7px] font-black uppercase tracking-[.1em] text-cyan-200/60">Baseline</span> : null}</span></button>;
+            })}</div>
+            {selectedCountry && baselineSignals.length ? <p className="mt-2 px-1 text-[8px] leading-4 text-slate-600">Baseline labels come from the reviewed country profile. They do not auto-select reviewer-entered work factors or imply live WBGT/AQI.</p> : null}
           </RailSection>
 
           <RailSection label="Source health">
             <SourceRow label="MapTiler" status={mapStatus === "ready" ? "ok" : mapStatus === "error" ? "warn" : "loading"} note={mapStatus === "ready" ? "Bright Dark vector tiles rendered" : mapStatus === "error" ? mapError : "Rendering vector tiles"} />
-            {mapMode === "country" ? <>{(["travel", "health", "who", "gdacs", "usgs", "crisiswatch"] as const).map((key) => { const label = { travel: "State Travel", health: "CDC Travel Health", who: "WHO", gdacs: "GDACS", usgs: "USGS", crisiswatch: "CrisisWatch" }[key]; const state = sourceState(countrySources[key]); return <SourceRow key={key} label={label} status={state.status} note={state.note} />; })}</> : <>{["WHO Disease Outbreak News", "GDACS", "USGS Earthquake Catalog"].map((provider) => { const source = sourceHealth.get(provider); return <SourceRow key={provider} label={provider.replace(" Disease Outbreak News", "").replace(" Earthquake Catalog", "")} status={loading ? "loading" : source?.ok ? "ok" : "warn"} note={loading ? "Refreshing" : source?.ok ? `${source.count} AOR matches` : source?.error || "Unavailable"} />; })}</>}
+            {mapMode === "country" ? <>{(["baseline", "travel", "health", "who", "gdacs", "usgs", "crisiswatch"] as const).map((key) => { const label = { baseline: "Country Baseline", travel: "State Travel", health: "CDC Travel Health", who: "WHO", gdacs: "GDACS", usgs: "USGS", crisiswatch: "CrisisWatch" }[key]; const state = sourceState(countrySources[key]); return <SourceRow key={key} label={label} status={state.status} note={state.note} />; })}</> : <>{["WHO Disease Outbreak News", "GDACS", "USGS Earthquake Catalog"].map((provider) => { const source = sourceHealth.get(provider); return <SourceRow key={provider} label={provider.replace(" Disease Outbreak News", "").replace(" Earthquake Catalog", "")} status={loading ? "loading" : source?.ok ? "ok" : "warn"} note={loading ? "Refreshing" : source?.ok ? `${source.count} AOR matches` : source?.error || "Unavailable"} />; })}</>}
           </RailSection>
         </aside>
 
         <div className="min-w-0 bg-[#03070b]">
           <div className="flex min-h-[74px] items-start justify-between gap-4 border-b border-white/10 px-4 py-3">
-            <div><p className="text-[9px] font-black uppercase tracking-[.18em] text-slate-600">{mapMode === "country" ? "Destination operating picture" : "Command operating picture"}</p><h2 className="mt-1 text-lg font-black text-white">{contextLabel}</h2><p className="mt-1 max-w-3xl text-[10px] leading-4 text-slate-500">{selectedCountry ? `${selectedCountry.name} drives country-specific travel, health, outbreak, disaster, seismic and environmental evidence.${mappedCountryCommand ? ` Assigned command: ${mappedCountryCommand.label}.` : ""}` : mapMode === "aor" ? selectedCommand.scope : "Global watch is visible immediately. Search or click a country when you need destination-specific evidence."}</p></div>
+            <div><p className="text-[9px] font-black uppercase tracking-[.18em] text-slate-600">{mapMode === "country" ? "Destination operating picture" : "Command operating picture"}</p><h2 className="mt-1 text-lg font-black text-white">{contextLabel}</h2><p className="mt-1 max-w-3xl text-[10px] leading-4 text-slate-500">{selectedCountry ? `${selectedCountry.name} drives country-specific baseline, travel, health, outbreak, disaster, seismic and environmental evidence.${mappedCountryCommand ? ` Assigned command: ${mappedCountryCommand.label}.` : ""}` : mapMode === "aor" ? selectedCommand.scope : "Global watch is visible immediately. Search or click a country when you need destination-specific evidence."}</p></div>
             <span className="shrink-0 border border-white/10 px-2 py-1 text-[8px] font-black uppercase tracking-[.12em] text-slate-500">{mapMode === "country" ? "Country" : "AOR"}</span>
           </div>
           <div className="relative h-[650px] min-h-[650px]" data-testid="aor-map-shell">
@@ -416,6 +508,21 @@ export default function ReviewerAorFactorsV3Page() {
         <aside className="max-h-[900px] overflow-y-auto border-l border-white/10 bg-[#080c12] p-4" aria-label="Map-linked intelligence inspector">
           <div className="flex items-start justify-between gap-3 pb-4"><div><p className="text-[9px] font-black uppercase tracking-[.18em] text-slate-600">Map-linked intelligence inspector</p><h2 className="mt-1 text-lg font-black">{contextLabel}</h2><p className="mt-1 text-[10px] leading-4 text-slate-500">{selectedCountry ? `Country-only intelligence for ${selectedCountry.name}.` : mapMode === "aor" ? `Command-wide intelligence for ${selectedCommand.label}.` : "Global watch is loaded by default; choose a country for destination detail."}</p></div><Layers3 size={17} className="text-cyan-200/45" /></div>
           {error || globalWatchError ? <div className="mb-3 border border-amber-200/15 bg-amber-300/[.035] p-3 text-[10px] leading-5 text-amber-100/65"><AlertTriangle size={12} className="mr-1.5 inline" />{error || globalWatchError}</div> : null}
+
+          <InspectorSection title="Country baseline" icon={<Globe2 size={14} />}>
+            {!selectedCountry ? <p className="text-[10px] leading-5 text-slate-500">Select a country to load the reviewed 197-country baseline profile.</p> : countrySources.baseline.loading ? <div className="flex items-center gap-2 py-3 text-[10px] text-slate-500"><Loader2 size={12} className="animate-spin" />Loading reviewed country baseline…</div> : countrySources.baseline.error ? <p className="text-[10px] leading-5 text-amber-100/60">{countrySources.baseline.error}</p> : countryBaseline?.profile ? <>
+              <div className="mb-3 border border-cyan-200/12 bg-cyan-300/[.025] p-2.5"><p className="text-[9px] font-black uppercase tracking-[.12em] text-cyan-100/70">Baseline profile — not live</p><p className="mt-1 text-[8px] leading-4 text-slate-600">Reviewed {countryBaseline.source.reviewedAt} · {countryBaseline.source.coverage} country profiles · {countryBaseline.source.name}</p></div>
+              <IntelRow title={`${countryBaseline.profile.aorRegion} · ${countryBaseline.profile.unSubregion}`} meta={`Capital: ${countryBaseline.profile.capital} · Medical access tier: ${countryBaseline.profile.medicalAccessTier}`} />
+              <IntelRow title="Climate / environment" summary={countryBaseline.profile.climateEnvironment} />
+              <IntelRow title="Medical access" summary={countryBaseline.profile.medicalAccess} />
+              <IntelRow title="Security / access" summary={countryBaseline.profile.securityAccess} />
+              <IntelRow title="Travel-health context" summary={countryBaseline.profile.travelHealthContext} />
+              <IntelRow title="Escalation / evacuation" summary={countryBaseline.profile.escalationEvacuation} />
+              {countryBaseline.profile.reviewWatchItems.length ? <div className="mt-3"><p className="text-[9px] font-black uppercase tracking-[.12em] text-slate-600">Review watch items</p><div className="mt-2 flex flex-wrap gap-1.5">{countryBaseline.profile.reviewWatchItems.map((item) => <span key={item} className="border border-white/10 px-2 py-1 text-[9px] font-bold text-slate-300">{item}</span>)}</div></div> : null}
+              {baselineSignals.length ? <div className="mt-3"><p className="text-[9px] font-black uppercase tracking-[.12em] text-slate-600">Evidence-backed baseline signals</p><div className="mt-2 space-y-1.5">{baselineSignals.map((signal) => <div key={signal.key} className="border border-white/8 bg-black/10 px-2.5 py-2"><div className="flex items-center justify-between gap-2"><strong className="text-[9px] text-cyan-100/75">{signal.label}</strong><span className="text-[7px] uppercase tracking-[.08em] text-slate-600">{signal.evidenceField}</span></div><p className="mt-1 text-[8px] leading-4 text-slate-500">{signal.evidenceText}</p></div>)}</div></div> : null}
+              <p className="mt-3 text-[8px] leading-4 text-slate-600">{countryBaseline.limitation}</p>
+            </> : null}
+          </InspectorSection>
 
           <InspectorSection title="Operational watch" icon={<ShieldAlert size={14} />}>
             {selectedCountry && advisory ? <IntelRow title={`Level ${advisory.level ?? "—"} · ${advisory.levelLabel || "Travel advisory"}`} summary={advisory.summary || advisory.message} href={advisory.sourceUrl || advisory.url} /> : null}
@@ -440,11 +547,27 @@ export default function ReviewerAorFactorsV3Page() {
           </InspectorSection>
 
           <InspectorSection title={`Work conditions for ${contextLabel}`} icon={<Activity size={14} />}>
-            {selectedEnvironment.length ? selectedEnvironment.map((key) => <div key={key} className="border-b border-white/[.055] py-2 last:border-b-0"><p className="text-[10px] font-bold text-amber-100/70">{ENVIRONMENT_LABELS[key]}</p><p className="mt-1 text-[9px] leading-4 text-slate-500">{ENVIRONMENT_PROMPTS[key]}</p></div>) : <p className="text-[10px] leading-5 text-slate-500">Select only conditions actually present at the operating location. These remain separate evidence factors rather than a fabricated score.</p>}
+            {baselineEnvironment.size ? <div className="mb-3 border border-cyan-200/10 bg-cyan-300/[.02] p-2.5"><p className="text-[9px] font-black uppercase tracking-[.12em] text-cyan-100/60">Country baseline signals</p>{Array.from(baselineEnvironment.entries()).map(([key, signal]) => <div key={key} className="mt-2"><p className="text-[9px] font-bold text-slate-300">{ENVIRONMENT_LABELS[key]}</p><p className="mt-0.5 text-[8px] leading-4 text-slate-600">{signal.evidenceText}</p></div>)}<p className="mt-2 text-[8px] leading-4 text-slate-600">These are baseline context only. They do not auto-select the reviewer controls below.</p></div> : null}
+            {selectedEnvironment.length ? selectedEnvironment.map((key) => <div key={key} className="border-b border-white/[.055] py-2 last:border-b-0"><p className="text-[10px] font-bold text-amber-100/70">Reviewer work factor: {ENVIRONMENT_LABELS[key]}</p><p className="mt-1 text-[9px] leading-4 text-slate-500">{ENVIRONMENT_PROMPTS[key]}</p></div>) : <p className="text-[10px] leading-5 text-slate-500">Select only conditions actually present at the operating location. These remain separate evidence factors rather than a fabricated score.</p>}
+          </InspectorSection>
+
+          <InspectorSection title="Medical condition × deployment context" icon={<ShieldCheck size={14} />}>
+            {!selectedCountry ? <p className="text-[10px] leading-5 text-slate-500">Select a country before evaluating condition/deployment interactions.</p> : <>
+              <p className="text-[9px] leading-4 text-slate-600">Optional transient reviewer lens. Nothing entered here is persisted. Results are review considerations, not clearance decisions.</p>
+              <div className="mt-3 grid gap-2">
+                <input value={condition} onChange={(event) => setCondition(event.target.value)} placeholder="Condition (e.g., asthma, diabetes, seizure history)" className="min-h-9 border border-white/10 bg-black/20 px-2.5 text-[10px] text-white outline-none placeholder:text-slate-600" />
+                <input value={medication} onChange={(event) => setMedication(event.target.value)} placeholder="Medication / treatment (e.g., insulin, CPAP)" className="min-h-9 border border-white/10 bg-black/20 px-2.5 text-[10px] text-white outline-none placeholder:text-slate-600" />
+                <input value={workContext} onChange={(event) => setWorkContext(event.target.value)} placeholder="Work/site context (e.g., heavy exertion, unreliable power)" className="min-h-9 border border-white/10 bg-black/20 px-2.5 text-[10px] text-white outline-none placeholder:text-slate-600" />
+                <button type="button" onClick={() => void evaluateConditionContext()} disabled={conditionLensLoading || (!condition.trim() && !medication.trim() && !workContext.trim())} className="inline-flex min-h-9 items-center justify-center gap-2 border border-cyan-200/18 bg-cyan-300/[.05] text-[10px] font-black text-cyan-50 disabled:opacity-40">{conditionLensLoading ? <Loader2 size={12} className="animate-spin" /> : <Activity size={12} />}Evaluate context</button>
+              </div>
+              {conditionLensError ? <p className="mt-3 text-[9px] leading-4 text-amber-100/60">{conditionLensError}</p> : null}
+              {conditionLens && !conditionLens.considerations.length ? <div className="mt-3 border border-white/8 p-2.5"><p className="text-[9px] font-bold text-slate-300">Reviewer consideration — not a determination</p><p className="mt-1 text-[8px] leading-4 text-slate-600">No recovered rule matched the supplied condition/treatment terms against this country's explicit baseline evidence.</p></div> : null}
+              {conditionLens?.considerations.map((item) => <div key={item.ruleId} className="mt-3 border border-cyan-200/10 bg-cyan-300/[.02] p-2.5"><p className="text-[9px] font-black text-cyan-100/70">{item.classification}</p><p className="mt-1 text-[9px] leading-4 text-slate-300">{item.summary}</p><p className="mt-2 text-[8px] leading-4 text-slate-600">Country evidence: {item.evidenceText}</p></div>)}
+            </>}
           </InspectorSection>
 
           <InspectorSection title="Evidence boundary" icon={<ShieldCheck size={14} />}>
-            <p className="text-[9px] leading-4 text-slate-600">Country mode never substitutes command-wide events when a destination feed is empty. AOR mode intentionally aggregates command-wide WHO, GDACS and USGS signals. Environmental factors are reviewer-entered context, not observed surveillance.</p>
+            <p className="text-[9px] leading-4 text-slate-600">Country mode never substitutes command-wide events when a destination feed is empty. AOR mode intentionally aggregates command-wide WHO, GDACS and USGS signals. Country baseline signals are reviewed orientation data, not live measurements. Reviewer work factors remain separately selected and are not auto-filled from the country profile.</p>
           </InspectorSection>
         </aside>
       </div>
