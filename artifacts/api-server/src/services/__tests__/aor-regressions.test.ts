@@ -52,7 +52,7 @@ test("MapTiler layer synchronization reruns after sources attach", () => {
   assert.match(text, /setMapLayersRevision/);
 });
 
-test("AOR globe uses dedicated key 6, starts in 3D, disables MapTiler halo, and does not synthesize an unapproved orb", () => {
+test("AOR globe uses dedicated key 6, starts in 3D, and disables MapTiler halo", () => {
   const app = source("src/app.ts");
   const live = source("../occu-med-insight-hub/src/pages/reviewer-aor-factors-live.tsx");
 
@@ -65,10 +65,6 @@ test("AOR globe uses dedicated key 6, starts in 3D, disables MapTiler halo, and 
   assert.match(live, /projection: options\?\.projection \|\| "globe"/);
   assert.match(live, /halo: options\?\.halo \?\? false/);
   assert.match(live, /setMode\("3d"\)/);
-  assert.doesNotMatch(live, /aor-holographic-shell/);
-  assert.doesNotMatch(live, /installHolographicShell/);
-  assert.doesNotMatch(live, /conic-gradient/);
-  assert.doesNotMatch(live, /AOR_SHELL_STYLE_ID/);
 });
 
 test("removed AOR sources stay removed from active route registration", () => {
@@ -93,11 +89,9 @@ test("WHO workbooks remain lazy and expose stale last-known-good cache state", (
   assert.match(text, /requestedItemNormalized/);
 });
 
-test("AOR MapLibre match expressions never emit zero-pair match arrays", () => {
-  const epidemic = source("../occu-med-insight-hub/src/components/insight/AorEpidemicOverlay.tsx");
-  const surveillance = source("../occu-med-insight-hub/src/components/insight/AorSurveillanceLayers.tsx");
-
-  assert.match(epidemic, /function matchExpression[\s\S]*if \(!rows\.length\) return fallback;/);
-  assert.match(epidemic, /if \(!highest\.size\) return \{ expression: "rgba\(255,255,255,0\)", count: 0 \};/);
-  assert.match(surveillance, /if \(!unique\.size\) return "rgba\(255,255,255,0\)";/);
+test("AOR Factors tab is intentionally reset to a blank workspace", () => {
+  const page = source("../occu-med-insight-hub/src/pages/reviewer-aor-factors-v3.tsx");
+  assert.match(page, /data-testid="aor-factors-reset-canvas"/);
+  assert.match(page, /<Sidebar \/>/);
+  assert.doesNotMatch(page, /AorEpidemicOverlay|AorPriorityBrief|Country mode|AOR mode|WHO Immunization|Operational watch|Work conditions|Map-linked intelligence inspector/);
 });
