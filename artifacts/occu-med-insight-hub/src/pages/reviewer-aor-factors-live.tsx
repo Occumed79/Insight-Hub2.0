@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AorOrbOverlay } from "@/components/insight/AorOrbOverlay";
 import ReviewerAorFactorsV3 from "./reviewer-aor-factors-v3";
 
 export { default as LegacyAorFactorsV2 } from "./reviewer-aor-factors-v2";
@@ -35,6 +36,8 @@ function createProjectionControl(map: any) {
     const projection = mode === "3d" ? "globe" : "mercator";
     map.setProjection?.(projection);
     map.easeTo?.({ pitch: mode === "3d" ? 18 : 0, bearing: 0, duration: 650 });
+    document.documentElement.dataset.aorProjectionMode = mode;
+    window.dispatchEvent(new CustomEvent("aor:projection-change", { detail: { mode, projection } }));
     for (const [key, button] of buttons) {
       const active = key === mode;
       button.setAttribute("aria-pressed", String(active));
@@ -164,5 +167,5 @@ export default function ReviewerAorFactorsLive() {
     return <main className="min-h-screen bg-[#05080c] text-white"><div className="grid min-h-screen place-items-center px-6 text-center"><div><p className="text-xs font-bold text-slate-400">Preparing AOR globe…</p>{loadError ? <p className="mt-2 text-[10px] text-amber-100/65">{loadError}</p> : null}</div></div></main>;
   }
 
-  return <ReviewerAorFactorsV3 />;
+  return <><ReviewerAorFactorsV3 /><AorOrbOverlay /></>;
 }
