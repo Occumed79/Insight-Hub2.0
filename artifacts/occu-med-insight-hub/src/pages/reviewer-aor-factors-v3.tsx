@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { AorGlassSidebar, type AorSidebarTab } from "@/components/insight/AorGlassSidebar";
+import { AorOrbOverlay } from "@/components/insight/AorOrbOverlay";
 import { AOR_REGISTRY_REVIEWED_AT, COMMANDS, COMMAND_BY_COUNTRY, type CommandId } from "@/components/insight/aor-command-registry";
 
 declare global {
@@ -31,7 +32,7 @@ const countryFilter = (iso2s: readonly string[]) => ["all", ["==", "level", 0], 
 
 type MapMode = "country" | "aor";
 type ProjectionMode = "2d" | "3d";
-type HealthTool = "travel" | "notices" | "respiratory" | "immunization" | "fungal" | "yellowbook" | "history";
+type HealthTool = "travel" | "notices" | "respiratory" | "immunization" | "yellowbook" | "history";
 type SelectedCountry = { name: string; iso2: string; center?: [number, number]; bbox?: [number, number, number, number] };
 type SourceResult = { data: any; error: string; loading: boolean };
 type CountrySources = { baseline: SourceResult; travel: SourceResult; who: SourceResult; gdacs: SourceResult; usgs: SourceResult; crisiswatch: SourceResult; health: SourceResult };
@@ -226,7 +227,6 @@ export default function ReviewerAorFactorsV3Page() {
       notices: "/api/aor/travel-notices",
       respiratory: "/api/aor/respiratory-surveillance",
       immunization: "/api/aor/immunization?dataset=coverage",
-      fungal: "/api/aor/fungal-burden?disease=cpa",
       yellowbook: "/api/aor/yellow-book",
       history: "/api/aor/epidemic-history",
     };
@@ -370,17 +370,22 @@ export default function ReviewerAorFactorsV3Page() {
     if (!query) return;
     setCountrySearchLoading(true); setError("");
     try {
-      if (!mapKeyRef.current) throw new Error("MapTiler is not ready yet.");
-      const response = await fetch(`https://api.maptiler.com/geocoding/${encodeURIComponent(query)}.json?key=${encodeURIComponent(mapKeyRef.current)}&types=country&limit=1`, { headers: { Accept: "application/json" } });
-      if (!response.ok) throw new Error(`MapTiler geocoding returned ${response.status}.`);
+      const response = await fetch("/api/geospatial/resolve", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ query, kind: "country" }),
+        cache: "no-store",
+      });
       const payload = await response.json();
-      const feature = payload?.features?.[0];
-      if (!feature) throw new Error(`No country match found for “${query}”.`);
-      const name = String(feature.text || feature.place_name || query);
-      const iso2 = String(feature.properties?.short_code || feature.properties?.country_code || feature.id?.split(".")?.pop() || "").replace(/^country\./, "").toUpperCase();
-      if (!/^[A-Z]{2}$/.test(iso2)) throw new Error("MapTiler did not return an ISO2 country code.");
-      const bbox = Array.isArray(feature.bbox) && feature.bbox.length === 4 ? feature.bbox.map(Number) as [number, number, number, number] : undefined;
-      const center = Array.isArray(feature.center) && feature.center.length >= 2 ? [Number(feature.center[0]), Number(feature.center[1])] as [number, number] : undefined;
+      if (!response.ok) throw new Error(payload?.error || `Geospatial resolver returned ${response.status}.`);
+      const resolution = payload?.resolution;
+      if (resolution?.status !== "resolved" || !resolution?.coordinates) throw new Error(`No country match found for “${query}”.`);
+      const name = String(resolution.country || resolution.matchedAddress || query);
+      const iso2 = String(resolution.iso2 || "").toUpperCase();
+      if (!/^[A-Z]{2}$/.test(iso2)) throw new Error("The resolver did not return an ISO2 country code.");
+      const bbox = Array.isArray(resolution.bbox) && resolution.bbox.length === 4 ? resolution.bbox.map(Number) as [number, number, number, number] : undefined;
+      const lat = Number(resolution.coordinates.lat); const lon = Number(resolution.coordinates.lon);
+      const center = Number.isFinite(lat) && Number.isFinite(lon) ? [lon, lat] as [number, number] : undefined;
       setSelectedCountry({ name, iso2, bbox, center });
       setCountryQuery(name);
       const mapped = COMMAND_BY_COUNTRY.get(iso2); if (mapped) setCommand(mapped.id);
@@ -405,7 +410,7 @@ export default function ReviewerAorFactorsV3Page() {
     if (mode === "country") mapRef.current?.easeTo?.({ center: [18, 18], zoom: 1.15, duration: 650 });
   }
 
-  const healthTabs: Array<[HealthTool, string]> = [["travel", "Travel"], ["notices", "Notices"], ["respiratory", "Respiratory"], ["immunization", "Immunization"], ["fungal", "Fungal"], ["yellowbook", "Yellow Book"], ["history", "History"]];
+  const healthTabs: Array<[HealthTool, string]> = [["travel", "Travel"], ["notices", "Notices"], ["respiratory", "Respiratory"], ["immunization", "Immunization"], ["yellowbook", "Yellow Book"], ["history", "History"]];
 
   const explorePane = <div>
     <Section title="Scope">
@@ -433,7 +438,7 @@ export default function ReviewerAorFactorsV3Page() {
         {!selectedCountry ? <p className="text-[9px] leading-4 text-slate-500">Select a country to load destination-specific vaccine and disease guidance.</p> : countrySources.health.loading ? <p className="inline-flex items-center gap-2 text-[9px] text-slate-400"><Loader2 size={11} className="animate-spin" />Loading destination guidance…</p> : countrySources.health.error ? <p className="text-[9px] text-amber-100/60">{countrySources.health.error}</p> : <div>{(travelHealth?.vaccines || []).slice(0, 8).map((item: any) => <IntelLine key={item.name} title={item.name} summary={item.recommendation} />)}{(travelHealth?.diseases || []).slice(0, 8).map((item: any) => <IntelLine key={item.name} title={item.name} meta={item.transmission} summary={item.advice} />)}</div>}
       </Section>
     </> : <Section title={healthTabs.find(([id]) => id === healthTool)?.[1] || "Health tool"}>
-      {healthToolLoading ? <p className="inline-flex items-center gap-2 text-[9px] text-slate-400"><Loader2 size={11} className="animate-spin" />Loading source…</p> : healthToolError ? <p className="text-[9px] leading-4 text-amber-100/60">{healthToolError}</p> : healthTool === "notices" ? <div>{(healthToolData?.notices || []).slice(0, 14).map((item: any, index: number) => <IntelLine key={item.url || index} title={item.title || `Notice ${index + 1}`} meta={item.levelLabel || item.date} summary={item.summary} href={item.url} />)}</div> : healthTool === "respiratory" ? <div className="space-y-2 text-[9px] leading-4 text-slate-400"><p>Latest ARI: <b className="text-white/75">{healthToolData?.ari?.latestDate || "—"}</b></p><p>Latest Rt model: <b className="text-white/75">{healthToolData?.rt?.latestModelRun || healthToolData?.rt?.latestDate || "—"}</b></p><p>Latest ED feed: <b className="text-white/75">{healthToolData?.ed?.latestDate || "—"}</b></p><p>Latest wastewater: <b className="text-white/75">{healthToolData?.wastewater?.latestDate || "—"}</b></p>{healthToolData?.limitation ? <p className="text-slate-500">{healthToolData.limitation}</p> : null}</div> : healthTool === "immunization" ? <div className="space-y-2 text-[9px] leading-4 text-slate-400"><p>Dataset: <b className="text-white/75">{healthToolData?.dataset || "coverage"}</b></p><p>Rows: <b className="text-white/75">{healthToolData?.rows?.length ?? 0}</b></p><p>Metric: <b className="text-white/75">{healthToolData?.selected?.item || "—"}</b></p><p>Year: <b className="text-white/75">{healthToolData?.selected?.year || "—"}</b></p>{selectedCountry ? <p>{selectedCountry.name}: <b className="text-white/75">{healthToolData?.rows?.find((row: any) => row.iso2?.toUpperCase() === selectedCountry.iso2)?.value ?? "No matched row"}</b></p> : null}</div> : healthTool === "fungal" ? <div className="space-y-2 text-[9px] leading-4 text-slate-400"><p><b className="text-white/75">{healthToolData?.disease?.title || "Fungal burden"}</b></p><p>{healthToolData?.publicationYear || 2017} publication · modeled historical estimate</p>{selectedCountry ? <p>{selectedCountry.name}: <b className="text-white/75">{healthToolData?.rows?.find((row: any) => row.iso2?.toUpperCase() === selectedCountry.iso2)?.ratePer100k ?? "No published estimate"}</b></p> : null}{healthToolData?.limitation ? <p className="text-slate-500">{healthToolData.limitation}</p> : null}</div> : healthTool === "yellowbook" ? <div className="space-y-2 text-[9px] leading-4 text-slate-400"><p>CDC Yellow Book {healthToolData?.source?.edition || 2026}</p><p>Indexed disease chapters: <b className="text-white/75">{healthToolData?.source?.diseaseChapters ?? healthToolData?.profiles?.length ?? 0}</b></p><p>Structured assets: <b className="text-white/75">{healthToolData?.source?.structuredAssets ?? "—"}</b></p></div> : <div className="space-y-2 text-[9px] leading-4 text-slate-400"><p>Historical country rows: <b className="text-white/75">{healthToolData?.rows?.length ?? 0}</b></p><p>Diseases indexed: <b className="text-white/75">{healthToolData?.diseases?.length ?? 0}</b></p><p>{healthToolData?.methodology?.limitation || "Historical occurrence context; occurrence is not severity."}</p></div>}
+      {healthToolLoading ? <p className="inline-flex items-center gap-2 text-[9px] text-slate-400"><Loader2 size={11} className="animate-spin" />Loading source…</p> : healthToolError ? <p className="text-[9px] leading-4 text-amber-100/60">{healthToolError}</p> : healthTool === "notices" ? <div>{(healthToolData?.notices || []).slice(0, 14).map((item: any, index: number) => <IntelLine key={item.url || index} title={item.title || `Notice ${index + 1}`} meta={item.levelLabel || item.date} summary={item.summary} href={item.url} />)}</div> : healthTool === "respiratory" ? <div className="space-y-2 text-[9px] leading-4 text-slate-400"><p>Latest ARI: <b className="text-white/75">{healthToolData?.ari?.latestDate || "—"}</b></p><p>Latest Rt model: <b className="text-white/75">{healthToolData?.rt?.latestModelRun || healthToolData?.rt?.latestDate || "—"}</b></p><p>Latest ED feed: <b className="text-white/75">{healthToolData?.ed?.latestDate || "—"}</b></p><p>Latest wastewater: <b className="text-white/75">{healthToolData?.wastewater?.latestDate || "—"}</b></p>{healthToolData?.limitation ? <p className="text-slate-500">{healthToolData.limitation}</p> : null}</div> : healthTool === "immunization" ? <div className="space-y-2 text-[9px] leading-4 text-slate-400"><p>Dataset: <b className="text-white/75">{healthToolData?.dataset || "coverage"}</b></p><p>Rows: <b className="text-white/75">{healthToolData?.rows?.length ?? 0}</b></p><p>Metric: <b className="text-white/75">{healthToolData?.selected?.item || "—"}</b></p><p>Year: <b className="text-white/75">{healthToolData?.selected?.year || "—"}</b></p>{selectedCountry ? <p>{selectedCountry.name}: <b className="text-white/75">{healthToolData?.rows?.find((row: any) => row.iso2?.toUpperCase() === selectedCountry.iso2)?.value ?? "No matched row"}</b></p> : null}</div> : healthTool === "yellowbook" ? <div className="space-y-2 text-[9px] leading-4 text-slate-400"><p>CDC Yellow Book {healthToolData?.source?.edition || 2026}</p><p>Indexed disease chapters: <b className="text-white/75">{healthToolData?.source?.diseaseChapters ?? healthToolData?.profiles?.length ?? 0}</b></p><p>Structured assets: <b className="text-white/75">{healthToolData?.source?.structuredAssets ?? "—"}</b></p></div> : <div className="space-y-2 text-[9px] leading-4 text-slate-400"><p>Historical country rows: <b className="text-white/75">{healthToolData?.rows?.length ?? 0}</b></p><p>Diseases indexed: <b className="text-white/75">{healthToolData?.diseases?.length ?? 0}</b></p><p>{healthToolData?.methodology?.limitation || "Historical occurrence context; occurrence is not severity."}</p></div>}
     </Section>}
   </div>;
 
@@ -484,6 +489,7 @@ export default function ReviewerAorFactorsV3Page() {
     <section className="fixed inset-y-0 left-0 right-0 overflow-hidden bg-[#01050a] lg:left-[210px]" aria-label="AOR Factors immersive map workspace">
       <div data-testid="aor-map-shell" className="absolute inset-0 overflow-hidden bg-[#01050a]">
         <div ref={mapHostRef} className="aor-map-tiler-host absolute inset-0" aria-label="Interactive MapTiler AOR intelligence map" />
+        <AorOrbOverlay />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_35%,rgba(1,5,10,.08)_70%,rgba(1,5,10,.45)_100%)]" />
         {mapStatus !== "ready" ? <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-[#01050a]/68 text-center backdrop-blur-sm">{mapStatus === "loading" ? <div><Loader2 className="mx-auto animate-spin text-cyan-100/55" size={22} /><p className="mt-3 text-[10px] text-slate-400">Rendering immersive AOR globe…</p></div> : <div className="max-w-lg px-8"><AlertTriangle className="mx-auto text-amber-200/65" size={22} /><p className="mt-3 text-[11px] font-black text-amber-50">Map rendering failed</p><p className="mt-2 text-[9px] leading-4 text-amber-100/55">{mapError}</p></div>}</div> : null}
         <div className="pointer-events-none absolute bottom-4 right-4 z-30 rounded-full border border-white/[.08] bg-black/25 px-3 py-1.5 text-[8px] font-bold text-white/45 shadow-[inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-xl"><span className="mr-3"><i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-violet-300" />GDACS</span><span><i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-cyan-300" />USGS</span></div>

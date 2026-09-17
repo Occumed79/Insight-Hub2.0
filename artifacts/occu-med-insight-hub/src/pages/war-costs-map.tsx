@@ -4,7 +4,8 @@ import { Sidebar } from "@/components/insight/Sidebar";
 import { getWarCostsDataset, type WarCostsDatasetResponse } from "@/data/warCostsApi";
 import { WarCostsArcGisMap } from "./war-costs-arcgis-map";
 import { WarCostsMapTilerGlobe } from "./war-costs-maptiler-globe";
-import { wcRows } from "./war-costs-utils";
+import { resolveDefenseMapInputs, warCostsSourceCoordinate, type ResolvedMapInputs } from "./war-costs-geospatial";
+import { wcRows, type WarCostsRow } from "./war-costs-utils";
 
 const MAP_DATASETS = ["base-index.json", "conflicts.json", "drone-strikes.json", "operations.json", "overseas-presence.json"] as const;
 
@@ -29,9 +30,14 @@ async function getDefensePresence(force = false): Promise<DefensePresence> {
   return payload;
 }
 
+function directOnly(rows: WarCostsRow[]): WarCostsRow[] {
+  return rows.filter((row) => Boolean(warCostsSourceCoordinate(row)));
+}
+
 export default function WarCostsMap() {
   const [datasets, setDatasets] = useState<Partial<Record<DatasetName, WarCostsDatasetResponse>>>({});
   const [defensePresence, setDefensePresence] = useState<DefensePresence | null>(null);
+  const [resolvedInputs, setResolvedInputs] = useState<ResolvedMapInputs | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -55,8 +61,40 @@ export default function WarCostsMap() {
       for (const [name, response] of entries) if (response) next[name] = response;
       setDatasets(next);
       setDefensePresence(defense);
+
+      const raw = {
+        bases: wcRows(next["base-index.json"]?.data),
+        personnel: (defense.current || []) as WarCostsRow[],
+        conflicts: wcRows(next["conflicts.json"]?.data),
+        strikes: wcRows(next["drone-strikes.json"]?.data),
+        operations: wcRows(next["operations.json"]?.data),
+        deployments: wcRows(next["overseas-presence.json"]?.data),
+      };
+
+      let geospatialWarning = "";
+      try {
+        const resolved = await resolveDefenseMapInputs({ ...raw, force });
+        setResolvedInputs(resolved);
+        if (resolved.unresolved) geospatialWarning = `${resolved.unresolved.toLocaleString()} map records were left unplaced because no validated coordinate was available.`;
+      } catch (reason) {
+        setResolvedInputs({
+          bases: directOnly(raw.bases),
+          personnel: directOnly(raw.personnel),
+          conflicts: directOnly(raw.conflicts),
+          strikes: directOnly(raw.strikes),
+          operations: directOnly(raw.operations),
+          deployments: directOnly(raw.deployments),
+          unresolved: raw.bases.length + raw.personnel.length + raw.conflicts.length + raw.strikes.length + raw.operations.length + raw.deployments.length,
+        });
+        geospatialWarning = `Validated geospatial resolution is temporarily unavailable; only source-coordinate records are plotted. ${reason instanceof Error ? reason.message : ""}`.trim();
+      }
+
       const missing = entries.filter(([, response]) => !response).map(([name]) => name);
-      const warnings = [missing.length ? `Some approved War Map feeds are temporarily unavailable: ${missing.join(", ")}.` : "", ...(defense.warnings || [])].filter(Boolean);
+      const warnings = [
+        missing.length ? `Some approved War Map feeds are temporarily unavailable: ${missing.join(", ")}.` : "",
+        ...(defense.warnings || []),
+        geospatialWarning,
+      ].filter(Boolean);
       if (warnings.length) setError(warnings.join(" "));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Defense intelligence context could not load.");
@@ -74,13 +112,13 @@ export default function WarCostsMap() {
   const navalCount = wcRows(datasets["operations.json"]?.data).length + wcRows(datasets["overseas-presence.json"]?.data).length;
 
   const mapProps = {
-    bases: wcRows(datasets["base-index.json"]?.data),
-    personnel: defensePresence?.current || [],
+    bases: resolvedInputs?.bases || [],
+    personnel: resolvedInputs?.personnel || [],
     construction: defensePresence?.construction || [],
-    conflicts: wcRows(datasets["conflicts.json"]?.data),
-    strikes: wcRows(datasets["drone-strikes.json"]?.data),
-    operations: wcRows(datasets["operations.json"]?.data),
-    deployments: wcRows(datasets["overseas-presence.json"]?.data),
+    conflicts: resolvedInputs?.conflicts || [],
+    strikes: resolvedInputs?.strikes || [],
+    operations: resolvedInputs?.operations || [],
+    deployments: resolvedInputs?.deployments || [],
     personnelYear: defensePresence?.latestYear ?? null,
   };
 
