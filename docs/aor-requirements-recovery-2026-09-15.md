@@ -45,7 +45,6 @@ The current globe work must preserve all valid AOR intelligence while changing o
 | CDC Yellow Book 2026 | IMPLEMENTED + VERIFIED | Structured chapters, source assets, timing/operational rules, source boundaries. |
 | CDC respiratory surveillance | IMPLEMENTED + VERIFIED | ARI, Rt/trend, laboratory positivity, wastewater, and NSSP ED visit trajectories remain independent signals. |
 | WHO immunization program data | IMPLEMENTED + VERIFIED | Coverage/incidence/cases/introduction/program/WUENIC remain distinct; no synthetic coverage score. |
-| Historical fungal burden | IMPLEMENTED + VERIFIED | Historical/model-based estimates; must never drive current-outbreak severity. |
 | AOR global watch / operational priority brief | IMPLEMENTED + VERIFIED | Preserve global-first operational context and source health. |
 
 ### Explicitly removed or replaced sources
