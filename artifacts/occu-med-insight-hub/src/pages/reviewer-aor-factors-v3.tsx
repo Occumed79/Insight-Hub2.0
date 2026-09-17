@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { AorGlassSidebar, type AorSidebarTab } from "@/components/insight/AorGlassSidebar";
+import { AorOrbOverlay } from "@/components/insight/AorOrbOverlay";
 import { AOR_REGISTRY_REVIEWED_AT, COMMANDS, COMMAND_BY_COUNTRY, type CommandId } from "@/components/insight/aor-command-registry";
 
 declare global {
@@ -370,17 +371,22 @@ export default function ReviewerAorFactorsV3Page() {
     if (!query) return;
     setCountrySearchLoading(true); setError("");
     try {
-      if (!mapKeyRef.current) throw new Error("MapTiler is not ready yet.");
-      const response = await fetch(`https://api.maptiler.com/geocoding/${encodeURIComponent(query)}.json?key=${encodeURIComponent(mapKeyRef.current)}&types=country&limit=1`, { headers: { Accept: "application/json" } });
-      if (!response.ok) throw new Error(`MapTiler geocoding returned ${response.status}.`);
+      const response = await fetch("/api/geospatial/resolve", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ query, kind: "country" }),
+        cache: "no-store",
+      });
       const payload = await response.json();
-      const feature = payload?.features?.[0];
-      if (!feature) throw new Error(`No country match found for “${query}”.`);
-      const name = String(feature.text || feature.place_name || query);
-      const iso2 = String(feature.properties?.short_code || feature.properties?.country_code || feature.id?.split(".")?.pop() || "").replace(/^country\./, "").toUpperCase();
-      if (!/^[A-Z]{2}$/.test(iso2)) throw new Error("MapTiler did not return an ISO2 country code.");
-      const bbox = Array.isArray(feature.bbox) && feature.bbox.length === 4 ? feature.bbox.map(Number) as [number, number, number, number] : undefined;
-      const center = Array.isArray(feature.center) && feature.center.length >= 2 ? [Number(feature.center[0]), Number(feature.center[1])] as [number, number] : undefined;
+      if (!response.ok) throw new Error(payload?.error || `Geospatial resolver returned ${response.status}.`);
+      const resolution = payload?.resolution;
+      if (resolution?.status !== "resolved" || !resolution?.coordinates) throw new Error(`No country match found for “${query}”.`);
+      const name = String(resolution.country || resolution.matchedAddress || query);
+      const iso2 = String(resolution.iso2 || "").toUpperCase();
+      if (!/^[A-Z]{2}$/.test(iso2)) throw new Error("The resolver did not return an ISO2 country code.");
+      const bbox = Array.isArray(resolution.bbox) && resolution.bbox.length === 4 ? resolution.bbox.map(Number) as [number, number, number, number] : undefined;
+      const lat = Number(resolution.coordinates.lat); const lon = Number(resolution.coordinates.lon);
+      const center = Number.isFinite(lat) && Number.isFinite(lon) ? [lon, lat] as [number, number] : undefined;
       setSelectedCountry({ name, iso2, bbox, center });
       setCountryQuery(name);
       const mapped = COMMAND_BY_COUNTRY.get(iso2); if (mapped) setCommand(mapped.id);
@@ -484,6 +490,7 @@ export default function ReviewerAorFactorsV3Page() {
     <section className="fixed inset-y-0 left-0 right-0 overflow-hidden bg-[#01050a] lg:left-[210px]" aria-label="AOR Factors immersive map workspace">
       <div data-testid="aor-map-shell" className="absolute inset-0 overflow-hidden bg-[#01050a]">
         <div ref={mapHostRef} className="aor-map-tiler-host absolute inset-0" aria-label="Interactive MapTiler AOR intelligence map" />
+        <AorOrbOverlay />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_35%,rgba(1,5,10,.08)_70%,rgba(1,5,10,.45)_100%)]" />
         {mapStatus !== "ready" ? <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-[#01050a]/68 text-center backdrop-blur-sm">{mapStatus === "loading" ? <div><Loader2 className="mx-auto animate-spin text-cyan-100/55" size={22} /><p className="mt-3 text-[10px] text-slate-400">Rendering immersive AOR globe…</p></div> : <div className="max-w-lg px-8"><AlertTriangle className="mx-auto text-amber-200/65" size={22} /><p className="mt-3 text-[11px] font-black text-amber-50">Map rendering failed</p><p className="mt-2 text-[9px] leading-4 text-amber-100/55">{mapError}</p></div>}</div> : null}
         <div className="pointer-events-none absolute bottom-4 right-4 z-30 rounded-full border border-white/[.08] bg-black/25 px-3 py-1.5 text-[8px] font-bold text-white/45 shadow-[inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-xl"><span className="mr-3"><i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-violet-300" />GDACS</span><span><i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-cyan-300" />USGS</span></div>
