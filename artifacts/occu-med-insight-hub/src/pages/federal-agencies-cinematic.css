@@ -1,4 +1,4 @@
-.fa-cinematic {
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&display=swap");\n@import url("https://api.fontshare.com/v2/css?f[]=general-sans@300,400,500,600&display=swap");\n\n.fa-cinematic {
   min-height: 100vh;
   background: #000;
   color: #fff;
