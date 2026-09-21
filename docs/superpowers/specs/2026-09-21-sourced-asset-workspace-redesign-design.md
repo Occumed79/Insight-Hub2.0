@@ -274,6 +274,45 @@ Before either is merged:
 3. Preserve the useful semantic/data wiring from the PR only where it does not dictate unsourced visual design.
 4. Supersede or update those PRs rather than treating their current presentation as final.
 
+## Per-tab execution contract
+
+Before changing a workspace, implementation must lock four things from the existing code and the chosen source:
+
+1. **Current app behavior to preserve**
+   - routes and deep links
+   - search/filter/sort
+   - record selection and drill-down
+   - refresh/reload/feed actions
+   - saved state
+   - official-source/evidence links
+   - loading/error/empty/stale/refreshed states
+   - any compare/export/map/calculator behavior already present
+
+2. **Exact sourced visual mechanics**
+   - name the exact source site/template/component
+   - name the exact mechanics being reused (for example: full-screen scene, camera transition, split-band reveal, particle field, object focus, timeline transition)
+   - do not infer or add visual structures that are not in the source
+
+3. **Subject-specific content/assets**
+   - identify the real domain content that replaces the source site's subject matter
+   - use domain-native imagery/logos/maps/diagrams/scientific assets where appropriate
+   - never substitute generic decorative imagery when real subject assets exist
+
+4. **Operational interaction map**
+   - define how the user performs the existing tasks inside the new visual system
+   - every preserved function must have an explicit control, gesture, selection target, or navigation path
+   - cinematic motion cannot hide, delay, or remove normal app operations
+
+A workspace must not be implemented from a visual source alone. The source is only one input; the existing application behavior and domain content are equally binding.
+
+### Federal Agencies example
+
+For Federal Agencies, Edolus may contribute full-screen scene behavior, camera movement, reveal choreography, spatial transitions, particle/data-flow language, and sparse overlay treatment. It does **not** replace the product workflow.
+
+The redesigned Federal Agencies workspace must still support real agency exploration and refreshable intelligence. It should use real agency identity/content where appropriate (agency names, logos/marks when permitted, facility/location photography, official-source imagery, maps, metadata, hierarchy/relationships, current feed items, source links) and preserve search, filtering, selection, drill-down, refresh, navigation, and state.
+
+Do not turn Federal Agencies into an Edolus-themed brochure.
+
 ## Implementation boundaries
 
 - No GitHub Actions/workflows for this redesign.
