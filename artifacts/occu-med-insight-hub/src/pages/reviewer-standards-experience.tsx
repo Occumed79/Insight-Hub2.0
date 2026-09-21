@@ -1,6 +1,5 @@
 import ReviewerStandardsIntelligence from "./reviewer-standards-intelligence";
 import "./reviewer-standards-experience.css";
-import "../styles/glass-recovery.css";
 
 export default function ReviewerStandardsExperience() {
   return (
