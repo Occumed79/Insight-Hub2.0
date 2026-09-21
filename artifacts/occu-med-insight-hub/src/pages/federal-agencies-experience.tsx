@@ -1,6 +1,5 @@
 import FederalAgencies from "./federal-agencies-v2";
 import "./federal-agencies-experience.css";
-import "../styles/glass-recovery.css";
 
 export default function FederalAgenciesExperience() {
   return (
