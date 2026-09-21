@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Building2,
   CalendarClock,
@@ -288,7 +288,7 @@ export default function FederalAgenciesCinematic() {
   );
 }
 
-function Telemetry({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
+function Telemetry({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
   return <div className="fa-telemetry-item">{icon}<span>{label}</span><strong>{value.toLocaleString()}</strong></div>;
 }
 
