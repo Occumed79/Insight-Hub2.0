@@ -4,7 +4,7 @@ import "../styles/glass-recovery.css";
 
 export default function LegalInjuryExperience() {
   return (
-    <div className="legal-injury-experience" data-workspace="legal-injury">
+    <div className="legal-injury-experience aurora-bg" data-workspace="legal-injury">
       <div className="legal-case-field" aria-hidden="true">
         <span className="legal-case-rule legal-case-rule-a" />
         <span className="legal-case-rule legal-case-rule-b" />
