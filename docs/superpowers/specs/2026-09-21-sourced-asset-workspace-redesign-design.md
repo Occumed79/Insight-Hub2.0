@@ -14,7 +14,8 @@ For every changed visual or interaction:
 
 - It must originate from a real existing template, asset, component, diagram template, or open-source visual package.
 - The source must be recorded before implementation: provider, title/name, URL or repository, license/usage terms when available, and which Insight Hub surface it is being adapted into.
-- Allowed source families for workspace composition: Figma, Magic Patterns, Mermaid Chart, Lucid, and Miro.
+- Allowed source families for workspace composition: Figma, Magic Patterns, FLOWSTACK UI, Mobbin, Themely Design+Style Generator, Lucid, and Miro.
+- Mermaid Chart is explicitly banned from this redesign.
 - Existing external visualization packages may be used for special-purpose scientific/medical rendering when they are the actual source asset rather than a hand-built substitute.
 - Tailoring is allowed: labels, data bindings, filters, field names, routes, copy, sizing, approved palette/token mapping, and integration behavior.
 - Reinvention is forbidden.
@@ -25,7 +26,8 @@ For every changed visual or interaction:
 - No AI-prompted Magic Patterns design generation from scratch.
 - No original Figma layout authored from scratch.
 - No hand-authored “futuristic” cards, shells, hero sections, shaders, gradients, HUDs, glows, or decorative geometry.
-- No hand-authored Mermaid/Lucid/Miro diagram style created from an empty canvas; start from an existing template/example.
+- No hand-authored Lucid/Miro diagram style created from an empty canvas; start from an existing template/example.
+- No Mermaid Chart output anywhere in this redesign.
 - No custom molecule drawing.
 - No custom anatomy/hologram drawing or procedural stand-in.
 - No copy-paste universal dashboard shell across unrelated tools.
@@ -105,26 +107,34 @@ Use existing template/community designs or an existing imported design-system ar
 
 Do not call blank `create_design` generation to invent a replacement screen. If a Magic Patterns source is selected, it must be an existing design/template that can be forked or read, then tailored to the Insight Hub content.
 
+### FLOWSTACK UI
+
+Use exact published FLOWSTACK packages/components rather than recreating their appearance. Primary package:
+- `@flowstack-ui/brick` — MIT-licensed finished React components
+- Source: https://github.com/flowstack-ui/brick
+- npm: https://www.npmjs.com/package/@flowstack-ui/brick
+
+Preferred real components include `DataGrid`, `TreeGrid`, `Sidebar`, `AppBar`, `Toolbar`, `Tabs`, `Surface`, `Drawer`, `Table`, `DataList`, `Combobox`, `MultiSelect`, and related primitives. Preserve package-owned styling instead of cloning it manually.
+
+### Mobbin
+
+Mobbin may be used only for existing product-screen/flow references. Do not recreate a Mobbin screen from memory or metadata alone. If the connected Mobbin account cannot access results, do not substitute guessed equivalents.
+
+### Themely Design+Style Generator
+
+Because this redesign is source-only, Themely may be used only to preview or validate an already-sourced token/theme set. Do not ask Themely to invent a new theme, palette, layout, or visual language.
+
 ### Miro
 
-Use existing Miro template-library structures for network, relationship, evidence-flow, or process surfaces. Candidate collections include:
-- Dashboard Wireframes
-- Network Diagram templates
-- ERD Healthcare Management System
-- other relevant built-in/community templates surfaced from Miro’s template library
+Miro is not a primary page-design source for this project. Use only an existing high-fidelity Miro template when the subject is inherently spatial/network/process-oriented and the result does not look diagrammatically primitive. If it looks like a conventional flowchart/whiteboard, reject it rather than integrating it.
 
 ### Lucid
 
-Use existing Lucid templates for relationship, hierarchy, system, evidence, or status surfaces. Candidate template families include:
-- Network diagram example
-- Network config and status
-- Health — Overview
-- Health — Disease Surveillance
-- Health — Utilization Management
+Lucid is not a primary page-design source for this project. Use only an existing high-fidelity Lucid template for a relationship/hierarchy/system surface when its actual rendered result meets the visual bar. Conventional box-and-arrow diagram styling is rejected.
 
-### Mermaid Chart
+### Primitive-result stop rule
 
-Use existing Mermaid Chart diagram examples/templates and supported diagram styles where a workspace genuinely benefits from a relationship/flow view. Do not create a decorative flowchart merely to use Mermaid.
+If any sourced option reads as a conventional flowchart, wireframe, default admin dashboard, classroom diagram, basic card grid, generic neon HUD, or otherwise visually primitive, stop using that source immediately and move to a stronger existing asset. Do not 'improve' a weak source by inventing extra decoration.
 
 ## Workspace mapping rule
 
