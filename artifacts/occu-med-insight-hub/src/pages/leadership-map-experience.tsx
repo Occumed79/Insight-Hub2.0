@@ -3,7 +3,7 @@ import "./leadership-map-experience.css";
 
 export default function LeadershipMapExperience() {
   return (
-    <div className="leadership-map-experience" data-workspace="organizational-chart">
+    <div className="leadership-map-experience aurora-bg" data-workspace="organizational-chart">
       <div className="leadership-topology-field" aria-hidden="true">
         <span className="leadership-orbit leadership-orbit-one" />
         <span className="leadership-orbit leadership-orbit-two" />
