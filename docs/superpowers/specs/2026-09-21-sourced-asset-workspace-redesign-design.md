@@ -170,11 +170,13 @@ These are the visual/interaction references for the redesign. They are used as s
 
 ### Edolus — approved source scope
 
-Edolus is approved as a primary cinematic source. Its non-brand visual and interaction system may be adapted broadly across relevant Insight Hub workspaces, including scene composition, full-screen spatial layout, camera choreography, particle/data-flow treatment, shaders/effects, transition behavior, scroll progression, typography hierarchy, spacing, layering, navigation behavior, and motion timing.
+Edolus is an approved cinematic source for selected workspaces only. It is not a universal shell and must not be applied to every tab. Use it where its full-screen spatial/scene mechanics genuinely fit the workflow.
 
-Do not carry over Edolus's AI-specific subject matter, branded copy, logos, proprietary imagery, photography, rendered picture assets, or other identifiable media. Replace those with Insight Hub's real occupational, federal, medical, legal, standards, and defense data and with licensed/open scientific or data visual assets where needed.
+Its non-brand visual and interaction system may be adapted for those selected workspaces, including scene composition, full-screen spatial layout, camera choreography, particle/data-flow treatment, shaders/effects, transition behavior, scroll progression, typography hierarchy, spacing, layering, navigation behavior, and motion timing.
 
-The goal is to preserve the actual cinematic interaction grammar and visual mechanics of the sourced experience rather than inventing an approximation.
+Do not carry over Edolus's AI-specific subject matter, branded copy, logos, proprietary imagery, photography, rendered picture assets, or other identifiable media. Replace those with subject-specific Insight Hub media and data. For example, Federal Agencies should use real agency logos, agency/facility/location photography where licensing permits, seals/emblems only when lawful and appropriate, maps, official-source imagery, agency metadata, live feeds, and related federal content rather than abstract generic replacements.
+
+The goal is to preserve the actual cinematic interaction grammar and visual mechanics of the sourced experience where appropriate, while making each workspace materially specific to its subject and workflow.
 
 ### Tab-to-reference map
 
@@ -228,6 +230,24 @@ If a page has no satisfactory sourced asset, stop that page. Do not fill the gap
 The user’s requested quality target is futuristic, spatial, cinematic, data-rich, and substantially beyond generic SaaS cards. That target is a selection criterion for choosing existing assets, not permission to invent a visual style.
 
 Across the app, coherence comes from preserving the existing Insight Hub navigation, approved palette/tokens where compatible, data models, and behavior. The page body may differ radically when the sourced template demands it.
+
+## Web-app interaction requirement
+
+Insight Hub is an operational web application, not a passive cinematic website. Every redesigned workspace must remain usable as a working tool.
+
+The cinematic source controls presentation and interaction grammar; it must not remove or obscure application behavior. Users must still be able to:
+- navigate between records, entities, agencies, employers, awards, standards, filings, cases, calculators, and other live objects
+- search, filter, sort, drill down, select, compare, and return without losing context
+- trigger refresh/reload actions for feeds or source-backed datasets when the existing workspace supports them
+- see loading, empty, stale, error, and refreshed states clearly
+- open official-source links and evidence
+- preserve selected state, saved state, and route/deep-link behavior where supported
+- operate controls with keyboard/mouse/touch as appropriate
+- move through dense information without being forced into a linear marketing-style scroll story
+
+Cinematic scenes may act as navigation, filtering, selection, focus, comparison, or context surfaces, but they cannot turn a functional workspace into a non-interactive showcase.
+
+For subject-driven tabs, use subject-specific media and identity assets rather than generic imagery. Federal Agencies, for example, should incorporate real agency names, logos/marks where permitted, photography or facility imagery where appropriate, official-source metadata, locations, organizational relationships, current/feed content, and navigable records. The visual system can be cinematic while the information remains operational and refreshable.
 
 ## Data and behavior preservation
 
