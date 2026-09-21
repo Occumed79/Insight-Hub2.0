@@ -61,14 +61,17 @@
 .fa-playcanvas {
   z-index: 1;
   display: block;
+  filter:
+    drop-shadow(0 0 4px rgba(150,255,224,.22))
+    drop-shadow(0 0 14px rgba(118,170,255,.12));
 }
 
 .fa-scene-shade {
   z-index: 2;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(0,0,0,.9) 0, rgba(0,0,0,.42) 19%, rgba(0,0,0,.08) 52%, rgba(0,0,0,.43) 100%),
-    linear-gradient(180deg, rgba(0,0,0,.52) 0, transparent 24%, transparent 65%, rgba(0,0,0,.66) 100%);
+    linear-gradient(90deg, rgba(0,0,0,.74) 0, rgba(0,0,0,.24) 18%, rgba(0,0,0,.02) 54%, rgba(0,0,0,.28) 100%),
+    linear-gradient(180deg, rgba(0,0,0,.34) 0, transparent 24%, transparent 67%, rgba(0,0,0,.5) 100%);
 }
 
 .fa-curtain {
@@ -106,9 +109,9 @@
 .fa-scene-copy {
   position: absolute;
   z-index: 4;
-  left: clamp(252px, 23vw, 360px);
-  top: 13vh;
-  width: min(780px, 52vw);
+  left: clamp(214px, 20vw, 292px);
+  top: 16vh;
+  width: min(560px, 42vw);
   animation: fa-scene-copy-in 1300ms cubic-bezier(.16,1,.3,1) 540ms both;
   pointer-events: none;
 }
@@ -159,27 +162,19 @@
 }
 
 .fa-scene h1 {
-  max-width: 850px;
-  font: 300 clamp(38px, 5vw, 78px)/.98 "General Sans", Inter, system-ui, sans-serif;
-  letter-spacing: .005em;
+  max-width: 560px;
+  font: 400 clamp(24px, 2.65vw, 42px)/1.03 "General Sans", Inter, system-ui, sans-serif;
+  letter-spacing: -.015em;
   text-transform: uppercase;
   text-wrap: balance;
 }
 
-.fa-scene h2 {
-  margin-top: 12px;
-  color: rgba(255,255,255,.42);
-  font: 400 clamp(15px, 1.5vw, 22px)/1.1 "General Sans", Inter, system-ui, sans-serif;
-  text-transform: uppercase;
-  letter-spacing: .18em;
-}
-
 .fa-scene-subtitle {
-  margin-top: 20px !important;
-  max-width: 620px;
-  color: rgba(255,255,255,.45);
-  font: 400 10px/1.7 "JetBrains Mono", ui-monospace, monospace;
-  letter-spacing: .08em;
+  margin-top: 14px !important;
+  max-width: 560px;
+  color: rgba(255,255,255,.36);
+  font: 500 8px/1.65 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: .1em;
   text-transform: uppercase;
 }
 
@@ -283,14 +278,14 @@
   position: relative;
   z-index: 6;
   display: grid;
-  grid-template-columns: 218px minmax(0,1fr) 0;
+  grid-template-columns: 168px minmax(0,1fr) 0;
   min-height: 100vh;
   pointer-events: none;
   transition: grid-template-columns 320ms cubic-bezier(.4,0,.2,1);
 }
 
 .fa-workspace:has(.fa-inspector.is-open) {
-  grid-template-columns: 218px minmax(0,1fr) 360px;
+  grid-template-columns: 168px minmax(0,1fr) 360px;
 }
 
 .fa-directory,
@@ -304,9 +299,9 @@
   z-index: 7;
   height: 100vh;
   overflow: hidden;
-  border-right: 1px solid rgba(255,255,255,.12);
-  background: rgba(0,0,0,.56);
-  backdrop-filter: blur(22px) saturate(.86);
+  border-right: 1px solid rgba(255,255,255,.1);
+  background: rgba(0,0,0,.43);
+  backdrop-filter: blur(18px) saturate(.84);
 }
 
 .fa-search {
@@ -356,7 +351,7 @@
 
 .fa-agency-list button {
   width: 100%;
-  min-height: 49px;
+  min-height: 43px;
   display: grid;
   grid-template-columns: 38px 1fr;
   align-items: center;
@@ -506,11 +501,12 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: min(41vh, 430px);
+  height: min(49vh, 520px);
   overflow: auto;
-  border-top: 1px solid rgba(255,255,255,.14);
-  background: rgba(0,0,0,.64);
-  backdrop-filter: blur(18px) saturate(.86);
+  border-top: 1px solid rgba(255,255,255,.13);
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.38) 0, rgba(0,0,0,.68) 22%, rgba(0,0,0,.83) 100%);
+  backdrop-filter: blur(15px) saturate(.84);
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,.18) transparent;
 }
@@ -565,7 +561,7 @@
 }
 
 .fa-record-row {
-  grid-template-columns: 106px minmax(250px,1fr) minmax(120px,.4fr) 116px;
+  grid-template-columns: 94px minmax(250px,1fr) minmax(120px,.42fr) 104px;
   cursor: pointer;
 }
 
@@ -954,4 +950,26 @@
 
   .fa-curtain-top { transform: translateY(-100%); }
   .fa-curtain-bottom { transform: translateY(100%); }
+}
+
+
+.fa-stream-label {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  padding: 0 14px;
+  background: rgba(255,255,255,.012);
+  color: rgba(255,255,255,.34);
+  font: 500 8px/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.fa-stream-label strong {
+  color: rgba(255,255,255,.66);
+  font-weight: 500;
 }
