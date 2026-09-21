@@ -3,7 +3,7 @@ import "./state-agencies-experience.css";
 
 export default function StateAgenciesExperience() {
   return (
-    <div className="state-agencies-experience" data-workspace="state-agencies">
+    <div className="state-agencies-experience aurora-bg" data-workspace="state-agencies">
       <div className="state-jurisdiction-field" aria-hidden="true">
         <span className="state-grid-line state-grid-line-a" />
         <span className="state-grid-line state-grid-line-b" />
