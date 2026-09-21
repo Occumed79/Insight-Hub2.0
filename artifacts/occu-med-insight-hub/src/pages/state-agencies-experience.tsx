@@ -1,6 +1,5 @@
 import StateAgencies from "./state-agencies-v2";
 import "./state-agencies-experience.css";
-import "../styles/glass-recovery.css";
 
 export default function StateAgenciesExperience() {
   return (
