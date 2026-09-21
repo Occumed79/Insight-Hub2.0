@@ -7,12 +7,15 @@ import "./styles/app-entry.css";
 
 class AppErrorBoundary extends Component<
   { children: ReactNode },
-  { hasError: boolean }
+  { hasError: boolean; diagnostic: string }
 > {
-  state = { hasError: false };
+  state = { hasError: false, diagnostic: "" };
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error: unknown) {
+    return {
+      hasError: true,
+      diagnostic: error instanceof Error ? error.message : String(error),
+    };
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
@@ -33,6 +36,11 @@ class AppErrorBoundary extends Component<
           <p className="mt-3 text-sm leading-6 text-cyan-50/66">
             The application hit an unexpected interface error. Reload the current view to recover.
           </p>
+          {this.state.diagnostic ? (
+            <pre data-testid="preview-render-error" className="mt-4 whitespace-pre-wrap break-words text-xs text-rose-200">
+              {this.state.diagnostic}
+            </pre>
+          ) : null}
           <button
             type="button"
             onClick={() => window.location.reload()}
