@@ -1,5 +1,6 @@
 import LeadershipMap from "./leadership-map";
 import "./leadership-map-experience.css";
+import "../styles/glass-recovery.css";
 
 export default function LeadershipMapExperience() {
   return (
