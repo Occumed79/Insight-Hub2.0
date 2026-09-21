@@ -1,8 +1,23 @@
-/* Glass recovery pass
-   Restores the colorful frosted-glass language used by the Competitors workspace
-   without changing route behavior or information architecture. */
+/* 
+ * Glass recovery copied from the existing Competitors + DBA Data Hub visual system.
+ * No new visual language is invented here.
+ *
+ * Source 1 — Competitors WorkspaceShell:
+ *   background field:
+ *   radial 13/148/136 .32 @ 18% 18%
+ *   radial 14/165/233 .25 @ 52% 48%
+ *   radial 79/70/229 .24 @ 88% 28%
+ *   #020817 -> #06243b -> #071333 -> #0b0824
+ *
+ * Source 2 — DBA / application.css:
+ *   aurora field, glass-card border/background/shadow/blur.
+ *
+ * Source 3 — Competitors Panel:
+ *   border-cyan-100/16, #04101d/82, 24px/70px shadow,
+ *   cyan selected controls, white/[.025] inactive controls.
+ */
 
-:is(
+:where(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -17,59 +32,21 @@
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
 ) {
-  --glass-a: 13, 148, 136;
-  --glass-b: 14, 165, 233;
-  --glass-c: 79, 70, 229;
   position: relative;
   min-height: 100vh;
-  isolation: isolate;
-  overflow-x: hidden;
+  overflow: hidden;
+  color: #fff;
+
+  /* Exact Competitors WorkspaceShell field. */
   background:
-    radial-gradient(circle at 15% 15%, rgba(var(--glass-a), .34), transparent 31rem),
-    radial-gradient(circle at 58% 42%, rgba(var(--glass-b), .23), transparent 37rem),
-    radial-gradient(circle at 90% 20%, rgba(var(--glass-c), .27), transparent 34rem),
-    linear-gradient(145deg, #020817 5%, #06243b 44%, #071333 70%, #0b0824 100%) !important;
+    radial-gradient(circle at 18% 18%, rgba(13,148,136,.32), transparent 34%),
+    radial-gradient(circle at 52% 48%, rgba(14,165,233,.25), transparent 40%),
+    radial-gradient(circle at 88% 28%, rgba(79,70,229,.24), transparent 34%),
+    linear-gradient(145deg,#020817 8%,#06243b 46%,#071333 70%,#0b0824) !important;
 }
 
-[data-workspace="drug-checker"],
-[data-workspace="legal-injury"] {
-  --glass-a: 34, 211, 238;
-  --glass-b: 124, 58, 237;
-  --glass-c: 99, 102, 241;
-}
-
-[data-workspace="clinical-calculators"],
-[data-workspace="industry-impact"],
-[data-workspace="occupational-calculators"] {
-  --glass-a: 16, 185, 129;
-  --glass-b: 14, 165, 233;
-  --glass-c: 59, 130, 246;
-}
-
-[data-workspace="standards-intelligence"],
-[data-workspace="state-agencies"] {
-  --glass-a: 20, 184, 166;
-  --glass-b: 56, 189, 248;
-  --glass-c: 99, 102, 241;
-}
-
-[data-workspace="federal-agencies"],
-[data-workspace="federal-awards"],
-[data-workspace="defense-overview"] {
-  --glass-a: 8, 145, 178;
-  --glass-b: 59, 130, 246;
-  --glass-c: 99, 102, 241;
-}
-
-[data-workspace="job-intelligence"],
-[data-workspace="organizational-chart"],
-[data-workspace="sec-filings"] {
-  --glass-a: 6, 182, 212;
-  --glass-b: 14, 165, 233;
-  --glass-c: 139, 92, 246;
-}
-
-:is(
+/* Exact DBA aurora light field layered above the Competitors base. */
+:where(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -86,15 +63,72 @@
 )::before {
   content: "";
   position: fixed;
-  inset: 0;
+  inset: -18% -12%;
   z-index: 0;
   pointer-events: none;
   background:
-    linear-gradient(118deg, rgba(255,255,255,.035), transparent 23%, transparent 71%, rgba(255,255,255,.022)),
-    radial-gradient(circle at 50% 0%, rgba(255,255,255,.055), transparent 33rem);
+    radial-gradient(ellipse at 9% 28%, rgba(20,184,166,.52), transparent 31%),
+    radial-gradient(ellipse at 84% 18%, rgba(103,232,249,.44), transparent 30%),
+    radial-gradient(ellipse at 78% 76%, rgba(52,211,153,.28), transparent 34%),
+    radial-gradient(ellipse at 12% 72%, rgba(139,92,246,.52), transparent 32%),
+    radial-gradient(ellipse at 88% 58%, rgba(109,40,217,.46), transparent 35%),
+    radial-gradient(ellipse at 48% 54%, rgba(167,139,250,.38), transparent 38%),
+    linear-gradient(112deg, transparent 7%, rgba(45,212,191,.10) 20%, rgba(94,234,212,.44) 33%, rgba(34,211,238,.18) 45%, transparent 62%),
+    linear-gradient(72deg, transparent 14%, rgba(52,211,153,.28) 35%, rgba(125,211,252,.14) 49%, transparent 68%),
+    linear-gradient(96deg, transparent 25%, rgba(167,139,250,.34) 50%, transparent 65%);
+  filter: blur(72px) saturate(1.72);
+  opacity: 1;
 }
 
-:is(
+:where(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+)::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse at 50% 42%, transparent 30%, rgba(0,0,0,.28) 82%),
+    linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.014) 1px, transparent 1px);
+  background-size: auto, 44px 44px, 44px 44px;
+  mask-image: radial-gradient(circle at center, black, transparent 72%);
+}
+
+/* Remove the later invented decorative fields. The only decorative system here is
+   the one copied from Competitors / DBA. */
+:where(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) > [aria-hidden="true"] {
+  display: none !important;
+}
+
+:where(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -113,7 +147,7 @@
   z-index: 1;
 }
 
-:is(
+:where(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -131,8 +165,9 @@
   background: transparent !important;
 }
 
-/* Neutralize the black slab treatment while preserving existing layout. */
-:is(
+/* Exact GlassCard surface from application.css.
+   Apply only inside main workspace content — never to the navigation sidebar. */
+:where(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -146,20 +181,8 @@
   [data-workspace="defense-overview"],
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
-) :is(
-  [class*="bg-[#0"],
-  [class*="bg-black"],
-  [class*="bg-slate-9"],
-  [class*="bg-zinc-9"],
-  [class*="bg-neutral-9"]
-):not(.insight-sidebar):not(.insight-mobile-nav) {
-  background-color: rgba(5, 14, 28, .57) !important;
-  backdrop-filter: blur(22px) saturate(1.18);
-  -webkit-backdrop-filter: blur(22px) saturate(1.18);
-}
-
-/* Major bordered surfaces become frosted panes rather than opaque boxes. */
-:is(
+) main :is(section, article, aside)[class*="border"],
+:where(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -173,21 +196,40 @@
   [data-workspace="defense-overview"],
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
-) :is(section, article, aside):not(.insight-sidebar)[class*="border"] {
-  border-color: rgba(165, 243, 252, .14) !important;
+) main > section > div[class*="border"][class*="bg-"],
+:where(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) main > div[class*="border"][class*="bg-"] {
+  position: relative !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(125,211,252,.22) !important;
+  border-radius: 28px !important;
   background:
-    linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.012) 38%, rgba(59,130,246,.035) 70%, rgba(124,58,237,.035)),
-    rgba(4, 14, 29, .54) !important;
+    linear-gradient(145deg, rgba(4,13,26,.94), rgba(3,10,24,.82) 48%, rgba(8,19,42,.90)) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.075),
-    0 22px 70px rgba(0,0,0,.28),
-    0 0 0 1px rgba(103,232,249,.035);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+    0 26px 72px rgba(0,0,0,.46),
+    0 0 0 1px rgba(255,255,255,.035),
+    inset 0 1px 0 rgba(255,255,255,.12),
+    inset 0 -42px 80px rgba(15,23,42,.42),
+    inset 0 0 55px rgba(45,212,191,.07) !important;
+  backdrop-filter: blur(24px) saturate(1.46) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.46) !important;
 }
 
-/* Keep dense tables / streams crisp but let the color field show through. */
-:is(
+/* Exact GlassCard highlight layer. */
+:where(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -201,11 +243,8 @@
   [data-workspace="defense-overview"],
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
-) :is(table, thead, tbody, tr) {
-  background-color: transparent !important;
-}
-
-:is(
+) main :is(section, article, aside)[class*="border"]::before,
+:where(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -219,18 +258,22 @@
   [data-workspace="defense-overview"],
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
-) :is(
-  [class*="border-white"],
-  [class*="border-slate"],
-  [class*="border-cyan"],
-  [class*="border-blue"],
-  [class*="border-violet"]
-) {
-  border-color: rgba(165, 243, 252, .13) !important;
+) main > section > div[class*="border"][class*="bg-"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+  background:
+    linear-gradient(122deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,.08) 12%, transparent 30%),
+    radial-gradient(circle at 18% 0%, rgba(125,211,252,.18), transparent 36%),
+    radial-gradient(circle at 100% 8%, rgba(167,139,250,.14), transparent 32%);
+  opacity: .88;
+  mix-blend-mode: screen;
 }
 
-/* Inputs, selects, and action controls use the same translucent instrument glass. */
-:is(
+:where(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -244,15 +287,8 @@
   [data-workspace="defense-overview"],
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
-) :is(input, select, textarea) {
-  background: rgba(2, 8, 23, .52) !important;
-  border-color: rgba(165, 243, 252, .14) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-
-:is(
+) main :is(section, article, aside)[class*="border"] > *,
+:where(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -266,14 +302,13 @@
   [data-workspace="defense-overview"],
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
-) :is(button, a)[class*="border"]:not([aria-current="page"]) {
-  background-color: rgba(255,255,255,.028);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+) main > section > div[class*="border"][class*="bg-"] > * {
+  position: relative;
+  z-index: 3;
 }
 
-/* Active states get the brighter glass accent used by Competitors. */
-:is(
+/* Competitors inactive / selected control specifications. */
+:where(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -287,167 +322,39 @@
   [data-workspace="defense-overview"],
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
-) :is(
-  [aria-current="page"],
-  [aria-selected="true"],
-  [aria-pressed="true"],
+) main :is(button, a)[class*="border"] {
+  border-color: rgba(255,255,255,.08) !important;
+  background: rgba(255,255,255,.025) !important;
+  border-radius: 12px;
+}
+
+:where(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) main :is(
+  button[aria-current="page"],
+  button[aria-selected="true"],
+  button[aria-pressed="true"],
   [data-state="active"]
 ) {
-  border-color: rgba(103, 232, 249, .3) !important;
-  background-color: rgba(34, 211, 238, .10) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 22px rgba(34,211,238,.07);
+  border-color: rgba(165,243,252,.28) !important;
+  background: rgba(103,232,249,.12) !important;
+  color: #fff !important;
 }
 
-/* Bring back luminous color in headers without changing text hierarchy. */
-:is(
-  [data-workspace="state-agencies"],
-  [data-workspace="standards-intelligence"],
-  [data-workspace="clinical-calculators"],
-  [data-workspace="drug-checker"],
-  [data-workspace="federal-agencies"],
-  [data-workspace="job-intelligence"],
-  [data-workspace="sec-filings"],
-  [data-workspace="organizational-chart"],
-  [data-workspace="industry-impact"],
-  [data-workspace="occupational-calculators"],
-  [data-workspace="defense-overview"],
-  [data-workspace="federal-awards"],
-  [data-workspace="legal-injury"]
-) h1 {
-  color: rgba(255,255,255,.98);
-  text-shadow: 0 0 28px rgba(var(--glass-b), .10);
-}
-
-:is(
-  [data-workspace="state-agencies"],
-  [data-workspace="standards-intelligence"],
-  [data-workspace="clinical-calculators"],
-  [data-workspace="drug-checker"],
-  [data-workspace="federal-agencies"],
-  [data-workspace="job-intelligence"],
-  [data-workspace="sec-filings"],
-  [data-workspace="organizational-chart"],
-  [data-workspace="industry-impact"],
-  [data-workspace="occupational-calculators"],
-  [data-workspace="defense-overview"],
-  [data-workspace="federal-awards"],
-  [data-workspace="legal-injury"]
-) [class*="text-cyan"] {
-  color: rgba(207, 250, 254, .72) !important;
-}
-
-/* Preserve the navigation rail exactly as a dark anchor against the glass workspaces. */
-:is(
-  [data-workspace="state-agencies"],
-  [data-workspace="standards-intelligence"],
-  [data-workspace="clinical-calculators"],
-  [data-workspace="drug-checker"],
-  [data-workspace="federal-agencies"],
-  [data-workspace="job-intelligence"],
-  [data-workspace="sec-filings"],
-  [data-workspace="organizational-chart"],
-  [data-workspace="industry-impact"],
-  [data-workspace="occupational-calculators"],
-  [data-workspace="defense-overview"],
-  [data-workspace="federal-awards"],
-  [data-workspace="legal-injury"]
-) .insight-sidebar {
-  background: linear-gradient(180deg, rgba(2,6,17,.99) 0%, rgba(3,8,19,.985) 48%, rgba(2,5,13,.995) 100%) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-:is(
-  [data-workspace="state-agencies"],
-  [data-workspace="standards-intelligence"],
-  [data-workspace="clinical-calculators"],
-  [data-workspace="drug-checker"],
-  [data-workspace="federal-agencies"],
-  [data-workspace="job-intelligence"],
-  [data-workspace="sec-filings"],
-  [data-workspace="organizational-chart"],
-  [data-workspace="industry-impact"],
-  [data-workspace="occupational-calculators"],
-  [data-workspace="defense-overview"],
-  [data-workspace="federal-awards"],
-  [data-workspace="legal-injury"]
-) .insight-mobile-nav {
-  background: linear-gradient(180deg, #020611 0%, #030813 100%) !important;
-}
-
-
-/* Hard cascade recovery: route CSS chunks load after the application entry.
-   These higher-specificity rules keep the approved colorful glass system in
-   control regardless of lazy CSS injection order. */
-html body :is(
-  [data-workspace="state-agencies"],
-  [data-workspace="standards-intelligence"],
-  [data-workspace="clinical-calculators"],
-  [data-workspace="drug-checker"],
-  [data-workspace="federal-agencies"],
-  [data-workspace="job-intelligence"],
-  [data-workspace="sec-filings"],
-  [data-workspace="organizational-chart"],
-  [data-workspace="industry-impact"],
-  [data-workspace="occupational-calculators"],
-  [data-workspace="defense-overview"],
-  [data-workspace="federal-awards"],
-  [data-workspace="legal-injury"]
-) {
-  background:
-    radial-gradient(circle at 12% 14%, rgba(var(--glass-a), .42), transparent 34rem),
-    radial-gradient(circle at 55% 45%, rgba(var(--glass-b), .31), transparent 41rem),
-    radial-gradient(circle at 91% 24%, rgba(var(--glass-c), .34), transparent 36rem),
-    linear-gradient(145deg, #020817 4%, #07304a 42%, #0a1f4b 68%, #120b36 100%) !important;
-}
-
-html body :is(
-  [data-workspace="state-agencies"],
-  [data-workspace="standards-intelligence"],
-  [data-workspace="clinical-calculators"],
-  [data-workspace="drug-checker"],
-  [data-workspace="federal-agencies"],
-  [data-workspace="job-intelligence"],
-  [data-workspace="sec-filings"],
-  [data-workspace="organizational-chart"],
-  [data-workspace="industry-impact"],
-  [data-workspace="occupational-calculators"],
-  [data-workspace="defense-overview"],
-  [data-workspace="federal-awards"],
-  [data-workspace="legal-injury"]
-) main {
-  background:
-    linear-gradient(140deg, rgba(2,8,23,.10), rgba(5,20,38,.17) 48%, rgba(12,10,45,.16)) !important;
-}
-
-html body :is(
-  [data-workspace="state-agencies"],
-  [data-workspace="standards-intelligence"],
-  [data-workspace="clinical-calculators"],
-  [data-workspace="drug-checker"],
-  [data-workspace="federal-agencies"],
-  [data-workspace="job-intelligence"],
-  [data-workspace="sec-filings"],
-  [data-workspace="organizational-chart"],
-  [data-workspace="industry-impact"],
-  [data-workspace="occupational-calculators"],
-  [data-workspace="defense-overview"],
-  [data-workspace="federal-awards"],
-  [data-workspace="legal-injury"]
-) main :is(section, article, aside, [class*="border"])[class*="bg-"] {
-  background:
-    linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.015) 42%, rgba(59,130,246,.045) 72%, rgba(124,58,237,.045)),
-    rgba(4,14,29,.46) !important;
-  border-color: rgba(165,243,252,.16) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.085),
-    0 18px 54px rgba(0,0,0,.24),
-    0 0 0 1px rgba(103,232,249,.035) !important;
-  backdrop-filter: blur(26px) saturate(1.22) !important;
-  -webkit-backdrop-filter: blur(26px) saturate(1.22) !important;
-}
-
-html body :is(
+/* DBA / Competitors input specification. */
+:where(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -462,13 +369,15 @@ html body :is(
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
 ) main :is(input, select, textarea) {
-  background: rgba(2,8,23,.48) !important;
-  border-color: rgba(165,243,252,.18) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 0 18px rgba(34,211,238,.025) !important;
+  border-color: rgba(165,243,252,.16) !important;
+  background: rgba(4,12,22,.92) !important;
+  color: #fff !important;
+  border-radius: 12px;
+  outline: none;
 }
 
-/* Undo the accidental boxed treatment on every sidebar link. */
-html body :is(
+/* Preserve map/table/chart internals rather than turning every row into a card. */
+:where(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -482,10 +391,8 @@ html body :is(
   [data-workspace="defense-overview"],
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
-) .insight-sidebar a:not([aria-current="page"]) {
-  background: transparent !important;
-  border-color: transparent !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+) main :is(table,thead,tbody,tr,td,th) {
+  background-color: transparent !important;
 }
+
+/* Sidebar is intentionally untouched: the reference tabs keep it as the dark anchor. */
