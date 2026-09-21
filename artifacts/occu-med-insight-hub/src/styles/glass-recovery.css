@@ -17,7 +17,7 @@
  *   cyan selected controls, white/[.025] inactive controls.
  */
 
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -46,7 +46,7 @@
 }
 
 /* Exact DBA aurora light field layered above the Competitors base. */
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -80,7 +80,7 @@
   opacity: 1;
 }
 
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -110,7 +110,7 @@
 
 /* Remove the later invented decorative fields. The only decorative system here is
    the one copied from Competitors / DBA. */
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -128,7 +128,7 @@
   display: none !important;
 }
 
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -147,7 +147,7 @@
   z-index: 1;
 }
 
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -167,7 +167,7 @@
 
 /* Exact GlassCard surface from application.css.
    Apply only inside main workspace content — never to the navigation sidebar. */
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -182,7 +182,7 @@
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
 ) main :is(section, article, aside)[class*="border"],
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -197,7 +197,7 @@
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
 ) main > section > div[class*="border"][class*="bg-"],
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -229,7 +229,7 @@
 }
 
 /* Exact GlassCard highlight layer. */
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -244,7 +244,7 @@
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
 ) main :is(section, article, aside)[class*="border"]::before,
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -273,7 +273,7 @@
   mix-blend-mode: screen;
 }
 
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -288,7 +288,7 @@
   [data-workspace="federal-awards"],
   [data-workspace="legal-injury"]
 ) main :is(section, article, aside)[class*="border"] > *,
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -308,7 +308,7 @@
 }
 
 /* Competitors inactive / selected control specifications. */
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -328,7 +328,7 @@
   border-radius: 12px;
 }
 
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -354,7 +354,7 @@
 }
 
 /* DBA / Competitors input specification. */
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
@@ -377,7 +377,7 @@
 }
 
 /* Preserve map/table/chart internals rather than turning every row into a card. */
-:where(
+:is(
   [data-workspace="state-agencies"],
   [data-workspace="standards-intelligence"],
   [data-workspace="clinical-calculators"],
