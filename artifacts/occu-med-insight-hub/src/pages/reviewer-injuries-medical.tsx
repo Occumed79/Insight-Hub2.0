@@ -1,10 +1,10 @@
-import LegacyReviewerInjuriesMedical from "./reviewer-injuries-medical-legacy";
-import "./reviewer-injuries-workbench.css";
+import RebuildHoldWorkspace from "./rebuild-hold-workspace";
 
 export default function ReviewerInjuriesMedical() {
   return (
-    <div className="injuries-workbench-v2" data-workbench="occupational-injury-intelligence">
-      <LegacyReviewerInjuriesMedical />
-    </div>
+    <RebuildHoldWorkspace
+      workspace="injuries-medical-conditions"
+      identityKey="injuries-medical-conditions"
+    />
   );
 }
