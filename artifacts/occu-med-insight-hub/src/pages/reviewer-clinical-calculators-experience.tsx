@@ -1,15 +1,10 @@
-import ReviewerClinicalCalculators from "./reviewer-clinical-calculators";
-import "./reviewer-clinical-calculators-experience.css";
+import RebuildHoldWorkspace from "./rebuild-hold-workspace";
 
-export default function ReviewerClinicalCalculatorsExperience() {
+export default function RebuildHoldRoute() {
   return (
-    <div className="clinical-calculators-experience aurora-bg" data-workspace="clinical-calculators">
-      <div className="clinical-instrument-field" aria-hidden="true">
-        <span className="clinical-scale clinical-scale-a" />
-        <span className="clinical-scale clinical-scale-b" />
-        <span className="clinical-reticle" />
-      </div>
-      <ReviewerClinicalCalculators />
-    </div>
+    <RebuildHoldWorkspace
+      workspace="clinical-calculators"
+      identityKey="clinical-calculators"
+    />
   );
 }
