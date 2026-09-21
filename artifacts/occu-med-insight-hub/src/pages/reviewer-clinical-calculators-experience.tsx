@@ -1,6 +1,5 @@
 import ReviewerClinicalCalculators from "./reviewer-clinical-calculators";
 import "./reviewer-clinical-calculators-experience.css";
-import "../styles/glass-recovery.css";
 
 export default function ReviewerClinicalCalculatorsExperience() {
   return (
