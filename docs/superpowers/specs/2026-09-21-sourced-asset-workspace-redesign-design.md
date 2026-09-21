@@ -132,18 +132,24 @@ Miro is not a primary page-design source for this project. Use only an existing 
 
 Lucid is not a primary page-design source for this project. Use only an existing high-fidelity Lucid template for a relationship/hierarchy/system surface when its actual rendered result meets the visual bar. Conventional box-and-arrow diagram styling is rejected.
 
+### Absolute no-card rule
+
+Cards are forbidden as the primary interface language for this redesign. Do not use card grids, metric cards, stacked card panels, dashboard tiles, framed summary boxes, generic inspector cards, or card-like containers merely because a source kit provides them. If a source resolves into a card dashboard or panel farm, reject the source entirely for that page.
+
+Allowed page structures must be sourced from stronger non-card patterns such as spatial canvases, full-bleed data fields, dense continuous tables, split-view workspaces, timeline/stream interfaces, map/globe/scientific viewers, command surfaces, layered canvases, relationship fields, or other existing high-fidelity patterns that do not read as a collection of boxes.
+
 ### Primitive-result stop rule
 
-If any sourced option reads as a conventional flowchart, wireframe, default admin dashboard, classroom diagram, basic card grid, generic neon HUD, or otherwise visually primitive, stop using that source immediately and move to a stronger existing asset. Do not 'improve' a weak source by inventing extra decoration.
+If any sourced option reads as a conventional flowchart, wireframe, default admin dashboard, classroom diagram, card grid, panel farm, generic neon HUD, or otherwise visually primitive, stop using that source immediately and move to a stronger existing asset. Do not 'improve' a weak source by inventing extra decoration.
 
 ## Active source manifest
 
-| Workspace | Source | Exact asset/component | Source URL | License / usage | Reused | Tailoring |
-| --- | --- | --- | --- | --- | --- | --- |
-| Job Intelligence | Aether Nexus Dashboard | three-pane shell; sticky operational header; right inspector; dark surface tokens | https://github.com/bymilon/aether-nexus-dashboard | MIT | shell geometry, header/status treatment, panel hierarchy, source tokens | Insight Hub labels, O*NET data binding, save action, existing controls |
-| Federal Awards | FLOWSTACK UI Brick | AppBar, Surface, DataGrid visual recipes and dark semantic tokens | https://github.com/flowstack-ui/brick | MIT | published component recipes, state attributes, spacing/surface/token system | USAspending columns, filters, selection, recipient inspector, existing data logic |
-| Drug Checker | Mol* Viewer + FLOWSTACK UI Brick | Mol* Viewer URL loader for SDF; FLOWSTACK Surface/AppBar recipes | https://molstar.org/viewer/ ; https://github.com/flowstack-ui/brick | Mol* MIT; FLOWSTACK MIT | actual interactive molecular viewer; source-owned workspace surface recipes | PubChem 3D SDF URL, medication identity, existing FDA/RxNorm/regimen data |
-| Injuries & Medical Conditions | Vanatome + FLOWSTACK UI Brick | Vanatome interactive anatomy viewer; FLOWSTACK AppBar/Surface recipes | https://github.com/vixotic/Vanatome ; https://github.com/flowstack-ui/brick | Vanatome code MIT; atlas CC BY-SA 4.0; FLOWSTACK MIT | actual interactive anatomy atlas, atlas controls, source surface recipes | existing OSHA/O*NET evidence derivation and region evidence list |
+No source is considered approved until its actual rendered structure is confirmed to satisfy the no-card rule. The following previously proposed mappings are explicitly rejected and must not be used as final visual sources:
+
+- Job Intelligence — Aether Nexus dashboard mapping: rejected.
+- Federal Awards — FLOWSTACK dashboard/data-grid mapping: rejected as the final visual architecture.
+- Drug Checker — FLOWSTACK surrounding shell: rejected; Mol* may remain only as the scientific molecule renderer if the surrounding experience is sourced from a stronger non-card interface.
+- Injuries & Medical Conditions — Vanatome: rejected.
 
 ## Workspace mapping rule
 
