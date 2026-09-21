@@ -1,16 +1,10 @@
-import JobIntelligence from "./job-intelligence-v2";
-import "./job-intelligence-experience.css";
+import RebuildHoldWorkspace from "./rebuild-hold-workspace";
 
-export default function JobIntelligenceExperience() {
+export default function RebuildHoldRoute() {
   return (
-    <div className="job-intelligence-experience aurora-bg" data-workspace="job-intelligence">
-      <div className="job-intelligence-field" aria-hidden="true">
-        <span className="job-path job-path-a" />
-        <span className="job-path job-path-b" />
-        <span className="job-node job-node-a" />
-        <span className="job-node job-node-b" />
-      </div>
-      <JobIntelligence />
-    </div>
+    <RebuildHoldWorkspace
+      workspace="job-intelligence"
+      identityKey="job-intelligence"
+    />
   );
 }
