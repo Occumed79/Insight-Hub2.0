@@ -136,6 +136,14 @@ Lucid is not a primary page-design source for this project. Use only an existing
 
 If any sourced option reads as a conventional flowchart, wireframe, default admin dashboard, classroom diagram, basic card grid, generic neon HUD, or otherwise visually primitive, stop using that source immediately and move to a stronger existing asset. Do not 'improve' a weak source by inventing extra decoration.
 
+## Active source manifest
+
+| Workspace | Source | Exact asset/component | Source URL | License / usage | Reused | Tailoring |
+| --- | --- | --- | --- | --- | --- | --- |
+| Job Intelligence | Aether Nexus Dashboard | three-pane shell; sticky operational header; right inspector; dark surface tokens | https://github.com/bymilon/aether-nexus-dashboard | MIT | shell geometry, header/status treatment, panel hierarchy, source tokens | Insight Hub labels, O*NET data binding, save action, existing controls |
+| Federal Awards | FLOWSTACK UI Brick | AppBar, Surface, DataGrid visual recipes and dark semantic tokens | https://github.com/flowstack-ui/brick | MIT | published component recipes, state attributes, spacing/surface/token system | USAspending columns, filters, selection, recipient inspector, existing data logic |
+| Drug Checker | Mol* Viewer + FLOWSTACK UI Brick | Mol* Viewer URL loader for SDF; FLOWSTACK Surface/AppBar recipes | https://molstar.org/viewer/ ; https://github.com/flowstack-ui/brick | Mol* MIT; FLOWSTACK MIT | actual interactive molecular viewer; source-owned workspace surface recipes | PubChem 3D SDF URL, medication identity, existing FDA/RxNorm/regimen data |
+
 ## Workspace mapping rule
 
 Every in-scope route gets a source manifest before code changes:
