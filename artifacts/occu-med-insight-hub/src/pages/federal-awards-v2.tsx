@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Activity,
   AlertTriangle,
   ArrowUpRight,
   Building2,
@@ -10,11 +11,12 @@ import {
   Landmark,
   Loader2,
   MapPin,
+  Radar,
   Search,
   ShieldCheck,
+  Timeline,
   X,
 } from "lucide-react";
-import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { useEmployerWorkflow } from "@/components/insight/EmployerWorkflowContext";
 
@@ -82,7 +84,7 @@ function aggregate(items: Award[], key: (award: Award) => string) {
 
 function AwardRow({ award, selected, onSelect }: { award: Award; selected: boolean; onSelect: () => void }) {
   return (
-    <button type="button" onClick={onSelect} className={`grid w-full grid-cols-[110px_minmax(0,1fr)_145px_108px] gap-3 border-b border-white/[.055] px-4 py-3 text-left transition ${selected ? "bg-sky-400/[.055]" : "hover:bg-white/[.018]"}`}>
+    <button type="button" onClick={onSelect} className={`federal-awards-row grid w-full grid-cols-[110px_minmax(0,1fr)_145px_108px] gap-3 border-b border-white/[.055] px-4 py-3 text-left transition ${selected ? "is-selected bg-sky-400/[.055]" : "hover:bg-white/[.018]"}`}>
       <span><strong className="block text-[11px] text-white">{award.awardGroup === "idv" ? "IDV" : "Contract"}</strong><span className="mt-1 block truncate text-[9px] text-slate-600">{award.awardId}</span></span>
       <span className="min-w-0"><strong className="block truncate text-[11px] text-slate-100">{award.description || "Federal award"}</strong><span className="mt-1 block truncate text-[9px] text-slate-600">{award.awardingAgency}{award.awardingSubAgency ? ` · ${award.awardingSubAgency}` : ""}</span></span>
       <span className="text-[10px] font-black text-emerald-100/78">{money(award.awardAmount)}</span>
@@ -178,14 +180,38 @@ export default function FederalAwardsV2() {
   const filteredAmount = visibleAwards.reduce((sum, award) => sum + (award.awardAmount || 0), 0);
 
   return (
-    <main className="reviewer-native-page min-h-screen bg-[#090c10] text-white">
+    <main className="federal-awards-core reviewer-native-page min-h-screen bg-[#090c10] text-white">
       <Sidebar />
       <section className="min-h-screen lg:ml-[210px]">
-        <div className="px-6 pt-7"><HeaderBar eyebrow="Federal Spending Intelligence · USAspending" title="Federal Awards Intelligence" subtitle="The entity is the persistent object. Award history, agency concentration, geography, NAICS, and individual award evidence stay in one drill-down workspace." /></div>
+        <header className="federal-awards-command" aria-labelledby="federal-awards-title">
+          <div className="federal-awards-commandline">
+            <span className="federal-awards-source"><Radar size={13} /> USAspending recipient evidence</span>
+            <span>Federal awards / obligation history / agency concentration</span>
+            <span className="federal-awards-live"><Activity size={12} /> live entity workspace</span>
+          </div>
+          <div className="federal-awards-title-row">
+            <div>
+              <p className="federal-awards-eyebrow">Federal spending intelligence</p>
+              <h1 id="federal-awards-title">Federal Awards Intelligence</h1>
+              <p>Keep the recipient as the persistent object while award history, agency concentration, geography, NAICS, and official award evidence remain visible in one continuous research surface.</p>
+            </div>
+            <div className="federal-awards-readout">
+              <div><span>Recipient</span><strong>{data?.companyName || query || "Unresolved"}</strong></div>
+              <div><span>Window</span><strong>{fromDate} → {toDate}</strong></div>
+              <div><span>Top agency</span><strong>{agencies[0]?.label || "No agency concentration yet"}</strong></div>
+            </div>
+          </div>
+          <div className="federal-awards-signal-track" aria-label="Federal award readout">
+            <div><FileSearch size={13} /><span>Awards in view</span><strong>{visibleAwards.length.toLocaleString()}</strong></div>
+            <div><CircleDollarSign size={13} /><span>Value in view</span><strong>{compactMoney(filteredAmount)}</strong></div>
+            <div><Landmark size={13} /><span>Agencies</span><strong>{agencies.length.toLocaleString()}</strong></div>
+            <div><MapPin size={13} /><span>Geographies</span><strong>{geographies.length.toLocaleString()}</strong></div>
+          </div>
+        </header>
         {error ? <div className="mx-6 mb-3 flex items-start gap-2 border-l-2 border-rose-300/35 pl-3 text-xs leading-5 text-rose-100/74"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{error}</div> : null}
 
-        <div className="grid min-h-[calc(100vh-120px)] grid-cols-[270px_minmax(0,1fr)_360px] border-y border-white/8">
-          <aside className="border-r border-white/8 bg-[#0a0e13]/90">
+        <div className="federal-awards-workbench grid min-h-[calc(100vh-120px)] grid-cols-[250px_minmax(0,1fr)_390px] border-y border-white/8">
+          <aside className="federal-awards-entity-rail border-r border-white/8 bg-[#0a0e13]/90">
             <div className="sticky top-0 max-h-screen overflow-y-auto p-4">
               <div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[.14em] text-slate-600">Entity context</p><h2 className="mt-1 text-lg font-black text-white">{data?.companyName || query || "Federal awards"}</h2></div><Building2 className="h-5 w-5 text-sky-100/38" /></div>
               <label className="mt-4 block"><span className="text-[9px] font-black uppercase tracking-[.11em] text-slate-600">Company / recipient</span><div className="mt-1.5 flex h-10 items-center gap-2 rounded-md border border-white/9 bg-black/20 px-3"><Search className="h-3.5 w-3.5 text-slate-600" /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void run()} placeholder="Company name" className="min-w-0 flex-1 bg-transparent text-xs outline-none" /></div></label>
@@ -199,14 +225,14 @@ export default function FederalAwardsV2() {
             </div>
           </aside>
 
-          <section className="min-w-0 bg-[#090c10]/72">
-            <div className="grid grid-cols-4 border-b border-white/8 bg-[#0b0f14] px-4 py-3"><Metric label="Awards" value={visibleAwards.length.toLocaleString()} icon={<FileSearch className="h-3 w-3" />} /><Metric label="Value in view" value={compactMoney(filteredAmount)} icon={<CircleDollarSign className="h-3 w-3" />} /><Metric label="Agencies" value={agencies.length.toLocaleString()} icon={<Landmark className="h-3 w-3" />} /><Metric label="Geographies" value={geographies.length.toLocaleString()} icon={<MapPin className="h-3 w-3" />} /></div>
+          <section className="federal-awards-stream min-w-0 bg-[#090c10]/72">
+            <div className="federal-awards-metrics grid grid-cols-4 border-b border-white/8 bg-[#0b0f14] px-4 py-3"><Metric label="Awards" value={visibleAwards.length.toLocaleString()} icon={<FileSearch className="h-3 w-3" />} /><Metric label="Value in view" value={compactMoney(filteredAmount)} icon={<CircleDollarSign className="h-3 w-3" />} /><Metric label="Agencies" value={agencies.length.toLocaleString()} icon={<Landmark className="h-3 w-3" />} /><Metric label="Geographies" value={geographies.length.toLocaleString()} icon={<MapPin className="h-3 w-3" />} /></div>
             <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-white/8 bg-[#0a0e13]/95 px-4 py-3 backdrop-blur-xl"><label className="relative min-w-[260px] flex-1"><Filter className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-600" /><input value={textFilter} onChange={(event) => setTextFilter(event.target.value)} placeholder="Filter award ID, description, agency, NAICS, geography" className="h-9 w-full rounded-md border border-white/9 bg-[#101419] pl-9 pr-3 text-[10px] outline-none placeholder:text-slate-700" /></label>{(["all", "contract", "idv"] as GroupMode[]).map((mode) => <button key={mode} onClick={() => setGroupMode(mode)} className={`h-9 rounded-md border px-3 text-[9px] font-black uppercase tracking-[.08em] ${groupMode === mode ? "border-sky-300/20 bg-sky-400/[.06] text-white" : "border-white/8 text-slate-500"}`}>{mode === "all" ? "All awards" : mode}</button>)}</div>
-            <div className="grid grid-cols-[110px_minmax(0,1fr)_145px_108px] gap-3 border-b border-white/8 px-4 py-2 text-[8px] font-black uppercase tracking-[.1em] text-slate-650"><span>Type / ID</span><span>Award / agency</span><span>Amount</span><span>Start</span></div>
+            <div className="federal-awards-columns grid grid-cols-[110px_minmax(0,1fr)_145px_108px] gap-3 border-b border-white/8 px-4 py-2 text-[8px] font-black uppercase tracking-[.1em] text-slate-650"><span>Type / ID</span><span>Award / agency</span><span>Amount</span><span>Start</span></div>
             {loading && !data ? <div className="grid min-h-[520px] place-items-center"><div className="text-center text-xs text-slate-500"><Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin" />Loading USAspending records…</div></div> : visibleAwards.length ? visibleAwards.map((award) => <AwardRow key={award.awardId} award={award} selected={selected?.awardId === award.awardId} onSelect={() => setSelectedId(award.awardId)} />) : <div className="grid min-h-[520px] place-items-center text-center"><div><FileSearch className="mx-auto h-8 w-8 text-slate-700" /><p className="mt-4 text-sm font-black text-slate-300">No awards match the current view.</p><p className="mt-2 text-xs text-slate-600">Change the entity, date window, source-state filter, or local filters.</p></div></div>}
           </section>
 
-          <aside className="border-l border-white/8 bg-[#0d1014]/92">
+          <aside className="federal-awards-inspector border-l border-white/8 bg-[#0d1014]/92">
             <div className="sticky top-0 max-h-screen overflow-y-auto p-5">
               {selected ? <>
                 <div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[.13em] text-sky-100/38">Selected federal award</p><h2 className="mt-2 text-xl font-black leading-6 tracking-[-.025em] text-white">{selected.description || "Federal award"}</h2><p className="mt-2 text-[10px] text-slate-500">{selected.recipientName}</p></div><button onClick={() => setSelectedId("")} className="rounded-md border border-white/8 p-1.5 text-slate-600 hover:text-white"><X className="h-3.5 w-3.5" /></button></div>
