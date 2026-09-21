@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { Sidebar } from "@/components/insight/Sidebar";
+import FederalAgencyDataLights from "./federal-agency-datalights";
 import "./federal-agencies-cinematic.css";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -185,6 +186,16 @@ export default function FederalAgenciesCinematic() {
       <section className="fa-shell">
         <div className="fa-scene" key={selectedAgency}>
           {media.photo ? <img src={media.photo} alt="" className="fa-scene-photo" /> : null}
+          <FederalAgencyDataLights
+            counts={{
+              solicitations: opportunities.length,
+              recompetes: recompetes.length,
+              forecasts: forecasts.length,
+              medical: medical.length,
+            }}
+            selectedView={view}
+            agencyKey={selectedAgency}
+          />
           <div className="fa-scene-shade" />
           <div className="fa-curtain fa-curtain-top" aria-hidden="true" />
           <div className="fa-curtain fa-curtain-bottom" aria-hidden="true" />
@@ -195,8 +206,8 @@ export default function FederalAgenciesCinematic() {
               <span>{agencyInitials(selectedAgency)}</span>
             </div>
             <p className="fa-eyebrow">Public Intelligence · Federal</p>
-            <h1>Federal Agencies</h1>
-            <h2>{selectedAgency}</h2>
+            <h1>{selectedAgency}</h1>
+            <h2>Federal Agencies</h2>
             <p className="fa-scene-subtitle">Live federal opportunity, contract, forecast, leadership, office, and occupational-health intelligence.</p>
           </div>
 
