@@ -31,6 +31,7 @@ export default function FederalAgencyDataLights({
 
     let disposed = false;
     let app: import("playcanvas").Application | null = null;
+    let resizeHandler: (() => void) | null = null;
 
     const boot = async () => {
       try {
@@ -164,10 +165,10 @@ export default function FederalAgencyDataLights({
           const c = new pc.Color(strandColor.r, strandColor.g, strandColor.b, Math.min(1, alpha));
 
           particlePositions.push(
-            new Vec3(p.x - radius, p.y, p.z),
-            new Vec3(p.x + radius, p.y, p.z),
-            new Vec3(p.x, p.y - radius, p.z),
-            new Vec3(p.x, p.y + radius, p.z)
+            new pc.Vec3(p.x - radius, p.y, p.z),
+            new pc.Vec3(p.x + radius, p.y, p.z),
+            new pc.Vec3(p.x, p.y - radius, p.z),
+            new pc.Vec3(p.x, p.y + radius, p.z)
           );
           particleColors.push(c, c, c, c);
         }
@@ -187,13 +188,13 @@ export default function FederalAgencyDataLights({
           }
         });
 
-        const resize = () => app?.resizeCanvas();
-        window.addEventListener("resize", resize);
+        resizeHandler = () => app?.resizeCanvas();
+        window.addEventListener("resize", resizeHandler);
         canvas.dataset.sceneReady = "true";
         app.start();
 
         if (disposed) {
-          window.removeEventListener("resize", resize);
+          if (resizeHandler) window.removeEventListener("resize", resizeHandler);
           app.destroy();
           app = null;
         }
@@ -207,6 +208,7 @@ export default function FederalAgencyDataLights({
 
     return () => {
       disposed = true;
+      if (resizeHandler) window.removeEventListener("resize", resizeHandler);
       if (app) {
         app.destroy();
         app = null;
