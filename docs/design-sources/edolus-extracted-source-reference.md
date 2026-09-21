@@ -1,6 +1,6 @@
 # Edolus extracted source reference
 
-Status: approved cinematic reference source.
+Status: approved cinematic reference source for selected Insight Hub workspaces only; not a universal shell.
 
 ## Confirmed runtime architecture
 
@@ -43,3 +43,21 @@ Replace those with Insight Hub data and licensed/open scientific, geographic, oc
 ## Implementation note
 
 The captured canvas PNG may appear black because the Edolus PlayCanvas configuration uses preserveDrawingBuffer=false. Treat the runtime/source captures as authoritative; do not interpret a blank canvas export as evidence that the 3D scene failed to load.
+
+
+## Application-use boundary
+
+Edolus supplies cinematic scene mechanics, not the product's entire information architecture.
+
+When adapted into Insight Hub:
+- retain the working app's navigation, search, filters, selection, drill-down, comparison, refresh/reload, source links, saved state, route/deep-link behavior, and live data states
+- do not force a functional workspace into a passive linear story
+- use cinematic scene elements as operational controls or context where useful
+- keep error, loading, stale-data, refreshed-data, empty, and selected states legible
+- preserve keyboard/mouse/touch operability where the existing feature supports it
+
+## Subject-specific media rule
+
+Replace Edolus-specific visual assets with media native to the selected workspace, not with generic filler.
+
+For Federal Agencies, appropriate replacement material includes real agency logos/marks where permitted, agency/facility/location photography where licensing permits, official-source imagery, maps, agency metadata, organizational relationships, current feed content, and navigable agency records. The page should still feel like a live agency intelligence tool that can be explored and refreshed, not a cinematic brochure.
