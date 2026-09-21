@@ -374,3 +374,118 @@
 ) .insight-mobile-nav {
   background: linear-gradient(180deg, #020611 0%, #030813 100%) !important;
 }
+
+
+/* Hard cascade recovery: route CSS chunks load after the application entry.
+   These higher-specificity rules keep the approved colorful glass system in
+   control regardless of lazy CSS injection order. */
+html body :is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) {
+  background:
+    radial-gradient(circle at 12% 14%, rgba(var(--glass-a), .42), transparent 34rem),
+    radial-gradient(circle at 55% 45%, rgba(var(--glass-b), .31), transparent 41rem),
+    radial-gradient(circle at 91% 24%, rgba(var(--glass-c), .34), transparent 36rem),
+    linear-gradient(145deg, #020817 4%, #07304a 42%, #0a1f4b 68%, #120b36 100%) !important;
+}
+
+html body :is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) main {
+  background:
+    linear-gradient(140deg, rgba(2,8,23,.10), rgba(5,20,38,.17) 48%, rgba(12,10,45,.16)) !important;
+}
+
+html body :is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) main :is(section, article, aside, [class*="border"])[class*="bg-"] {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.015) 42%, rgba(59,130,246,.045) 72%, rgba(124,58,237,.045)),
+    rgba(4,14,29,.46) !important;
+  border-color: rgba(165,243,252,.16) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.085),
+    0 18px 54px rgba(0,0,0,.24),
+    0 0 0 1px rgba(103,232,249,.035) !important;
+  backdrop-filter: blur(26px) saturate(1.22) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(1.22) !important;
+}
+
+html body :is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) main :is(input, select, textarea) {
+  background: rgba(2,8,23,.48) !important;
+  border-color: rgba(165,243,252,.18) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 0 18px rgba(34,211,238,.025) !important;
+}
+
+/* Undo the accidental boxed treatment on every sidebar link. */
+html body :is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) .insight-sidebar a:not([aria-current="page"]) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
