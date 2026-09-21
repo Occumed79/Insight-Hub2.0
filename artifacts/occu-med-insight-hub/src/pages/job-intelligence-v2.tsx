@@ -1,16 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Activity,
   ArrowRightLeft,
   BriefcaseBusiness,
   Check,
   ChevronDown,
   Database,
-  GitBranch,
   Loader2,
-  Network,
   Plus,
-  Radar,
   Save,
   Search,
   Trash2,
@@ -219,31 +215,28 @@ export default function JobIntelligenceV2() {
     <main className="job-intelligence-core min-h-screen bg-[#06090d] pb-16 text-white">
       <Sidebar />
       <section className="px-5 py-8 lg:ml-[210px] lg:px-8 2xl:px-10">
-        <header className="job-intelligence-command" aria-labelledby="job-intelligence-title">
-          <div className="job-intelligence-commandline">
-            <span className="job-intelligence-pulse"><Radar size={13} /> O*NET evidence lattice</span>
-            <span>Reviewer-controlled essential functions</span>
-            <span className="job-intelligence-command-status"><Activity size={12} /> live profile workspace</span>
+        <header className="job-intelligence-aether-header" aria-labelledby="job-intelligence-title">
+          <div className="job-intelligence-aether-breadcrumb">
+            <span>Insight Hub</span><span>/</span><span>Reviewer</span><span>/</span><strong id="job-intelligence-title">Job Intelligence</strong>
           </div>
-          <div className="job-intelligence-title-row">
-            <div className="job-intelligence-title-copy">
-              <p className="job-intelligence-eyebrow">Occupational intelligence / evidence resolution</p>
-              <h1 id="job-intelligence-title">Job Intelligence</h1>
-              <p>Resolve the occupation, inspect official O*NET evidence, and shape employer-specific essential functions without collapsing source evidence into a medical conclusion.</p>
-            </div>
-            <div className="job-intelligence-readout" aria-label="Current profile readout">
-              <div><span>Employer</span><strong>{active.companyName || selectedEmployer || "Unassigned"}</strong></div>
-              <div><span>Occupation</span><strong>{onet?.occupation?.title || active.onetTitle || "Not resolved"}</strong></div>
-              <div><span>O*NET</span><strong>{onet?.occupation?.code || active.onetCode || "—"}</strong></div>
-            </div>
-          </div>
-          <div className="job-intelligence-signal-track" aria-label="Profile construction signals">
-            <div><GitBranch size={13} /><span>Source duties</span><strong>{active.duties.length}</strong></div>
-            <div><Network size={13} /><span>Structured</span><strong>{structured}</strong></div>
-            <div><Check size={13} /><span>Essential</span><strong>{essential.length}</strong></div>
-            <div><Database size={13} /><span>Evidence rows</span><strong>{evidenceRows(onet).length}</strong></div>
+          <div className="job-intelligence-aether-actions">
+            <span className="job-intelligence-aether-status"><span aria-hidden="true" /> O*NET connected</span>
+            <button type="button" onClick={() => void saveProfile()} disabled={saving || !dirty} className="job-intelligence-aether-primary">
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save profile
+            </button>
           </div>
         </header>
+        <div className="job-intelligence-aether-title">
+          <div>
+            <h1>Job Intelligence</h1>
+            <p>Resolve the occupation, inspect official O*NET evidence, and shape employer-specific essential functions without turning source evidence into a medical conclusion.</p>
+          </div>
+          <div className="job-intelligence-aether-segmented" aria-label="Current profile summary">
+            <span>{active.companyName || selectedEmployer || "Unassigned"}</span>
+            <span>{onet?.occupation?.title || active.onetTitle || "Not resolved"}</span>
+            <span>{onet?.occupation?.code || active.onetCode || "No O*NET code"}</span>
+          </div>
+        </div>
         {error ? <div className="mt-4 border border-rose-200/18 bg-rose-300/[.04] p-3 text-xs text-rose-100">{error}</div> : null}
 
         <div className="job-intelligence-workbench mt-5 grid min-h-[790px] border border-white/10 bg-[#080c12] xl:grid-cols-[270px_minmax(0,1fr)_420px]">
