@@ -1,15 +1,10 @@
-import SecFilings from "./sec-filings";
-import "./sec-filings-experience.css";
+import RebuildHoldWorkspace from "./rebuild-hold-workspace";
 
-export default function SecFilingsExperience() {
+export default function RebuildHoldRoute() {
   return (
-    <div className="sec-filings-experience aurora-bg" data-workspace="sec-filings">
-      <div className="sec-filings-market-field" aria-hidden="true">
-        <span className="sec-filings-axis sec-filings-axis-a" />
-        <span className="sec-filings-axis sec-filings-axis-b" />
-        <span className="sec-filings-trace" />
-      </div>
-      <SecFilings />
-    </div>
+    <RebuildHoldWorkspace
+      workspace="sec-filings"
+      identityKey="sec-filings"
+    />
   );
 }
