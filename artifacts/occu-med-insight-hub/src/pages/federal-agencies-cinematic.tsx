@@ -178,6 +178,7 @@ export default function FederalAgenciesCinematic() {
 
   const media = AGENCY_MEDIA[selectedAgency] || { domain: "usa.gov" };
   const favicon = `https://${media.domain}/favicon.ico`;
+  const telemetryTotal = opportunities.length + recompetes.length + forecasts.length + medical.length;
 
   return (
     <main className="fa-cinematic">
@@ -206,8 +207,7 @@ export default function FederalAgenciesCinematic() {
             </div>
             <p className="fa-eyebrow">Public Intelligence · Federal</p>
             <h1>{selectedAgency}</h1>
-            <h2>Federal Agencies</h2>
-            <p className="fa-scene-subtitle">Live federal opportunity, contract, forecast, leadership, office, and occupational-health intelligence.</p>
+            <p className="fa-scene-subtitle">Opportunity · spending · forecast · leadership · offices · occupational health</p>
           </div>
 
           <div className="fa-scene-actions">
@@ -219,12 +219,14 @@ export default function FederalAgenciesCinematic() {
             {media.photoSource ? <a href={media.photoSource} target="_blank" rel="noreferrer">Photo source <ExternalLink size={12} /></a> : null}
           </div>
 
-          <div className="fa-telemetry" aria-label="Agency record counts">
-            <Telemetry label="Solicitations" value={opportunities.length} icon={<FileSearch size={13} />} />
-            <Telemetry label="Recompetes" value={recompetes.length} icon={<CalendarClock size={13} />} />
-            <Telemetry label="Forecasts" value={forecasts.length} icon={<Building2 size={13} />} />
-            <Telemetry label="Medical" value={medical.length} icon={<HeartPulse size={13} />} />
-          </div>
+          {telemetryTotal > 0 ? (
+            <div className="fa-telemetry" aria-label="Agency record counts">
+              {opportunities.length ? <Telemetry label="Solicitations" value={opportunities.length} icon={<FileSearch size={13} />} /> : null}
+              {recompetes.length ? <Telemetry label="Recompetes" value={recompetes.length} icon={<CalendarClock size={13} />} /> : null}
+              {forecasts.length ? <Telemetry label="Forecasts" value={forecasts.length} icon={<Building2 size={13} />} /> : null}
+              {medical.length ? <Telemetry label="Medical" value={medical.length} icon={<HeartPulse size={13} />} /> : null}
+            </div>
+          ) : null}
         </div>
 
         {error ? <div className="fa-error">{error}</div> : null}
@@ -261,7 +263,15 @@ export default function FederalAgenciesCinematic() {
 
             <div className="fa-stage-body">
               {loadingAgency ? <div className="fa-stage-loading"><Loader2 size={22} className="fa-spin" /><span>Loading agency sources…</span></div> : null}
-              {!loadingAgency && view === "Overview" ? <OverviewView rows={overviewRows.slice(0, 25)} onSelect={inspectPersisted} diagnostics={opportunityMeta} /> : null}
+              {!loadingAgency && view === "Overview" ? (
+                <OverviewView
+                  rows={overviewRows.slice(0, 25)}
+                  onSelect={inspectPersisted}
+                  diagnostics={opportunityMeta}
+                  leaders={leaders.slice(0, 12)}
+                  structure={structure.slice(0, 18)}
+                />
+              ) : null}
               {!loadingAgency && view === "Solicitations" ? <OpportunityTable items={filteredOpportunities} onSelect={inspectOpportunity} /> : null}
               {!loadingAgency && view === "Contracts & Spending" ? <PersistedTable items={filterPersisted([...incumbents, ...relevantAll.filter((item) => /contract|award|spend/i.test(`${item.bucket} ${item.title} ${item.summary || ""}`))])} empty="No Occu-Med-relevant contract/spending records are loaded for this agency." onSelect={inspectPersisted} /> : null}
               {!loadingAgency && view === "Recompetes" ? <PersistedTable items={filterPersisted(recompetes)} empty="No recompete records with affirmative occupational-health and recompete evidence are loaded." onSelect={inspectPersisted} /> : null}
@@ -302,9 +312,68 @@ function Telemetry({ label, value, icon }: { label: string; value: number; icon:
   return <div className="fa-telemetry-item">{icon}<span>{label}</span><strong>{value.toLocaleString()}</strong></div>;
 }
 
-function OverviewView({ rows, onSelect, diagnostics }: { rows: PersistedItem[]; onSelect: (item: PersistedItem) => void; diagnostics: OpportunitiesResponse | null }) {
+function OverviewView({
+  rows,
+  onSelect,
+  diagnostics,
+  leaders,
+  structure,
+}: {
+  rows: PersistedItem[];
+  onSelect: (item: PersistedItem) => void;
+  diagnostics: OpportunitiesResponse | null;
+  leaders: Leader[];
+  structure: FederalOrg[];
+}) {
   const diag = diagnostics?.diagnostics;
-  return <div className="fa-overview"><div data-testid="sam-diagnostics" className="fa-diagnostics"><strong>SAM.gov</strong><span>{diag ? `${diag.resultStatus} · ${diag.rawRecordsReturned.toLocaleString()} raw / ${diag.normalizedRecordsReturned.toLocaleString()} matched · ${diag.queryFilterMode}` : diagnostics?.configured === false ? "not configured" : `${diagnostics?.returned ?? 0} matched records`}{diagnostics?.limitation ? ` · ${diagnostics.limitation}` : ""}</span></div><PersistedTable items={rows} empty="No Occu-Med-relevant federal activity is loaded for this agency." onSelect={onSelect} /></div>;
+  return (
+    <div className="fa-overview">
+      <div data-testid="sam-diagnostics" className="fa-diagnostics">
+        <strong>SAM.gov</strong>
+        <span>
+          {diag
+            ? `${diag.resultStatus} · ${diag.rawRecordsReturned.toLocaleString()} raw / ${diag.normalizedRecordsReturned.toLocaleString()} matched · ${diag.queryFilterMode}`
+            : diagnostics?.configured === false
+              ? "not configured"
+              : `${diagnostics?.returned ?? 0} matched records`}
+          {diagnostics?.limitation ? ` · ${diagnostics.limitation}` : ""}
+        </span>
+      </div>
+
+      {rows.length ? (
+        <>
+          <div className="fa-stream-label"><span>Relevant activity</span><strong>{rows.length}</strong></div>
+          <PersistedTable items={rows} empty="" onSelect={onSelect} />
+        </>
+      ) : null}
+
+      {leaders.length ? (
+        <>
+          <div className="fa-stream-label"><span>Leadership</span><strong>{leaders.length}</strong></div>
+          <LeadershipView leaders={leaders} />
+        </>
+      ) : null}
+
+      {structure.length ? (
+        <>
+          <div className="fa-stream-label"><span>Organization structure</span><strong>{structure.length}</strong></div>
+          <div className="fa-row-stream">
+            {structure.map((item, index) => (
+              <div key={item.id} className="fa-office-row">
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <strong>{item.name}</strong>
+                <small>{item.type || "Organization"}{item.agencyCode ? ` · ${item.agencyCode}` : ""}</small>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {!rows.length && !leaders.length && !structure.length ? (
+        <div className="fa-empty">No live federal evidence is loaded for this agency yet.</div>
+      ) : null}
+    </div>
+  );
 }
 
 function PersistedTable({ items, empty, onSelect }: { items: PersistedItem[]; empty: string; onSelect: (item: PersistedItem) => void }) {
