@@ -1,0 +1,376 @@
+/* Glass recovery pass
+   Restores the colorful frosted-glass language used by the Competitors workspace
+   without changing route behavior or information architecture. */
+
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) {
+  --glass-a: 13, 148, 136;
+  --glass-b: 14, 165, 233;
+  --glass-c: 79, 70, 229;
+  position: relative;
+  min-height: 100vh;
+  isolation: isolate;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 15% 15%, rgba(var(--glass-a), .34), transparent 31rem),
+    radial-gradient(circle at 58% 42%, rgba(var(--glass-b), .23), transparent 37rem),
+    radial-gradient(circle at 90% 20%, rgba(var(--glass-c), .27), transparent 34rem),
+    linear-gradient(145deg, #020817 5%, #06243b 44%, #071333 70%, #0b0824 100%) !important;
+}
+
+[data-workspace="drug-checker"],
+[data-workspace="legal-injury"] {
+  --glass-a: 34, 211, 238;
+  --glass-b: 124, 58, 237;
+  --glass-c: 99, 102, 241;
+}
+
+[data-workspace="clinical-calculators"],
+[data-workspace="industry-impact"],
+[data-workspace="occupational-calculators"] {
+  --glass-a: 16, 185, 129;
+  --glass-b: 14, 165, 233;
+  --glass-c: 59, 130, 246;
+}
+
+[data-workspace="standards-intelligence"],
+[data-workspace="state-agencies"] {
+  --glass-a: 20, 184, 166;
+  --glass-b: 56, 189, 248;
+  --glass-c: 99, 102, 241;
+}
+
+[data-workspace="federal-agencies"],
+[data-workspace="federal-awards"],
+[data-workspace="defense-overview"] {
+  --glass-a: 8, 145, 178;
+  --glass-b: 59, 130, 246;
+  --glass-c: 99, 102, 241;
+}
+
+[data-workspace="job-intelligence"],
+[data-workspace="organizational-chart"],
+[data-workspace="sec-filings"] {
+  --glass-a: 6, 182, 212;
+  --glass-b: 14, 165, 233;
+  --glass-c: 139, 92, 246;
+}
+
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+)::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(118deg, rgba(255,255,255,.035), transparent 23%, transparent 71%, rgba(255,255,255,.022)),
+    radial-gradient(circle at 50% 0%, rgba(255,255,255,.055), transparent 33rem);
+}
+
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) > * {
+  position: relative;
+  z-index: 1;
+}
+
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) main {
+  background: transparent !important;
+}
+
+/* Neutralize the black slab treatment while preserving existing layout. */
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) :is(
+  [class*="bg-[#0"],
+  [class*="bg-black"],
+  [class*="bg-slate-9"],
+  [class*="bg-zinc-9"],
+  [class*="bg-neutral-9"]
+):not(.insight-sidebar):not(.insight-mobile-nav) {
+  background-color: rgba(5, 14, 28, .57) !important;
+  backdrop-filter: blur(22px) saturate(1.18);
+  -webkit-backdrop-filter: blur(22px) saturate(1.18);
+}
+
+/* Major bordered surfaces become frosted panes rather than opaque boxes. */
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) :is(section, article, aside):not(.insight-sidebar)[class*="border"] {
+  border-color: rgba(165, 243, 252, .14) !important;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.012) 38%, rgba(59,130,246,.035) 70%, rgba(124,58,237,.035)),
+    rgba(4, 14, 29, .54) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.075),
+    0 22px 70px rgba(0,0,0,.28),
+    0 0 0 1px rgba(103,232,249,.035);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+}
+
+/* Keep dense tables / streams crisp but let the color field show through. */
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) :is(table, thead, tbody, tr) {
+  background-color: transparent !important;
+}
+
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) :is(
+  [class*="border-white"],
+  [class*="border-slate"],
+  [class*="border-cyan"],
+  [class*="border-blue"],
+  [class*="border-violet"]
+) {
+  border-color: rgba(165, 243, 252, .13) !important;
+}
+
+/* Inputs, selects, and action controls use the same translucent instrument glass. */
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) :is(input, select, textarea) {
+  background: rgba(2, 8, 23, .52) !important;
+  border-color: rgba(165, 243, 252, .14) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) :is(button, a)[class*="border"]:not([aria-current="page"]) {
+  background-color: rgba(255,255,255,.028);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* Active states get the brighter glass accent used by Competitors. */
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) :is(
+  [aria-current="page"],
+  [aria-selected="true"],
+  [aria-pressed="true"],
+  [data-state="active"]
+) {
+  border-color: rgba(103, 232, 249, .3) !important;
+  background-color: rgba(34, 211, 238, .10) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 22px rgba(34,211,238,.07);
+}
+
+/* Bring back luminous color in headers without changing text hierarchy. */
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) h1 {
+  color: rgba(255,255,255,.98);
+  text-shadow: 0 0 28px rgba(var(--glass-b), .10);
+}
+
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) [class*="text-cyan"] {
+  color: rgba(207, 250, 254, .72) !important;
+}
+
+/* Preserve the navigation rail exactly as a dark anchor against the glass workspaces. */
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) .insight-sidebar {
+  background: linear-gradient(180deg, rgba(2,6,17,.99) 0%, rgba(3,8,19,.985) 48%, rgba(2,5,13,.995) 100%) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+:is(
+  [data-workspace="state-agencies"],
+  [data-workspace="standards-intelligence"],
+  [data-workspace="clinical-calculators"],
+  [data-workspace="drug-checker"],
+  [data-workspace="federal-agencies"],
+  [data-workspace="job-intelligence"],
+  [data-workspace="sec-filings"],
+  [data-workspace="organizational-chart"],
+  [data-workspace="industry-impact"],
+  [data-workspace="occupational-calculators"],
+  [data-workspace="defense-overview"],
+  [data-workspace="federal-awards"],
+  [data-workspace="legal-injury"]
+) .insight-mobile-nav {
+  background: linear-gradient(180deg, #020611 0%, #030813 100%) !important;
+}
