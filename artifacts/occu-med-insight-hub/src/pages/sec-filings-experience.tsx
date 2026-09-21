@@ -1,6 +1,5 @@
 import SecFilings from "./sec-filings";
 import "./sec-filings-experience.css";
-import "../styles/glass-recovery.css";
 
 export default function SecFilingsExperience() {
   return (
