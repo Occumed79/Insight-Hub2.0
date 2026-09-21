@@ -100,6 +100,102 @@ The routes, navigation labels, underlying source implementations, data contracts
   - `/api/occupational-discovery/onet/profile`
 - Rebuild rule: this remains a multi-instrument occupational calculation workstation. Do not collapse it into a generic KPI dashboard.
 
+
+## 5. Industry Impact Calculator
+
+- Route: `/industry-impact-calculator`
+- Sidebar label: `Industry Impact Calculator`
+- Identity key: `industry-impact`
+- Original route component: `src/pages/industry-impact-experience.tsx`
+- Preserved implementation: `src/pages/industry-impact-calculator-v3.tsx`
+- Core product identity:
+  - workforce-scaled scenario laboratory
+  - keeps observed employer baseline, official BLS benchmark, user assumptions, and modeled outputs visibly distinct
+  - models annual hours, current/target recordables, DART context, lost workdays, low/base/high cost assumptions, savings, benchmark gap, and scenario trajectory
+  - supports workforce basis/provenance, NAICS/BLS benchmark selection, and cost-sensitivity planning
+  - modeled outputs are scenarios, not forecasts
+- Important live data / APIs:
+  - `/api/occupational-discovery/bls-overview`
+  - `/api/bls/industry-benchmark`
+- Rebuild rule: this remains an employer/BLS scenario laboratory. Do not turn it into a generic KPI dashboard or present modeled savings as observed facts.
+
+## 6. SEC Filings
+
+- Route: `/sec-filings`
+- Sidebar label: `SEC Filings`
+- Identity key: `sec-filings`
+- Original route component: `src/pages/sec-filings-experience.tsx`
+- Preserved implementation: `src/pages/sec-filings.tsx`
+- Preserved API client: `src/data/secFilingsApi.ts`
+- Core product identity:
+  - employer/public-company intelligence workspace backed by SEC EDGAR
+  - tracked issuers plus issuer discovery
+  - dense filing timeline/feed with filtering by filing metadata
+  - persistent selected-filing inspector with accession/report dates, document type, XBRL state, and direct official SEC document/index links
+  - refreshes public filing data while keeping the selected filing in context
+- Important live data / APIs:
+  - `GET /api/sec-filings/search?q=...`
+  - `POST /api/sec-filings/feed`
+- Rebuild rule: this remains a live SEC filing discovery/timeline/reader workspace, not a generic company-news page and not an investment-rating tool.
+
+## 7. Drug Checker
+
+- Route: `/drug-checker`
+- Sidebar label: `Drug Checker`
+- Identity key: `drug-checker`
+- Original route component: `src/pages/reviewer-drug-checker-experience.tsx`
+- Preserved implementation: `src/pages/reviewer-drug-checker.tsx`
+- Core product identity:
+  - medication / occupational-review workspace
+  - regimen builder that keeps multiple selected medications in context
+  - medication identity and class evidence from NLM/RxNorm/RxClass-style source data
+  - product-label evidence from FDA Structured Product Labeling / openFDA with DailyMed source paths
+  - PubChem molecular record support
+  - occupationally relevant medication signals and cross-medication evidence
+  - does not diagnose, prescribe, invent interaction severity, or issue fitness-for-duty clearance
+- Important live data / APIs include:
+  - reviewer-tools medication search/intelligence routes used by the existing implementation
+  - `/api/reviewer-tools/pubchem?name=...`
+- Rebuild rule: this remains a source-backed medication evidence/regimen workspace. Do not reduce it to a generic drug encyclopedia or convert source signals into invented clinical judgments.
+
+## 8. Clinical Calculators
+
+- Route: `/clinical-calculators`
+- Sidebar label: `Clinical Calculators`
+- Identity key: `clinical-calculators`
+- Original route component: `src/pages/reviewer-clinical-calculators-experience.tsx`
+- Preserved implementation: `src/pages/reviewer-clinical-calculators.tsx`
+- Core product identity:
+  - focused clinical equation/calculator library
+  - calculator families include risk/prevention, body/renal, cardiac/ECG, respiratory, and other occupationally useful clinical instruments represented by the existing library
+  - preserves each published equation's required inputs, result, interpretation, source, and limitations
+  - existing examples include PREVENT-ASCVD, Seizure Recurrence, recurrent-stroke Essen score, and STOP-Bang
+  - results must remain equation/screening outputs, not diagnoses or automatic fitness decisions
+- Rebuild rule: this remains a source-explicit calculator workbench. Do not turn it into a generic medical form or obscure the published formula/source boundary.
+
+## 9. Job Intelligence
+
+- Route: `/job-intelligence`
+- Sidebar label: `Job Intelligence`
+- Identity key: `job-intelligence`
+- Original route component: `src/pages/job-intelligence-experience.tsx`
+- Preserved implementation: `src/pages/job-intelligence-v2.tsx`
+- Core product identity:
+  - resolve the actual occupation through O*NET
+  - preserve a saved employer/job profile library
+  - inspect source evidence across tasks, work context, abilities, work activities, and detailed work activities
+  - allow relevance keywords to re-rank evidence without altering source values
+  - build employer-specific duties and essential functions with reviewer-controlled essentiality, frequency, domains, postures, exposures, PPE, lifting detail, driving, heights, emergency response, shift work, heavy equipment, firearms, and notes
+  - support occupation-to-occupation comparison without turning signal counts into medical or job-risk scores
+  - preserve employer-specific judgments as reviewer decisions rather than O*NET conclusions
+- Important live data / APIs:
+  - `/api/job-intelligence/profiles`
+  - `/api/job-intelligence/profiles/:id`
+  - `/api/occupational-discovery/onet/profile`
+  - `/api/occupational-discovery/onet/profile-by-code`
+- Rebuild rule: this remains an O*NET-backed occupation/evidence/essential-functions workbench. Do not turn it into a generic job-description page or an automated medical conclusion engine.
+
+
 ## UI hold state
 
 The current visible route implementations intentionally render only:
@@ -107,6 +203,16 @@ The current visible route implementations intentionally render only:
 - an empty workspace body
 - hidden route/workspace identity attributes
 
-No cards, legacy page information, metrics, forms, tables, diagrams, or feeds should be visible on these four routes until their rebuilds are deliberately started.
+No cards, legacy page information, metrics, forms, tables, diagrams, charts, feeds, or other page content should be visible on these **nine routes** until their rebuilds are deliberately started:
 
-The preserved implementation files above are intentionally left in the repository so behavior, terminology, formulas, source boundaries, and data contracts remain available during reconstruction.
+1. `/injuries-medical-conditions`
+2. `/job-intelligence`
+3. `/drug-checker`
+4. `/clinical-calculators`
+5. `/standards-intelligence`
+6. `/sec-filings`
+7. `/leadership-map`
+8. `/industry-impact-calculator`
+9. `/occupational-calculators`
+
+The preserved implementation files above are intentionally left in the repository so behavior, terminology, formulas, source boundaries, data contracts, and page identity remain available during reconstruction.
