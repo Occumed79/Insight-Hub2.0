@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Activity,
   ArrowRightLeft,
   BriefcaseBusiness,
   Check,
   ChevronDown,
   Database,
+  GitBranch,
   Loader2,
+  Network,
   Plus,
+  Radar,
   Save,
   Search,
   Trash2,
 } from "lucide-react";
-import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { useEmployerWorkflow } from "@/components/insight/EmployerWorkflowContext";
 
@@ -213,14 +216,38 @@ export default function JobIntelligenceV2() {
   }
 
   return (
-    <main className="min-h-screen bg-[#06090d] pb-16 text-white">
+    <main className="job-intelligence-core min-h-screen bg-[#06090d] pb-16 text-white">
       <Sidebar />
       <section className="px-5 py-8 lg:ml-[210px] lg:px-8 2xl:px-10">
-        <HeaderBar eyebrow="Occupational Intelligence · O*NET + Reviewer Evidence" title="Job Intelligence" subtitle="Resolve the occupation, inspect official O*NET evidence, and build a durable employer-specific essential-functions profile without mixing jobs or turning source signals into medical conclusions." />
+        <header className="job-intelligence-command" aria-labelledby="job-intelligence-title">
+          <div className="job-intelligence-commandline">
+            <span className="job-intelligence-pulse"><Radar size={13} /> O*NET evidence lattice</span>
+            <span>Reviewer-controlled essential functions</span>
+            <span className="job-intelligence-command-status"><Activity size={12} /> live profile workspace</span>
+          </div>
+          <div className="job-intelligence-title-row">
+            <div className="job-intelligence-title-copy">
+              <p className="job-intelligence-eyebrow">Occupational intelligence / evidence resolution</p>
+              <h1 id="job-intelligence-title">Job Intelligence</h1>
+              <p>Resolve the occupation, inspect official O*NET evidence, and shape employer-specific essential functions without collapsing source evidence into a medical conclusion.</p>
+            </div>
+            <div className="job-intelligence-readout" aria-label="Current profile readout">
+              <div><span>Employer</span><strong>{active.companyName || selectedEmployer || "Unassigned"}</strong></div>
+              <div><span>Occupation</span><strong>{onet?.occupation?.title || active.onetTitle || "Not resolved"}</strong></div>
+              <div><span>O*NET</span><strong>{onet?.occupation?.code || active.onetCode || "—"}</strong></div>
+            </div>
+          </div>
+          <div className="job-intelligence-signal-track" aria-label="Profile construction signals">
+            <div><GitBranch size={13} /><span>Source duties</span><strong>{active.duties.length}</strong></div>
+            <div><Network size={13} /><span>Structured</span><strong>{structured}</strong></div>
+            <div><Check size={13} /><span>Essential</span><strong>{essential.length}</strong></div>
+            <div><Database size={13} /><span>Evidence rows</span><strong>{evidenceRows(onet).length}</strong></div>
+          </div>
+        </header>
         {error ? <div className="mt-4 border border-rose-200/18 bg-rose-300/[.04] p-3 text-xs text-rose-100">{error}</div> : null}
 
-        <div className="mt-5 grid min-h-[790px] border border-white/10 bg-[#080c12] xl:grid-cols-[285px_minmax(0,1fr)_390px]">
-          <aside className="border-b border-white/10 xl:border-b-0 xl:border-r">
+        <div className="job-intelligence-workbench mt-5 grid min-h-[790px] border border-white/10 bg-[#080c12] xl:grid-cols-[270px_minmax(0,1fr)_420px]">
+          <aside className="job-intelligence-profile-rail border-b border-white/10 xl:border-b-0 xl:border-r">
             <div className="border-b border-white/10 p-4"><div className="flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-[.14em] text-slate-500">Saved profile library</p><p className="mt-1 text-sm font-black text-white">{loadingProfiles ? "Loading…" : `${profiles.length} profiles`}</p></div><BriefcaseBusiness size={16} className="text-cyan-200/50" /></div></div>
             <div className="max-h-[250px] overflow-y-auto divide-y divide-white/[.06]">{profiles.map((profile) => <button key={profile.id} type="button" onClick={() => { setActive(profile); setDirty(false); setSearchTerm(profile.jobTitle); if (profile.onetCode) void api<CodePayload>(`/api/occupational-discovery/onet/profile-by-code?code=${encodeURIComponent(profile.onetCode)}`).then((payload) => setOnet(payload.profile || null)).catch(() => setOnet(null)); }} className={`w-full p-4 text-left transition ${active.id === profile.id ? "bg-cyan-300/[.055]" : "hover:bg-white/[.02]"}`}><p className="text-sm font-black text-white">{profile.profileName}</p><p className="mt-1 text-[10px] leading-5 text-slate-500">{profile.companyName || "No company"} · {profile.jobTitle || "No job title"}</p></button>)}{!profiles.length && !loadingProfiles ? <p className="p-4 text-xs text-slate-500">No saved profiles yet.</p> : null}</div>
 
@@ -229,7 +256,7 @@ export default function JobIntelligenceV2() {
             <div className="border-t border-white/10 p-4"><div className="grid grid-cols-3 gap-3 text-center"><div><p className="text-[9px] uppercase text-slate-600">Duties</p><p className="mt-1 text-lg font-black">{active.duties.length}</p></div><div><p className="text-[9px] uppercase text-slate-600">Essential</p><p className="mt-1 text-lg font-black">{essential.length}</p></div><div><p className="text-[9px] uppercase text-slate-600">Structured</p><p className="mt-1 text-lg font-black">{structured}</p></div></div></div>
           </aside>
 
-          <section className="min-w-0 border-b border-white/10 xl:border-b-0 xl:border-r">
+          <section className="job-intelligence-evidence-stream min-w-0 border-b border-white/10 xl:border-b-0 xl:border-r">
             <div className="border-b border-white/10 p-5"><div className="flex items-center gap-2"><Database size={15} className="text-emerald-200/60" /><p className="text-[10px] font-black uppercase tracking-[.14em] text-slate-500">Occupation resolution</p></div><h2 className="mt-2 text-xl font-black text-white">Select the actual O*NET occupation</h2><p className="mt-1 text-xs leading-5 text-slate-500">Search results remain explicit when more than one occupation matches.</p><div className="mt-4 flex gap-2"><input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchOccupation(); }} placeholder="Search occupation title" className="min-h-11 min-w-0 flex-1 border border-white/10 bg-black/25 px-3 text-sm outline-none" /><button type="button" onClick={() => void searchOccupation()} disabled={loadingOnet || !searchTerm.trim()} className="inline-flex min-h-11 items-center gap-2 border border-emerald-200/20 bg-emerald-300/[.07] px-4 text-xs font-black">{loadingOnet ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}Search</button></div>{matches.length ? <div className="mt-3 grid gap-1 border-y border-white/7">{matches.map((match) => <button key={match.code} type="button" onClick={() => void selectCandidate(match)} className={`grid grid-cols-[1fr_100px] gap-3 border-b border-white/[.05] px-3 py-3 text-left last:border-b-0 ${active.onetCode === match.code ? "bg-emerald-300/[.055]" : "hover:bg-white/[.02]"}`}><span className="text-xs font-black text-white">{match.title}</span><span className="text-right text-[10px] font-bold text-slate-500">{match.code}{match.score != null ? ` · ${match.score}` : ""}</span></button>)}</div> : null}{onet?.occupation ? <div className="mt-4 border-l-2 border-emerald-200/50 pl-4"><p className="text-sm font-black text-white">Selected: {onet.occupation.title}</p><p className="mt-1 text-[10px] font-bold text-emerald-100/65">{onet.occupation.code}</p><p className="mt-2 text-xs leading-6 text-slate-400">{onet.occupation.description}</p></div> : null}</div>
 
             <div className="border-b border-white/10 p-5"><div className="flex items-center justify-between gap-4"><div><p className="text-[10px] font-black uppercase tracking-[.14em] text-slate-500">O*NET evidence</p><h2 className="mt-1 text-lg font-black text-white">Source demands</h2></div><span className="text-[10px] text-slate-600">{tabRows.length} rows</span></div><div className="mt-4 flex gap-5 overflow-x-auto border-b border-white/8">{EVIDENCE_TABS.map((tab) => <button key={tab.key} type="button" onClick={() => setEvidenceTab(tab.key)} className={`min-h-10 shrink-0 border-b-2 text-xs font-bold ${evidenceTab === tab.key ? "border-cyan-200 text-white" : "border-transparent text-slate-500"}`}>{tab.label}</button>)}</div><label className="mt-4 block"><span className="text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">Relevance keywords</span><input value={relevance} onChange={(event) => setRelevance(event.target.value)} placeholder="e.g. lifting overhead noise respirator driving" className={inputClass} /><span className="mt-1 block text-[9px] leading-4 text-slate-600">Keywords re-rank source evidence; they do not alter the O*NET values.</span></label><div className="mt-4 max-h-[520px] overflow-y-auto divide-y divide-white/[.06] border-t border-white/7">{tabRows.slice(0, 40).map(({ row, score }, index) => { const added = active.duties.some((duty) => duty.sourceKind === tabConfig.kind && (row.id ? duty.sourceId === row.id : duty.duty.toLowerCase() === row.name.toLowerCase())); return <article key={`${row.id || row.name}-${index}`} className="grid grid-cols-[1fr_90px_42px] gap-3 py-3"><div><p className="text-xs font-black leading-5 text-white">{row.name}</p>{row.description ? <p className="mt-1 text-[10px] leading-5 text-slate-500">{row.description}</p> : null}</div><div className="text-right"><p className="text-[9px] text-slate-600">rank</p><p className="mt-1 text-xs font-black text-slate-300">{number(score)}</p>{row.value != null ? <p className="mt-1 text-[9px] text-slate-600">O*NET {row.value}</p> : null}</div><button type="button" onClick={() => addEvidence(row)} disabled={added} aria-label={`Add ${row.name} to duty workspace`} className="grid h-9 w-9 place-items-center border border-cyan-100/14 disabled:opacity-35">{added ? <Check size={13} /> : <Plus size={13} />}</button></article>; })}{!onet ? <p className="py-5 text-xs text-slate-500">Select an occupation to load source evidence.</p> : null}</div></div>
@@ -237,7 +264,7 @@ export default function JobIntelligenceV2() {
             <div className="p-5"><div className="flex items-center gap-2"><ArrowRightLeft size={15} className="text-violet-200/55" /><p className="text-[10px] font-black uppercase tracking-[.14em] text-slate-500">Occupation comparison</p></div><div className="mt-3 flex gap-2"><input value={compareTerm} onChange={(event) => setCompareTerm(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchCompare(); }} placeholder="Compare against another occupation" className="min-h-10 min-w-0 flex-1 border border-white/10 bg-black/25 px-3 text-sm outline-none" /><button type="button" onClick={() => void searchCompare()} disabled={loadingCompare || !compareTerm.trim()} className="min-h-10 border border-violet-200/18 px-4 text-xs font-black">{loadingCompare ? <Loader2 size={14} className="animate-spin" /> : "Find"}</button></div>{compareMatches.length ? <div className="mt-3 flex gap-2 overflow-x-auto">{compareMatches.map((match) => <button key={match.code} type="button" onClick={() => void selectCompare(match)} className={`shrink-0 border px-3 py-2 text-[10px] font-black ${compareProfile?.occupation?.code === match.code ? "border-violet-200/30 bg-violet-300/[.08]" : "border-white/10"}`}>{match.title} · {match.code}</button>)}</div> : null}{onet?.occupation && compareProfile?.occupation ? <div className="mt-4 grid gap-4 md:grid-cols-2"><SignalComparison title={`A · ${onet.occupation.title}`} items={comparisonA} /><SignalComparison title={`B · ${compareProfile.occupation.title}`} items={comparisonB} /><p className="md:col-span-2 text-[9px] leading-4 text-slate-600">Signal counts are transparent keyword-presence summaries across O*NET source fields for orientation only; they are not medical or job-risk scores.</p></div> : null}</div>
           </section>
 
-          <aside className="bg-[#070b10]">
+          <aside className="job-intelligence-duty-inspector bg-[#070b10]">
             <div className="sticky top-0 max-h-screen overflow-y-auto">
               <div className="border-b border-white/10 p-4"><p className="text-[10px] font-black uppercase tracking-[.14em] text-slate-500">Duty / essential-functions workspace</p><h2 className="mt-1 text-lg font-black text-white">Employer-specific duties</h2><p className="mt-2 text-[11px] leading-5 text-slate-500">O*NET is source evidence. Essentiality, frequency, exposures, PPE, physical detail, and employer-specific requirements remain reviewer decisions.</p><div className="mt-4 flex gap-2"><input value={manualDuty} onChange={(event) => setManualDuty(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") addManualDuty(); }} placeholder="Add employer-specific duty" className="min-h-10 min-w-0 flex-1 border border-white/10 bg-black/25 px-3 text-xs outline-none" /><button type="button" onClick={addManualDuty} className="grid h-10 w-10 place-items-center border border-white/10"><Plus size={14} /></button></div></div>
 
