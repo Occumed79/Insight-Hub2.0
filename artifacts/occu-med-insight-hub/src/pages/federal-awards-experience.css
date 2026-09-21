@@ -62,22 +62,17 @@
   background-color: rgba(5, 9, 14, .68) !important;
 }
 
-@media (min-width: 1280px) {
-  .federal-awards-experience main > section > div.grid[class*="grid-cols-[270px"] {
-    grid-template-columns: 248px minmax(0,1fr) 430px !important;
-  }
-}
-
-.federal-awards-experience main > section > div.grid > aside {
+.federal-awards-entity-rail,
+.federal-awards-inspector {
   backdrop-filter: blur(18px);
 }
 
-.federal-awards-experience main > section > div.grid > aside:first-of-type {
+.federal-awards-entity-rail {
   background: linear-gradient(180deg, rgba(6, 10, 15, .97), rgba(4, 8, 12, .98)) !important;
   border-right-color: rgba(94, 159, 224, .11) !important;
 }
 
-.federal-awards-experience main > section > div.grid > section {
+.federal-awards-stream {
   position: relative;
   background:
     linear-gradient(rgba(112, 154, 211, .014) 1px, transparent 1px),
@@ -86,12 +81,12 @@
   background-size: 68px 68px, 68px 68px, auto;
 }
 
-/* Existing award rows become one continuous value/time stream. */
-.federal-awards-experience [class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"] {
+.federal-awards-row,
+.federal-awards-columns {
   position: relative;
 }
 
-.federal-awards-experience button[class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"] {
+.federal-awards-row {
   min-height: 70px;
   padding-top: 14px !important;
   padding-bottom: 14px !important;
@@ -99,7 +94,7 @@
   background: transparent !important;
 }
 
-.federal-awards-experience button[class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"]::before {
+.federal-awards-row::before {
   content: "";
   position: absolute;
   right: 112px;
@@ -109,7 +104,7 @@
   background: rgba(105, 165, 220, .105);
 }
 
-.federal-awards-experience button[class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"]::after {
+.federal-awards-row::after {
   content: "";
   position: absolute;
   right: 108px;
@@ -123,31 +118,30 @@
   transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
 }
 
-.federal-awards-experience button[class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"]:hover::after {
+.federal-awards-row:hover::after {
   background: rgba(74, 179, 238, .24);
   box-shadow: 0 0 18px rgba(73, 177, 237, .12);
 }
 
-.federal-awards-experience button[class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"][class*="bg-sky-400"] {
+.federal-awards-row.is-selected {
   background: linear-gradient(90deg, rgba(55, 145, 211, .055), rgba(55, 145, 211, .014) 68%, transparent) !important;
   box-shadow: inset 2px 0 rgba(93, 190, 244, .54);
 }
 
-.federal-awards-experience button[class*="grid-cols-[110px_minmax(0,1fr)_145px_108px]"][class*="bg-sky-400"]::after {
+.federal-awards-row.is-selected::after {
   transform: scale(1.24);
   border-color: rgba(182, 229, 255, .88);
   background: #5bc3fb;
   box-shadow: 0 0 0 5px rgba(91, 195, 251, .05), 0 0 22px rgba(91, 195, 251, .18);
 }
 
-/* The summary strip becomes a thin live readout rather than four hero cards. */
-.federal-awards-experience main > section > div.grid > section > div[class*="grid-cols-4"] {
+.federal-awards-metrics {
   min-height: 58px;
   background: rgba(6, 10, 15, .94) !important;
   border-bottom-color: rgba(100, 154, 211, .1) !important;
 }
 
-.federal-awards-experience main > section > div.grid > aside:last-of-type {
+.federal-awards-inspector {
   border-left-color: rgba(89, 196, 184, .12) !important;
   background: linear-gradient(180deg, rgba(7, 13, 16, .98), rgba(5, 9, 12, .99)) !important;
   box-shadow: -28px 0 80px rgba(0,0,0,.22);
@@ -159,4 +153,246 @@
 
 .federal-awards-experience ::selection {
   background: rgba(81, 166, 226, .2);
+}
+
+
+/* Page-owned federal awards command surface. */
+.federal-awards-core {
+  position: relative;
+  isolation: isolate;
+}
+
+.federal-awards-command {
+  position: relative;
+  overflow: hidden;
+  margin: 28px 24px 20px;
+  border: 1px solid rgba(109, 166, 226, .11);
+  background:
+    linear-gradient(108deg, rgba(7, 11, 17, .98), rgba(5, 9, 14, .95) 58%, rgba(6, 14, 16, .94)),
+    radial-gradient(circle at 82% 14%, rgba(69, 139, 231, .08), transparent 19rem);
+  box-shadow: 0 30px 90px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.025);
+}
+
+.federal-awards-command::before,
+.federal-awards-command::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+}
+
+.federal-awards-command::before {
+  inset: 0;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 118px, rgba(116, 171, 231, .027) 119px 120px),
+    linear-gradient(rgba(115, 163, 210, .02) 1px, transparent 1px);
+  background-size: auto, 100% 46px;
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+
+.federal-awards-command::after {
+  right: 44px;
+  top: 52px;
+  width: 140px;
+  height: 140px;
+  border: 1px solid rgba(100, 193, 185, .11);
+  border-radius: 50%;
+  box-shadow: 0 0 0 28px rgba(86, 160, 226, .015), 0 0 0 56px rgba(86, 160, 226, .009);
+}
+
+.federal-awards-commandline,
+.federal-awards-title-row,
+.federal-awards-signal-track {
+  position: relative;
+  z-index: 1;
+}
+
+.federal-awards-commandline {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(120, 165, 205, .08);
+  color: rgba(177, 205, 224, .5);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.federal-awards-source,
+.federal-awards-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.federal-awards-source {
+  color: rgba(168, 209, 240, .78);
+}
+
+.federal-awards-live {
+  margin-left: auto;
+  color: rgba(149, 220, 205, .7);
+}
+
+.federal-awards-title-row {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(320px, 38%);
+  gap: 36px;
+  padding: 30px 28px 28px;
+}
+
+.federal-awards-eyebrow {
+  margin: 0 0 9px;
+  color: rgba(137, 189, 235, .72);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.federal-awards-title-row h1 {
+  margin: 0;
+  color: #f7fbff;
+  font-size: clamp(38px, 3.9vw, 66px);
+  font-weight: 860;
+  letter-spacing: -.055em;
+  line-height: .95;
+}
+
+.federal-awards-title-row > div:first-child > p:last-child {
+  max-width: 820px;
+  margin: 18px 0 0;
+  color: rgba(196, 214, 228, .61);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.federal-awards-readout {
+  align-self: stretch;
+  display: grid;
+  border-left: 1px solid rgba(112, 170, 216, .1);
+}
+
+.federal-awards-readout > div {
+  display: grid;
+  grid-template-columns: 78px minmax(0,1fr);
+  gap: 14px;
+  align-items: center;
+  min-height: 48px;
+  padding-left: 18px;
+  border-bottom: 1px solid rgba(112, 170, 216, .07);
+}
+
+.federal-awards-readout > div:last-child {
+  border-bottom: 0;
+}
+
+.federal-awards-readout span {
+  color: rgba(137, 169, 194, .5);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.federal-awards-readout strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(235, 245, 252, .9);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.federal-awards-signal-track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  border-top: 1px solid rgba(112, 170, 216, .09);
+  background: rgba(2, 7, 12, .42);
+}
+
+.federal-awards-signal-track > div {
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 9px;
+  align-items: center;
+  padding: 0 16px;
+  border-right: 1px solid rgba(112, 170, 216, .07);
+  color: rgba(150, 193, 222, .65);
+}
+
+.federal-awards-signal-track > div:last-child {
+  border-right: 0;
+}
+
+.federal-awards-signal-track span {
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.federal-awards-signal-track strong {
+  color: rgba(236, 246, 252, .92);
+  font-size: 17px;
+  font-weight: 850;
+}
+
+.federal-awards-workbench {
+  position: relative;
+  z-index: 1;
+  margin-top: 0;
+}
+
+.federal-awards-stream::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 111px;
+  width: 1px;
+  background: linear-gradient(to bottom, rgba(82, 169, 225, .16), rgba(71, 191, 179, .08) 64%, transparent);
+}
+
+.federal-awards-columns {
+  color: rgba(130, 164, 189, .52) !important;
+}
+
+.federal-awards-inspector {
+  background:
+    linear-gradient(180deg, rgba(7, 13, 16, .985), rgba(4, 8, 11, .99)),
+    radial-gradient(circle at 100% 12%, rgba(73, 184, 170, .05), transparent 18rem) !important;
+}
+
+.federal-awards-experience input:focus,
+.federal-awards-experience select:focus {
+  border-color: rgba(119, 191, 235, .34) !important;
+  box-shadow: 0 0 0 1px rgba(119, 191, 235, .07), 0 0 24px rgba(62, 141, 209, .045);
+}
+
+@media (max-width: 1279px) {
+  .federal-awards-title-row {
+    grid-template-columns: 1fr;
+  }
+
+  .federal-awards-readout {
+    border-left: 0;
+    border-top: 1px solid rgba(112, 170, 216, .1);
+    grid-template-columns: repeat(3, minmax(0,1fr));
+  }
+
+  .federal-awards-readout > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 12px 14px 8px 0;
+  }
+
+  .federal-awards-signal-track {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+  }
 }
