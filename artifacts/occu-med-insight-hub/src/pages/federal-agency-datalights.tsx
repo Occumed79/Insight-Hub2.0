@@ -1,12 +1,4 @@
 import { useEffect, useRef } from "react";
-import {
-  Application,
-  Color,
-  Entity,
-  FILLMODE_FILL_WINDOW,
-  RESOLUTION_AUTO,
-  Vec3,
-} from "playcanvas";
 
 type FederalAgencyDataLightsProps = {
   counts: {
@@ -37,24 +29,32 @@ export default function FederalAgencyDataLights({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const app = new Application(canvas, {});
-    app.setCanvasFillMode(FILLMODE_FILL_WINDOW);
-    app.setCanvasResolution(RESOLUTION_AUTO);
+    let disposed = false;
+    let app: import("playcanvas").Application | null = null;
 
-    const camera = new Entity("Federal Camera");
-    camera.addComponent("camera", {
-      clearColor: new Color(0.004, 0.007, 0.009, 1),
-      farClip: 120,
-      nearClip: 0.1,
-      fov: 46,
-    });
-    camera.setPosition(0, 0, 13.5);
-    app.root.addChild(camera);
+    const boot = async () => {
+      try {
+        const pc = await import("playcanvas");
+        if (disposed) return;
 
-    const white = new Color(0.92, 0.96, 0.96, 0.76);
-    const cool = new Color(0.52, 0.78, 0.82, 0.78);
-    const green = new Color(0.48, 0.88, 0.68, 0.78);
-    const dim = new Color(0.22, 0.31, 0.32, 0.42);
+        app = new pc.Application(canvas, {});
+        app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
+        app.setCanvasResolution(pc.RESOLUTION_AUTO);
+
+        const camera = new pc.Entity("Federal Camera");
+        camera.addComponent("camera", {
+          clearColor: new pc.Color(0.004, 0.007, 0.009, 1),
+          farClip: 120,
+          nearClip: 0.1,
+          fov: 46,
+        });
+        camera.setPosition(0, 0, 13.5);
+        app.root.addChild(camera);
+
+        const white = new pc.Color(0.92, 0.96, 0.96, 0.76);
+        const cool = new pc.Color(0.52, 0.78, 0.82, 0.78);
+        const green = new pc.Color(0.48, 0.88, 0.68, 0.78);
+        const dim = new pc.Color(0.22, 0.31, 0.32, 0.42);
 
     const values = [counts.solicitations, counts.recompetes, counts.forecasts, counts.medical];
     const total = values.reduce((sum, value) => sum + value, 0);
@@ -71,10 +71,10 @@ export default function FederalAgencyDataLights({
     const waveIntensity = 0.54;
     const endFade = 0.08;
 
-    const positions: Vec3[] = [];
-    const colors: Color[] = [];
-    const particlePositions: Vec3[] = [];
-    const particleColors: Color[] = [];
+    const positions: import("playcanvas").Vec3[] = [];
+    const colors: import("playcanvas").Color[] = [];
+    const particlePositions: import("playcanvas").Vec3[] = [];
+    const particleColors: import("playcanvas").Color[] = [];
 
     const viewSeed = Array.from(selectedView).reduce((sum, char) => sum + char.charCodeAt(0), 0) * 0.0017;
     const agencySeed = Array.from(agencyKey).reduce((sum, char) => sum + char.charCodeAt(0), 0) * 0.0009;
@@ -102,7 +102,7 @@ export default function FederalAgencyDataLights({
         Math.sin(u * w * 1.3 * TAU + t * 0.8 + phase * 1.3 + 1.57) +
         0.4 * Math.sin(u * w * 3.1 * TAU + t * 1.3 + phase);
 
-      return new Vec3(
+      return new pc.Vec3(
         x,
         latY + waveIntensity * waveEnv * y,
         latZ + waveIntensity * waveEnv * z
@@ -111,8 +111,9 @@ export default function FederalAgencyDataLights({
 
     let time = 0;
 
-    app.on("update", (dt) => {
-      time += dt;
+        app.on("update", (dt) => {
+          try {
+            time += dt;
       positions.length = 0;
       colors.length = 0;
       particlePositions.length = 0;
@@ -145,8 +146,8 @@ export default function FederalAgencyDataLights({
 
           positions.push(p0, p1);
           colors.push(
-            new Color(strandColor.r, strandColor.g, strandColor.b, strandColor.a * alpha0),
-            new Color(strandColor.r, strandColor.g, strandColor.b, strandColor.a * alpha1)
+            new pc.Color(strandColor.r, strandColor.g, strandColor.b, strandColor.a * alpha0),
+            new pc.Color(strandColor.r, strandColor.g, strandColor.b, strandColor.a * alpha1)
           );
         }
 
@@ -160,7 +161,7 @@ export default function FederalAgencyDataLights({
           const twinkle = 0.7 + 0.3 * Math.sin(time * 6 + seed * 40);
           const radius = 0.018 + 0.022 * twinkle;
           const alpha = (0.2 + 0.8 * dataBoost) * twinkle;
-          const c = new Color(strandColor.r, strandColor.g, strandColor.b, Math.min(1, alpha));
+          const c = new pc.Color(strandColor.r, strandColor.g, strandColor.b, Math.min(1, alpha));
 
           particlePositions.push(
             new Vec3(p.x - radius, p.y, p.z),
@@ -178,16 +179,38 @@ export default function FederalAgencyDataLights({
       // Keep the scene alive as an environment rather than a static hero.
       const drift = Math.sin(time * 0.16 + agencySeed * 10) * 0.42;
       camera.setPosition(drift, Math.sin(time * 0.11) * 0.18, 13.5);
-      camera.setEulerAngles(Math.sin(time * 0.09) * 0.7, drift * -1.2, 0);
-    });
+            camera.setEulerAngles(Math.sin(time * 0.09) * 0.7, drift * -1.2, 0);
+          } catch (error) {
+            // Keep the operational workspace alive even if a frame-level visual
+            // operation is unavailable on a specific GPU/browser.
+            console.warn("Federal DataLights frame skipped", error);
+          }
+        });
 
-    const resize = () => app.resizeCanvas();
-    window.addEventListener("resize", resize);
-    app.start();
+        const resize = () => app?.resizeCanvas();
+        window.addEventListener("resize", resize);
+        canvas.dataset.sceneReady = "true";
+        app.start();
+
+        if (disposed) {
+          window.removeEventListener("resize", resize);
+          app.destroy();
+          app = null;
+        }
+      } catch (error) {
+        canvas.dataset.sceneReady = "false";
+        console.error("Federal DataLights scene unavailable", error);
+      }
+    };
+
+    void boot();
 
     return () => {
-      window.removeEventListener("resize", resize);
-      app.destroy();
+      disposed = true;
+      if (app) {
+        app.destroy();
+        app = null;
+      }
     };
   }, [
     counts.solicitations,
