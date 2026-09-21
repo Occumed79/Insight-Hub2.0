@@ -1,5 +1,6 @@
 import ReviewerDrugChecker from "./reviewer-drug-checker";
 import "./reviewer-drug-checker-experience.css";
+import "../styles/glass-recovery.css";
 
 export default function ReviewerDrugCheckerExperience() {
   return (
