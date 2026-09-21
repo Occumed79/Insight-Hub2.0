@@ -1,6 +1,5 @@
 import JobIntelligence from "./job-intelligence-v2";
 import "./job-intelligence-experience.css";
-import "../styles/glass-recovery.css";
 
 export default function JobIntelligenceExperience() {
   return (
