@@ -168,6 +168,14 @@ These are the visual/interaction references for the redesign. They are used as s
 | Lusion Zero Tech | https://client-zero-tech.lusion.co | realtime 3D plus scroll navigation and uninterrupted spatial transitions |
 | CUYO 3D Science Lab | https://cuyo.ai | open scientific WebGL simulations as standalone interactive scenes rather than dashboard widgets |
 
+### Edolus — approved source scope
+
+Edolus is approved as a primary cinematic source. Its non-brand visual and interaction system may be adapted broadly across relevant Insight Hub workspaces, including scene composition, full-screen spatial layout, camera choreography, particle/data-flow treatment, shaders/effects, transition behavior, scroll progression, typography hierarchy, spacing, layering, navigation behavior, and motion timing.
+
+Do not carry over Edolus's AI-specific subject matter, branded copy, logos, proprietary imagery, photography, rendered picture assets, or other identifiable media. Replace those with Insight Hub's real occupational, federal, medical, legal, standards, and defense data and with licensed/open scientific or data visual assets where needed.
+
+The goal is to preserve the actual cinematic interaction grammar and visual mechanics of the sourced experience rather than inventing an approximation.
+
 ### Tab-to-reference map
 
 | Insight Hub workspace | Primary reference direction |
