@@ -1,15 +1,10 @@
-import IndustryImpactCalculator from "./industry-impact-calculator-v3";
-import "./industry-impact-experience.css";
+import RebuildHoldWorkspace from "./rebuild-hold-workspace";
 
-export default function IndustryImpactExperience() {
+export default function RebuildHoldRoute() {
   return (
-    <div className="industry-impact-experience aurora-bg" data-workspace="industry-impact">
-      <div className="industry-impact-field" aria-hidden="true">
-        <span className="impact-horizon impact-horizon-one" />
-        <span className="impact-horizon impact-horizon-two" />
-        <span className="impact-surface" />
-      </div>
-      <IndustryImpactCalculator />
-    </div>
+    <RebuildHoldWorkspace
+      workspace="industry-impact"
+      identityKey="industry-impact"
+    />
   );
 }
