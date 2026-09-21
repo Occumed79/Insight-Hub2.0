@@ -49,13 +49,13 @@ export default function FederalAgencyDataLights({
           nearClip: 0.1,
           fov: 46,
         });
-        camera.setPosition(0, 0, 13.5);
+        camera.setPosition(0, 0, 10.8);
         app.root.addChild(camera);
 
-        const white = new pc.Color(0.92, 0.96, 0.96, 0.76);
-        const cool = new pc.Color(0.52, 0.78, 0.82, 0.78);
-        const green = new pc.Color(0.48, 0.88, 0.68, 0.78);
-        const dim = new pc.Color(0.22, 0.31, 0.32, 0.42);
+        const white = new pc.Color(0.95, 0.98, 0.98, 0.9);
+        const cool = new pc.Color(0.55, 0.83, 0.9, 0.9);
+        const green = new pc.Color(0.5, 0.98, 0.72, 0.92);
+        const dim = new pc.Color(0.38, 0.5, 0.52, 0.62);
 
     const values = [counts.solicitations, counts.recompetes, counts.forecasts, counts.medical];
     const total = values.reduce((sum, value) => sum + value, 0);
@@ -63,14 +63,16 @@ export default function FederalAgencyDataLights({
 
     // Source-derived DataLights constants / harmonic ratios.
     const TAU = Math.PI * 2;
-    const segmentCount = 72;
-    const stringCount = 18;
-    const length = 17.5;
-    const bundleRadius = 2.35;
-    const waveSpeed = 0.54;
-    const waveComplexity = 1.18;
-    const waveIntensity = 0.54;
-    const endFade = 0.08;
+    const segmentCount = 96;
+    const stringCount = 22;
+    const length = 15.4;
+    const bundleRadius = 2.8;
+    const waveSpeed = 0.78;
+    const waveComplexity = 1.06;
+    const waveIntensity = 0.68;
+    const endFade = 0.1;
+    const startSpread = 0.56;
+    const endSpread = 0.56;
 
     const positions: import("playcanvas").Vec3[] = [];
     const colors: import("playcanvas").Color[] = [];
@@ -81,9 +83,15 @@ export default function FederalAgencyDataLights({
     const agencySeed = Array.from(agencyKey).reduce((sum, char) => sum + char.charCodeAt(0), 0) * 0.0009;
 
     function bundleScale(u: number) {
-      const edgeIn = Math.min(1, u / 0.12);
-      const edgeOut = Math.min(1, (1 - u) / 0.12);
-      return Math.max(0, Math.min(edgeIn, edgeOut));
+      // Same spread model as the extracted Edolus DataLights shader:
+      // the bundle may remain open at both ends instead of collapsing to one point.
+      const smooth = (x: number) => x * x * (3 - 2 * x);
+      if (u < 0.5) {
+        const t = smooth(Math.max(0, Math.min(1, u / 0.5)));
+        return startSpread + (1 - startSpread) * t;
+      }
+      const t = smooth(Math.max(0, Math.min(1, (1 - u) / 0.5)));
+      return endSpread + (1 - endSpread) * t;
     }
 
     function curvePoint(u: number, phase: number, angle: number, time: number, strandIndex: number) {
@@ -126,7 +134,7 @@ export default function FederalAgencyDataLights({
         const category = strand % 4;
         const categoryValue = values[category] || 0;
         const normalized = categoryValue / maxValue;
-        const dataBoost = total > 0 ? 0.34 + normalized * 0.66 : 0.26;
+        const dataBoost = total > 0 ? 0.62 + normalized * 0.38 : 0.56;
 
         const strandColor =
           category === 0 ? cool :
@@ -160,7 +168,7 @@ export default function FederalAgencyDataLights({
           if (u < endFade || u > 1 - endFade) continue;
           const p = curvePoint(u, phase, angle, time, strand);
           const twinkle = 0.7 + 0.3 * Math.sin(time * 6 + seed * 40);
-          const radius = 0.018 + 0.022 * twinkle;
+          const radius = 0.026 + 0.034 * twinkle;
           const alpha = (0.2 + 0.8 * dataBoost) * twinkle;
           const c = new pc.Color(strandColor.r, strandColor.g, strandColor.b, Math.min(1, alpha));
 
