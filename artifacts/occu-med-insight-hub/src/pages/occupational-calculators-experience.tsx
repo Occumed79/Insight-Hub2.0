@@ -1,5 +1,6 @@
 import OccupationalCalculators from "./occupational-calculators-v3";
 import "./occupational-calculators-experience.css";
+import "../styles/glass-recovery.css";
 
 export default function OccupationalCalculatorsExperience() {
   return (
