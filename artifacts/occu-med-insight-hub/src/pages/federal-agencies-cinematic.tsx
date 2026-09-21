@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { Sidebar } from "@/components/insight/Sidebar";
 import FederalAgencyDataLights from "./federal-agency-datalights";
-import "./federal-agencies-cinematic.css";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api = (path: string) => `${BASE}/api/${path.replace(/^\//, "")}`;
