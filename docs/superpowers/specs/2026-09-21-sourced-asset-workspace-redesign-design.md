@@ -151,6 +151,52 @@ No source is considered approved until its actual rendered structure is confirme
 - Drug Checker — FLOWSTACK surrounding shell: rejected; Mol* may remain only as the scientific molecule renderer if the surrounding experience is sourced from a stronger non-card interface.
 - Injuries & Medical Conditions — Vanatome: rejected.
 
+## Cinematic VFX reference bank — approved direction
+
+These are the visual/interaction references for the redesign. They are used as source references for composition, motion, camera behavior, spatial presentation, and interaction grammar. Do not copy brand logos, trademarks, copy, or proprietary media; use licensed/open assets for actual implementation.
+
+| Reference | Live URL | What is being sourced |
+| --- | --- | --- |
+| Active Theory | https://activetheory.net | full-viewport WebGL world, sparse chrome, real-time particles, cinematic navigation |
+| Resn | https://resn.co.nz | single full-bleed WebGL canvas, corner controls, overlay navigation, no dashboard framing |
+| Edolus | https://edolus.com | infrastructure/data transformed into a navigable cinematic journey with luminous flows |
+| Omega Clearspace | https://www.omegawatches.com/clearspace | scroll-driven camera choreography, wireframe-to-render transitions, spatial storytelling |
+| Audemars Piguet Extraordinary Lab | https://www.gq.com/sponsored/story/the-extraordinary-lab | precise full-screen object interrogation, floating mechanical detail, restrained cinematic camera |
+| Lusion Gemini | https://exp-gemini.lusion.co | single focal 3D object, PBR lighting, post-processing, state-dependent cinematic HUD |
+| Igloo Inc | https://www.igloo.inc | all-WebGL presentation, shader-driven text/UI, particles, procedural transforms, cinematic intro |
+| Elimar | https://elimar.lmigroupintl.com | one continuous particle field morphing between evidence/data states and narrative scenes |
+| Lusion Zero Tech | https://client-zero-tech.lusion.co | realtime 3D plus scroll navigation and uninterrupted spatial transitions |
+| CUYO 3D Science Lab | https://cuyo.ai | open scientific WebGL simulations as standalone interactive scenes rather than dashboard widgets |
+
+### Tab-to-reference map
+
+| Insight Hub workspace | Primary reference direction |
+| --- | --- |
+| Job Intelligence | Active Theory + Edolus — occupation evidence becomes a navigable spatial field, with minimal overlay controls |
+| Federal Awards Intelligence | Edolus + Omega Clearspace — awards, agencies, recipients, geography and time expressed as continuous data flows / spatial transitions |
+| Drug Checker | Lusion Gemini — medication is the focal scientific object; use Mol* only for the actual molecule engine and keep surrounding UI sparse |
+| Injuries & Medical Conditions | Audemars Extraordinary Lab + CUYO science scenes — full-screen anatomical/scientific focus with cinematic inspection; no Vanatome |
+| Clinical Calculators | Resn + Lusion Zero Tech — calculators become full-screen instruments with progressive state changes, not form cards |
+| Standards Intelligence | Audemars Extraordinary Lab — standards decomposed into an immersive inspection sequence with source text entering as layered detail |
+| Federal Agencies | Omega Clearspace + Edolus — spatial institutional network with camera travel and data overlays |
+| State Agencies | Resn + Edolus — continuous geographic/institutional field with sparse controls and animated transitions |
+| SEC Filings | Elimar — filing text/evidence transforms through one continuous particle/document field instead of result cards |
+| Organizational Chart | CUYO Cosmic Web / Active Theory particle language — organization as a true 3D relationship field, not boxes and connector lines |
+| Industry Impact Calculator | Lusion Zero Tech + Edolus — inputs drive a living 3D impact field and motion state |
+| Occupational Calculators | Lusion Gemini + Resn — each calculation acts like an instrument mode around one focal visualization |
+| Defense Medical Support | Omega Clearspace + Active Theory — mission/region/support intelligence as a full-screen spatial operational environment |
+| Legal & Injury Intelligence | Elimar + Extraordinary Lab — forensic evidence journey, timeline and source transitions in one continuous scene |
+
+### Explicit visual rejects
+
+Do not use the following as visual references for final page architecture even if technically useful:
+- Firefly WebGL / Vis5D: technically capable but visually scientific-tool / legacy rather than cinematic.
+- BioDigital / VolViz-style clinical viewers: usable as functional/scientific references only, not page design.
+- Conventional Figma dashboard kits, SaaS analytics kits, MUI/shadcn dashboards, or admin templates.
+- Mermaid, conventional Miro/Lucid diagrams, box-and-arrow maps, whiteboard visuals.
+- Vanatome.
+- Any source that resolves into cards, tiles, panels, KPI blocks, or a generic dashboard.
+
 ## Workspace mapping rule
 
 Every in-scope route gets a source manifest before code changes:
