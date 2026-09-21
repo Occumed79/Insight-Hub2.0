@@ -1,182 +1,205 @@
+/*
+  Drug Checker visual sources:
+  - Mol* Viewer (MIT): https://github.com/molstar/molstar
+  - FLOWSTACK UI Brick (MIT): https://github.com/flowstack-ui/brick
+  FLOWSTACK recipes adapted from app-bar.css, surface.css, and dark semantic
+  tokens.tokens.json. The molecular canvas itself is the actual Mol* Viewer.
+*/
+
 .drug-checker-experience {
+  --brick-color-surface-canvas: #191918;
+  --brick-color-surface-base: #20201e;
+  --brick-color-surface-subtle: #272725;
+  --brick-color-surface-raised: #2e2e2b;
+  --brick-color-text-primary: #eeeeec;
+  --brick-color-text-secondary: #b8b6b1;
+  --brick-color-text-muted: #999690;
+  --brick-color-border-subtle: #3b3b37;
+  --brick-color-border-default: #4d4c47;
+  --brick-color-accent-solid: #5b57c7;
+  --brick-color-accent-soft: #232149;
+  --brick-color-accent-border: #5a56b5;
+  --brick-color-accent-text: #bebaff;
+  --brick-color-focus-ring: #5b57c7;
+  --brick-color-shadow: #00000080;
+  --brick-space-0: 0rem;
+  --brick-space-2: .5rem;
+  --brick-space-3: .75rem;
+  --brick-space-4: 1rem;
+  --brick-space-5: 1.25rem;
+  --brick-space-6: 1.5rem;
+  --brick-radius-subtle: .25rem;
+  --brick-radius-control: .5rem;
+  --brick-radius-surface: .75rem;
+  --brick-border-width: 1px;
+  --brick-layer-overlay: 100;
   position: relative;
   min-height: 100vh;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse at 72% 17%, rgba(181, 92, 255, .09), transparent 32rem),
-    radial-gradient(ellipse at 27% 74%, rgba(66, 216, 202, .065), transparent 34rem),
-    #06070a;
+  background: var(--brick-color-surface-canvas);
+  color: var(--brick-color-text-primary);
 }
 
-.drug-spectrum-field {
-  pointer-events: none;
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  opacity: .48;
-  background: linear-gradient(180deg, rgba(255,255,255,.01), transparent 42%);
-}
-
-.drug-spectrum-line {
-  position: absolute;
-  left: 210px;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(126, 229, 215, .12), rgba(193, 123, 255, .13), transparent);
-}
-.drug-spectrum-line-a { top: 34%; transform: rotate(-2deg); }
-.drug-spectrum-line-b { top: 69%; opacity: .34; transform: rotate(3deg); }
-
-.drug-spectrum-ring {
-  position: absolute;
-  border: 1px solid rgba(199, 125, 255, .08);
-  border-radius: 50%;
-}
-.drug-spectrum-ring-a { width: 32vw; height: 32vw; right: 5%; top: 9%; }
-.drug-spectrum-ring-b { width: 18vw; height: 18vw; right: 12%; top: 16%; border-color: rgba(92, 226, 211, .08); }
-
-.drug-checker-experience > main,
 .drug-checker-experience .reviewer-native-page {
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, rgba(8, 8, 12, .93), rgba(4, 6, 9, .98)) !important;
+  background: var(--brick-color-surface-canvas) !important;
 }
 
-.drug-checker-experience [class*="text-[8px]"],
-.drug-checker-experience [class*="text-[9px]"] {
-  font-size: 11px !important;
-  letter-spacing: .02em !important;
+/* FLOWSTACK AppBar recipe */
+.drug-checker-experience .brick-app-bar {
+  --brick-app-bar-background: var(--brick-color-surface-base);
+  --brick-app-bar-foreground: var(--brick-color-text-primary);
+  --brick-app-bar-border-color: var(--brick-color-border-subtle);
+  --brick-app-bar-blurred-background: color-mix(in srgb, var(--brick-color-surface-base), transparent 12%);
+  display: block;
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  background: var(--brick-app-bar-background);
+  color: var(--brick-app-bar-foreground);
 }
-
-.drug-checker-experience [class*="uppercase"] {
-  letter-spacing: .05em;
+.drug-checker-experience .brick-app-bar[data-position="sticky"] {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: calc(var(--brick-layer-overlay) - 10);
 }
+.drug-checker-experience .brick-app-bar[data-bordered] {
+  border-block-end: var(--brick-border-width) solid var(--brick-app-bar-border-color);
+}
+.drug-checker-experience .brick-app-bar[data-blurred] {
+  background: var(--brick-app-bar-blurred-background);
+  backdrop-filter: blur(.75rem) saturate(1.15);
+}
+.drug-checker-experience .brick-app-bar-toolbar {
+  display: grid;
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 4rem;
+  grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+  align-items: center;
+  gap: var(--brick-space-3);
+  padding-inline: clamp(var(--brick-space-4),4vw,var(--brick-space-6));
+}
+.drug-checker-experience :where(.brick-app-bar-start,.brick-app-bar-center,.brick-app-bar-end) {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: var(--brick-space-2);
+}
+.drug-checker-experience .brick-app-bar-start { grid-column: 1; }
+.drug-checker-experience .brick-app-bar-center { grid-column: 2; justify-content: center; }
+.drug-checker-experience .brick-app-bar-end { grid-column: 3; justify-content: flex-end; }
 
-.drug-checker-experience button,
+/* FLOWSTACK Surface recipe */
+.drug-checker-experience .brick-surface {
+  --brick-surface-background: var(--brick-color-surface-base);
+  --brick-surface-foreground: var(--brick-color-text-primary);
+  --brick-surface-border-color: var(--brick-color-border-subtle);
+  --brick-surface-border-width: 0rem;
+  --brick-surface-radius: var(--brick-radius-surface);
+  --brick-surface-padding: var(--brick-space-0);
+  box-sizing: border-box;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  padding: var(--brick-surface-padding);
+  border: var(--brick-surface-border-width) solid var(--brick-surface-border-color);
+  border-radius: var(--brick-surface-radius);
+  background: var(--brick-surface-background);
+  color: var(--brick-surface-foreground);
+}
+.drug-checker-experience .brick-surface[data-level="canvas"] { --brick-surface-background: var(--brick-color-surface-canvas); }
+.drug-checker-experience .brick-surface[data-level="subtle"] { --brick-surface-background: var(--brick-color-surface-subtle); }
+.drug-checker-experience .brick-surface[data-level="raised"] { --brick-surface-background: var(--brick-color-surface-raised); }
+.drug-checker-experience .brick-surface[data-bordered] { --brick-surface-border-width: var(--brick-border-width); }
+.drug-checker-experience .brick-surface[data-radius="none"] { --brick-surface-radius: 0rem; }
+.drug-checker-experience .brick-surface[data-radius="subtle"] { --brick-surface-radius: var(--brick-radius-subtle); }
+
+.drug-checker-workbench {
+  margin-top: var(--brick-space-4);
+  border-block: var(--brick-border-width) solid var(--brick-color-border-subtle);
+}
+.drug-regimen-rail { border-inline-end: var(--brick-border-width) solid var(--brick-color-border-subtle); }
+.drug-regimen-review { border-inline-start: var(--brick-border-width) solid var(--brick-color-border-subtle); }
+
 .drug-checker-experience input,
 .drug-checker-experience select,
 .drug-checker-experience textarea {
-  border-radius: 4px !important;
+  border-color: var(--brick-color-border-subtle) !important;
+  border-radius: var(--brick-radius-control) !important;
+  background: var(--brick-color-surface-base) !important;
+  color: var(--brick-color-text-primary) !important;
+}
+.drug-checker-experience input:focus,
+.drug-checker-experience select:focus,
+.drug-checker-experience textarea:focus {
+  border-color: var(--brick-color-accent-border) !important;
+  outline: 2px solid var(--brick-color-focus-ring);
+  outline-offset: 1px;
+  box-shadow: none !important;
 }
 
-.drug-checker-experience [class*="rounded-[24px]"],
-.drug-checker-experience [class*="rounded-[28px]"] {
-  border-radius: 7px !important;
+/* Actual Mol* viewer; no locally fabricated molecular illustration or HUD. */
+.drug-structure-stage {
+  min-height: 480px;
+  overflow: hidden;
+}
+.drug-molstar-viewer {
+  position: relative;
+  width: 100%;
+  min-height: 480px;
+  background: #000;
+}
+.drug-molstar-viewer iframe {
+  display: block;
+  width: 100%;
+  height: 480px;
+  border: 0;
+  background: #000;
+}
+.drug-molstar-sourcebar {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--brick-space-3);
+  padding-inline: var(--brick-space-3);
+  border-block-start: var(--brick-border-width) solid var(--brick-color-border-subtle);
+  background: var(--brick-color-surface-base);
+  color: var(--brick-color-text-secondary);
+  font-size: 11px;
+}
+.drug-molstar-sourcebar a {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  color: var(--brick-color-accent-text);
+  text-decoration: none;
+}
+.drug-molstar-sourcebar a:hover { text-decoration: underline; }
+
+.drug-structure-loading {
+  display: flex;
+  min-height: 480px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--brick-space-2);
+  padding: var(--brick-space-5);
+  color: var(--brick-color-text-secondary);
+  font-size: 12px;
 }
 
-.drug-checker-experience [class*="bg-white/[0.025]"],
-.drug-checker-experience [class*="bg-white/[0.03]"] {
-  background-color: rgba(255, 255, 255, .014) !important;
-}
+.drug-checker-experience a[target="_blank"] { text-underline-offset: 3px; }
+.drug-checker-experience ::selection { background: var(--brick-color-accent-soft); }
 
 @media (min-width: 1280px) {
-  .drug-checker-experience .reviewer-native-page > section > div.grid {
+  .drug-checker-workbench {
     grid-template-columns: 286px minmax(0,1fr) 420px !important;
   }
 }
 
-/* The regimen rail is a relationship chain rather than a list of pills/cards. */
-.drug-checker-experience .reviewer-native-page > section > div.grid > aside:first-of-type {
-  position: relative;
-  background: linear-gradient(180deg, rgba(6, 11, 16, .97), rgba(5, 8, 13, .98)) !important;
-  border-right-color: rgba(88, 218, 207, .12) !important;
-}
-
-.drug-checker-experience .reviewer-native-page > section > div.grid > aside:first-of-type::after {
-  content: "";
-  position: absolute;
-  left: 35px;
-  top: 150px;
-  bottom: 90px;
-  width: 1px;
-  background: linear-gradient(to bottom, transparent, rgba(91, 220, 209, .2) 8%, rgba(171, 112, 244, .14) 78%, transparent);
-  pointer-events: none;
-}
-
-.drug-checker-experience .reviewer-native-page > section > div.grid > aside:first-of-type [class*="divide-y"] > div.group {
-  position: relative;
-  z-index: 1;
-  padding-left: 8px;
-  background: transparent;
-}
-
-.drug-checker-experience .reviewer-native-page > section > div.grid > aside:first-of-type [class*="divide-y"] > div.group button:first-child span[class*="rounded-full"] {
-  background: #071019 !important;
-  border-color: rgba(95, 218, 208, .3) !important;
-  box-shadow: 0 0 0 5px rgba(86, 212, 202, .025);
-}
-
-.drug-checker-experience .reviewer-native-page > section > div.grid > aside:first-of-type [class*="divide-y"] > div.group.text-white button:first-child span[class*="rounded-full"] {
-  border-color: rgba(118, 239, 226, .8) !important;
-  background: rgba(69, 206, 193, .2) !important;
-  box-shadow: 0 0 18px rgba(81, 220, 208, .16), 0 0 0 5px rgba(86, 212, 202, .035);
-}
-
-/* The real PubChem specimen becomes the scientific focal plane. */
-.drug-checker-experience .reviewer-native-page > section > div.grid > section {
-  background:
-    radial-gradient(circle at 50% 26%, rgba(66, 212, 210, .045), transparent 28%),
-    #05080c !important;
-}
-
-.drug-checker-experience .reviewer-native-page > section > div.grid > section [class*="min-h-[360px]"] {
-  min-height: 470px !important;
-  border: 0 !important;
-  border-radius: 2px !important;
-  background:
-    radial-gradient(circle at 50% 43%, rgba(59, 220, 221, .11), transparent 25%),
-    radial-gradient(circle at 67% 66%, rgba(149, 92, 246, .09), transparent 32%),
-    linear-gradient(rgba(95, 216, 218, .025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(95, 216, 218, .02) 1px, transparent 1px),
-    #020609 !important;
-  background-size: auto, auto, 46px 46px, 46px 46px, auto;
-  box-shadow: inset 0 0 90px rgba(0,0,0,.4), 0 30px 90px rgba(0,0,0,.2);
-}
-
-.drug-checker-experience .reviewer-native-page > section > div.grid > section [class*="min-h-[360px]"] > div[class*="place-items-center"] {
-  min-height: 470px !important;
-  padding: 34px !important;
-}
-
-.drug-checker-experience .reviewer-native-page > section > div.grid > section [class*="max-w-[520px]"] {
-  max-width: 650px !important;
-}
-
-/* Cross-medication evidence is a separate relationship analyzer. */
-.drug-checker-experience .reviewer-native-page > section > div.grid > aside:last-of-type {
-  background:
-    linear-gradient(180deg, rgba(12, 9, 18, .97), rgba(7, 8, 13, .99)) !important;
-  border-left-color: rgba(177, 111, 238, .14) !important;
-  box-shadow: -28px 0 82px rgba(0,0,0,.22);
-}
-
-.drug-checker-experience .reviewer-native-page > section > div.grid > aside:last-of-type article {
-  position: relative;
-  padding-left: 18px !important;
-}
-
-.drug-checker-experience .reviewer-native-page > section > div.grid > aside:last-of-type article::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 20px;
-  width: 7px;
-  height: 7px;
-  border: 1px solid rgba(193, 127, 244, .58);
-  border-radius: 50%;
-  background: #0a0710;
-  box-shadow: 0 0 0 5px rgba(193, 127, 244, .025);
-}
-
-.drug-checker-experience a[target="_blank"] {
-  text-underline-offset: 3px;
-}
-
-.drug-checker-experience [class*="border-violet"],
-.drug-checker-experience [class*="border-cyan"] {
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.018);
-}
-
-.drug-checker-experience ::selection {
-  background: rgba(141, 101, 231, .22);
+@media (max-width: 1100px) {
+  .drug-checker-workbench { grid-template-columns: 250px minmax(0,1fr) !important; }
+  .drug-regimen-review { display: none; }
 }
