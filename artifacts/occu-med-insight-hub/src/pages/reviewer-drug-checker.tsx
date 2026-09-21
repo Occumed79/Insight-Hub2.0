@@ -14,8 +14,6 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { AuroraMolecule } from "@/components/insight/AuroraMolecule";
-import { HeaderBar } from "@/components/insight/HeaderBar";
 import { Sidebar } from "@/components/insight/Sidebar";
 
 type Drug = { rxcui: string; name: string; score?: number | null };
@@ -103,6 +101,40 @@ function effectiveDate(value?: string) {
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function molstarViewerUrl(drug: Drug, payload: MoleculePayload | null) {
+  const cid = String(payload?.molecule?.CID ?? "").trim();
+  const structureUrl = cid
+    ? `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${encodeURIComponent(cid)}/SDF?record_type=3d`
+    : `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(drug.name)}/SDF?record_type=3d`;
+  const params = new URLSearchParams({
+    "hide-controls": "1",
+    "collapse-left-panel": "1",
+    "structure-url": structureUrl,
+    "structure-url-format": "sdf",
+    "pixel-scale": "1",
+  });
+  return `https://molstar.org/viewer/?${params.toString()}`;
+}
+
+function MolstarStructureViewer({ drug, payload }: { drug: Drug; payload: MoleculePayload | null }) {
+  const src = molstarViewerUrl(drug, payload);
+  return (
+    <div className="drug-molstar-viewer">
+      <iframe
+        src={src}
+        title={`Interactive Mol* 3D structure for ${drug.name}`}
+        loading="lazy"
+        allow="fullscreen"
+        referrerPolicy="no-referrer"
+      />
+      <div className="drug-molstar-sourcebar">
+        <span>Interactive 3D · Mol*</span>
+        {payload?.pubchemUrl ? <a href={payload.pubchemUrl} target="_blank" rel="noreferrer">PubChem source <ArrowUpRight className="h-3 w-3" /></a> : null}
+      </div>
+    </div>
+  );
 }
 
 function CoverageDot({ ok, label }: { ok: boolean; label: string }) {
@@ -195,17 +227,22 @@ export default function ReviewerDrugCheckerPage() {
     }
   }
 
-  const structureUrl = molecule?.structureImageUrl ?? null;
   const classNames = useMemo(() => unique([...(intelligence?.fdaClassNames || []), ...(intelligence?.classes || []).map((item) => item.className)]).slice(0, 10), [intelligence]);
 
   return (
-    <main className="reviewer-native-page min-h-screen pb-16 text-white">
+    <main className="drug-checker-core reviewer-native-page min-h-screen pb-16 text-white">
       <Sidebar />
       <section className="relative z-10 px-5 py-8 pt-24 lg:ml-[210px] lg:px-10 lg:pt-8">
-        <HeaderBar eyebrow="Medication / Occupational Review" title="Drug Checker" subtitle="Build the regimen first, then inspect each medication and the cross-medication evidence without losing context." />
+        <header className="brick-app-bar" data-position="sticky" data-variant="surface" data-tone="neutral" data-bordered data-blurred aria-labelledby="drug-checker-title">
+          <div className="brick-app-bar-toolbar" data-density="comfortable">
+            <div className="brick-app-bar-start"><Pill className="h-4 w-4" aria-hidden="true" /><span className="text-[11px] font-semibold">Medication review</span></div>
+            <div className="brick-app-bar-center"><div className="text-center"><h1 id="drug-checker-title" className="text-sm font-semibold">Drug Checker</h1><p className="mt-0.5 text-[10px] opacity-70">{focused ? focused.name : "Build a regimen to begin"}</p></div></div>
+            <div className="brick-app-bar-end"><span className="text-[11px] opacity-70">{selected.length} selected</span>{intelligence ? <span className="text-[11px] font-semibold">{intelligence.coverage.signalCount} signals</span> : null}</div>
+          </div>
+        </header>
 
-        <div className="grid min-h-[calc(100vh-128px)] overflow-hidden border-y border-white/8 xl:grid-cols-[310px_minmax(0,1fr)_390px]">
-          <aside className="border-r border-white/8 bg-black/12">
+        <div className="drug-checker-workbench brick-surface grid min-h-[calc(100vh-128px)] overflow-hidden xl:grid-cols-[310px_minmax(0,1fr)_390px]" data-level="canvas" data-radius="none">
+          <aside className="drug-regimen-rail brick-surface" data-level="subtle" data-bordered data-radius="none">
             <div className="sticky top-0 max-h-[calc(100vh-24px)] overflow-y-auto p-4">
               <div className="flex items-center justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[.16em] text-cyan-100/34">Regimen builder</p><h2 className="mt-1 text-lg font-black text-white">{selected.length} selected</h2></div><Pill className="h-5 w-5 text-cyan-100/44" /></div>
               <div className="relative mt-4">
@@ -224,7 +261,7 @@ export default function ReviewerDrugCheckerPage() {
             </div>
           </aside>
 
-          <section className="min-w-0 bg-black/6">
+          <section className="drug-inspector-surface brick-surface min-w-0" data-level="canvas" data-radius="none">
             {!focused ? (
               <div className="grid min-h-[680px] place-items-center px-8 text-center"><div><Atom className="mx-auto h-12 w-12 text-violet-100/18" /><h2 className="mt-5 text-2xl font-black tracking-[-0.03em]">Select a medication</h2><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-cyan-100/42">The medication inspector opens here while the regimen remains persistent at left.</p></div></div>
             ) : (
@@ -232,9 +269,8 @@ export default function ReviewerDrugCheckerPage() {
                 <div className="flex items-start justify-between gap-5 border-b border-white/8 pb-5"><div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-[.14em] text-violet-100/40">Medication inspector · RxCUI {focused.rxcui}</p><h2 className="mt-2 text-[31px] font-black tracking-[-0.04em] text-white">{intelligence?.identity?.canonicalName || focused.name}</h2>{classNames.length ? <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">{classNames.map((name) => <span key={name} className="text-[10px] text-violet-100/54">{name}</span>)}</div> : null}</div><Atom className="h-6 w-6 shrink-0 text-cyan-100/46" /></div>
 
                 <div className="grid gap-6 border-b border-white/8 py-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-                  <div className="relative min-h-[360px] overflow-hidden rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_50%_35%,rgba(60,220,235,.12),transparent_28%),radial-gradient(circle_at_70%_68%,rgba(139,92,246,.12),transparent_34%),#030913]">
-                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(102,224,235,.035)_1px,transparent_1px),linear-gradient(90deg,rgba(102,224,235,.035)_1px,transparent_1px)] bg-[size:36px_36px]" />
-                    <div className="relative z-10 grid min-h-[360px] place-items-center p-6">{moleculeLoading ? <div className="text-center text-xs text-cyan-100/46"><Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin" />Resolving PubChem structure…</div> : molecule?.error ? <p className="max-w-sm text-center text-xs leading-6 text-amber-100/62">{molecule.error}</p> : structureUrl ? <div className="w-full max-w-[520px]"><AuroraMolecule src={structureUrl} alt={`PubChem molecular structure for ${focused.name}`} /></div> : <p className="text-xs text-cyan-100/42">No structure image returned.</p>}</div>
+                  <div className="drug-structure-stage brick-surface" data-level="raised" data-bordered data-radius="subtle">
+                    {moleculeLoading ? <div className="drug-structure-loading"><Loader2 className="h-5 w-5 animate-spin" /><span>Resolving PubChem 3D conformer…</span></div> : molecule?.error ? <div className="drug-structure-loading text-amber-100/70">{molecule.error}</div> : <MolstarStructureViewer drug={focused} payload={molecule} />}
                   </div>
 
                   <aside>
@@ -250,7 +286,7 @@ export default function ReviewerDrugCheckerPage() {
             )}
           </section>
 
-          <aside className="border-l border-white/8 bg-[#08101a]/46">
+          <aside className="drug-regimen-review brick-surface" data-level="raised" data-bordered data-radius="none">
             <div className="sticky top-0 max-h-[calc(100vh-24px)] overflow-y-auto p-4">
               <div className="flex items-center justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[.16em] text-violet-100/36">Regimen review</p><h2 className="mt-1 text-lg font-black">Cross-medication evidence</h2></div><Layers3 className="h-5 w-5 text-violet-100/44" /></div>
               {selected.length < 2 ? <div className="mt-8 border-l border-white/9 pl-4"><p className="text-xs leading-6 text-cyan-100/42">Add at least two medications. This pane will then compare the selected regimen using current FDA label sections and the occupational signals already extracted for each RxCUI.</p></div> : regimenLoading ? <div className="mt-8 flex items-center gap-2 text-xs text-cyan-100/46"><Loader2 className="h-4 w-4 animate-spin" />Reviewing selected regimen…</div> : regimenError ? <p className="mt-8 text-xs leading-6 text-amber-100/70">{regimenError}</p> : regimen ? <>
