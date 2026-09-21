@@ -1,6 +1,5 @@
 import IndustryImpactCalculator from "./industry-impact-calculator-v3";
 import "./industry-impact-experience.css";
-import "../styles/glass-recovery.css";
 
 export default function IndustryImpactExperience() {
   return (
