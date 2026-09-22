@@ -1,6 +1,6 @@
-import { useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
-import { Activity, Database, Search, Sparkles } from "lucide-react";
-import HologramPointCloud, { type HologramRegionKey } from "./HologramPointCloud";
+import { useMemo, useState } from "react";
+import { Activity, ArrowUpRight, Database, Search, Sparkles } from "lucide-react";
+import type { HologramRegionKey } from "./HologramPointCloud";
 import "./reviewer-injury-hologram.css";
 
 type AnyRecord = Record<string, any>;
@@ -134,129 +134,99 @@ function deriveCaseSignals(caseProfile: OshaCaseProfile | null | undefined): Reg
     .sort((a, b) => b.score - a.score);
 }
 
-function heatColor(score: number) {
-  if (score >= 0.45) return "#ff5f76";
-  if (score >= 0.25) return "#ffb45e";
-  if (score >= 0.12) return "#7ae7cf";
-  return "#55c9e8";
-}
 
 export function ReviewerInjuryHologram({ profile, caseProfile }: { profile: AnyRecord | null; caseProfile?: OshaCaseProfile | null }) {
   const caseSignals = useMemo(() => deriveCaseSignals(caseProfile), [caseProfile]);
   const demandSignals = useMemo(() => deriveDemandSignals(profile), [profile]);
   const mode: SignalMode = caseSignals.length ? "osha" : profile ? "onet" : "idle";
   const signals = mode === "osha" ? caseSignals : demandSignals;
-  const signalMap = useMemo(() => new Map(signals.map((signal) => [signal.key, signal])), [signals]);
-  const regionScores = useMemo(
-    () => Object.fromEntries(signals.map((signal) => [signal.key, signal.score])) as Partial<Record<HologramRegionKey, number>>,
-    [signals],
-  );
-  const [view, setView] = useState<"front" | "back">("front");
   const [active, setActive] = useState<HologramRegionKey | null>(null);
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const idle = mode === "idle";
+  const signalMap = useMemo(() => new Map(signals.map((signal) => [signal.key, signal])), [signals]);
   const activeKey = active && signalMap.has(active) ? active : signals[0]?.key ?? null;
   const activeSignal = activeKey ? signalMap.get(activeKey) : undefined;
   const displayValue = mode === "osha"
     ? `${Math.round((activeSignal?.score ?? 0) * 100)}%`
     : activeSignal ? `${activeSignal.detail.length} refs` : "—";
 
-  const projectionStyle = {
-    "--holo-rotate-x": `${(-tilt.y * 3.5).toFixed(2)}deg`,
-    "--holo-rotate-y": `${(tilt.x * 4.5).toFixed(2)}deg`,
-    "--holo-pointer-x": `${50 + tilt.x * 18}%`,
-    "--holo-pointer-y": `${50 + tilt.y * 14}%`,
-    "--holo-energy": activeSignal?.score ?? 0.34,
-  } as CSSProperties;
-
-  function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
-    const y = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
-    setTilt({ x: Math.max(-1, Math.min(1, x)), y: Math.max(-1, Math.min(1, y)) });
-  }
-
   return (
-    <section className={`ih-hologram-shell${idle ? " is-idle" : ""}`} style={projectionStyle} data-testid="injury-hologram">
-      <div className="ih-hologram-stage">
-        <header className="ih-hologram-head">
-          <div>
-            <span><Activity size={13} /> Reported injury burden · HOLOGRAPHIC INJURY ANATOMY</span>
-            <h2>{idle ? "Occupation-linked anatomical intelligence projection" : mode === "osha" ? `Reported case anatomy · OIICS CY${caseProfile?.oiicsYear ?? "—"}` : "Job-demand anatomical attention map"}</h2>
+    <section className="injury-atlas-shell brick-surface" data-level="canvas" data-radius="none" data-testid="injury-hologram">
+      <header className="injury-atlas-appbar brick-app-bar" data-variant="surface" data-bordered data-blurred>
+        <div className="brick-app-bar-toolbar">
+          <div className="brick-app-bar-start">
+            <Activity size={14} aria-hidden="true" />
+            <span>Reported injury burden</span>
           </div>
-          <div className="ih-hologram-controls">
-            <div className="ih-view-toggle" aria-label="Hologram orientation">
-              <button className={view === "front" ? "active" : ""} onClick={() => { setView("front"); setTilt({ x: 0, y: 0 }); }}>ANTERIOR</button>
-              <button className={view === "back" ? "active" : ""} onClick={() => { setView("back"); setTilt({ x: 0, y: 0 }); }}>POSTERIOR</button>
-            </div>
-            <div className="ih-mode-pill">
-              {idle ? <Search size={13} /> : mode === "osha" ? <Database size={13} /> : <Sparkles size={13} />}
-              {idle ? "Standby" : mode === "osha" ? "OSHA case-linked projection" : "O*NET demand evidence"}
+          <div className="brick-app-bar-center">
+            <div className="text-center">
+              <strong>Interactive Anatomy Explorer</strong>
+              <small>{mode === "osha" ? `OSHA OIICS CY${caseProfile?.oiicsYear ?? "—"}` : mode === "onet" ? "O*NET demand evidence" : "Atlas ready"}</small>
             </div>
           </div>
-        </header>
+          <div className="brick-app-bar-end">
+            <a href="https://vanatome.vixotic.in" target="_blank" rel="noreferrer">
+              Vanatome source <ArrowUpRight size={13} />
+            </a>
+          </div>
+        </div>
+      </header>
 
-        <div className="ih-hologram-visual" onPointerMove={handlePointerMove} onPointerLeave={() => setTilt({ x: 0, y: 0 })}>
-          <div className="ih-telemetry ih-telemetry-left"><span>ANATOMY VECTOR</span><strong>{view === "front" ? "ANTERIOR" : "POSTERIOR"}</strong><small>VOLUMETRIC POINT CLOUD · ACTIVE</small></div>
-          <div className="ih-telemetry ih-telemetry-right"><span>{mode === "osha" ? "CODED CASE SHARE" : "DEMAND EVIDENCE"}</span><strong>{displayValue}</strong><small>{idle ? "AWAITING OCCUPATION" : mode === "osha" ? `OSHA OIICS BODY-PART DATA · CY${caseProfile?.oiicsYear ?? "—"}` : "O*NET JOB-DEMAND SIGNAL"}</small></div>
-          <div className="ih-floor-grid" />
-          <div className="ih-depth ih-depth-a" /><div className="ih-depth ih-depth-b" /><div className="ih-depth ih-depth-c" />
-          <div className="ih-orbit ih-orbit-x" /><div className="ih-orbit ih-orbit-y" />
-          <div className="ih-scan-plane" /><div className="ih-scan-plane secondary" />
-          <div className="ih-projector"><i /><i /><i /></div>
+      <div className="injury-atlas-workspace">
+        <div className="injury-atlas-viewer brick-surface" data-level="raised" data-radius="none">
+          <iframe
+            src="https://vanatome.vixotic.in"
+            title="Vanatome interactive human anatomy explorer"
+            loading="lazy"
+            allow="fullscreen"
+            referrerPolicy="no-referrer"
+          />
+        </div>
 
-          <div className="ih-hologram-rig">
-            <div className="ih-volume-shell" />
-            <div className="ih-body" data-view={view}>
-              <HologramPointCloud view={view} tiltX={tilt.x} tiltY={tilt.y} activeRegion={activeKey} regionScores={regionScores} />
-              <div className="ih-body-scanlines" />
-              <div className="ih-crosshair" />
-              {!idle && Object.entries(HOTSPOTS[view]).map(([key, position]) => {
-                const region = key as HologramRegionKey;
-                if (!position) return null;
-                const signal = signalMap.get(region);
-                if (!signal) return null;
-                return (
+        <aside className="injury-atlas-evidence brick-surface" data-level="subtle" data-bordered data-radius="none">
+          <div className="injury-atlas-source-state">
+            <span>{mode === "osha" ? <Database size={13} /> : mode === "onet" ? <Sparkles size={13} /> : <Search size={13} />}</span>
+            <div>
+              <small>Evidence mode</small>
+              <strong>{mode === "osha" ? "Reported OSHA body-part distribution" : mode === "onet" ? "Occupation demand evidence" : "Awaiting occupation"}</strong>
+            </div>
+          </div>
+
+          <section className="injury-atlas-focus">
+            <small>Active region</small>
+            <h3>{activeSignal?.label ?? "No region selected"}</h3>
+            <strong>{displayValue}</strong>
+            <div className="injury-atlas-detail">
+              {(activeSignal?.detail ?? ["Search an occupation to connect the anatomy workspace to reported case data and job-demand evidence."]).map((detail) => <p key={detail}>{detail}</p>)}
+            </div>
+          </section>
+
+          <section className="injury-atlas-ranking">
+            <div className="injury-atlas-ranking-head">
+              <small>{mode === "osha" ? "Reported body-part signals" : "Demand attention regions"}</small>
+              <span>{signals.length}</span>
+            </div>
+            {signals.length ? (
+              <div className="injury-atlas-signal-list">
+                {signals.map((signal, index) => (
                   <button
-                    key={region}
-                    aria-label={`${REGION_LABELS[region]} ${mode === "osha" ? "reported case" : "demand evidence"} signal`}
-                    className={`ih-hotspot${activeKey === region ? " active" : ""}`}
-                    style={{
-                      left: `${position.x}%`, top: `${position.y}%`, width: `${position.w}%`, height: `${position.h}%`,
-                      "--heat-color": heatColor(signal.score), "--heat-strength": signal.score,
-                    } as CSSProperties}
-                    onMouseEnter={() => setActive(region)}
-                    onFocus={() => setActive(region)}
-                    onClick={() => setActive(region)}
-                  />
-                );
-              })}
-            </div>
-          </div>
+                    key={signal.key}
+                    type="button"
+                    data-selected={activeKey === signal.key ? "" : undefined}
+                    onClick={() => setActive(signal.key)}
+                  >
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <strong>{signal.label}</strong>
+                    <em>{mode === "osha" ? `${Math.round(signal.score * 100)}%` : `${signal.detail.length} refs`}</em>
+                  </button>
+                ))}
+              </div>
+            ) : <p className="injury-atlas-empty">Search an occupation to populate anatomical evidence.</p>}
+          </section>
 
-          {idle ? <div className="ih-idle-callout"><Search size={18} /><strong>Search an occupation to energize the projection.</strong><span>When OSHA case detail is available, the projection switches from demand evidence to reported body-part distributions.</span></div> : null}
-        </div>
+          <p className="injury-atlas-attribution">
+            Viewer: Vanatome · MIT application code. Atlas derived from Z-Anatomy and remains subject to CC BY-SA 4.0 attribution/share-alike terms.
+          </p>
+        </aside>
       </div>
-
-      <aside className="ih-hologram-data">
-        <div className="ih-focus">
-          <span>ACTIVE REGION</span>
-          <h3>{activeSignal?.label ?? "Awaiting occupation"}</h3>
-          <div className="ih-focus-meta"><strong>{idle ? "Standby" : mode === "osha" ? "Reported OSHA case distribution" : "Occupation demand evidence"}</strong><em>{displayValue}</em></div>
-          <div className="ih-focus-bar"><i style={{ width: `${Math.round((activeSignal?.score ?? 0) * 100)}%` }} /></div>
-          <div className="ih-detail-list">{(activeSignal?.detail ?? ["Build an occupation profile to connect anatomy to reported case data and job-demand evidence."]).map((detail) => <div key={detail}>{detail}</div>)}</div>
-        </div>
-        <div className="ih-ranking">
-          <span>{mode === "osha" ? "REPORTED BODY-PART SIGNALS" : "DEMAND ATTENTION REGIONS"}</span>
-          {signals.length ? signals.map((signal, index) => (
-            <button key={signal.key} className={activeKey === signal.key ? "active" : ""} onClick={() => setActive(signal.key)}>
-              <b>{String(index + 1).padStart(2, "0")}</b>
-              <div><strong>{signal.label}</strong><span><i style={{ width: `${Math.round(signal.score * 100)}%` }} /></span></div>
-              <em>{mode === "osha" ? `${Math.round(signal.score * 100)}%` : `${signal.detail.length}`}</em>
-            </button>
-          )) : <p>Search an occupation to populate anatomical evidence.</p>}
-        </div>
-      </aside>
     </section>
   );
 }
