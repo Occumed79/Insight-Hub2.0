@@ -108,5 +108,6 @@
     "^artifacts/mockup-sandbox/",
     "^attached_assets/Pasted-.*\\.txt$",
     "^artifacts/occu-med-insight-hub/src/(index|visual-restore|logo-override|map-polish|cinematic-system)\\.css$"
-  ]
+  ],
+  "totalFiles": 395
 }
