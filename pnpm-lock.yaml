@@ -374,6 +374,9 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      playcanvas:
+        specifier: 2.21.4
+        version: 2.21.4
       prop-types:
         specifier: ^15.8.1
         version: 15.8.1
@@ -3133,7 +3136,27 @@ packages:
   zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
 
+  '@types/webxr@0.5.24':
+    resolution: {integrity: sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg==}
+
+  '@webgpu/types@0.1.71':
+    resolution: {integrity: sha512-mMy8/ODcKhab808co15eW+yN+HgXoQxRQHTiBV9Mrvl1r0ufnid7YOcI+gi4eUWSWl9ezD6TW2KXccrL8HCh2A==}
+
+  playcanvas@2.21.4:
+    resolution: {integrity: sha512-L4UGy3z/YT8AaNBEY4ITsZup548UFMabF7loh0YQ0DRwQLdjIW8grmZPoQ1+B83+N6sejRS0/XlXV2Vfb11+fw==}
+    engines: {node: '>=18.3.0'}
+
 snapshots:
+
+  '@types/webxr@0.5.24': {}
+
+  '@webgpu/types@0.1.71': {}
+
+  playcanvas@2.21.4:
+    dependencies:
+      '@types/webxr': 0.5.24
+      '@webgpu/types': 0.1.71
+
 
   '@babel/code-frame@7.29.0':
     dependencies:
