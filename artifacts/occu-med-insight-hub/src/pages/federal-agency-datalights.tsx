@@ -182,8 +182,8 @@ export default function FederalAgencyDataLights({
         }
       }
 
-      app.drawLines(positions, colors, false);
-      app.drawLines(particlePositions, particleColors, false);
+      app?.drawLines(positions, colors, false);
+      app?.drawLines(particlePositions, particleColors, false);
 
       // Keep the scene alive as an environment rather than a static hero.
       const drift = Math.sin(time * 0.16 + agencySeed * 10) * 0.42;
