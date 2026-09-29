@@ -11,7 +11,7 @@ The routes, navigation labels, underlying source implementations, data contracts
 - Route: `/injuries-medical-conditions`
 - Sidebar label: `Injuries & Medical Conditions`
 - Identity key: `injuries-medical-conditions`
-- Original route component: `src/pages/reviewer-injuries-medical.tsx`
+- Rebuild status: **active** — luminous front/back body mapping implementation started 2026-09-28\n- Original route component: `src/pages/reviewer-injuries-medical.tsx`
 - Preserved implementation: `src/pages/reviewer-injuries-medical-legacy.tsx`
 - Preserved visual/support code: `src/pages/reviewer-injury-hologram.tsx`, `src/pages/reviewer-injuries-workbench.css`
 - Core product identity:
