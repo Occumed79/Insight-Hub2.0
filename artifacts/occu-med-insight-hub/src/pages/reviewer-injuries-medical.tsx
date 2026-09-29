@@ -183,7 +183,7 @@ const CONDITIONS: Condition[] = [
 ];
 
 const REGION_LABELS = new Map<RegionId, string>(
-  [...FRONT_HOTSPOTS, ...BACK_HOTSPOTS].map((hotspot) => [hotspot.id, hotspot.label]),
+  [...FRONT_HOTSPOTS, ...BACK_HOTSPOTS].map((hotspot): [RegionId, string] => [hotspot.id, hotspot.label]),
 );
 
 const UPPER_EXTREMITY_REGIONS: RegionId[] = [
@@ -530,7 +530,7 @@ export default function ReviewerInjuriesMedical() {
                 {onet?.profile?.occupation ? (
                   <div className="mt-7 border-t border-white/[0.08] pt-5">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100/40">Resolved occupation</p>
-                    <h2 className="mt-2 text-xl font-semibold tracking-[-0.03em]">{onet.profile.occupation.title}</h2>
+                    <p className="mt-2 text-xl font-semibold tracking-[-0.03em]">{onet.profile.occupation.title}</p>
                     {onet.profile.occupation.code ? (
                       <p className="mt-1 font-mono text-[11px] text-white/35">{onet.profile.occupation.code}</p>
                     ) : null}
