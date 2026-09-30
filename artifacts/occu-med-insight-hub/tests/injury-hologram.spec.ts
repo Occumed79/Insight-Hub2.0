@@ -72,36 +72,39 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("Injuries & Medical Conditions uses occupation-linked OSHA case characteristics", async ({ page }) => {
+test("occupation-linked OSHA body-part evidence illuminates the matching luminous body region", async ({ page }) => {
   await page.goto("/injuries-medical-conditions");
+
   await expect(page.getByRole("heading", { name: "Injuries & Medical Conditions" })).toBeVisible();
-  await expect(page.getByTestId("injury-hologram")).toBeVisible();
-  await expect(page.getByText("HOLOGRAPHIC INJURY ANATOMY")).toBeVisible();
-  await expect(page.getByRole("button", { name: "ANTERIOR" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "POSTERIOR" })).toBeVisible();
-  await expect(page.getByLabel("Anterior CC0 human-mesh point-cloud hologram")).toBeVisible();
+  await expect(page.getByTestId("luminous-body-stage")).toBeVisible();
+  await expect(page.getByTestId("luminous-body-front")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Front view" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Back view" })).toBeVisible();
 
   await page.getByPlaceholder("Firefighter, electrician, truck driver…").fill("Firefighter");
   await page.getByRole("button", { name: "Build injury profile" }).click();
 
   await expect(page.getByRole("heading", { name: "Firefighters" })).toBeVisible();
-  await expect(page.getByText("OSHA case-linked projection")).toBeVisible();
-  await expect(page.getByText("128").first()).toBeVisible();
-  await expect(page.getByText("Back · 31 coded cases (31.0%)")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Low back reported case signal" })).toBeVisible();
+  await expect(page.getByText("128 reported cases")).toBeVisible();
   await expect(page.getByText("Overexertion and bodily reaction")).toBeVisible();
-  await expect(page.getByText("Job-demand context — not an injury rate")).toBeVisible();
 
-  await page.getByRole("button", { name: "POSTERIOR" }).click();
-  await expect(page.getByLabel("Posterior CC0 human-mesh point-cloud hologram")).toBeVisible();
+  await page.getByRole("button", { name: /Back.*31\.0%/ }).click();
+
+  await expect(page.getByTestId("luminous-body-back")).toBeVisible();
+  await expect(page.getByTestId("body-hotspot-lumbar-spine")).toHaveAttribute("data-active", "true");
+  await expect(page.getByText("Back", { exact: true }).last()).toBeVisible();
 });
 
-test("medical condition library is searchable across systems", async ({ page }) => {
+test("medical condition selection illuminates a related body region without implying diagnosis", async ({ page }) => {
   await page.goto("/injuries-medical-conditions");
   await page.getByRole("tab", { name: "Medical Conditions" }).click();
+
   await page.getByPlaceholder("Search diabetes, migraine, hearing, anticoagulation…").fill("hearing");
-  await expect(page.getByRole("button", { name: "Hearing Loss / Tinnitus" })).toBeVisible();
   await page.getByRole("button", { name: "Hearing Loss / Tinnitus" }).click();
+
   await expect(page.getByRole("heading", { name: "Hearing Loss / Tinnitus" })).toBeVisible();
-  await expect(page.getByText("What does the current audiogram show and is there a significant threshold shift?")).toBeVisible();
+  await expect(page.getByTestId("luminous-body-front")).toBeVisible();
+  await expect(page.getByTestId("body-hotspot-ear-left")).toHaveAttribute("data-active", "true");
+  await expect(page.getByTestId("body-hotspot-ear-right")).toHaveAttribute("data-active", "true");
+  await expect(page.getByText("Contextual body mapping only — not a diagnosis or fitness decision.")).toBeVisible();
 });
