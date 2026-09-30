@@ -130,7 +130,7 @@ function importSourceId(entityName: string, placeName: string, index: number) {
   return `company-location-text/${key}`;
 }
 
-function parseCompanyLocationText(rawText: string) {
+export function parseCompanyLocationText(rawText: string) {
   const parsed: ParsedTextLocation[] = [];
   const invalidRows: Array<{ line: number; error: string }> = [];
   let currentEntity = "";
