@@ -1,6 +1,9 @@
 import { Router } from "express";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { db, entitiesTable, locationsTable } from "@workspace/db";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { parseCompanyLocationText } from "./bulkManualLocations";
 import {
   discoverCompanyLocations,
   type CompanyLocationCandidate,
@@ -398,7 +401,102 @@ router.get("/entities/health", async (_req, res) => {
   }
 });
 
-async function savedEntityPayload(verifiedOnly: boolean) {
+async function bundledCompanyLocationPayload() {
+  const candidates = [
+    resolve(process.cwd(), "../../Company_Locations_Complete_Updated.txt"),
+    resolve(process.cwd(), "Company_Locations_Complete_Updated.txt"),
+    resolve(process.cwd(), "../Company_Locations_Complete_Updated.txt"),
+  ];
+
+  let rawText = "";
+  for (const candidate of candidates) {
+    try {
+      rawText = await readFile(candidate, "utf8");
+      if (rawText.trim()) break;
+    } catch {
+      // Try the next repository-relative path.
+    }
+  }
+  if (!rawText.trim()) return [];
+
+  const { parsed } = parseCompanyLocationText(rawText);
+  const grouped = new Map<string, typeof parsed>();
+  for (const row of parsed) {
+    const rows = grouped.get(row.entityName) || [];
+    rows.push(row);
+    grouped.set(row.entityName, rows);
+  }
+
+  let entityOffset = 0;
+  let locationOffset = 0;
+  return [...grouped.entries()].map(([name, rows]) => {
+    entityOffset += 1;
+    const entityId = -entityOffset;
+    return {
+      id: entityId,
+      name,
+      company: name,
+      enteredName: name,
+      status: "verified",
+      discoveryStatus: "bundled-recovery",
+      locations: rows.map((row) => {
+        locationOffset += 1;
+        return {
+          id: -locationOffset,
+          entityId,
+          placeName: row.placeName,
+          city: row.city,
+          country: row.country,
+          region: row.region,
+          coordinates: row.coordinates,
+          geocodeConfidence: "place",
+          geocodeSource: "bundled-company-location-corpus",
+          facilityType: row.facilityType,
+          activity: row.activity,
+          notes: row.notes,
+          formattedAddress: row.formattedAddress,
+          state: row.state,
+          reviewStatus: "verified",
+          sourceClass: "manual",
+          sourceType: "company-location-text-import",
+          sourceId: row.sourceId,
+          metadata: { bundledRecovery: true },
+        };
+      }),
+    };
+  });
+}
+
+function mergeBundledLocations(
+  databaseEntities: Awaited<ReturnType<typeof savedEntityPayloadFromDatabase>>,
+  bundledEntities: Awaited<ReturnType<typeof bundledCompanyLocationPayload>>,
+) {
+  const byName = new Map(databaseEntities.map((entity) => [normalizeTextKey(entity.name), entity]));
+  const merged = databaseEntities.map((entity) => ({ ...entity, locations: [...entity.locations] }));
+
+  for (const bundled of bundledEntities) {
+    const key = normalizeTextKey(bundled.name);
+    const existing = byName.get(key);
+    if (!existing) {
+      merged.push(bundled);
+      continue;
+    }
+    const target = merged.find((entity) => entity.id === existing.id);
+    if (!target) continue;
+    const seen = new Set(target.locations.map((location) => looseLocationKey(location)));
+    for (const location of bundled.locations) {
+      const locationKey = looseLocationKey(location);
+      if (seen.has(locationKey)) continue;
+      seen.add(locationKey);
+      target.locations.push({ ...location, entityId: target.id });
+    }
+  }
+
+  return merged.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function savedEntityPayloadFromDatabase(verifiedOnly: boolean) {
+
   const entities = verifiedOnly
     ? await db.select().from(entitiesTable).where(eq(entitiesTable.status, "verified")).orderBy(entitiesTable.displayName)
     : await db.select().from(entitiesTable).orderBy(entitiesTable.displayName);
@@ -443,6 +541,15 @@ async function savedEntityPayload(verifiedOnly: boolean) {
         })),
     };
   }));
+}
+
+async function savedEntityPayload(verifiedOnly: boolean) {
+  const databaseEntities = await savedEntityPayloadFromDatabase(verifiedOnly);
+  if (verifiedOnly) return databaseEntities;
+
+  const bundledEntities = await bundledCompanyLocationPayload();
+  if (bundledEntities.length === 0) return databaseEntities;
+  return mergeBundledLocations(databaseEntities, bundledEntities);
 }
 
 router.get("/entities/saved", async (_req, res) => {
