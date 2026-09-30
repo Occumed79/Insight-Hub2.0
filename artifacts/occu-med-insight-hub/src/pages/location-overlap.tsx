@@ -23,7 +23,6 @@ import {
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
-import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
 import {
   getSavedGeographicEntities,
@@ -296,7 +295,6 @@ export default function LocationOverlap() {
 
   return (
     <main className="aurora-bg min-h-screen overflow-x-hidden text-white">
-      <Sidebar />
       <style>{`
         .location-overlap-map .leaflet-control-zoom{border:1px solid rgba(207,250,254,.18)!important;border-radius:14px!important;overflow:hidden;box-shadow:0 16px 38px rgba(0,0,0,.35)!important}
         .location-overlap-map .leaflet-control-zoom a{background:rgba(4,12,24,.86)!important;color:rgba(236,254,255,.84)!important;border-color:rgba(207,250,254,.10)!important;backdrop-filter:blur(18px)}
@@ -309,7 +307,7 @@ export default function LocationOverlap() {
         @keyframes overlapPulse{0%,100%{stroke-opacity:.45;fill-opacity:.05}50%{stroke-opacity:1;fill-opacity:.15}}
       `}</style>
 
-      <section className="relative z-10 px-4 pb-12 pt-6 lg:ml-[210px] lg:px-7">
+      <section className="relative z-10 px-4 pb-12 pt-6 lg:px-7">
         <header className="mb-5 flex flex-col gap-3 px-1 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-100/38">Tab 2 · Global Network & Operations</p>
