@@ -11,7 +11,7 @@ The routes, navigation labels, underlying source implementations, data contracts
 - Route: `/injuries-medical-conditions`
 - Sidebar label: `Injuries & Medical Conditions`
 - Identity key: `injuries-medical-conditions`
-- Original route component: `src/pages/reviewer-injuries-medical.tsx`
+- Route component: `src/pages/reviewer-injuries-medical.tsx` → renders the hologram page in `src/pages/health-intelligence/` (exact supplied gold front/back image at `public/health/hologram-body.png`, Strands rings, data-driven body-region zones)
 - Preserved implementation: `src/pages/reviewer-injuries-medical-legacy.tsx`
 - Preserved visual/support code: `src/pages/reviewer-injury-hologram.tsx`, `src/pages/reviewer-injuries-workbench.css`
 - Core product identity:

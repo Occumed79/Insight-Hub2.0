@@ -1,10 +1,9 @@
-import RebuildHoldWorkspace from "./rebuild-hold-workspace";
+import HealthIntelligencePage from "./health-intelligence";
 
+/**
+ * Injuries & Medical Conditions — rebuilt as the immersive Health intelligence workspace.
+ * Identity constraints live in docs/workspace-identities/rebuild-hold-pages.md.
+ */
 export default function ReviewerInjuriesMedical() {
-  return (
-    <RebuildHoldWorkspace
-      workspace="injuries-medical-conditions"
-      identityKey="injuries-medical-conditions"
-    />
-  );
+  return <HealthIntelligencePage />;
 }

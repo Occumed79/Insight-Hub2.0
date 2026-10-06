@@ -72,36 +72,27 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("Injuries & Medical Conditions uses occupation-linked OSHA case characteristics", async ({ page }) => {
+test("Health intelligence page renders the hologram and lights regions from OSHA evidence", async ({ page }) => {
   await page.goto("/injuries-medical-conditions");
   await expect(page.getByRole("heading", { name: "Injuries & Medical Conditions" })).toBeVisible();
-  await expect(page.getByTestId("injury-hologram")).toBeVisible();
-  await expect(page.getByText("HOLOGRAPHIC INJURY ANATOMY")).toBeVisible();
-  await expect(page.getByRole("button", { name: "ANTERIOR" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "POSTERIOR" })).toBeVisible();
-  await expect(page.getByLabel("Anterior CC0 human-mesh point-cloud hologram")).toBeVisible();
+  await expect(page.locator('[data-page-identity="injuries-medical-conditions"]')).toBeVisible();
+  const body = page.locator("img.hs-body");
+  await expect(body).toBeVisible();
+  await expect(body).toHaveAttribute("src", /health\/hologram-body\.png/);
 
   await page.getByPlaceholder("Firefighter, electrician, truck driver…").fill("Firefighter");
-  await page.getByRole("button", { name: "Build injury profile" }).click();
+  await page.getByRole("button", { name: /Build injury profile/i }).click();
 
-  await expect(page.getByRole("heading", { name: "Firefighters" })).toBeVisible();
-  await expect(page.getByText("OSHA case-linked projection")).toBeVisible();
-  await expect(page.getByText("128").first()).toBeVisible();
-  await expect(page.getByText("Back · 31 coded cases (31.0%)")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Low back reported case signal" })).toBeVisible();
-  await expect(page.getByText("Overexertion and bodily reaction")).toBeVisible();
-  await expect(page.getByText("Job-demand context — not an injury rate")).toBeVisible();
-
-  await page.getByRole("button", { name: "POSTERIOR" }).click();
-  await expect(page.getByLabel("Posterior CC0 human-mesh point-cloud hologram")).toBeVisible();
+  await expect(page.getByRole("status")).toContainText(/generating health intelligence|firefighters/i, { timeout: 15000 });
+  await expect(page.getByRole("button", { name: /reported case signal/i }).first()).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText("128 cases").first()).toBeVisible();
 });
 
-test("medical condition library is searchable across systems", async ({ page }) => {
+test("Medical Conditions mode maps a condition to anatomical regions without a fitness decision", async ({ page }) => {
   await page.goto("/injuries-medical-conditions");
   await page.getByRole("tab", { name: "Medical Conditions" }).click();
-  await page.getByPlaceholder("Search diabetes, migraine, hearing, anticoagulation…").fill("hearing");
-  await expect(page.getByRole("button", { name: "Hearing Loss / Tinnitus" })).toBeVisible();
-  await page.getByRole("button", { name: "Hearing Loss / Tinnitus" }).click();
-  await expect(page.getByRole("heading", { name: "Hearing Loss / Tinnitus" })).toBeVisible();
-  await expect(page.getByText("What does the current audiogram show and is there a significant threshold shift?")).toBeVisible();
+  await page.getByPlaceholder(/Search diabetes/i).fill("diabetes");
+  await page.getByRole("button", { name: /Map condition/i }).click();
+  await expect(page.getByText(/not a diagnosis or fitness-for-duty/i)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("button", { name: /signal|region/i }).first()).toBeVisible();
 });
