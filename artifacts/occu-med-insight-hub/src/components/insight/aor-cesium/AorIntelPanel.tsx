@@ -39,6 +39,46 @@ function Chip({ children, tone = "border-white/10 text-slate-300" }: { children:
 
 const pretty = (value: string) => value.replace(/_/g, " ");
 
+const REQUIREMENT_LABELS: Record<string, string> = {
+  entry_required: "Entry requirement: all arrivals",
+  entry_required_conditional: "Entry requirement: conditional",
+  entry_required_after_transit: "Entry requirement: after prior travel / transit",
+  exit_required: "Exit / departure requirement",
+  declaration_only: "Declaration only — entry not refused",
+  not_required: "Authority: requirement withdrawn",
+  not_evaluated: "Not verified",
+};
+const STATUS_CHIP_TONE: Record<string, string> = {
+  "DESTINATION-GOVERNMENT VERIFIED": "border-emerald-300/35 text-emerald-100",
+  "EMBASSY VERIFIED": "border-emerald-300/35 text-emerald-100",
+  "WHO VERIFIED": "border-sky-300/35 text-sky-100",
+  "CDC CORROBORATED": "border-teal-300/30 text-teal-100",
+  "OLDER GLOBAL BASELINE": "border-amber-300/35 text-amber-100",
+  "NOT CURRENTLY VERIFIED": "border-rose-300/40 text-rose-200",
+};
+
+type ConditionRow = { label: string; value: string };
+type SupportingSource = { authority: string; url: string; note: string };
+
+/** Conditions, authority and provenance for a vaccine entry / exit / transit / event rule. */
+function RuleDetails({ record }: { record: EvidenceRecord }) {
+  const extra = (record.extra ?? {}) as { conditions?: ConditionRow[]; supportingSources?: SupportingSource[]; alsoStatedBy?: Array<{ authority: string; sourceUrl: string; publishedAt: string | null; verificationStatus: string; statement: string }>; productionVerificationRequired?: boolean };
+  if (!extra.conditions?.length) return null;
+  return (
+    <div className="mt-1.5">
+      <details open={false}>
+        <summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.12em] text-cyan-100/55">Rule conditions, authority and freshness</summary>
+        <dl className="mt-1 rounded-lg border border-white/[.06] bg-white/[.02] px-2">
+          {extra.conditions.map((condition) => <div key={condition.label} className="grid grid-cols-[96px_1fr] gap-2 border-b border-white/[.04] py-1 text-[9px] leading-4 last:border-b-0"><dt className="text-[8px] font-black uppercase tracking-[.08em] text-slate-500">{condition.label}</dt><dd className="break-words text-slate-200">{condition.value}</dd></div>)}
+        </dl>
+        {extra.alsoStatedBy?.length ? <div className="mt-1.5 text-[9px] leading-4 text-slate-400"><b className="text-slate-300">Also stated, not shown as current:</b>{extra.alsoStatedBy.map((other) => <p key={other.sourceUrl + other.statement} className="mt-0.5">{other.authority} ({other.verificationStatus}{other.publishedAt ? `, ${other.publishedAt.slice(0, 10)}` : ""}): {other.statement}</p>)}</div> : null}
+        {extra.supportingSources?.length ? <ul className="mt-1.5 space-y-0.5 text-[9px] leading-4 text-slate-500">{extra.supportingSources.map((source) => { const href = safeUrl(source.url); return <li key={source.url}>{href ? <a href={href} target="_blank" rel="noreferrer" className="font-bold text-cyan-100/65 hover:text-cyan-50">{source.authority}</a> : source.authority} — {source.note}</li>; })}</ul> : null}
+      </details>
+      {extra.productionVerificationRequired ? <p className="mt-1 text-[8px] leading-3 text-amber-100/60">Re-read the source page before operational use; rules change without notice.</p> : null}
+    </div>
+  );
+}
+
 function EvidenceCard({ record, highlighted, onFocus }: { record: EvidenceRecord; highlighted: boolean; onFocus: (record: EvidenceRecord) => void }) {
   const url = safeUrl(record.sourceUrl);
   const hasPoint = record.geometry.type === "Point";
@@ -47,12 +87,16 @@ function EvidenceCard({ record, highlighted, onFocus }: { record: EvidenceRecord
       <div className="flex flex-wrap items-center gap-1.5">
         <FreshnessBadge freshness={record.freshness} />
         {record.recommendationType ? <Chip tone="border-teal-300/25 text-teal-100">Recommendation: {pretty(record.recommendationType)}</Chip> : null}
-        {record.requirementType ? <Chip tone="border-amber-300/35 text-amber-100">Entry requirement: {pretty(record.requirementType)}</Chip> : null}
+        {record.requirementType ? <Chip tone="border-amber-300/35 text-amber-100">{REQUIREMENT_LABELS[record.requirementType] ?? `Entry requirement: ${pretty(record.requirementType)}`}</Chip> : null}
+        {record.category === "ihr_temporary_recommendation" ? <Chip tone="border-sky-300/35 text-sky-100">WHO IHR — addressed to the State, not national law</Chip> : null}
+        {typeof record.extra?.verificationStatus === "string" ? <Chip tone={STATUS_CHIP_TONE[record.extra.verificationStatus] ?? "border-white/10 text-slate-300"}>{record.extra.verificationStatus}</Chip> : null}
+        {Array.isArray(record.extra?.qualifiers) ? (record.extra.qualifiers as string[]).map((flag) => <Chip key={flag} tone="border-rose-300/30 text-rose-100">{flag}</Chip>) : null}
         {record.severity ? <Chip>{record.severity}</Chip> : null}
       </div>
       <h4 className="mt-1.5 text-[11px] font-bold leading-4 text-white/90">{record.title}</h4>
       {record.summary ? <p className="mt-1 text-[10px] leading-4 text-slate-300">{record.summary}</p> : null}
       {record.geographyNote ? <p className="mt-1 text-[9px] leading-4 text-slate-500">Geography ({pretty(record.geographyLevel)}): {record.geographyNote}</p> : <p className="mt-1 text-[9px] text-slate-500">Geography: {pretty(record.geographyLevel)}</p>}
+      <RuleDetails record={record} />
       {record.evidence ? <details className="mt-1"><summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.12em] text-cyan-100/45">Source evidence</summary><p className="mt-1 whitespace-pre-wrap text-[9px] leading-4 text-slate-400">{record.evidence}</p></details> : null}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[8px] text-slate-500">
         {url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-bold text-cyan-100/70 hover:text-cyan-50">{record.sourceName}<ArrowUpRight size={9} /></a> : <span className="font-bold text-slate-400">{record.sourceName}</span>}
@@ -66,15 +110,16 @@ function EvidenceCard({ record, highlighted, onFocus }: { record: EvidenceRecord
 }
 
 function MalariaModel({ record }: { record: EvidenceRecord }) {
-  const model = (record.extra?.malaria ?? {}) as { riskScope?: string; areasMentioned?: string | null; seasonality?: string | null; altitudeNote?: string | null; altitudeLimitMeters?: number | null; preventionDrugs?: string[]; preventionStatement?: string | null };
+  const model = (record.extra?.malaria ?? {}) as { riskScope?: string; areasMentioned?: string | null; places?: Array<{ name: string; kind: string; risk: "risk" | "no_risk"; seasonality: string | null; elevationLimitMeters: number | null }>; seasonality?: string | null; altitudeNote?: string | null; altitudeLimitMeters?: number | null; altitudeScope?: string | null; altitudeScopeNote?: string | null; preventionDrugs?: string[]; preventionStatement?: string | null };
   const row = (label: string, value: ReactNode) => <div className="grid grid-cols-[92px_1fr] gap-2 border-b border-white/[.05] py-1.5 text-[10px] leading-4"><dt className="text-[8px] font-black uppercase tracking-[.1em] text-slate-500">{label}</dt><dd className="text-slate-200">{value}</dd></div>;
   const stated = (value?: string | null) => value || <span className="text-slate-500">Not stated in the retrieved source text</span>;
   return (
     <dl className="mb-2 rounded-xl border border-amber-200/10 bg-amber-200/[.03] px-3 py-1">
       {row("Risk scope", pretty(model.riskScope || "unspecified"))}
       {row("Risk areas", model.riskScope === "parts_of_country" ? <>{stated(model.areasMentioned)}<span className="mt-1 block text-slate-500">Named areas are quoted from the source text; no authoritative admin-level geometry is connected, so they are not drawn.</span></> : model.riskScope === "country_wide" ? "Country-wide, per source text" : model.riskScope === "none_stated" ? "No transmission stated by source" : stated(null))}
+      {model.places?.length ? row("Named places", <><ul className="space-y-1">{model.places.map((place) => <li key={place.name + place.risk}><b className="text-white/85">{place.name}</b> <span className="text-slate-500">({pretty(place.kind)})</span> — {place.risk === "no_risk" ? <span className="text-emerald-200/80">source states no risk</span> : <span className="text-amber-100/90">risk named</span>}{place.seasonality ? <span className="text-slate-400">; {place.seasonality}</span> : null}{place.elevationLimitMeters ? <span className="text-slate-400">; elevation limit {place.elevationLimitMeters.toLocaleString()} m stated for this place</span> : null}</li>)}</ul><span className="mt-1 block text-slate-500">Listed from the CDC sentences, not drawn: no authoritative sub-national boundary is connected, and an outline would overstate what the text says.</span></>) : null}
       {row("Seasonality", stated(model.seasonality))}
-      {row("Altitude limits", model.altitudeNote ? <>{model.altitudeNote}{model.altitudeLimitMeters ? <span className="mt-1 block text-amber-100/80">Terrain above {model.altitudeLimitMeters.toLocaleString()} m is tinted on the globe because the source text states a transmission limit at that elevation (heights from Cesium World Terrain).</span> : <span className="mt-1 block text-slate-500">No explicit elevation limit could be read from this text, so no terrain tint is drawn.</span>}</> : stated(null))}
+      {row("Altitude limits", model.altitudeNote ? <>{model.altitudeNote}{model.altitudeLimitMeters ? <span className="mt-1 block text-amber-100/80">Terrain above {model.altitudeLimitMeters.toLocaleString()} m is tinted on the globe because the source text states a transmission limit at that elevation (heights from Cesium World Terrain).</span> : <span className="mt-1 block text-slate-500">{model.altitudeScopeNote ?? "No explicit elevation limit could be read from this text, so no terrain tint is drawn."}</span>}</> : stated(null))}
       {row("Prevention drugs", model.preventionDrugs?.length ? model.preventionDrugs.join(", ") : stated(null))}
       {row("Prevention text", stated(model.preventionStatement))}
       {row("Source date", formatDate(record.updatedAt) || <span className="text-slate-500">Not stated</span>)}
@@ -175,6 +220,7 @@ export function AorIntelPanel({ intel, loading, error, countryName, aorLabel, ha
           <div className="flex items-center justify-between gap-2"><span className="font-bold text-white/85">{source.sourceName}</span><span className={`text-[9px] font-bold ${STATUS_TONE[source.status]}`}>{STATUS_LABELS[source.status]}</span></div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5"><FreshnessBadge freshness={source.freshness} />{source.recordCount ? <Chip>{source.recordCount} record{source.recordCount === 1 ? "" : "s"}</Chip> : null}</div>
           {source.note ? <p className="mt-1 text-[9px] leading-4 text-slate-500">{source.note}</p> : null}
+          {source.lastAttemptedFetch || source.lastSuccessfulFetch || source.sourceUpdatedAt ? <p className="mt-1 text-[8px] leading-3 text-slate-600">{source.lastAttemptedFetch ? `Last attempt ${formatDate(source.lastAttemptedFetch)}` : ""}{source.lastSuccessfulFetch ? ` · last success ${formatDate(source.lastSuccessfulFetch)}` : source.lastAttemptedFetch ? " · never fetched successfully" : ""}{source.sourceUpdatedAt ? ` · source dated ${formatDate(source.sourceUpdatedAt)}` : ""}{source.sourceError && source.status !== "ok" ? ` · error: ${source.sourceError}` : ""}{source.status === "stale_cache" ? " · showing last-known data" : ""}</p> : null}
         </li>
       ))}</ul>;
     }
@@ -185,17 +231,29 @@ export function AorIntelPanel({ intel, loading, error, countryName, aorLabel, ha
     if (activeTab === "health_vaccines") {
       const group = (title: string, items: EvidenceRecord[], note?: string) => items.length ? <section className="mb-3"><h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">{title}</h3>{note ? <p className="mb-1 text-[9px] leading-4 text-slate-500">{note}</p> : null}{items.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</section> : null;
       const entry = intel.sources.find((s) => s.sourceId === "destination-entry-requirements");
-      const entryRecords = records.filter((r) => r.category === "entry_requirement");
+      const isRule = (r: EvidenceRecord) => Boolean(r.extra?.vaccineRule);
+      const ruleRecords = records.filter((r) => (r.category === "entry_requirement" || r.category === "exit_requirement") && isRule(r));
+      const cdcText = records.filter((r) => r.category === "entry_requirement" && !isRule(r));
+      const whoPolio = records.filter((r) => r.category === "ihr_temporary_recommendation");
+      const conflicts = records.filter((r) => r.category === "entry_rule_conflict");
+      const coverage = records.filter((r) => r.category === "entry_requirement_coverage");
+      const sourceChecks = records.filter((r) => r.category === "rule_source_check");
       const yellowBook = records.filter((r) => r.category === "yellow_book_reference");
       return <div>{empty}
         {group("Routine vaccines", records.filter((r) => r.category === "routine_vaccine"))}
-        {group("Travel vaccines — CDC recommendations", records.filter((r) => r.category === "travel_vaccine"), "Recommendations only. These are not legal entry requirements.")}
-        {group("Entry requirements — legal, kept separate", entryRecords, "Compiled lists and language in the CDC destination text. Legal rules are never inferred from recommendations; confirm with the destination authority.")}
-        {entry && entry.status !== "ok" && !entryRecords.length ? <p className="mb-3 rounded-lg border border-amber-300/15 bg-amber-300/[.04] px-3 py-2 text-[10px] leading-4 text-amber-100/80">{entry.note || "Entry requirements were not evaluated."}</p> : null}
+        {group("Travel vaccines — CDC recommendations", records.filter((r) => r.category === "travel_vaccine"), "Medical recommendations only. These are not legal entry requirements.")}
+        {group("Entry / exit / transit / event requirements — legal rules", ruleRecords, "Destination authority first, then WHO, then CDC/WHO baselines. Each rule shows who it applies to (origin, transit, age, residents, event), the certificate, the authority and when it was published and last verified. Never inferred from recommendations.")}
+        {group("WHO polio IHR temporary recommendations — not national law", whoPolio, "Addressed by WHO to the listed State for residents and long-term visitors leaving it. Whether the State enforces them is a separate fact.")}
+        {group("Source disagreements — preserved", conflicts, "The newer, higher-authority statement is shown above; the older statement is kept here so the change is visible.")}
+        {group("Entry-requirement wording in the CDC destination text — corroboration only", cdcText, "Quoted from the CDC page for this country. CDC is a medical authority; the destination government controls the legal rule.")}
+        {group("Rule coverage and sources to check", coverage)}
+        {coverage.map((record) => { const links = (record.extra?.sourcesToCheck ?? []) as Array<{ authority: string; check: string; url: string }>; return links.length ? <ul key={record.id} className="mb-3 space-y-1 text-[9px] leading-4 text-slate-400">{links.map((link) => { const href = safeUrl(link.url); return <li key={link.url}>{href ? <a href={href} target="_blank" rel="noreferrer" className="font-bold text-cyan-100/65 hover:text-cyan-50">{link.authority}</a> : link.authority} — {link.check}</li>; })}</ul> : null; })}
+        {group("Official rule pages — reachability and change check", sourceChecks, "Last-known details are labelled when a page could not be reached.")}
+        {entry && entry.status !== "ok" && !ruleRecords.length && !coverage.length ? <p className="mb-3 rounded-lg border border-amber-300/15 bg-amber-300/[.04] px-3 py-2 text-[10px] leading-4 text-amber-100/80">{entry.note || "Entry requirements were not evaluated."}</p> : null}
         {group("Destination disease risks (CDC)", records.filter((r) => r.category === "destination_disease_risk"))}
         {group("Childhood immunization coverage (WHO/UNICEF WUENIC)", records.filter((r) => r.category === "immunization_coverage"), "Annual national programme estimates for the resident population — not a traveler recommendation and not current conditions.")}
         {yellowBook.length ? <section className="mb-3"><h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">CDC Yellow Book reference</h3><p className="mb-1 text-[9px] leading-4 text-slate-500">Clinical and operational chapters for diseases named above. Reference context, not current country guidance.</p>{yellowBook.map((record) => <YellowBookCard key={record.id} record={record} evidenceById={evidenceById} onSelectEvidence={onSelectEvidence} />)}</section> : null}
-        {group("Other health guidance", records.filter((r) => !["routine_vaccine", "travel_vaccine", "entry_requirement", "destination_disease_risk", "immunization_coverage", "yellow_book_reference"].includes(r.category)))}
+        {group("Other health guidance", records.filter((r) => !["routine_vaccine", "travel_vaccine", "entry_requirement", "exit_requirement", "ihr_temporary_recommendation", "entry_rule_conflict", "entry_requirement_coverage", "rule_source_check", "destination_disease_risk", "immunization_coverage", "yellow_book_reference"].includes(r.category)))}
       </div>;
     }
     if (activeTab === "malaria") {

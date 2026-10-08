@@ -17,7 +17,14 @@ export type GeographyLevel = "point" | "admin_region" | "multi_region" | "countr
 export type Dimension = "health_vaccines" | "malaria" | "outbreaks" | "environment" | "disasters" | "security" | "medical_access";
 
 export type RecommendationType = "routine" | "recommended" | "selected_travelers" | "consider" | "not_routinely_recommended" | "review";
-export type RequirementType = "entry_required" | "entry_required_after_transit" | "entry_required_conditional" | "not_required" | "not_evaluated";
+export type RequirementType =
+  | "entry_required"
+  | "entry_required_after_transit"
+  | "entry_required_conditional"
+  | "exit_required"
+  | "declaration_only" // travelers must declare / may be asked for proof; entry is not refused for lacking it
+  | "not_required" // only when an authoritative source explicitly says the requirement does not apply (or was withdrawn)
+  | "not_evaluated";
 
 export type SourceStatus =
   | "ok" // source answered and produced findings
@@ -62,7 +69,20 @@ export interface EvidenceRecord {
   extra?: Record<string, unknown>;
 }
 
-export interface AdapterResult {
+/** Fetch state retained for every external adapter so a failed refresh can never pass as current. */
+export interface FetchMeta {
+  /** When the live source was last asked (null if the result was assembled without a request). */
+  lastAttemptedFetch: string | null;
+  /** When the live source last answered usably. */
+  lastSuccessfulFetch: string | null;
+  /** Status of the most recent attempt; the result `status` becomes stale_cache when that attempt failed and cached data is served. */
+  sourceStatus: SourceStatus | null;
+  sourceError: string | null;
+  /** Newest source-stated update/publication date among the records. */
+  sourceUpdatedAt: string | null;
+}
+
+export interface AdapterResult extends Partial<FetchMeta> {
   sourceId: string;
   sourceName: string;
   sourceUrl: string;
@@ -72,6 +92,15 @@ export interface AdapterResult {
   retrievedAt: string;
   note: string | null;
   records: EvidenceRecord[];
+}
+
+export interface UrlProbe {
+  httpStatus: number;
+  finalUrl: string;
+  lastModified: string | null;
+  etag: string | null;
+  contentType: string | null;
+  contentHash: string | null;
 }
 
 export interface Observation {
@@ -102,6 +131,8 @@ export interface AdapterContext {
   /** Fetch JSON from an external URL (injected for tests). */
   externalJson: (url: string, init?: { headers?: Record<string, string>; timeoutMs?: number; method?: "GET" | "POST"; body?: unknown }) => Promise<unknown>;
   env: (key: string) => string | undefined;
+  /** Reachability / change probe for an official page (injected so tests never touch the network). Absent = not configured. */
+  probeUrl?: (url: string) => Promise<UrlProbe>;
 }
 
 export interface CountryIntelResponse {

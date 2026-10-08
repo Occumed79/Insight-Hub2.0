@@ -4,6 +4,7 @@ import { buildCountryIntel } from "../services/aor-intel/aggregate";
 import { createNeonBackedStore } from "../services/aor-intel/cache";
 import { countryBoundaries } from "../services/aor-intel/geo";
 import { synthesizeCountry } from "../services/aor-intel/synthesis";
+import { probeOfficialUrl } from "../services/aor-intel/vaccine-rules/probe";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -73,7 +74,7 @@ router.get("/aor/country-intel", async (req: Request, res: Response) => {
   const iso2 = String(req.query.iso2 || "").trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(iso2)) return res.status(400).json({ ok: false, error: "iso2 must be a two-letter country code" });
   try {
-    const payload = await buildCountryIntel(iso2, { store, internalJson, externalJson: fetchWithTimeout, env: (key) => process.env[key] });
+    const payload = await buildCountryIntel(iso2, { store, internalJson, externalJson: fetchWithTimeout, env: (key) => process.env[key], probeUrl: probeOfficialUrl });
     if (!payload) return res.status(404).json({ ok: false, error: `Unknown country code ${iso2}` });
     return res.json(payload);
   } catch (error) {
@@ -90,7 +91,7 @@ router.get("/aor/country-intel/synthesis", async (req: Request, res: Response) =
   if (!/^[A-Z]{2}$/.test(iso2)) return res.status(400).json({ ok: false, error: "iso2 must be a two-letter country code" });
   try {
     const env = (key: string) => process.env[key];
-    const intel = await buildCountryIntel(iso2, { store, internalJson, externalJson: fetchWithTimeout, env });
+    const intel = await buildCountryIntel(iso2, { store, internalJson, externalJson: fetchWithTimeout, env, probeUrl: probeOfficialUrl });
     if (!intel) return res.status(404).json({ ok: false, error: `Unknown country code ${iso2}` });
     return res.json(await synthesizeCountry(intel.country, intel.evidence, intel.whatMattersNow.observations, { externalJson: fetchWithTimeout, env, store }));
   } catch (error) {

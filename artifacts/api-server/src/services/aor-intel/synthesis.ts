@@ -10,6 +10,9 @@ import { errorText } from "./util";
 
 const HOUR = 3_600_000;
 const MAX_STATEMENTS = 8;
+const REQUIRING = new Set(["entry_required", "entry_required_after_transit", "entry_required_conditional", "exit_required"]);
+const REQUIREMENT_WORDS = /\b(?:entry requirement|exit requirement|required for entry|is required|are required|must be (?:vaccinated|immuni[sz]ed)|requires? (?:proof|vaccination|a (?:valid )?certificate)|proof of vaccination is required|must (?:show|present|have|receive)|mandatory|compulsory|obligatory)\b/i;
+const ABSENCE_WORDS = /\b(?:not required|no (?:entry |vaccine |vaccination )?requirements?|requirements? (?:was|were|is|are) (?:removed|withdrawn|lifted)|no longer (?:required|mandatory))\b/i;
 const FORBIDDEN = /\b(?:no risk|risk[- ]free|safe|low[- ]risk|minimal risk|risk score|rated \d|out of (?:10|100))\b/i;
 
 export function synthesisProvider(env: AdapterContext["env"]): { apiKey: string; baseUrl: string; model: string } | null {
@@ -46,11 +49,18 @@ export function validateStatements(raw: unknown, evidence: EvidenceRecord[]): { 
     const haystackNumbers = new Set(numbersIn(haystack));
     if (numbersIn(text).some((value) => !haystackNumbers.has(value))) { continue; }
 
-    // Recommendation and entry-requirement language must match the cited evidence types.
-    const claimsRequirement = /\b(?:entry requirement|required for entry|proof of vaccination is required|must (?:show|present)|mandatory)\b/i.test(text);
-    const claimsRecommendation = /\brecommend/i.test(text);
-    if (claimsRequirement && !cited.some((record) => record.requirementType && record.requirementType !== "not_required")) { continue; }
+    // Recommendation and legal-requirement language must match the cited evidence types, in both directions.
+    const claimsRequirement = REQUIREMENT_WORDS.test(text);
+    const claimsRecommendation = /\brecommend|\badvis(?:e|ed)\b|\bencourag/i.test(text);
+    const claimsAbsence = ABSENCE_WORDS.test(text);
+    if (claimsRequirement && !cited.some((record) => record.requirementType && REQUIRING.has(record.requirementType))) { continue; }
     if (claimsRecommendation && !claimsRequirement && cited.every((record) => record.requirementType && !record.recommendationType)) { continue; }
+    // "Not required" / "no requirement" only when an authority explicitly said so; a missing record is never evidence of absence.
+    if (claimsAbsence && !cited.some((record) => record.requirementType === "not_required")) { continue; }
+    // A WHO/IHR recommendation to a State must not be restated as a requirement on travelers.
+    if (claimsRequirement && cited.every((record) => record.category === "ihr_temporary_recommendation" || (record.recommendationType && !record.requirementType))) { continue; }
+    // Low-authority sources (baseline compilations, unverified records) cannot be described as verified or current rules.
+    if (/\b(?:verified|confirmed|current requirement)\b/i.test(text) && cited.every((record) => record.requirementType === "not_evaluated" || /OLDER GLOBAL BASELINE|NOT CURRENTLY VERIFIED/.test(String(record.extra?.verificationStatus ?? "")))) { continue; }
 
     kept.push({ text, evidenceIds: cited.map((record) => record.id) });
     if (kept.length >= MAX_STATEMENTS) break;
@@ -95,7 +105,7 @@ const SCHEMA = {
 const SYSTEM = [
   "You write a short occupational-health briefing for a reviewer, using ONLY the evidence records provided.",
   "Rules: every statement must cite one or more evidence ids from the input in evidenceIds. Do not add facts, numbers, dates, places or causes that are not in the cited records.",
-  "Keep vaccine recommendations (CDC/WHO guidance) and legal entry requirements strictly separate; never call a recommendation a requirement or vice versa.",
+  "Keep vaccine recommendations (CDC/WHO guidance, including WHO IHR temporary recommendations addressed to States) and legal entry/exit requirements strictly separate; never call a recommendation a requirement or vice versa. Say 'no requirement' or 'not required' only when a cited record's requirementType is not_required; when records say 'No current authoritative requirement verified', report exactly that and never convert it to 'not required'.",
   "Name the freshness of each point in plain words (for example 'weekly surveillance', 'climatological', 'structural reference'). Never describe climatology or annual coverage as current conditions.",
   "Never produce a risk score, rating, ranking, or reassurance such as 'safe' or 'low risk'. Do not infer medical capability from facility counts or national indicators.",
   "Write 3 to 8 statements of at most 45 words each, most decision-relevant first. If the evidence is thin, write fewer statements. Return JSON only.",

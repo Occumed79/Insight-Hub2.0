@@ -63,6 +63,12 @@ export interface SourceSummary {
   retrievedAt: string;
   note: string | null;
   recordCount: number;
+  /** Fetch state retained for external sources. A failed refresh with cached data is shown as stale / last-known. */
+  lastAttemptedFetch?: string | null;
+  lastSuccessfulFetch?: string | null;
+  sourceStatus?: SourceStatus | null;
+  sourceError?: string | null;
+  sourceUpdatedAt?: string | null;
 }
 
 export interface CountryIntel {

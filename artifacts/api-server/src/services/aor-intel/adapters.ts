@@ -36,14 +36,37 @@ export function classifyRequirement(textValue: string): RequirementType | null {
   return TRANSIT_LANGUAGE.test(textValue) ? "entry_required_after_transit" : "entry_required";
 }
 
+export type MalariaPlaceKind = "province" | "state" | "region" | "department" | "district" | "governorate" | "county" | "prefecture" | "division" | "island" | "territory" | "city" | "border_area";
+
+/** A place the CDC text names. It is listed, never drawn: no authoritative admin geometry is bundled for it. */
+export type MalariaPlace = {
+  name: string;
+  kind: MalariaPlaceKind;
+  /** "risk" = named in a sentence that describes risk; "no_risk" = named where the text states no risk / malaria-free. */
+  risk: "risk" | "no_risk";
+  seasonality: string | null;
+  /** Elevation limit stated in the same sentence as this place; applies to the place, not the whole country. */
+  elevationLimitMeters: number | null;
+  elevationNote: string | null;
+  sourceSentence: string;
+  geometry: "text_only";
+};
+
 export type MalariaModel = {
   riskScope: "none_stated" | "country_wide" | "parts_of_country" | "unspecified";
   riskStatement: string;
   areasMentioned: string | null;
+  /** Provinces, states, regions, islands, border areas and cities the text names, with what the same sentence says about them. */
+  places: MalariaPlace[];
   seasonality: string | null;
   altitudeNote: string | null;
-  /** Set only when the CDC text explicitly states no transmission above (or risk only below) a stated elevation. */
+  /**
+   * Drawn on the terrain only when the CDC sentence that states the limit is not tied to a named place or regional
+   * qualifier. A limit stated for "Province X" or "the north" belongs to that area and is listed with it instead.
+   */
   altitudeLimitMeters: number | null;
+  altitudeScope: "country_statement" | "named_places" | "qualified_area" | null;
+  altitudeScopeNote: string | null;
   preventionDrugs: string[];
   preventionStatement: string | null;
 };
@@ -70,25 +93,133 @@ export function parseAltitudeLimit(textValue: string): { meters: number; basis: 
   return null;
 }
 
+const PLACE_WORD = "[\\p{Lu}][\\p{L}'’-]+";
+const PLACE_NAME = `${PLACE_WORD}(?:\\s+(?:de|del|la|of|do|da|al|el|bin|ben|des|du)?\\s*${PLACE_WORD}){0,3}`.replace(/\s\*/g, " ?");
+const PLACE_LIST = `${PLACE_NAME}(?:\\s*(?:,|;|\\band\\b|&|\\bor\\b)\\s*(?:and\\s+|or\\s+)?${PLACE_NAME})*`;
+const LEADING_NOISE = new Set(["in", "the", "at", "on", "for", "risk", "malaria", "areas", "area", "only", "all", "throughout", "some", "parts", "part", "and", "or", "of", "no"]);
+const KIND_BY_WORD: Record<string, MalariaPlaceKind> = {
+  province: "province", provinces: "province", state: "state", states: "state", region: "region", regions: "region", department: "department", departments: "department",
+  district: "district", districts: "district", governorate: "governorate", governorates: "governorate", county: "county", counties: "county", prefecture: "prefecture", prefectures: "prefecture",
+  division: "division", divisions: "division", island: "island", islands: "island", territory: "territory", territories: "territory", city: "city", cities: "city",
+};
+const SEASON_PATTERN = /\b(?:year[- ]round|seasonal(?:ly)?|rainy season|dry season|transmission season|from [A-Z][a-z]+ (?:to|through|until) [A-Z][a-z]+|between [A-Z][a-z]+ and [A-Z][a-z]+)\b/i;
+const NO_RISK_PATTERN = /\b(?:no|not|without|free of|absent)\b[^.;]{0,40}\b(?:malaria|risk|transmission)\b|malaria[- ]free/i;
+
+function cleanPlaceName(raw: string): string | null {
+  const words = raw.trim().split(/\s+/);
+  while (words.length && LEADING_NOISE.has(words[0].toLowerCase())) words.shift();
+  const name = words.join(" ").replace(/[.,;:]+$/, "");
+  return name.length >= 3 ? name : null;
+}
+
+function splitPlaceList(list: string): string[] {
+  return list.split(/\s*(?:,|;|\band\b|&|\bor\b)\s*/i).map((part) => cleanPlaceName(part)).filter((name): name is string => Boolean(name));
+}
+
+/**
+ * Names the places a CDC sentence refers to by an administrative word (Province, State, Island, ...) or a border phrase.
+ * Capitalised words alone are never treated as places. Nothing here is geocoded.
+ */
+export function extractMalariaPlaces(textValue: string): MalariaPlace[] {
+  const found = new Map<string, MalariaPlace>();
+  const sentences = textValue.replace(/\s+/g, " ").split(/(?<=[.;])\s+/).map((sentence) => sentence.trim()).filter(Boolean);
+  for (const sentence of sentences) {
+    const names: Array<{ name: string; kind: MalariaPlaceKind }> = [];
+    for (const match of sentence.matchAll(new RegExp(`\\b(provinces?|states?|regions?|departments?|districts?|governorates?|counties|prefectures?|divisions?|islands?|cities|city|territories)\\s+of\\s+(${PLACE_LIST})`, "gu"))) {
+      for (const name of splitPlaceList(match[2])) names.push({ name, kind: KIND_BY_WORD[match[1].toLowerCase()] });
+    }
+    for (const match of sentence.matchAll(new RegExp(`(${PLACE_NAME})\\s+(Province|State|Region|Department|District|Governorate|County|Prefecture|Division|Island|Islands|Territory)\\b`, "gu"))) {
+      const name = cleanPlaceName(match[1]);
+      if (name) names.push({ name: `${name} ${match[2]}`, kind: KIND_BY_WORD[match[2].toLowerCase()] });
+    }
+    for (const match of sentence.matchAll(new RegExp(`\\b(?:border(?:ing)?\\s+(?:areas?|regions?|districts?|zones?)\\s+(?:with|of|near)|areas?\\s+bordering|along\\s+the)\\s+(?:the\\s+)?(${PLACE_LIST})(?:\\s+border)?`, "gu"))) {
+      for (const name of splitPlaceList(match[1])) names.push({ name: `Border area with ${name}`, kind: "border_area" });
+    }
+    if (!names.length) continue;
+    const noRisk = NO_RISK_PATTERN.test(sentence);
+    const season = sentence.match(SEASON_PATTERN)?.[0] ?? null;
+    const limit = parseAltitudeLimit(sentence);
+    for (const { name, kind } of names) {
+      const base = name.replace(/\s+(?:province|state|region|department|district|governorate|county|prefecture|division|island|islands|territory)$/i, "").toLowerCase();
+      const key = `${base}|${noRisk ? "n" : "r"}`;
+      const place: MalariaPlace = { name, kind, risk: noRisk ? "no_risk" : "risk", seasonality: season, elevationLimitMeters: limit?.meters ?? null, elevationNote: limit?.basis ?? null, sourceSentence: sentence.slice(0, 400), geometry: "text_only" };
+      const existing = found.get(key);
+      if (!existing) found.set(key, place);
+      else {
+        // The same place named again (for example in a list, then with its own elevation sentence): keep one entry and add what the later sentence states.
+        found.set(key, {
+          ...existing,
+          name: name.length > existing.name.length ? name : existing.name,
+          kind: name.length > existing.name.length ? kind : existing.kind,
+          seasonality: existing.seasonality ?? place.seasonality,
+          elevationLimitMeters: existing.elevationLimitMeters ?? place.elevationLimitMeters,
+          elevationNote: existing.elevationNote ?? place.elevationNote,
+        });
+      }
+    }
+  }
+  return [...found.values()];
+}
+
+
+/**
+ * "No malaria transmission" counts as a country-level statement only when nothing narrows it: a clause such as
+ * "no transmission above 2,000 m" or "no risk in the cities of X" says nothing about the rest of the country.
+ */
+export function statesNoMalariaAnywhere(textValue: string): boolean {
+  const pattern = /\b(?:there is |is )?(?:no malaria transmission|no risk of malaria|malaria is not (?:a risk|present)|not a malaria[- ]risk(?: country)?)\b([^.;]*)/gi;
+  for (const match of textValue.replace(/\s+/g, " ").matchAll(pattern)) {
+    const rest = match[1].replace(/\b(?:anywhere\s+)?(?:in|within|across)\s+(?:this|the|that)\s+(?:entire\s+|whole\s+)?(?:country|destination|nation)\b/gi, " ");
+    if (!/\b(?:above|below|over|under|in|at|on|within|except|outside|during|for|among|near|along|between|from)\b/i.test(rest)) return true;
+  }
+  return false;
+}
+
+const REGIONAL_QUALIFIER = /\b(?:in|of|across|within|throughout)\s+the\s+(?:north|south|east|west|centre|center|central|northern|southern|eastern|western)\b|\b(?:rural|forest(?:ed)?|coastal|border|inland|highland|lowland|urban)\b/i;
+
 /** Parses only what the retrieved CDC text states; every absent field is null, never inferred. */
 export function parseMalariaText(textValue: string): MalariaModel {
   const t = textValue.replace(/\s+/g, " ").trim();
   const n = normalize(t);
   let riskScope: MalariaModel["riskScope"] = "unspecified";
-  if (/no malaria transmission|no risk of malaria|malaria is not (?:a risk|present)|not a malaria[- ]risk/.test(n)) riskScope = "none_stated";
+  if (statesNoMalariaAnywhere(t)) riskScope = "none_stated";
   else if (/parts of|some areas|certain areas|areas (?:below|above|of)|in some|limited to|certain regions|in the (?:north|south|east|west)/.test(n)) riskScope = "parts_of_country";
   else if (/throughout (?:the )?country|all areas|entire country|country wide|countrywide|all regions|nationwide/.test(n)) riskScope = "country_wide";
   const altitude = t.match(/[^.]*\b(?:below|under|above|over|altitudes? (?:below|above|of))\s+[\d,]+\s*(?:m\b|meters|metres|feet|ft\b)[^.]*\.?/i)?.[0]?.trim() || null;
   const season = t.match(/[^.]*\b(?:year[- ]round|seasonal(?:ly)?|rainy season|dry season|transmission season|from [A-Z][a-z]+ (?:to|through|until) [A-Z][a-z]+|between [A-Z][a-z]+ and [A-Z][a-z]+)[^.]*\.?/i)?.[0]?.trim() || null;
   const prevention = t.match(/[^.]*\b(?:prophylaxis|chemoprevention|antimalarial|prevent(?:ive)? medication|malaria (?:pills|medicine))[^.]*\.?/i)?.[0]?.trim() || null;
   const areas = riskScope === "parts_of_country" ? (t.match(/[^.]*\b(?:parts of|some areas|certain areas|areas of|in the (?:north|south|east|west))[^.]*\.?/i)?.[0]?.trim() || null) : null;
+  const places = extractMalariaPlaces(t);
+  if (riskScope === "unspecified" && places.some((place) => place.risk === "risk")) riskScope = "parts_of_country";
+
+  // A stated elevation limit is drawn on the terrain only when its sentence is not tied to a named place or regional qualifier.
+  const limit = parseAltitudeLimit(t);
+  let altitudeLimitMeters: number | null = null;
+  let altitudeScope: MalariaModel["altitudeScope"] = null;
+  let altitudeScopeNote: string | null = null;
+  if (limit) {
+    const tied = extractMalariaPlaces(limit.basis);
+    if (tied.length) {
+      altitudeScope = "named_places";
+      altitudeScopeNote = `The limit is stated for ${tied.map((place) => place.name).join(", ")}; it is listed with ${tied.length === 1 ? "that place" : "those places"} and not applied to the whole country.`;
+    } else if (REGIONAL_QUALIFIER.test(limit.basis)) {
+      altitudeScope = "qualified_area";
+      altitudeScopeNote = "The limit is stated for a regional qualifier in the text (for example a direction or rural/border/coastal area), not for the whole country, so it is not drawn on the terrain.";
+    } else {
+      altitudeScope = "country_statement";
+      altitudeLimitMeters = limit.meters;
+    }
+  }
   return {
     riskScope,
     riskStatement: t,
     areasMentioned: areas,
+    places,
     seasonality: season,
     altitudeNote: altitude,
-    altitudeLimitMeters: parseAltitudeLimit(t)?.meters ?? null,
+    altitudeLimitMeters,
+    altitudeScope,
+    altitudeScopeNote,
     preventionDrugs: MALARIA_DRUGS.filter((drug) => normalize(t).includes(normalize(drug))),
     preventionStatement: prevention,
   };
@@ -188,7 +319,9 @@ export async function cdcGuidanceAdapter(ctx: AdapterContext): Promise<AdapterRe
       recommendationType: classifyRecommendation(recText, "malaria"),
       geometry: countryWide ? { type: "Country", iso2: country.iso2 } : { type: "None" },
       geographyLevel: countryWide ? "country" : "text_only",
-      geographyNote: countryWide ? null : "CDC describes malaria risk areas in text. Risk areas are not drawn as polygons because no authoritative geometry was retrieved.",
+      geographyNote: countryWide ? null : model.places.length
+        ? `CDC names ${model.places.length} place${model.places.length === 1 ? "" : "s"} (${model.places.slice(0, 6).map((place) => place.name).join(", ")}${model.places.length > 6 ? ", …" : ""}). They are listed, not drawn: no authoritative sub-national boundary dataset is bundled, and a province outline would overstate what a sentence such as "rural areas of X" says.`
+        : "CDC describes malaria risk areas in text. Risk areas are not drawn as polygons because no authoritative geometry was retrieved.",
       extra: { malaria: model },
     }));
   }
@@ -631,7 +764,6 @@ export function pendingAdapters(ctx: AdapterContext): AdapterResult[] {
     result(ctx, { sourceId, sourceName, sourceUrl, dimension, freshness: null }, "not_evaluated", [], note);
   return [
     pending("who-rsv-sars2", "WHO RSV and SARS-CoV-2 country surveillance", "https://www.who.int/teams/global-influenza-programme/surveillance-and-monitoring", "outbreaks", "Not connected. Only influenza (FluNet) is evaluated; absence of RSV or SARS-CoV-2 signals here means nothing."),
-    pending("malaria-admin-geometry", "Admin-level malaria risk geometry", "https://www.cdc.gov/yellow-book/hcp/travel-associated-infections-diseases/malaria.html", "malaria", "No machine-readable authoritative admin-level risk geometry is connected. Areas named in the CDC text are listed, not drawn. Elevation limits are drawn only when the CDC text states one."),
-    pending("entry-requirements-transit", "Transit- and itinerary-based vaccination entry requirements", "https://www.who.int/publications/m/item/countries-with-risk-of-yellow-fever-transmission-and-countries-requiring-yellow-fever-vaccination", "health_vaccines", "Not evaluated. Requirements that depend on prior travel (e.g. yellow fever for arrivals from risk countries) and polio departure rules need the traveler's itinerary and a current national source."),
+    pending("malaria-admin-geometry", "Admin-level malaria risk geometry", "https://www.cdc.gov/yellow-book/hcp/travel-associated-infections-diseases/malaria.html", "malaria", "No machine-readable authoritative admin-level risk geometry is connected. Provinces, states, regions, islands and border areas named in the CDC text are listed with their stated seasonality and per-place elevation limits, not drawn. A terrain elevation limit is drawn only when the CDC text states one for the whole country."),
   ];
 }

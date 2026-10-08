@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyRecommendation, classifyRequirement, fcdoSlugs, parseMalariaText } from "../aor-intel/adapters";
+import { classifyRecommendation, classifyRequirement, extractMalariaPlaces, fcdoSlugs, parseMalariaText, statesNoMalariaAnywhere } from "../aor-intel/adapters";
 import { buildCountryIntel, type IntelDeps } from "../aor-intel/aggregate";
 import { createMemoryStore } from "../aor-intel/cache";
 import { countryBboxes, hasCountryPolygon, pointInCountry, resolveCountry } from "../aor-intel/geo";
@@ -86,6 +86,41 @@ test("malaria model keeps only what the source text states", () => {
 
   assert.equal(parseMalariaText("No malaria transmission in this country.").riskScope, "none_stated");
   assert.equal(parseMalariaText("Ask your clinician.").riskScope, "unspecified");
+});
+
+test("malaria geography: named places are structured from the CDC sentence and listed, never drawn or invented", () => {
+  const laos = parseMalariaText("Malaria risk exists in the provinces of Savannakhet, Champasak, and Attapeu, year-round. No risk in Vientiane. Risk is limited to areas below 1,500 meters in Champasak Province.");
+  assert.equal(laos.riskScope, "parts_of_country");
+  assert.deepEqual(laos.places.map((p) => [p.name, p.kind, p.risk]), [["Savannakhet", "province", "risk"], ["Champasak Province", "province", "risk"], ["Attapeu", "province", "risk"]]);
+  assert.equal(laos.places.find((p) => p.name === "Savannakhet")?.seasonality, "year-round");
+  assert.equal(laos.places.find((p) => p.name === "Champasak Province")?.elevationLimitMeters, 1500, "the limit belongs to the place named in its sentence");
+  assert.equal(laos.places.find((p) => p.name === "Savannakhet")?.elevationLimitMeters, null);
+  assert.equal(laos.altitudeLimitMeters, null, "a place-specific limit is not tinted over the whole country");
+  assert.equal(laos.altitudeScope, "named_places");
+  assert.ok(laos.places.every((p) => p.geometry === "text_only"));
+
+  const border = parseMalariaText("Risk in parts of the country, including border areas with Thailand and Myanmar. There is no malaria transmission above 2,000 meters.");
+  assert.deepEqual(border.places.map((p) => [p.name, p.kind]), [["Border area with Thailand", "border_area"], ["Border area with Myanmar", "border_area"]]);
+  assert.equal(border.riskScope, "parts_of_country", "'no transmission above 2,000 m' is not 'no malaria anywhere'");
+  assert.equal(border.altitudeLimitMeters, 2000);
+  assert.equal(border.altitudeScope, "country_statement");
+
+  const regional = parseMalariaText("Risk in rural areas of the north. Transmission does not occur above 1,800 m in the north.");
+  assert.equal(regional.altitudeLimitMeters, null, "a regional qualifier keeps the limit out of the terrain tint");
+  assert.equal(regional.altitudeScope, "qualified_area");
+  assert.match(regional.altitudeScopeNote ?? "", /not drawn/);
+
+  const regions = extractMalariaPlaces("Malaria risk occurs in Palawan Island and Northern Region. No risk in the cities of Cairo and Alexandria. Risk from June to October in Aswan Governorate.");
+  assert.deepEqual(regions.map((p) => [p.name, p.risk]), [["Palawan Island", "risk"], ["Northern Region", "risk"], ["Cairo", "no_risk"], ["Alexandria", "no_risk"], ["Aswan Governorate", "risk"]]);
+  assert.equal(regions.find((p) => p.name === "Aswan Governorate")?.seasonality, "from June to October");
+
+  // Capitalised words without an administrative word are never promoted to places.
+  assert.deepEqual(extractMalariaPlaces("Travelers to Kenya should take prophylaxis. Consult your clinician in Nairobi."), []);
+
+  assert.equal(statesNoMalariaAnywhere("No malaria transmission in this country."), true);
+  assert.equal(statesNoMalariaAnywhere("There is no malaria transmission above 2,500 meters."), false);
+  assert.equal(statesNoMalariaAnywhere("No risk of malaria in the cities of Cairo and Alexandria."), false);
+  assert.equal(parseMalariaText("There is no malaria transmission above 2,500 meters; risk below that elevation.").riskScope === "none_stated", false);
 });
 
 test("boundaries: antimeridian countries are split and points resolve to the right country", () => {
@@ -176,13 +211,15 @@ test("source failures are explicit: unavailable is never reported as no risk", a
   const payload = await intel("AF", internal, { "https://www.gov.uk/api/content/foreign-travel-advice/afghanistan": new Error("Source returned HTTP 503"), "https://power.larc.nasa.gov": new Error("Source returned HTTP 503") });
   const statuses = Object.fromEntries(payload.sources.map((s) => [s.sourceId, s.status]));
   for (const id of ["cdc-travelers-health", "cdc-travel-notices", "who-don", "gdacs", "usgs", "state-travel-advisory", "fcdo-travel-advice", "nasa-power"]) assert.equal(statuses[id], "source_unavailable", id);
-  for (const id of ["who-rsv-sars2", "malaria-admin-geometry", "entry-requirements-transit"]) assert.equal(statuses[id], "not_evaluated", id);
+  for (const id of ["who-rsv-sars2", "malaria-admin-geometry"]) assert.equal(statuses[id], "not_evaluated", id);
   assert.equal(statuses.openaq, "not_configured");
   assert.equal(statuses["reliefweb-ocha"], "not_configured");
   const gaps = payload.whatMattersNow.observations.filter((o) => o.kind === "gap");
   assert.ok(gaps.length >= 8);
   assert.match(payload.whatMattersNow.summary, /not proof of low risk|source gap/i);
-  assert.equal(payload.evidence.filter((r) => r.dimension !== "medical_access").length, 0);
+  // The static, reviewed rule set (WHO polio recommendation + coverage record for AF) is not a live source; everything else must be empty.
+  assert.equal(payload.evidence.filter((r) => r.dimension !== "medical_access" && !r.id.startsWith("entry")).length, 0);
+  assert.ok(payload.evidence.some((r) => r.category === "ihr_temporary_recommendation"), "Afghanistan carries the WHO polio exit recommendation");
 });
 
 test("a failed live refresh serves a labelled stale copy instead of pretending it is current", async () => {
@@ -198,6 +235,14 @@ test("a failed live refresh serves a labelled stale copy instead of pretending i
   assert.equal(gdacs?.freshness, "STALE_CACHE");
   const staleRecords = second?.evidence.filter((r) => r.sourceName === "GDACS") ?? [];
   assert.ok(staleRecords.length > 0 && staleRecords.every((r) => r.freshness === "STALE_CACHE" && r.extra?.originalFreshness === "NEAR_REAL_TIME"));
+  // Fetch state is retained: the failed attempt, the last good fetch, the error and the source-stated date.
+  assert.equal(gdacs?.sourceStatus, "source_unavailable");
+  assert.match(String(gdacs?.sourceError), /HTTP 502/);
+  assert.equal(gdacs?.lastAttemptedFetch, later.toISOString());
+  assert.equal(gdacs?.lastSuccessfulFetch, first?.sources.find((s) => s.sourceId === "gdacs")?.lastSuccessfulFetch);
+  assert.ok(gdacs?.lastSuccessfulFetch && Date.parse(gdacs.lastSuccessfulFetch) <= NOW.getTime());
+  assert.match(String(gdacs?.note), /last-known data/i);
+  assert.ok(staleRecords.every((r) => r.extra?.lastKnownData === true));
 });
 
 test("FCDO slug candidates cover known irregular names", () => {

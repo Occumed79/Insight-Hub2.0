@@ -72,28 +72,48 @@ test("Yellow Book chapters attach only through country evidence, and entry requi
   const ids = new Set(payload.evidence.map((r) => r.id));
   assert.ok(linked.length > 0 && linked.every((id) => ids.has(id)));
 
-  const compiled = payload.evidence.find((r) => r.category === "entry_requirement" && r.sourceName.startsWith("CDC Yellow Book 2026, Table 4.21.4"));
-  assert.ok(compiled, "Uganda is on the all-arrivals list");
-  assert.equal(compiled.requirementType, "entry_required");
-  assert.equal(compiled.recommendationType, null);
+  // Uganda: the CDC/WHO baseline lists all-arrivals YF, but Uganda's own immigration notice (2 Oct 2026) withdrew it.
+  const rule = payload.evidence.find((r) => r.category === "entry_requirement" && r.extra?.vaccine === "Yellow Fever");
+  assert.ok(rule, "Uganda has a destination-authority Yellow Fever record");
+  assert.equal(rule.requirementType, "not_required", "the newer destination-government statement controls");
+  assert.equal(rule.recommendationType, null);
+  assert.equal(rule.extra?.verificationStatus, "DESTINATION-GOVERNMENT VERIFIED");
+  assert.ok(String(rule.sourceUrl).includes("immigration.go.ug"));
+  assert.equal(payload.evidence.some((r) => r.category === "entry_requirement" && r.requirementType === "entry_required"), false, "the superseded baseline must not be shown as a current requirement");
+  const conflict = payload.evidence.find((r) => r.category === "entry_rule_conflict");
+  assert.ok(conflict, "the disagreement is preserved, not merged");
+  assert.equal((conflict.extra?.conflict as { kind: string }).kind, "rule_withdrawn");
+  assert.ok(payload.whatMattersNow.observations.some((o) => /withdrew Yellow Fever requirement/.test(o.headline)));
   const recommendation = payload.evidence.find((r) => r.category === "travel_vaccine" && r.subtype === "Yellow Fever");
   assert.equal(recommendation?.requirementType, null);
   assert.equal(payload.sources.find((s) => s.sourceId === "destination-entry-requirements")?.status, "ok");
 });
 
-test("countries not on the compiled lists get a caveat, never a 'not required' claim", async () => {
+test("countries with no rule on file get 'No current authoritative requirement verified', never a 'not required' claim", async () => {
   const payload = await run("KE", { "/api/aor/travel-health": cdc("Kenya", null, null), "/api/aor/immunization": immunization("DTP3", 90) });
-  assert.equal(payload.sources.find((s) => s.sourceId === "destination-entry-requirements")?.status, "no_current_matching_finding");
   assert.equal(payload.evidence.some((r) => r.category === "entry_requirement"), false);
-  assert.ok(payload.whatMattersNow.observations.some((o) => /No entry requirement found on the compiled lists/.test(o.headline)));
+  const coverage = payload.evidence.find((r) => r.category === "entry_requirement_coverage");
+  assert.equal(coverage?.title, "No current authoritative requirement verified from configured sources");
+  assert.equal(coverage?.requirementType, "not_evaluated");
+  const toCheck = (coverage?.extra?.sourcesToCheck as Array<{ url: string }>) ?? [];
+  assert.ok(toCheck.some((s) => s.url === "https://www.health.go.ke/index.php/incoming-travellers"), "registry destination-authority links are surfaced");
+  assert.ok(((coverage?.extra?.unreadVolatileSources as unknown[]) ?? []).length > 0, "pages that could not be read are listed, not ignored");
+  assert.ok(payload.whatMattersNow.observations.some((o) => /No current authoritative requirement verified from configured sources/.test(o.headline)));
   assert.equal(payload.evidence.some((r) => r.requirementType === "not_required"), false);
 });
 
-test("Saudi Arabia: Hajj/Umrah meningococcal rule is conditional, not a general entry requirement", async () => {
+test("Saudi Arabia: Hajj/Umrah rules come from the Ministry, are event-specific, and carry the prior-season caveat", async () => {
   const payload = await run("SA", { "/api/aor/travel-health": cdc("Saudi Arabia", null, null) });
-  const rule = payload.evidence.find((r) => r.category === "entry_requirement");
-  assert.equal(rule?.requirementType, "entry_required_conditional");
-  assert.match(String(rule?.extra?.appliesTo), /Umrah and Hajj pilgrims only/);
+  const meningococcal = payload.evidence.filter((r) => r.category === "entry_requirement" && r.extra?.vaccine === "Meningococcal (ACWY)");
+  assert.ok(meningococcal.length >= 3, "Umrah and Hajj pilgrims plus Hajj seasonal workers");
+  for (const rule of meningococcal) {
+    assert.equal(rule.requirementType, "entry_required_conditional");
+    assert.equal(rule.extra?.verificationStatus, "DESTINATION-GOVERNMENT VERIFIED");
+    assert.match(String(rule.extra?.appliesTo), /(?:Umrah|Hajj)[^.]* only\. Not a general entry requirement/);
+    assert.equal(rule.extra?.priorSeason, true, "the 1447H documents are not the current (1448H) season");
+  }
+  assert.ok(payload.evidence.some((r) => r.category === "entry_rule_conflict" && r.subtype === "field_unstated_by_authority"), "CDC's age floor vs the Ministry's silence is preserved");
+  assert.ok(payload.whatMattersNow.observations.some((o) => /prior season \(1447H/.test(o.headline)));
 });
 
 test("WHO FluNet is weekly surveillance with a stated reporting age, and WUENIC coverage flags below 90%", async () => {

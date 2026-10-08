@@ -1,4 +1,3 @@
-import { ENTRY_COMPILATION_NOTE, ENTRY_REQUIREMENTS, YF_ALL_ARRIVALS } from "./entry-requirements-data";
 import type { AdapterContext, AdapterResult, EvidenceRecord } from "./types";
 import { arr, errorText, isoOrNull, makeRecord, normalize, num, result, row, str, type Row } from "./util";
 
@@ -102,43 +101,6 @@ export async function yellowBookAdapter(ctx: AdapterContext, evidence: EvidenceR
   }
   if (!records.length) return result(ctx, YB_META, "no_current_matching_finding", [], "No Yellow Book chapter could be linked to this country's retrieved CDC/WHO items.");
   return result(ctx, YB_META, "ok", records, "Reference context linked through CDC/WHO items; it is not a substitute for current destination guidance.");
-}
-
-/* ------------------------------------------------------------------ */
-/* Destination vaccination ENTRY REQUIREMENTS (legal, kept separate)   */
-/* ------------------------------------------------------------------ */
-
-const ENTRY_META = {
-  sourceId: "destination-entry-requirements",
-  sourceName: "Destination vaccination entry requirements (WHO Annex 1 / CDC Yellow Book compilation)",
-  sourceUrl: "https://www.cdc.gov/yellow-book/hcp/travel-associated-infections-diseases/yellow-fever.html",
-  dimension: "health_vaccines" as const,
-  freshness: "STRUCTURAL_DATA" as const,
-};
-
-export async function entryRequirementsAdapter(ctx: AdapterContext): Promise<AdapterResult> {
-  const entries = ENTRY_REQUIREMENTS.filter((entry) => entry.iso2 === ctx.country.iso2);
-  if (!entries.length) {
-    return result(ctx, ENTRY_META, "no_current_matching_finding", [], `${ctx.country.name} is not on the compiled lists (yellow fever from all arrivals: ${Object.keys(YF_ALL_ARRIVALS).length} countries; Saudi Arabia Hajj/Umrah meningococcal). This is not proof that no requirement exists. ${ENTRY_COMPILATION_NOTE}`);
-  }
-  return result(ctx, ENTRY_META, "ok", entries.map((entry) => makeRecord(ctx, "entry", {
-    dimension: "health_vaccines",
-    category: "entry_requirement",
-    subtype: `${entry.vaccine} entry requirement (compiled list)`,
-    title: `${entry.vaccine} — entry requirement`,
-    summary: entry.statement,
-    evidence: `${entry.statement} Applies to: ${entry.appliesTo}`,
-    requirementType: entry.requirementType,
-    recommendationType: null,
-    sourceName: entry.sourceName,
-    sourceUrl: entry.sourceUrl,
-    updatedAt: isoOrNull(entry.sourceReviewed.slice(0, 10)),
-    freshness: "STRUCTURAL_DATA",
-    geometry: { type: "None" },
-    geographyLevel: "country",
-    geographyNote: `Legal entry rule compiled from a secondary source (reviewed ${entry.sourceReviewed}); not retrieved from the destination government. Confirm with the embassy or consulate before travel. ${ENTRY_COMPILATION_NOTE}`,
-    extra: { vaccine: entry.vaccine, appliesTo: entry.appliesTo, compilationReviewed: entry.sourceReviewed, recordedAt: entry.recordedAt },
-  })));
 }
 
 /* ------------------------------------------------------------------ */

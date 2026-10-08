@@ -31,12 +31,7 @@ export function buildObservations(country: CountryRef, results: AdapterResult[],
   if (cdcText.length) {
     add({ dimension: "health_vaccines", kind: "finding", headline: "Entry-requirement language appears in the CDC destination text", detail: `${cdcText.map((r) => `${r.subtype.replace(/ entry requirement$/, "")}${r.requirementType === "entry_required_after_transit" ? " (tied to prior travel/transit)" : ""}`).join("; ")}. Verify against the destination government before travel.`, evidenceIds: cdcText.map((r) => r.id), freshness: "CURRENT_GUIDANCE" });
   }
-  const listed = vaccines.filter((r) => r.category === "entry_requirement" && !r.sourceName.startsWith("CDC Travelers") && r.requirementType && r.requirementType !== "not_required");
-  if (listed.length) {
-    add({ dimension: "health_vaccines", kind: "finding", headline: `Compiled entry-requirement list names ${listed.length} requirement${listed.length === 1 ? "" : "s"} for this destination`, detail: `${listed.map((r) => `${r.title}${r.requirementType === "entry_required_conditional" ? " (conditional: " + String(r.extra?.appliesTo ?? "see record") + ")" : ""}`).join("; ")}. Legal rules from a secondary compilation; confirm with the destination authority. Separate from the CDC recommendations above.`, evidenceIds: listed.map((r) => r.id), freshness: "STRUCTURAL_DATA" });
-  } else if (status("destination-entry-requirements") === "no_current_matching_finding" && !cdcText.length) {
-    add({ dimension: "health_vaccines", kind: "caveat", headline: "No entry requirement found on the compiled lists", detail: "The destination is not on the yellow fever (all arrivals) or Saudi Hajj/Umrah lists. This is not proof that none applies: transit-based and other-vaccine rules are not evaluated.", evidenceIds: [], freshness: null });
-  }
+  addVaccineRuleObservations(vaccines, status("destination-entry-requirements"), add);
   const yellowBook = vaccines.filter((r) => r.category === "yellow_book_reference");
   if (yellowBook.length) {
     add({ dimension: "health_vaccines", kind: "caveat", headline: `Yellow Book reference chapters linked: ${yellowBook.map((r) => r.subtype).slice(0, 8).join(", ")}`, detail: "Clinical and operational reference text for diseases the CDC/WHO items name for this country. Reference context only, not a statement of current country risk.", evidenceIds: yellowBook.map((r) => r.id).slice(0, 12), freshness: "STRUCTURAL_DATA" });
@@ -52,9 +47,9 @@ export function buildObservations(country: CountryRef, results: AdapterResult[],
   // --- Malaria ---------------------------------------------------------------------
   const malaria = records.find((r) => r.dimension === "malaria");
   if (malaria) {
-    const model = (malaria.extra?.malaria ?? {}) as { riskScope?: string; seasonality?: string | null; altitudeNote?: string | null; altitudeLimitMeters?: number | null; preventionDrugs?: string[] };
+    const model = (malaria.extra?.malaria ?? {}) as { riskScope?: string; seasonality?: string | null; altitudeNote?: string | null; altitudeLimitMeters?: number | null; altitudeScopeNote?: string | null; preventionDrugs?: string[]; places?: Array<{ name: string; risk: string; elevationLimitMeters: number | null }> };
     const scope = model.riskScope === "country_wide" ? "country-wide risk stated" : model.riskScope === "parts_of_country" ? "risk stated for parts of the country (areas not mapped)" : model.riskScope === "none_stated" ? "CDC states no malaria transmission" : "risk scope not stated in the retrieved text";
-    const extras = [model.seasonality ? `seasonality: ${model.seasonality}` : "", model.altitudeNote ? `altitude: ${model.altitudeNote}${model.altitudeLimitMeters ? ` (limit ${model.altitudeLimitMeters} m is drawn on the terrain)` : ""}` : "", model.preventionDrugs?.length ? `prevention drugs named: ${model.preventionDrugs.join(", ")}` : ""].filter(Boolean);
+    const extras = [model.seasonality ? `seasonality: ${model.seasonality}` : "", model.altitudeNote ? `altitude: ${model.altitudeNote}${model.altitudeLimitMeters ? ` (limit ${model.altitudeLimitMeters} m is drawn on the terrain)` : ""}` : "", model.places?.length ? `named places (listed, not drawn): ${model.places.map((place) => `${place.name}${place.risk === "no_risk" ? " (no risk stated)" : ""}${place.elevationLimitMeters ? ` (${place.elevationLimitMeters} m limit)` : ""}`).join(", ")}` : "", model.altitudeScopeNote ? model.altitudeScopeNote : "", model.preventionDrugs?.length ? `prevention drugs named: ${model.preventionDrugs.join(", ")}` : ""].filter(Boolean);
     add({ dimension: "malaria", kind: model.riskScope === "none_stated" ? "caveat" : "finding", headline: `Malaria — ${scope}`, detail: extras.length ? `${extras.join("; ")}.` : "Seasonality, altitude limits and prophylaxis choices were not stated in the retrieved text; consult the CDC page.", evidenceIds: [malaria.id], freshness: "CURRENT_GUIDANCE" });
   }
 
@@ -141,6 +136,59 @@ export function buildObservations(country: CountryRef, results: AdapterResult[],
   }
 
   return observations.sort((a, b) => DIMENSION_ORDER.indexOf(a.dimension) - DIMENSION_ORDER.indexOf(b.dimension) || kindRank(a.kind) - kindRank(b.kind));
+}
+
+
+// --- Vaccine rule engine records (entry / exit / transit / event-specific) -----------------------------
+type AddObservation = (observation: Omit<Observation, "id">) => unknown;
+const ruleOf = (record: EvidenceRecord) => record.extra?.vaccineRule as { id: string; vaccine: string; verificationStatus: string; authorityTier: string; legalForce: string; sourcePublishedAt: string | null; eventType: string | null; seasonLabel: string | null } | undefined;
+const day = (value: string | null) => (value ? value.slice(0, 10) : "undated");
+
+function addVaccineRuleObservations(vaccines: EvidenceRecord[], entryStatus: string | undefined, add: AddObservation): void {
+  const engine = vaccines.filter((r) => ruleOf(r));
+  const live = engine.filter((r) => r.category !== "ihr_temporary_recommendation" && r.requirementType !== "not_evaluated");
+  const authoritative = live.filter((r) => r.requirementType && r.requirementType !== "not_required" && ["destination_government", "embassy"].includes(String(r.extra?.authorityTier)));
+  const baseline = live.filter((r) => r.requirementType && r.requirementType !== "not_required" && !["destination_government", "embassy"].includes(String(r.extra?.authorityTier)));
+  const removed = live.filter((r) => r.requirementType === "not_required");
+  const unverified = engine.filter((r) => r.requirementType === "not_evaluated");
+  const who = engine.filter((r) => r.category === "ihr_temporary_recommendation");
+  const conflicts = vaccines.filter((r) => r.category === "entry_rule_conflict");
+  const priorSeason = authoritative.filter((r) => r.extra?.priorSeason === true);
+
+  if (authoritative.length) {
+    add({ dimension: "health_vaccines", kind: "finding", headline: `Destination authority states ${authoritative.length} vaccine rule${authoritative.length === 1 ? "" : "s"} for this country`, detail: `${authoritative.slice(0, 6).map((r) => `${r.title} [${ruleOf(r)?.verificationStatus}; source dated ${day(ruleOf(r)?.sourcePublishedAt ?? null)}]`).join("; ")}${authoritative.length > 6 ? "; …" : ""}. Legal rules, kept separate from CDC recommendations; conditions (origin, transit, age, event) are in each record.`, evidenceIds: authoritative.slice(0, 12).map((r) => r.id), freshness: "STRUCTURAL_DATA" });
+  }
+  if (removed.length) {
+    add({ dimension: "health_vaccines", kind: "finding", headline: `Destination authority withdrew ${removed.map((r) => ruleOf(r)?.vaccine).join(", ")} requirement (${removed.map((r) => day(ruleOf(r)?.sourcePublishedAt ?? null)).join(", ")})`, detail: "The authority states the certificate is no longer mandatory. Older CDC/WHO baselines that still list it are preserved as a conflict record, not shown as current.", evidenceIds: removed.map((r) => r.id), freshness: "STRUCTURAL_DATA" });
+  }
+  if (conflicts.length) {
+    add({ dimension: "health_vaccines", kind: "finding", headline: `${conflicts.length} vaccine-rule source ${conflicts.length === 1 ? "disagreement" : "disagreements"} preserved`, detail: conflicts.slice(0, 3).map((r) => r.summary).join(" "), evidenceIds: conflicts.map((r) => r.id), freshness: "STRUCTURAL_DATA" });
+  }
+  if (baseline.length && !authoritative.length) {
+    add({ dimension: "health_vaccines", kind: "caveat", headline: `Older global baseline lists ${baseline.length} vaccine requirement${baseline.length === 1 ? "" : "s"}; not re-verified with the destination authority`, detail: `${baseline.map((r) => r.title).join("; ")}. Compiled CDC/WHO lists date from before 2025; confirm with the destination government or embassy.`, evidenceIds: baseline.map((r) => r.id), freshness: "STRUCTURAL_DATA" });
+  }
+  if (unverified.some((r) => r.category !== "entry_requirement_coverage")) {
+    const items = unverified.filter((r) => r.category !== "entry_requirement_coverage");
+    add({ dimension: "health_vaccines", kind: "caveat", headline: "A baseline entry requirement for this country is not currently verified", detail: `${items.map((r) => r.title).join("; ")}. The source registry flags a newer destination-government notice that could not be read; do not treat the baseline as current.`, evidenceIds: items.map((r) => r.id), freshness: "STRUCTURAL_DATA" });
+  }
+  if (who.length) {
+    const strict = who.filter((r) => String(ruleOf(r)?.id).includes("cat1"));
+    add({ dimension: "health_vaccines", kind: "finding", headline: strict.length ? "WHO polio IHR temporary recommendations: residents and long-term visitors leaving this State should be vaccinated 4 weeks–12 months before international travel" : "WHO polio IHR temporary recommendations name this State (cVDPV2): IPV encouraged before international travel", detail: `${strict.length ? "The State is also asked to restrict departure of residents without documented vaccination. " : "No departure restriction is set for this category. "}This is a WHO recommendation addressed to the State (statement of ${day(ruleOf(who[0])?.sourcePublishedAt ?? null)}), not a destination-country entry rule; national implementation is a separate fact.`, evidenceIds: who.map((r) => r.id), freshness: "STRUCTURAL_DATA" });
+  }
+  if (priorSeason.length) {
+    add({ dimension: "health_vaccines", kind: "caveat", headline: `Pilgrimage requirements on file are for a prior season (${[...new Set(priorSeason.map((r) => ruleOf(r)?.seasonLabel))].join(", ")})`, detail: "The Ministry publishes seasonal documents; the current-season text has not been verified and last season's rule is not assumed to carry over.", evidenceIds: priorSeason.slice(0, 8).map((r) => r.id), freshness: "STRUCTURAL_DATA" });
+  }
+  const dated = authoritative.filter((r) => r.extra?.datedSource === true);
+  if (dated.length) {
+    add({ dimension: "health_vaccines", kind: "caveat", headline: `${dated.length} destination-authority rule${dated.length === 1 ? " rests" : "s rest"} on a dated source`, detail: `${dated.map((r) => `${r.title} (published ${day(ruleOf(r)?.sourcePublishedAt ?? null)})`).join("; ")}. Confirm the rule is still in force.`, evidenceIds: dated.map((r) => r.id), freshness: "STRUCTURAL_DATA" });
+  }
+  if (!authoritative.length && !baseline.length && !removed.length && (entryStatus === "no_current_matching_finding" || entryStatus === "ok")) {
+    add({ dimension: "health_vaccines", kind: "caveat", headline: "No current authoritative requirement verified from configured sources", detail: "No destination-authority, WHO or baseline vaccine rule is on file for this country. This is not confirmation that none applies: the registry sources listed in the coverage record have not been read.", evidenceIds: vaccines.filter((r) => r.category === "entry_requirement_coverage").map((r) => r.id), freshness: null });
+  }
+  const changed = vaccines.filter((r) => r.category === "rule_source_check" && r.subtype === "content_changed");
+  if (changed.length) {
+    add({ dimension: "health_vaccines", kind: "finding", headline: `${changed.length} official rule page${changed.length === 1 ? " has" : "s have"} changed since the last check`, detail: "Content differs from the previous successful fetch (may be cosmetic). Re-read the rule before relying on the stored copy.", evidenceIds: changed.map((r) => r.id), freshness: "CURRENT_NOTICE" });
+  }
 }
 
 const kindRank = (kind: Observation["kind"]) => (kind === "finding" ? 0 : kind === "caveat" ? 1 : 2);
