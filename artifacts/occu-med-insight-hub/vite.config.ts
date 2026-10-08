@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -20,14 +21,25 @@ function splitVendorChunk(id: string): string | undefined {
   if (id.includes("node_modules/framer-motion/")) return "motion-vendor";
   if (id.includes("node_modules/lucide-react/")) return "icons-vendor";
   if (id.includes("node_modules/wouter/")) return "router-vendor";
+  if (/node_modules\/cesium\//.test(id)) return "cesium-vendor";
   return undefined;
 }
 
 export default defineConfig({
   base: basePath,
+  // CesiumJS loads workers, assets and widget CSS at runtime from CESIUM_BASE_URL.
+  define: {
+    CESIUM_BASE_URL: JSON.stringify(`${basePath.endsWith("/") ? basePath : `${basePath}/`}cesium`),
+  },
   plugins: [
     react(),
     tailwindcss(),
+    viteStaticCopy({
+      targets: ["Workers", "ThirdParty", "Assets", "Widgets"].map((directory) => ({
+        src: `node_modules/cesium/Build/Cesium/${directory}`,
+        dest: "cesium",
+      })),
+    }),
     // Replit-specific plugins — dev only
     ...(isDev
       ? [

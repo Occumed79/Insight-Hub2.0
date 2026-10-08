@@ -419,3 +419,13 @@ export const oshaEntityMatchesTable = pgTable("osha_entity_matches", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// Server-side cache for AOR Factors source adapters. Browsers never call external
+// sources directly; adapters write normalized results here so a failed live
+// refresh can fall back to an explicitly labelled stale copy.
+export const aorIntelCacheTable = pgTable("aor_intel_cache", {
+  key: text("key").primaryKey(),
+  payload: jsonb("payload").notNull(),
+  retrievedAt: timestamp("retrieved_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});

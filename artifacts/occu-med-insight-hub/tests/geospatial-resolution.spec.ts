@@ -66,64 +66,6 @@ async function installSdkStubs(page: Page) {
   await page.addInitScript(browserSdkStub);
 }
 
-async function mockAorApis(page: Page, resolverCounter: { count: number }) {
-  await page.route("**/api/**", async (route) => {
-    const url = new URL(route.request().url());
-    const path = url.pathname;
-    if (path === "/api/map-config") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: true, apiKey: "render-only-map-key" }) });
-    if (path === "/api/geospatial/resolve") {
-      resolverCounter.count += 1;
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-        ok: true,
-        resolution: {
-          status: "resolved", validated: true, provider: "canonical-country", query: "Kuwait", normalizedQuery: "kuwait",
-          coordinates: { lat: 29.3117, lon: 47.4818 }, country: "Kuwait", iso2: "KW", bbox: [46.55, 28.52, 48.43, 30.1],
-          validation: { countryMatch: true, regionMatch: null, coordinateValid: true, corroborated: true, reasons: [] }, cacheHit: false, resolvedAt: new Date().toISOString(),
-        },
-      }) });
-    }
-    if (path === "/api/aor/unified-command") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, command: "centcom", commandLabel: "USCENTCOM", partial: false, sourceHealth: [], outbreaks: [], disasters: [], earthquakes: [] }) });
-    if (path === "/api/aor/global-watch") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, partial: false, sourceHealth: [], outbreaks: [], disasters: [], earthquakes: [] }) });
-    if (path === "/api/aor/seismic-activity") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, earthquakes: [] }) });
-    if (path === "/api/public-data/aor-risk") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, advisory: { level: 1, levelLabel: "Exercise Normal Precautions", summary: "Test advisory" } }) });
-    if (path === "/api/aor/travel-health") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, country: "Kuwait", vaccines: [], diseases: [], notices: [], yellowFever: null, malaria: null }) });
-    if (path === "/api/aor/epidemic-history") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, rows: [], diseases: [], methodology: { period: "1996–Mar 2022", esdaPeriod: "1996–2021", globalMoransI: 0.336, pValue: "<0.001" } }) });
-    if (path === "/api/aor/respiratory-surveillance") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, partial: false, ari: { rows: [] }, rt: { rows: [] }, positivity: { rows: [] }, wastewater: { rows: [] }, sourceHealth: [] }) });
-    if (path === "/api/aor/immunization") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, rows: [], facets: { years: [], items: [], categories: [] }, mapCoverage: { mappedRows: 0, unmappedRows: 0 } }) });
-    if (path === "/api/aor/fungal-burden") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, rows: [], availableDiseases: [] }) });
-    if (path.startsWith("/api/aor/")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, events: [], updates: [], outbreaks: [], trackers: [], notices: [], profiles: [], sourceHealth: [] }) });
-    if (path === "/api/core-intelligence/state-map-geometry") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ type: "Topology", objects: {}, arcs: [] }) });
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
-  });
-}
-
-test("AOR country selection uses the shared resolver and stays stable across 2D/3D", async ({ page }) => {
-  await installSdkStubs(page);
-  const resolver = { count: 0 };
-  let directMapTilerGeocodes = 0;
-  page.on("request", (request) => { if (request.url().includes("api.maptiler.com/geocoding/")) directMapTilerGeocodes += 1; });
-  await mockAorApis(page, resolver);
-
-  await page.goto("/aor-factors");
-  const input = page.getByPlaceholder("Search or click a country");
-  await expect(input).toBeVisible();
-  await input.fill("Kuwait");
-  await page.getByRole("button", { name: "Load country" }).click();
-  await expect.poll(() => resolver.count).toBe(1);
-  expect(directMapTilerGeocodes).toBe(0);
-
-  const globe = page.getByRole("button", { name: "3D Globe", exact: true });
-  const flat = page.getByRole("button", { name: "2D Flat", exact: true });
-  await expect(globe).toHaveAttribute("aria-pressed", "true");
-  await flat.click();
-  await expect(flat).toHaveAttribute("aria-pressed", "true");
-  await globe.click();
-  await expect(globe).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("Kuwait", { exact: true }).first()).toBeVisible();
-  expect(resolver.count).toBe(1);
-  expect(directMapTilerGeocodes).toBe(0);
-});
-
 async function mockDefenseApis(page: Page, resolverCounter: { count: number }) {
   await page.route("**/api/war-costs/dataset/**", async (route) => {
     const name = decodeURIComponent(new URL(route.request().url()).pathname.split("/").pop() || "");

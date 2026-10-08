@@ -27,11 +27,16 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/geojson": "^7946.0.16",
     "@types/node": "catalog:",
+    "@types/topojson-client": "^3.1.5",
     "esbuild": "0.27.3",
     "esbuild-plugin-pino": "^2.3.3",
     "pino-pretty": "^13",
     "thread-stream": "3.1.0",
-    "tsx": "catalog:"
+    "topojson-client": "^3.1.0",
+    "tsx": "catalog:",
+    "world-atlas": "^2.0.2",
+    "world-countries": "^5.1.0"
   }
 }
