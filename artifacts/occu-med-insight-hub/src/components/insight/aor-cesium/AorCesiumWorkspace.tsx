@@ -5,7 +5,7 @@ import { COMMANDS, COMMAND_BY_COUNTRY, type CommandId } from "@/components/insig
 import { AorCesiumGlobe, type GlobeStatus, type GlobeView } from "./AorCesiumGlobe";
 import { AorIntelPanel } from "./AorIntelPanel";
 import { indexBoundaries, searchCountries, type CountryIndex } from "./aor-geo";
-import { DIMENSIONS, DIMENSION_COLORS, DIMENSION_LABELS, type CountryIntel, type Dimension, type EvidenceRecord, type WorldEvent } from "./aor-intel-types";
+import { DIMENSIONS, DIMENSION_COLORS, DIMENSION_LABELS, ENVIRONMENT_KEYS, ENVIRONMENT_LABELS, type CountryIntel, type Dimension, type EnvironmentKey, type EvidenceRecord, type SynthesisResponse, type WorldEvent } from "./aor-intel-types";
 
 type CesiumConfig = { configured: boolean; token: string; requiredEnv?: string; error?: string };
 type LensResponse = { ok: boolean; classification: string; considerations: Array<{ ruleId: string; classification: string; summary: string; matchedTerms: string[]; countrySignals: string[]; evidenceText: string }> };
@@ -38,6 +38,9 @@ export default function AorCesiumWorkspace() {
   const [query, setQuery] = useState("");
   const [panelOpen, setPanelOpen] = useState(false);
   const requestRef = useRef(0);
+  const [synthesis, setSynthesis] = useState<SynthesisResponse | null>(null);
+  const [synthesisLoading, setSynthesisLoading] = useState(false);
+  const [environment, setEnvironment] = useState<Record<EnvironmentKey, boolean>>({ heat: false, cold: false, altitude: false, poorAir: false, fatigue: false, ppe: false, night: false });
 
   // Lens (retained from the earlier AOR build): transient medical-condition x deployment-context evaluation.
   const [condition, setCondition] = useState("");
@@ -69,13 +72,13 @@ export default function AorCesiumWorkspace() {
   const goWorld = useCallback(() => {
     requestRef.current += 1;
     setView((current) => ({ level: "world", aorId: null, iso2: null, nonce: current.nonce + 1 }));
-    setIntel(null); setIntelError(""); setIntelLoading(false); setPanelOpen(false); setHighlightedId(null); setLens(null);
+    setIntel(null); setIntelError(""); setIntelLoading(false); setPanelOpen(false); setHighlightedId(null); setLens(null); setSynthesis(null); setSynthesisLoading(false);
   }, []);
 
   const goAor = useCallback((aorId: CommandId) => {
     requestRef.current += 1;
     setView((current) => ({ level: "aor", aorId, iso2: null, nonce: current.nonce + 1 }));
-    setIntel(null); setIntelError(""); setIntelLoading(false); setPanelOpen(false); setHighlightedId(null); setLens(null);
+    setIntel(null); setIntelError(""); setIntelLoading(false); setPanelOpen(false); setHighlightedId(null); setLens(null); setSynthesis(null); setSynthesisLoading(false);
   }, []);
 
   const goCountry = useCallback((iso2: string) => {
@@ -84,9 +87,19 @@ export default function AorCesiumWorkspace() {
     const mapped = COMMAND_BY_COUNTRY.get(code)?.id ?? null;
     setView((current) => ({ level: "country", aorId: mapped ?? current.aorId, iso2: code, nonce: current.nonce + 1 }));
     setPanelOpen(true); setActiveTab("summary"); setHighlightedId(null); setLens(null); setLensError("");
-    setIntel(null); setIntelError(""); setIntelLoading(true);
+    setIntel(null); setIntelError(""); setIntelLoading(true); setSynthesis(null); setSynthesisLoading(false);
     getJson<CountryIntel>(`/api/aor/country-intel?iso2=${encodeURIComponent(code)}`)
-      .then((payload) => { if (requestRef.current === request) setIntel(payload); })
+      .then((payload) => {
+        if (requestRef.current !== request) return;
+        setIntel(payload);
+        if (payload.whatMattersNow.llmSynthesis !== "available") return;
+        // The AI briefing is requested only after the evidence is on screen and is validated server-side.
+        setSynthesisLoading(true);
+        getJson<SynthesisResponse>(`/api/aor/country-intel/synthesis?iso2=${encodeURIComponent(code)}`)
+          .then((briefing) => { if (requestRef.current === request) setSynthesis(briefing); })
+          .catch(() => { /* the deterministic summary stays; briefing is optional */ })
+          .finally(() => { if (requestRef.current === request) setSynthesisLoading(false); });
+      })
       .catch((error) => { if (requestRef.current === request) setIntelError(errorText(error)); })
       .finally(() => { if (requestRef.current === request) setIntelLoading(false); });
   }, []);
@@ -110,10 +123,11 @@ export default function AorCesiumWorkspace() {
   const layerCounts = useMemo(() => { const counts = new Map<Dimension, number>(); for (const record of intel?.evidence ?? []) counts.set(record.dimension, (counts.get(record.dimension) ?? 0) + 1); return counts; }, [intel]);
 
   async function runLens() {
-    if (!view.iso2 || (!condition.trim() && !medication.trim() && !workContext.trim())) return;
+    const context = [workContext.trim(), ...ENVIRONMENT_KEYS.filter((key) => environment[key]).map((key) => ENVIRONMENT_LABELS[key])].filter(Boolean).join("; ");
+    if (!view.iso2 || (!condition.trim() && !medication.trim() && !context)) return;
     setLensLoading(true); setLensError("");
     try {
-      const response = await fetch("/api/aor/country-condition-lens", { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ iso2: view.iso2, condition: condition.trim(), medication: medication.trim(), workContext: workContext.trim() }) });
+      const response = await fetch("/api/aor/country-condition-lens", { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ iso2: view.iso2, condition: condition.trim(), medication: medication.trim(), workContext: context }) });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error || `Request failed (${response.status}).`);
       setLens(payload as LensResponse);
@@ -124,16 +138,24 @@ export default function AorCesiumWorkspace() {
   const lensBlock = view.iso2 ? (
     <details className="mt-3 border-t border-white/[.06] pt-3">
       <summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.12em] text-slate-500">Medical condition × deployment context (transient, not stored)</summary>
+      {ENVIRONMENT_KEYS.some((key) => environment[key]) ? <p className="mt-1.5 text-[9px] leading-4 text-slate-400">Environment factors included: {ENVIRONMENT_KEYS.filter((key) => environment[key]).map((key) => ENVIRONMENT_LABELS[key]).join(", ")}</p> : null}
       <div className="mt-2 space-y-1.5">
         {([["Condition", condition, setCondition], ["Medication", medication, setMedication], ["Work context", workContext, setWorkContext]] as const).map(([label, value, setter]) => (
           <input key={label} value={value} onChange={(event) => setter(event.target.value)} placeholder={label} className="min-h-8 w-full rounded-lg border border-white/[.08] bg-black/25 px-3 text-[10px] text-white outline-none placeholder:text-slate-600" />
         ))}
-        <button type="button" onClick={() => void runLens()} disabled={lensLoading || (!condition.trim() && !medication.trim() && !workContext.trim())} className="min-h-8 w-full rounded-lg border border-cyan-100/15 bg-cyan-200/[.06] text-[10px] font-bold text-cyan-50/80 disabled:opacity-40">{lensLoading ? "Evaluating…" : "Evaluate considerations"}</button>
+        <button type="button" onClick={() => void runLens()} disabled={lensLoading || (!condition.trim() && !medication.trim() && !workContext.trim() && !ENVIRONMENT_KEYS.some((key) => environment[key]))} className="min-h-8 w-full rounded-lg border border-cyan-100/15 bg-cyan-200/[.06] text-[10px] font-bold text-cyan-50/80 disabled:opacity-40">{lensLoading ? "Evaluating…" : "Evaluate considerations"}</button>
         {lensError ? <p className="text-[9px] text-amber-100/70">{lensError}</p> : null}
         {lens ? <div className="pt-1"><p className="text-[10px] font-bold text-white/85">{lens.classification}</p>{lens.considerations.map((item) => <div key={item.ruleId} className="mt-1.5 border-t border-white/[.05] pt-1.5 text-[9px] leading-4 text-slate-400"><b className="text-white/75">{item.classification}</b> — {item.summary}{item.evidenceText ? <p className="mt-0.5 text-slate-500">{item.evidenceText}</p> : null}</div>)}</div> : null}
       </div>
     </details>
   ) : null;
+
+  const altitudeLimitMeters = useMemo(() => {
+    if (!activeLayers.has("malaria")) return null;
+    const record = intel?.evidence.find((item) => item.dimension === "malaria" && item.category === "malaria");
+    const limit = ((record?.extra?.malaria ?? {}) as { altitudeLimitMeters?: number | null }).altitudeLimitMeters;
+    return typeof limit === "number" && limit > 0 ? limit : null;
+  }, [intel, activeLayers]);
 
   const globeReady = Boolean(config?.configured && config.token);
   const crumb = (label: string, onClick?: () => void, current = false) => <button type="button" onClick={onClick} disabled={!onClick || current} className={`rounded-full px-2 py-1 text-[10px] font-bold ${current ? "text-white" : "text-cyan-100/70 hover:text-white"}`}>{label}</button>;
@@ -152,6 +174,7 @@ export default function AorCesiumWorkspace() {
             worldEvents={worldEvents}
             focusEvidence={focusEvidence}
             centerFallback={intel?.country.center ?? null}
+            altitudeLimitMeters={altitudeLimitMeters}
             onPickCountry={goCountry}
             onPickEvidence={pickEvidence}
             onHoverCountry={setHoverName}
@@ -217,6 +240,10 @@ export default function AorCesiumWorkspace() {
             onSelectEvidence={selectEvidence}
             onClose={() => setPanelOpen(false)}
             lens={lensBlock}
+            synthesis={synthesis}
+            synthesisLoading={synthesisLoading}
+            environment={environment}
+            onToggleEnvironment={(key) => setEnvironment((current) => ({ ...current, [key]: !current[key] }))}
           />
         ) : null}
       </section>

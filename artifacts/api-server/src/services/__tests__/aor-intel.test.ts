@@ -134,7 +134,7 @@ test("Kenya: vaccine recommendation, requirement, malaria and every source are e
   assert.equal(requirementGap, undefined, "requirement language was found, so the not-evaluated gap must not be raised");
   const text = JSON.stringify(payload);
   assert.doesNotMatch(text, /risk score|"score"/i, "no composite risk score may appear");
-  assert.equal(payload.whatMattersNow.llmSynthesis, "not_enabled");
+  assert.equal(payload.whatMattersNow.llmSynthesis, "not_configured");
 });
 
 test("Japan: no malaria row, offshore quakes are labelled, nothing is invented", async () => {
@@ -176,7 +176,9 @@ test("source failures are explicit: unavailable is never reported as no risk", a
   const payload = await intel("AF", internal, { "https://www.gov.uk/api/content/foreign-travel-advice/afghanistan": new Error("Source returned HTTP 503"), "https://power.larc.nasa.gov": new Error("Source returned HTTP 503") });
   const statuses = Object.fromEntries(payload.sources.map((s) => [s.sourceId, s.status]));
   for (const id of ["cdc-travelers-health", "cdc-travel-notices", "who-don", "gdacs", "usgs", "state-travel-advisory", "fcdo-travel-advice", "nasa-power"]) assert.equal(statuses[id], "source_unavailable", id);
-  for (const id of ["destination-entry-requirements", "who-respiratory", "openaq", "who-gho"]) assert.equal(statuses[id], "not_evaluated", id);
+  for (const id of ["who-rsv-sars2", "malaria-admin-geometry", "entry-requirements-transit"]) assert.equal(statuses[id], "not_evaluated", id);
+  assert.equal(statuses.openaq, "not_configured");
+  assert.equal(statuses["reliefweb-ocha"], "not_configured");
   const gaps = payload.whatMattersNow.observations.filter((o) => o.kind === "gap");
   assert.ok(gaps.length >= 8);
   assert.match(payload.whatMattersNow.summary, /not proof of low risk|source gap/i);

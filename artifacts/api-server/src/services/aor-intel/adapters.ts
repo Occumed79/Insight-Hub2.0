@@ -42,11 +42,33 @@ export type MalariaModel = {
   areasMentioned: string | null;
   seasonality: string | null;
   altitudeNote: string | null;
+  /** Set only when the CDC text explicitly states no transmission above (or risk only below) a stated elevation. */
+  altitudeLimitMeters: number | null;
   preventionDrugs: string[];
   preventionStatement: string | null;
 };
 
 const MALARIA_DRUGS = ["atovaquone-proguanil", "doxycycline", "mefloquine", "tafenoquine", "chloroquine", "primaquine"];
+
+/**
+ * Elevation limit, only when the text explicitly negates transmission above a stated height
+ * ("does not occur above 2,000 m") or restricts risk to below it ("risk is limited to areas below 1,500 m").
+ * Positive statements such as "risk in areas above 1,000 m" are not treated as limits.
+ */
+export function parseAltitudeLimit(textValue: string): { meters: number; basis: string } | null {
+  const toMeters = (amount: string, unit: string) => {
+    const value = Number(amount.replace(/,/g, ""));
+    if (!Number.isFinite(value) || value <= 0) return null;
+    return /^f/i.test(unit) ? Math.round(value * 0.3048) : Math.round(value);
+  };
+  for (const sentence of textValue.replace(/\s+/g, " ").split(/(?<=[.;])\s+/)) {
+    const negated = sentence.match(/\b(?:no|not|does not occur|do not occur|absent|free of|without|unlikely|rare(?:ly)?)\b[^.;]{0,80}?\b(?:above|over|higher than|greater than)\s+([\d,]+)\s*(m\b|meters|metres|feet|ft\b)/i);
+    if (negated) { const meters = toMeters(negated[1], negated[2]); if (meters) return { meters, basis: sentence.trim() }; }
+    const restricted = sentence.match(/\b(?:risk|transmission|present|occurs?|found|limited|restricted|only)\b[^.;]{0,60}?\b(?:below|under|lower than)\s+([\d,]+)\s*(m\b|meters|metres|feet|ft\b)/i);
+    if (restricted && /\b(?:limited|restricted|only|confined)\b/i.test(sentence)) { const meters = toMeters(restricted[1], restricted[2]); if (meters) return { meters, basis: sentence.trim() }; }
+  }
+  return null;
+}
 
 /** Parses only what the retrieved CDC text states; every absent field is null, never inferred. */
 export function parseMalariaText(textValue: string): MalariaModel {
@@ -66,6 +88,7 @@ export function parseMalariaText(textValue: string): MalariaModel {
     areasMentioned: areas,
     seasonality: season,
     altitudeNote: altitude,
+    altitudeLimitMeters: parseAltitudeLimit(t)?.meters ?? null,
     preventionDrugs: MALARIA_DRUGS.filter((drug) => normalize(t).includes(normalize(drug))),
     preventionStatement: prevention,
   };
@@ -607,11 +630,8 @@ export function pendingAdapters(ctx: AdapterContext): AdapterResult[] {
   const pending = (sourceId: string, sourceName: string, sourceUrl: string, dimension: AdapterResult["dimension"], note: string) =>
     result(ctx, { sourceId, sourceName, sourceUrl, dimension, freshness: null }, "not_evaluated", [], note);
   return [
-    pending("destination-entry-requirements", "Destination-government vaccination entry requirements (WHO + national sources)", "https://www.who.int/publications/m/item/countries-with-risk-of-yellow-fever-transmission-and-countries-requiring-yellow-fever-vaccination", "health_vaccines", "Adapter not built. Entry requirements are legal rules and are never inferred from CDC recommendations."),
-    pending("who-respiratory", "WHO influenza / RSV / SARS-CoV-2 surveillance", "https://www.who.int/teams/global-influenza-programme/surveillance-and-monitoring", "outbreaks", "Adapter not built. Will be weekly surveillance, not live telemetry."),
-    pending("who-immunization", "WHO immunization coverage (WUENIC)", "https://immunizationdata.who.int/", "health_vaccines", "Country-level adapter not built in this slice."),
-    pending("openaq", "OpenAQ v3 air quality", "https://openaq.org/", "environment", ctx.env("OPENAQ_API_KEY") ? "Adapter not built (key present)." : "Adapter not built; OPENAQ_API_KEY is also not set."),
-    pending("who-gho", "WHO Global Health Observatory health-system indicators", "https://www.who.int/data/gho", "medical_access", "Adapter not built."),
-    pending("reliefweb-ocha", "OCHA / ReliefWeb humanitarian context", "https://reliefweb.int/", "disasters", "Not built. ReliefWeb integration was removed in PR #97 (appname approval); confirm before restoring."),
+    pending("who-rsv-sars2", "WHO RSV and SARS-CoV-2 country surveillance", "https://www.who.int/teams/global-influenza-programme/surveillance-and-monitoring", "outbreaks", "Not connected. Only influenza (FluNet) is evaluated; absence of RSV or SARS-CoV-2 signals here means nothing."),
+    pending("malaria-admin-geometry", "Admin-level malaria risk geometry", "https://www.cdc.gov/yellow-book/hcp/travel-associated-infections-diseases/malaria.html", "malaria", "No machine-readable authoritative admin-level risk geometry is connected. Areas named in the CDC text are listed, not drawn. Elevation limits are drawn only when the CDC text states one."),
+    pending("entry-requirements-transit", "Transit- and itinerary-based vaccination entry requirements", "https://www.who.int/publications/m/item/countries-with-risk-of-yellow-fever-transmission-and-countries-requiring-yellow-fever-vaccination", "health_vaccines", "Not evaluated. Requirements that depend on prior travel (e.g. yellow fever for arrivals from risk countries) and polio departure rules need the traveler's itinerary and a current national source."),
   ];
 }

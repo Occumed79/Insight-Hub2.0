@@ -1,8 +1,8 @@
 import { useMemo, type ReactNode } from "react";
 import { AlertTriangle, ArrowUpRight, ChevronRight, Crosshair, Loader2, X } from "lucide-react";
 import {
-  DIMENSIONS, DIMENSION_COLORS, DIMENSION_LABELS, FRESHNESS_LABELS, STATUS_LABELS,
-  type CountryIntel, type Dimension, type EvidenceRecord, type Freshness, type Observation, type SourceStatus,
+  DIMENSIONS, DIMENSION_COLORS, DIMENSION_LABELS, ENVIRONMENT_KEYS, ENVIRONMENT_LABELS, FRESHNESS_LABELS, STATUS_LABELS,
+  type CountryIntel, type Dimension, type EnvironmentKey, type EvidenceRecord, type Freshness, type Observation, type SourceStatus, type SynthesisResponse,
 } from "./aor-intel-types";
 
 const FRESHNESS_TONE: Record<Freshness, string> = {
@@ -66,19 +66,40 @@ function EvidenceCard({ record, highlighted, onFocus }: { record: EvidenceRecord
 }
 
 function MalariaModel({ record }: { record: EvidenceRecord }) {
-  const model = (record.extra?.malaria ?? {}) as { riskScope?: string; areasMentioned?: string | null; seasonality?: string | null; altitudeNote?: string | null; preventionDrugs?: string[]; preventionStatement?: string | null };
+  const model = (record.extra?.malaria ?? {}) as { riskScope?: string; areasMentioned?: string | null; seasonality?: string | null; altitudeNote?: string | null; altitudeLimitMeters?: number | null; preventionDrugs?: string[]; preventionStatement?: string | null };
   const row = (label: string, value: ReactNode) => <div className="grid grid-cols-[92px_1fr] gap-2 border-b border-white/[.05] py-1.5 text-[10px] leading-4"><dt className="text-[8px] font-black uppercase tracking-[.1em] text-slate-500">{label}</dt><dd className="text-slate-200">{value}</dd></div>;
   const stated = (value?: string | null) => value || <span className="text-slate-500">Not stated in the retrieved source text</span>;
   return (
     <dl className="mb-2 rounded-xl border border-amber-200/10 bg-amber-200/[.03] px-3 py-1">
       {row("Risk scope", pretty(model.riskScope || "unspecified"))}
-      {row("Risk areas", model.riskScope === "parts_of_country" ? stated(model.areasMentioned) : model.riskScope === "country_wide" ? "Country-wide, per source text" : model.riskScope === "none_stated" ? "No transmission stated by source" : stated(null))}
+      {row("Risk areas", model.riskScope === "parts_of_country" ? <>{stated(model.areasMentioned)}<span className="mt-1 block text-slate-500">Named areas are quoted from the source text; no authoritative admin-level geometry is connected, so they are not drawn.</span></> : model.riskScope === "country_wide" ? "Country-wide, per source text" : model.riskScope === "none_stated" ? "No transmission stated by source" : stated(null))}
       {row("Seasonality", stated(model.seasonality))}
-      {row("Altitude limits", stated(model.altitudeNote))}
+      {row("Altitude limits", model.altitudeNote ? <>{model.altitudeNote}{model.altitudeLimitMeters ? <span className="mt-1 block text-amber-100/80">Terrain above {model.altitudeLimitMeters.toLocaleString()} m is tinted on the globe because the source text states a transmission limit at that elevation (heights from Cesium World Terrain).</span> : <span className="mt-1 block text-slate-500">No explicit elevation limit could be read from this text, so no terrain tint is drawn.</span>}</> : stated(null))}
       {row("Prevention drugs", model.preventionDrugs?.length ? model.preventionDrugs.join(", ") : stated(null))}
       {row("Prevention text", stated(model.preventionStatement))}
       {row("Source date", formatDate(record.updatedAt) || <span className="text-slate-500">Not stated</span>)}
     </dl>
+  );
+}
+
+function YellowBookCard({ record, evidenceById, onSelectEvidence }: { record: EvidenceRecord; evidenceById: Map<string, EvidenceRecord>; onSelectEvidence: (id: string) => void }) {
+  const extra = (record.extra ?? {}) as { endemicity?: string; atRisk?: string; prevention?: string; keyNotes?: string[]; operationalRules?: string[]; sourceAssets?: Array<{ type: string; id: string; page: number; title: string; excerpt: string }>; pages?: [number, number]; linkedEvidence?: Array<{ evidenceId: string }> };
+  const rules = extra.operationalRules ?? [];
+  const assets = extra.sourceAssets ?? [];
+  const links = (extra.linkedEvidence ?? []).filter((link) => evidenceById.has(link.evidenceId));
+  return (
+    <article id={`evidence-${record.id}`} data-testid="aor-yellow-book-card" className="border-b border-white/[.06] py-2.5 last:border-b-0">
+      <div className="flex flex-wrap items-center gap-1.5"><Chip tone="border-slate-300/25 text-slate-300">Reference</Chip><FreshnessBadge freshness={record.freshness} /></div>
+      <h4 className="mt-1 text-[11px] font-bold text-white/90">{record.title}</h4>
+      <p className="mt-0.5 text-[10px] leading-4 text-slate-400">{record.summary}</p>
+      {links.length ? <div className="mt-1 flex flex-wrap gap-1"><span className="text-[8px] text-slate-500">Linked to:</span>{links.slice(0, 5).map((link) => <button key={link.evidenceId} type="button" onClick={() => onSelectEvidence(link.evidenceId)} className="rounded-full border border-cyan-200/15 px-1.5 py-0.5 text-[8px] font-bold text-cyan-100/70 hover:bg-cyan-200/10">{evidenceById.get(link.evidenceId)?.title.slice(0, 34)}</button>)}</div> : null}
+      {rules.length || assets.length || extra.keyNotes?.length ? <details className="mt-1.5">
+        <summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.1em] text-slate-500">Chapter rules and source tables (pp. {extra.pages?.[0]}–{extra.pages?.[1]})</summary>
+        {rules.length ? <ul className="mt-1 list-disc space-y-1 pl-4 text-[9px] leading-4 text-slate-300">{rules.map((rule) => <li key={rule}>{rule}</li>)}</ul> : null}
+        {assets.length ? <ul className="mt-1.5 space-y-1 text-[9px] leading-4 text-slate-400">{assets.map((asset) => <li key={`${asset.type}-${asset.id}`}><b className="text-slate-300">{asset.title}</b> (p. {asset.page}) — {asset.excerpt}</li>)}</ul> : null}
+      </details> : null}
+      <p className="mt-1 text-[8px] leading-3 text-slate-500">{record.geographyNote}</p>
+    </article>
   );
 }
 
@@ -96,14 +117,20 @@ type Props = {
   onSelectEvidence: (id: string) => void;
   onClose: () => void;
   lens: ReactNode;
+  synthesis: SynthesisResponse | null;
+  synthesisLoading: boolean;
+  environment: Record<EnvironmentKey, boolean>;
+  onToggleEnvironment: (key: EnvironmentKey) => void;
 };
 
-export function AorIntelPanel({ intel, loading, error, countryName, aorLabel, hasPolygon, activeTab, setActiveTab, highlightedId, onFocusEvidence, onSelectEvidence, onClose, lens }: Props) {
+export function AorIntelPanel({ intel, loading, error, countryName, aorLabel, hasPolygon, activeTab, setActiveTab, highlightedId, onFocusEvidence, onSelectEvidence, onClose, lens, synthesis, synthesisLoading, environment, onToggleEnvironment }: Props) {
   const byDimension = useMemo(() => {
     const map = new Map<Dimension, EvidenceRecord[]>();
     for (const record of intel?.evidence ?? []) map.set(record.dimension, [...(map.get(record.dimension) ?? []), record]);
     return map;
   }, [intel]);
+
+  const evidenceById = useMemo(() => new Map((intel?.evidence ?? []).map((record) => [record.id, record])), [intel]);
 
   const observationCard = (observation: Observation) => (
     <li key={observation.id} className="border-b border-white/[.06] py-2.5 last:border-b-0">
@@ -126,6 +153,16 @@ export function AorIntelPanel({ intel, loading, error, countryName, aorLabel, ha
     if (activeTab === "summary") {
       return <div>
         <p data-testid="aor-what-matters-now" className="rounded-xl border border-cyan-200/10 bg-cyan-200/[.04] px-3 py-2 text-[11px] leading-5 text-white/90">{intel.whatMattersNow.summary}</p>
+        {synthesisLoading ? <p className="mt-2 flex items-center gap-2 text-[9px] text-slate-500"><Loader2 size={10} className="animate-spin" />Preparing evidence-checked AI briefing…</p> : null}
+        {synthesis?.status === "applied" ? <section data-testid="aor-ai-briefing" className="mt-2 rounded-xl border border-violet-200/12 bg-violet-200/[.035] px-3 py-2">
+          <h3 className="text-[8px] font-black uppercase tracking-[.12em] text-violet-200/80">AI briefing — every line cites evidence</h3>
+          <ol className="mt-1.5 space-y-2">{synthesis.statements.map((statement, index) => (
+            <li key={index} className="text-[10px] leading-4 text-slate-200">{statement.text}
+              <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">{statement.evidenceIds.filter((id) => evidenceById.has(id)).slice(0, 4).map((id, i) => <button key={id} type="button" onClick={() => onSelectEvidence(id)} title={evidenceById.get(id)?.title} className="rounded-full border border-violet-200/20 px-1.5 text-[8px] font-bold text-violet-100/80 hover:bg-violet-200/10">[{i + 1}]</button>)}</span>
+            </li>
+          ))}</ol>
+          <p className="mt-1.5 text-[8px] leading-3 text-slate-500">{synthesis.note}</p>
+        </section> : synthesis && synthesis.status !== "not_configured" ? <p className="mt-2 text-[9px] leading-4 text-slate-500">AI briefing not shown: {synthesis.note}</p> : null}
         <p className="mt-1 text-[8px] leading-4 text-slate-500">Assembled by {intel.whatMattersNow.method.replace(/-/g, " ")} from the evidence below. Language-model synthesis is {intel.whatMattersNow.llmSynthesis.replace(/_/g, " ")}. No composite risk score is calculated.</p>
         <ul className="mt-2">{intel.whatMattersNow.observations.map(observationCard)}</ul>
         {intel.limitations.length ? <details className="mt-3"><summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.12em] text-slate-500">How to read this</summary><ul className="mt-1 list-disc space-y-1 pl-4 text-[9px] leading-4 text-slate-500">{intel.limitations.map((item) => <li key={item}>{item}</li>)}</ul></details> : null}
@@ -147,17 +184,45 @@ export function AorIntelPanel({ intel, loading, error, countryName, aorLabel, ha
 
     if (activeTab === "health_vaccines") {
       const group = (title: string, items: EvidenceRecord[], note?: string) => items.length ? <section className="mb-3"><h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">{title}</h3>{note ? <p className="mb-1 text-[9px] leading-4 text-slate-500">{note}</p> : null}{items.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</section> : null;
+      const entry = intel.sources.find((s) => s.sourceId === "destination-entry-requirements");
+      const entryRecords = records.filter((r) => r.category === "entry_requirement");
+      const yellowBook = records.filter((r) => r.category === "yellow_book_reference");
       return <div>{empty}
         {group("Routine vaccines", records.filter((r) => r.category === "routine_vaccine"))}
         {group("Travel vaccines — CDC recommendations", records.filter((r) => r.category === "travel_vaccine"), "Recommendations only. These are not legal entry requirements.")}
-        {group("Entry requirements — legal, kept separate", records.filter((r) => r.category === "entry_requirement"), "Language found in CDC destination text. Verify with the destination government.")}
-        {intel.sources.find((s) => s.sourceId === "destination-entry-requirements")?.status === "not_evaluated" && !records.some((r) => r.category === "entry_requirement") ? <p className="mb-3 rounded-lg border border-rose-300/15 bg-rose-300/[.04] px-3 py-2 text-[10px] leading-4 text-rose-100/80">Entry vaccination requirements were not evaluated: no destination-government source is connected. Requirements based on previous travel or transit are not assessed.</p> : null}
+        {group("Entry requirements — legal, kept separate", entryRecords, "Compiled lists and language in the CDC destination text. Legal rules are never inferred from recommendations; confirm with the destination authority.")}
+        {entry && entry.status !== "ok" && !entryRecords.length ? <p className="mb-3 rounded-lg border border-amber-300/15 bg-amber-300/[.04] px-3 py-2 text-[10px] leading-4 text-amber-100/80">{entry.note || "Entry requirements were not evaluated."}</p> : null}
         {group("Destination disease risks (CDC)", records.filter((r) => r.category === "destination_disease_risk"))}
-        {group("Other health guidance", records.filter((r) => !["routine_vaccine", "travel_vaccine", "entry_requirement", "destination_disease_risk"].includes(r.category)))}
+        {group("Childhood immunization coverage (WHO/UNICEF WUENIC)", records.filter((r) => r.category === "immunization_coverage"), "Annual national programme estimates for the resident population — not a traveler recommendation and not current conditions.")}
+        {yellowBook.length ? <section className="mb-3"><h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">CDC Yellow Book reference</h3><p className="mb-1 text-[9px] leading-4 text-slate-500">Clinical and operational chapters for diseases named above. Reference context, not current country guidance.</p>{yellowBook.map((record) => <YellowBookCard key={record.id} record={record} evidenceById={evidenceById} onSelectEvidence={onSelectEvidence} />)}</section> : null}
+        {group("Other health guidance", records.filter((r) => !["routine_vaccine", "travel_vaccine", "entry_requirement", "destination_disease_risk", "immunization_coverage", "yellow_book_reference"].includes(r.category)))}
       </div>;
     }
     if (activeTab === "malaria") {
-      return <div>{empty}{records.map((record) => <div key={record.id}><MalariaModel record={record} /><EvidenceCard record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} /></div>)}</div>;
+      return <div>{empty}{records.map((record) => record.category === "yellow_book_reference" ? <YellowBookCard key={record.id} record={record} evidenceById={evidenceById} onSelectEvidence={onSelectEvidence} /> : <div key={record.id}><MalariaModel record={record} /><EvidenceCard record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} /></div>)}</div>;
+    }
+    if (activeTab === "environment") {
+      const sortedEnv = [...records].sort((a, b) => (Date.parse(b.publishedAt || "") || 0) - (Date.parse(a.publishedAt || "") || 0));
+      const malariaRecord = (byDimension.get("malaria") ?? []).find((r) => r.category === "malaria");
+      const altitudeLimit = ((malariaRecord?.extra?.malaria ?? {}) as { altitudeLimitMeters?: number | null }).altitudeLimitMeters ?? null;
+      const related = (key: EnvironmentKey): { text: string; ids: string[] } => {
+        const climate = records.filter((r) => r.category === "climatology");
+        const air = records.filter((r) => r.category === "air_quality_station");
+        if (key === "heat" || key === "cold") return climate.length ? { text: `Climatological reference: ${climate[0].summary}`, ids: [climate[0].id] } : { text: "No climatology record is available for this country (see source status).", ids: [] };
+        if (key === "poorAir") return air.length ? { text: `${air.length} station reading${air.length === 1 ? "" : "s"} from OpenAQ (latest values, not an AQI).`, ids: air.slice(0, 1).map((r) => r.id) } : { text: "No fresh station reading is available (OpenAQ key, coverage or recency). Dust and smoke are not otherwise evaluated.", ids: [] };
+        if (key === "altitude") return malariaRecord && altitudeLimit ? { text: `CDC malaria text states a transmission limit at ${altitudeLimit.toLocaleString()} m; terrain above it is tinted when the Malaria layer is on. Country elevation itself is not evaluated.`, ids: [malariaRecord.id] } : { text: "No elevation data source is connected for this country. Review terrain on the globe.", ids: [] };
+        return { text: "Deployment-context factor with no country data source; it only feeds the condition × deployment review.", ids: [] };
+      };
+      const active = ENVIRONMENT_KEYS.filter((key) => environment[key]);
+      return <div>
+        <section className="mb-3" aria-label="Deployment environment factors">
+          <h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">Deployment environment</h3>
+          <p className="mb-1.5 text-[9px] leading-4 text-slate-500">Select factors that apply to the assignment. They are shown against the evidence below and carried into the condition × deployment review.</p>
+          <div className="grid grid-cols-2 gap-1.5">{ENVIRONMENT_KEYS.map((key) => <button key={key} type="button" aria-pressed={environment[key]} onClick={() => onToggleEnvironment(key)} className={`min-h-9 rounded-[11px] border px-2 text-left text-[9px] font-bold transition ${environment[key] ? "border-amber-100/20 bg-amber-200/[.08] text-amber-50" : "border-white/[.06] bg-white/[.02] text-slate-400 hover:bg-white/[.045]"}`}>{ENVIRONMENT_LABELS[key]}</button>)}</div>
+          {active.length ? <ul className="mt-2 space-y-1.5">{active.map((key) => { const info = related(key); return <li key={key} className="rounded-lg border border-white/[.06] px-2.5 py-1.5 text-[9px] leading-4 text-slate-300"><b className="text-white/85">{ENVIRONMENT_LABELS[key]}</b> — {info.text}{info.ids.map((id) => <button key={id} type="button" onClick={() => onSelectEvidence(id)} className="ml-1 rounded-full border border-cyan-200/15 px-1.5 text-[8px] font-bold text-cyan-100/70 hover:bg-cyan-200/10">evidence</button>)}</li>; })}</ul> : null}
+        </section>
+        {empty}{sortedEnv.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}
+      </div>;
     }
     const sorted = [...records].sort((a, b) => (Date.parse(b.publishedAt || "") || 0) - (Date.parse(a.publishedAt || "") || 0));
     return <div>{empty}{sorted.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</div>;

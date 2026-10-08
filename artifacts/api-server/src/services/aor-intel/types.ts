@@ -17,7 +17,7 @@ export type GeographyLevel = "point" | "admin_region" | "multi_region" | "countr
 export type Dimension = "health_vaccines" | "malaria" | "outbreaks" | "environment" | "disasters" | "security" | "medical_access";
 
 export type RecommendationType = "routine" | "recommended" | "selected_travelers" | "consider" | "not_routinely_recommended" | "review";
-export type RequirementType = "entry_required" | "entry_required_after_transit" | "not_required" | "not_evaluated";
+export type RequirementType = "entry_required" | "entry_required_after_transit" | "entry_required_conditional" | "not_required" | "not_evaluated";
 
 export type SourceStatus =
   | "ok" // source answered and produced findings
@@ -100,7 +100,7 @@ export interface AdapterContext {
   /** Fetch JSON from this app's own AOR routes (server-side loopback) or a fixture in tests. */
   internalJson: (path: string) => Promise<unknown>;
   /** Fetch JSON from an external URL (injected for tests). */
-  externalJson: (url: string, init?: { headers?: Record<string, string>; timeoutMs?: number }) => Promise<unknown>;
+  externalJson: (url: string, init?: { headers?: Record<string, string>; timeoutMs?: number; method?: "GET" | "POST"; body?: unknown }) => Promise<unknown>;
   env: (key: string) => string | undefined;
 }
 
@@ -110,11 +110,30 @@ export interface CountryIntelResponse {
   generatedAt: string;
   whatMattersNow: {
     method: "deterministic-rules";
-    llmSynthesis: "not_enabled";
+    /** "available" means an LLM provider key is configured and /api/aor/country-intel/synthesis can be requested. */
+    llmSynthesis: "not_configured" | "available";
     summary: string;
     observations: Observation[];
   };
   sources: Array<Omit<AdapterResult, "records"> & { recordCount: number }>;
   evidence: EvidenceRecord[];
   limitations: string[];
+}
+
+export interface SynthesisStatement {
+  text: string;
+  /** Evidence record ids this statement rests on. Statements without valid ids are discarded. */
+  evidenceIds: string[];
+}
+
+export interface SynthesisResponse {
+  ok: true;
+  iso2: string;
+  status: "applied" | "not_configured" | "failed" | "rejected";
+  model: string | null;
+  generatedAt: string;
+  statements: SynthesisStatement[];
+  /** Statements the model proposed that the validator discarded (no valid evidence, ungrounded numbers, or label mixing). */
+  discarded: number;
+  note: string;
 }

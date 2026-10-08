@@ -69,11 +69,34 @@ export interface CountryIntel {
   ok: true;
   country: { iso2: string; iso3: string; name: string; center: [number, number] | null; capital: string | null; aorRegion: string | null };
   generatedAt: string;
-  whatMattersNow: { method: string; llmSynthesis: string; summary: string; observations: Observation[] };
+  whatMattersNow: { method: string; llmSynthesis: "not_configured" | "available"; summary: string; observations: Observation[] };
   sources: SourceSummary[];
   evidence: EvidenceRecord[];
   limitations: string[];
 }
+
+export interface SynthesisResponse {
+  ok: true;
+  iso2: string;
+  status: "applied" | "not_configured" | "failed" | "rejected";
+  model: string | null;
+  generatedAt: string;
+  statements: Array<{ text: string; evidenceIds: string[] }>;
+  discarded: number;
+  note: string;
+}
+
+export type EnvironmentKey = "heat" | "cold" | "altitude" | "poorAir" | "fatigue" | "ppe" | "night";
+export const ENVIRONMENT_LABELS: Record<EnvironmentKey, string> = {
+  heat: "Heat exposure",
+  cold: "Cold exposure",
+  altitude: "Altitude",
+  poorAir: "Poor air / dust",
+  fatigue: "Fatigue / long shift",
+  ppe: "PPE burden",
+  night: "Night / circadian disruption",
+};
+export const ENVIRONMENT_KEYS = Object.keys(ENVIRONMENT_LABELS) as EnvironmentKey[];
 
 export const DIMENSION_LABELS: Record<Dimension, string> = {
   health_vaccines: "Health & Vaccines",

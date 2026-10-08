@@ -43,6 +43,12 @@ services:
       # Optional cap on URLs enriched through TinyFish Fetch per search. Defaults to 8.
       - key: TINYFISH_FETCH_MAX_URLS
         sync: false
+      # AOR Factors: OpenAQ v3 air quality (free key from https://explore.openaq.org/register). Sent as X-API-Key.
+      - key: OPENAQ_API_KEY
+        sync: false
+      # AOR Factors: ReliefWeb API v2 requires a pre-approved appname (mandatory since 1 Nov 2025; https://apidoc.reliefweb.int/).
+      - key: RELIEFWEB_APPNAME
+        sync: false
       # Cesium ion access token (public ion token with World Terrain + imagery). Served to the AOR Factors CesiumJS globe by /api/aor/cesium-config.
       - key: CESIUM_ION_ACCESS_TOKEN
         sync: false

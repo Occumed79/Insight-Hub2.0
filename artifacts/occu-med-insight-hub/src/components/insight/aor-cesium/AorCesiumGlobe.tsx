@@ -18,6 +18,8 @@ type Props = {
   worldEvents: WorldEvent[];
   focusEvidence: { id: string; nonce: number } | null;
   centerFallback: [number, number] | null;
+  /** Elevation above which the CDC malaria text states no transmission; drawn as a terrain tint only when present. */
+  altitudeLimitMeters: number | null;
   onPickCountry: (iso2: string) => void;
   onPickEvidence: (id: string) => void;
   onHoverCountry: (name: string | null) => void;
@@ -225,6 +227,27 @@ export function AorCesiumGlobe(props: Props) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.view.nonce, props.index]);
+
+  // --- malaria elevation limit: tint terrain above the elevation the source text states -------------
+  useEffect(() => {
+    const Cesium = cesiumRef.current;
+    const viewer = viewerRef.current;
+    if (!Cesium || !viewer || viewer.isDestroyed()) return;
+    const limit = props.altitudeLimitMeters;
+    if (!limit) { viewer.scene.globe.material = undefined as never; return; }
+    viewer.scene.globe.material = Cesium.createElevationBandMaterial({
+      scene: viewer.scene,
+      layers: [{
+        entries: [
+          { height: limit - 1, color: new Cesium.Color(0.98, 0.75, 0.14, 0) },
+          { height: limit, color: new Cesium.Color(0.98, 0.75, 0.14, 0.38) },
+        ],
+        extendDownwards: true,
+        extendUpwards: true,
+      }],
+    });
+    return () => { if (!viewer.isDestroyed()) viewer.scene.globe.material = undefined as never; };
+  }, [props.altitudeLimitMeters, revision]);
 
   // --- terrain-level dive to one piece of evidence ----------------------------------------------
   useEffect(() => {
