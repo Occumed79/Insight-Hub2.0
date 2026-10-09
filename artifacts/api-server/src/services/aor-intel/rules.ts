@@ -5,7 +5,7 @@ import type { AdapterResult, CountryRef, Dimension, EvidenceRecord, Freshness, O
 // observation lists the evidence ids it rests on. Thresholds below are descriptive
 // cut-offs stated in the observation text, not risk scores.
 
-const DIMENSION_ORDER: Dimension[] = ["health_vaccines", "malaria", "outbreaks", "disasters", "environment", "security", "medical_access"];
+const DIMENSION_ORDER: Dimension[] = ["health_vaccines", "command_policy", "malaria", "outbreaks", "disasters", "environment", "security", "medical_access"];
 const DAY = 86_400_000;
 
 const byDimension = (records: EvidenceRecord[], dimension: Dimension) => records.filter((record) => record.dimension === dimension);
@@ -32,6 +32,7 @@ export function buildObservations(country: CountryRef, results: AdapterResult[],
     add({ dimension: "health_vaccines", kind: "finding", headline: "Entry-requirement language appears in the CDC destination text", detail: `${cdcText.map((r) => `${r.subtype.replace(/ entry requirement$/, "")}${r.requirementType === "entry_required_after_transit" ? " (tied to prior travel/transit)" : ""}`).join("; ")}. Verify against the destination government before travel.`, evidenceIds: cdcText.map((r) => r.id), freshness: "CURRENT_GUIDANCE" });
   }
   addVaccineRuleObservations(vaccines, status("destination-entry-requirements"), add);
+  addCommandPolicyObservations(byDimension(records, "command_policy"), country, add);
   const yellowBook = vaccines.filter((r) => r.category === "yellow_book_reference");
   if (yellowBook.length) {
     add({ dimension: "health_vaccines", kind: "caveat", headline: `Yellow Book reference chapters linked: ${yellowBook.map((r) => r.subtype).slice(0, 8).join(", ")}`, detail: "Clinical and operational reference text for diseases the CDC/WHO items name for this country. Reference context only, not a statement of current country risk.", evidenceIds: yellowBook.map((r) => r.id).slice(0, 12), freshness: "STRUCTURAL_DATA" });
@@ -202,4 +203,39 @@ export function summarize(country: CountryRef, observations: Observation[]): str
   else lines.push(`${country.name}: no source returned a current finding that meets the reporting rules. This is not proof of low risk — see source status.`);
   if (gaps.length) lines.push(`${gaps.length} source gap${gaps.length === 1 ? "" : "s"} affect this summary.`);
   return lines.join(" ");
+}
+
+
+// --- Combatant Command medical policy (its own rule class; never merged with host-nation law or CDC/WHO guidance) ---
+type CommandRuleExtra = { domain: string; waiverAuthority: string | null; minimumStay: { days: number; inclusive: boolean } | null; sourceGaps: string[]; status: string | null; kind: string };
+
+function addCommandPolicyObservations(records: EvidenceRecord[], country: CountryRef, add: AddObservation): void {
+  const assignment = records.find((r) => r.category === "command_assignment");
+  if (!assignment) {
+    add({ dimension: "command_policy", kind: "caveat", headline: `No combatant command assignment is recorded for ${country.name}`, detail: "No command medical policy is shown. This is not evidence that none applies.", evidenceIds: [], freshness: "STRUCTURAL_DATA" });
+    return;
+  }
+  const command = String(assignment.extra?.command ?? "");
+  const policy = records.find((r) => r.category === "command_policy");
+  const rules = records.filter((r) => r.category === "command_rule");
+  const history = Array.isArray(assignment.extra?.history) ? (assignment.extra?.history as Array<{ command: string; effectiveTo: string | null }>) : [];
+  const baselineNeedsVerify = /LIVE VERIFY/.test(String(assignment.extra?.verificationStatus ?? ""));
+
+  if (policy?.subtype === "not_publicly_verified") {
+    add({ dimension: "command_policy", kind: "caveat", headline: `${country.name} is in the ${command} area of responsibility; command medical policy: NOT PUBLICLY VERIFIED`, detail: "No current public command-wide medical-entry policy was located. No other command's requirements are applied.", evidenceIds: [assignment.id, policy.id], freshness: "STRUCTURAL_DATA" });
+  } else if (policy) {
+    const triggers = rules.map((r) => r.extra?.commandRule as CommandRuleExtra).filter((rule) => rule?.minimumStay);
+    const triggerText = triggers.length ? ` Duration triggers in the extracted rules: ${[...new Set(triggers.map((rule) => `${rule.minimumStay?.inclusive ? "≥" : ">"}${rule.minimumStay?.days} days`))].join(", ")}.` : " No duration trigger was extracted.";
+    add({ dimension: "command_policy", kind: "finding", headline: `${country.name} is in the ${command} area of responsibility; command medical policy: ${String(policy.title).replace(/^[A-Z]+ — /, "")}`, detail: `${policy.summary}${triggerText} This is U.S. Combatant Command deployment policy for DoD-affiliated travelers, separate from host-nation entry law and CDC/WHO guidance.`, evidenceIds: [assignment.id, policy.id], freshness: "STRUCTURAL_DATA" });
+    const waivers = rules.filter((r) => (r.extra?.commandRule as CommandRuleExtra | undefined)?.waiverAuthority);
+    if (waivers.length) add({ dimension: "command_policy", kind: "caveat", headline: `Command waiver routing: ${[...new Set(waivers.map((r) => String((r.extra?.commandRule as CommandRuleExtra).waiverAuthority)))].slice(0, 3).join("; ")}`, detail: "Routing depends on the supported component or JTF. The evaluating clinic or local commander is not necessarily the final waiver authority.", evidenceIds: waivers.slice(0, 6).map((r) => r.id), freshness: "STRUCTURAL_DATA" });
+    const qualifiers = Array.isArray(policy.extra?.qualifiers) ? (policy.extra?.qualifiers as string[]) : [];
+    if (qualifiers.length) add({ dimension: "command_policy", kind: "caveat", headline: `Command policy freshness: ${qualifiers.join("; ")}`, detail: "Confirm against the current command publication before operational use.", evidenceIds: [policy.id], freshness: "STRUCTURAL_DATA" });
+    const gaps = rules.reduce((total, r) => total + ((r.extra?.commandRule as CommandRuleExtra | undefined)?.sourceGaps.length ?? 0), 0);
+    if (gaps) add({ dimension: "command_policy", kind: "caveat", headline: `${gaps} rule field${gaps === 1 ? "" : "s"} in this command's policy were not extracted (SOURCE_GAP)`, detail: "Absence of a field here is not evidence that the source is silent. Open the linked command document for any field a decision depends on.", evidenceIds: rules.slice(0, 6).map((r) => r.id), freshness: "STRUCTURAL_DATA" });
+  }
+  if (history.length) add({ dimension: "command_policy", kind: "caveat", headline: `Assignment history preserved: ${country.name} was previously in ${history.map((h) => h.command).join(", ")}${history[0]?.effectiveTo ? ` until ${history[0].effectiveTo}` : ""}`, detail: "The earlier assignment is kept as a superseded record, not overwritten.", evidenceIds: [assignment.id], freshness: "STRUCTURAL_DATA" });
+  if (baselineNeedsVerify) add({ dimension: "command_policy", kind: "caveat", headline: `${command} country list is a normalized baseline (LIVE VERIFY)`, detail: "The command publishes a country count, but no one-page enumeration was retrieved.", evidenceIds: [assignment.id], freshness: "STRUCTURAL_DATA" });
+  const changed = records.filter((r) => r.category === "command_source_check" && r.subtype === "content_changed");
+  if (changed.length) add({ dimension: "command_policy", kind: "finding", headline: `${changed.length} official ${command} page${changed.length === 1 ? "" : "s"} changed since the previous check`, detail: "Extracted command rules are not rewritten automatically; the changed source needs review.", evidenceIds: changed.map((r) => r.id), freshness: "CURRENT_NOTICE" });
 }

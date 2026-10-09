@@ -55,6 +55,12 @@ const STATUS_CHIP_TONE: Record<string, string> = {
   "CDC CORROBORATED": "border-teal-300/30 text-teal-100",
   "OLDER GLOBAL BASELINE": "border-amber-300/35 text-amber-100",
   "NOT CURRENTLY VERIFIED": "border-rose-300/40 text-rose-200",
+  "COMMAND PUBLICATION (PACK-EXTRACTED)": "border-pink-300/35 text-pink-100",
+  "COMMAND PUBLICATION — UNDER REWRITE": "border-amber-300/35 text-amber-100",
+  "COMMAND PUBLICATION — SUPERSEDED": "border-slate-400/30 text-slate-300",
+  "NOT PUBLICLY VERIFIED": "border-rose-300/40 text-rose-200",
+  "PUBLIC-SOURCE BASELINE": "border-pink-300/25 text-pink-100",
+  "PUBLIC-SOURCE BASELINE — LIVE VERIFY": "border-amber-300/35 text-amber-100",
 };
 
 type ConditionRow = { label: string; value: string };
@@ -79,6 +85,48 @@ function RuleDetails({ record }: { record: EvidenceRecord }) {
   );
 }
 
+type CommandRuleView = {
+  domain: string; kind: string; status: string | null; populationText: string; applicabilityPopulation: string[]; directedPopulations: string[];
+  minimumStay: { days: number; inclusive: boolean; basis: string } | null; maximumStayDaysExclusive: number | null; pcsOnly: boolean;
+  thresholdOrRule: string | null; waiverAuthority: string | null; requiredEvaluation: string | null; requiredDocumentation: string | null;
+  medicationOrEquipmentRule: string | null; immunizationOrProphylaxisRule: string | null; sourceSection: string; sourceGaps: string[]; caveats: string[];
+  scope: { level: string; component: string | null; countries: string[] };
+};
+const COMMAND_KIND_LABEL: Record<string, string> = { requirement: "Command requirement", recommendation: "Command recommendation (not a requirement)", process: "Command process / routing" };
+
+/** Detail rows for a U.S. Combatant Command policy rule. Never shown for host-nation or CDC/WHO records. */
+function CommandRuleDetails({ record }: { record: EvidenceRecord }) {
+  const rule = record.extra?.commandRule as CommandRuleView | undefined;
+  if (!rule) return null;
+  const rows: Array<[string, string | null]> = [
+    ["Scope", rule.scope.level === "command" ? "Command-wide" : rule.scope.level === "component" ? `Component: ${rule.scope.component}` : `Country supplement${rule.scope.component ? ` (${rule.scope.component})` : ""}`],
+    ["Applies to", rule.populationText || rule.applicabilityPopulation.map(pretty).join(", ") || null],
+    ["Only if directed", rule.directedPopulations.length ? rule.directedPopulations.map(pretty).join(", ") : null],
+    ["Duration trigger", rule.minimumStay ? `${rule.minimumStay.inclusive ? "At least" : "More than"} ${rule.minimumStay.days} days — ${rule.minimumStay.basis}` : rule.maximumStayDaysExclusive !== null ? `Under ${rule.maximumStayDaysExclusive} days` : null],
+    ["PCS only", rule.pcsOnly ? "Yes" : null],
+    ["Threshold / rule", rule.thresholdOrRule],
+    ["Waiver authority", rule.waiverAuthority],
+    ["Evaluation", rule.requiredEvaluation],
+    ["Documentation", rule.requiredDocumentation],
+    ["Medication / equipment", rule.medicationOrEquipmentRule],
+    ["Immunization / prophylaxis", rule.immunizationOrProphylaxisRule],
+    ["Source section", rule.sourceSection],
+  ];
+  const shown = rows.filter((row): row is [string, string] => Boolean(row[1]));
+  return (
+    <div className="mt-1.5">
+      <details>
+        <summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.12em] text-pink-100/60">Command rule detail</summary>
+        <dl className="mt-1 rounded-lg border border-white/[.06] bg-white/[.02] px-2">
+          {shown.map(([label, value]) => <div key={label} className="grid grid-cols-[96px_1fr] gap-2 border-b border-white/[.04] py-1 text-[9px] leading-4 last:border-b-0"><dt className="text-[8px] font-black uppercase tracking-[.08em] text-slate-500">{label}</dt><dd className="text-slate-300">{value}</dd></div>)}
+        </dl>
+      </details>
+      {rule.sourceGaps.length ? <p className="mt-1 text-[8px] leading-3 text-amber-100/70"><b>SOURCE_GAP</b> — in the source document, not extracted: {rule.sourceGaps.join("; ")}.</p> : null}
+      {rule.caveats.map((caveat) => <p key={caveat} className="mt-1 text-[8px] leading-3 text-amber-100/60">{caveat}</p>)}
+    </div>
+  );
+}
+
 function EvidenceCard({ record, highlighted, onFocus }: { record: EvidenceRecord; highlighted: boolean; onFocus: (record: EvidenceRecord) => void }) {
   const url = safeUrl(record.sourceUrl);
   const hasPoint = record.geometry.type === "Point";
@@ -91,12 +139,16 @@ function EvidenceCard({ record, highlighted, onFocus }: { record: EvidenceRecord
         {record.category === "ihr_temporary_recommendation" ? <Chip tone="border-sky-300/35 text-sky-100">WHO IHR — addressed to the State, not national law</Chip> : null}
         {typeof record.extra?.verificationStatus === "string" ? <Chip tone={STATUS_CHIP_TONE[record.extra.verificationStatus] ?? "border-white/10 text-slate-300"}>{record.extra.verificationStatus}</Chip> : null}
         {Array.isArray(record.extra?.qualifiers) ? (record.extra.qualifiers as string[]).map((flag) => <Chip key={flag} tone="border-rose-300/30 text-rose-100">{flag}</Chip>) : null}
+        {record.extra?.ruleClass === "combatant_command" ? <Chip tone="border-pink-300/35 text-pink-100">U.S. Combatant Command policy — not host-nation law, not CDC/WHO</Chip> : null}
+        {(record.extra?.commandRule as CommandRuleView | undefined)?.kind ? <Chip tone="border-pink-300/20 text-pink-100/80">{COMMAND_KIND_LABEL[(record.extra?.commandRule as CommandRuleView).kind] ?? pretty((record.extra?.commandRule as CommandRuleView).kind)}</Chip> : null}
+        {(record.extra?.commandRule as CommandRuleView | undefined)?.status ? <Chip>{pretty((record.extra?.commandRule as CommandRuleView).status as string)}</Chip> : null}
         {record.severity ? <Chip>{record.severity}</Chip> : null}
       </div>
       <h4 className="mt-1.5 text-[11px] font-bold leading-4 text-white/90">{record.title}</h4>
       {record.summary ? <p className="mt-1 text-[10px] leading-4 text-slate-300">{record.summary}</p> : null}
       {record.geographyNote ? <p className="mt-1 text-[9px] leading-4 text-slate-500">Geography ({pretty(record.geographyLevel)}): {record.geographyNote}</p> : <p className="mt-1 text-[9px] text-slate-500">Geography: {pretty(record.geographyLevel)}</p>}
       <RuleDetails record={record} />
+      <CommandRuleDetails record={record} />
       {record.evidence ? <details className="mt-1"><summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.12em] text-cyan-100/45">Source evidence</summary><p className="mt-1 whitespace-pre-wrap text-[9px] leading-4 text-slate-400">{record.evidence}</p></details> : null}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[8px] text-slate-500">
         {url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-bold text-cyan-100/70 hover:text-cyan-50">{record.sourceName}<ArrowUpRight size={9} /></a> : <span className="font-bold text-slate-400">{record.sourceName}</span>}
@@ -254,6 +306,31 @@ export function AorIntelPanel({ intel, loading, error, countryName, aorLabel, ha
         {group("Childhood immunization coverage (WHO/UNICEF WUENIC)", records.filter((r) => r.category === "immunization_coverage"), "Annual national programme estimates for the resident population — not a traveler recommendation and not current conditions.")}
         {yellowBook.length ? <section className="mb-3"><h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">CDC Yellow Book reference</h3><p className="mb-1 text-[9px] leading-4 text-slate-500">Clinical and operational chapters for diseases named above. Reference context, not current country guidance.</p>{yellowBook.map((record) => <YellowBookCard key={record.id} record={record} evidenceById={evidenceById} onSelectEvidence={onSelectEvidence} />)}</section> : null}
         {group("Other health guidance", records.filter((r) => !["routine_vaccine", "travel_vaccine", "entry_requirement", "exit_requirement", "ihr_temporary_recommendation", "entry_rule_conflict", "entry_requirement_coverage", "rule_source_check", "destination_disease_risk", "immunization_coverage", "yellow_book_reference"].includes(r.category)))}
+      </div>;
+    }
+    if (activeTab === "command_policy") {
+      const group = (title: string, items: EvidenceRecord[], note?: string) => items.length ? <section className="mb-3"><h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">{title}</h3>{note ? <p className="mb-1 text-[9px] leading-4 text-slate-500">{note}</p> : null}{items.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</section> : null;
+      const ruleRecords = records.filter((r) => r.category === "command_rule");
+      const domainOf = (r: EvidenceRecord) => String((r.extra?.commandRule as CommandRuleView | undefined)?.domain ?? "");
+      const waiver = ruleRecords.filter((r) => domainOf(r) === "waiver");
+      const supplements = ruleRecords.filter((r) => ["supplement", "guidance"].includes(domainOf(r)));
+      const conditions = ruleRecords.filter((r) => domainOf(r) === "condition");
+      const pcs = ruleRecords.filter((r) => domainOf(r) === "pcs");
+      const clearance = ruleRecords.filter((r) => domainOf(r) === "clearance");
+      const grouped = new Set([...waiver, ...supplements, ...conditions, ...pcs, ...clearance].map((r) => r.id));
+      const core = ruleRecords.filter((r) => !grouped.has(r.id));
+      return <div>{empty}
+        <p className="mb-3 rounded-lg border border-pink-300/15 bg-pink-300/[.04] px-3 py-2 text-[10px] leading-4 text-pink-50/80">U.S. Combatant Command deployment policy for DoD-affiliated travelers. It is a separate rule class from host-nation entry law and from CDC/WHO recommendations; none of the three replaces another.</p>
+        {group("Area of responsibility", records.filter((r) => r.category === "command_assignment"), "Built from public DoD and command material; the Unified Command Plan itself is classified. Superseded assignments are kept as history.")}
+        {group("Command medical policy", records.filter((r) => r.category === "command_policy"))}
+        {group("Superseded policy — history only", records.filter((r) => r.category === "command_policy_superseded"), "Kept so the change is visible; no superseded rule text is shown.")}
+        {group("Core theater medical rules", core)}
+        {group("Medical conditions (command standards)", conditions, "Applies only if the person has the condition described.")}
+        {group("Waiver authority and routing", waiver, "The evaluating clinic or local commander is not necessarily the final waiver authority.")}
+        {group("PCS rules", pcs)}
+        {group("Command supplements and guidance", supplements, "Each item carries its own force: a command recommendation is not a requirement.")}
+        {group("Theater clearance — separate from medical suitability", clearance)}
+        {group("Official command pages — reachability and change check", records.filter((r) => r.category === "command_source_check"), "A changed page is flagged for review; extracted rules are never rewritten automatically.")}
       </div>;
     }
     if (activeTab === "malaria") {

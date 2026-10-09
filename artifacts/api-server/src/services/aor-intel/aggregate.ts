@@ -3,6 +3,7 @@ import {
   pendingAdapters, stateAdvisoryAdapter, usgsAdapter, whoOutbreaksAdapter,
 } from "./adapters";
 import { whoFluNetAdapter, whoGhoAdapter, whoImmunizationAdapter, yellowBookAdapter } from "./adapters-health";
+import { commandPolicyAdapter, createCommandSourceMonitor } from "./command-policy/adapter";
 import { createRuleSourceMonitor, entryRequirementsAdapter } from "./vaccine-rules/adapter";
 import { openAqAdapter, reliefWebAdapter } from "./adapters-hazards";
 import type { CacheStore } from "./cache";
@@ -28,6 +29,8 @@ const ADAPTERS: Adapter[] = [
   { id: "aor-baseline-profile", run: medicalAccessAdapter, ttlMs: 24 * HOUR },
   { id: "destination-entry-requirements", run: entryRequirementsAdapter, ttlMs: 24 * HOUR },
   { id: "vaccine-rule-source-monitor", run: createRuleSourceMonitor(), ttlMs: 24 * HOUR },
+  { id: "command-medical-policy", run: commandPolicyAdapter, ttlMs: 24 * HOUR },
+  { id: "command-policy-source-monitor", run: createCommandSourceMonitor(), ttlMs: 24 * HOUR },
   { id: "who-flunet", run: whoFluNetAdapter, ttlMs: 6 * HOUR },
   { id: "who-immunization", run: whoImmunizationAdapter, ttlMs: 24 * HOUR },
   { id: "who-gho", run: whoGhoAdapter, ttlMs: 7 * 24 * HOUR },

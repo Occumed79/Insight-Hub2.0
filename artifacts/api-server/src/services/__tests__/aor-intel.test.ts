@@ -217,8 +217,8 @@ test("source failures are explicit: unavailable is never reported as no risk", a
   const gaps = payload.whatMattersNow.observations.filter((o) => o.kind === "gap");
   assert.ok(gaps.length >= 8);
   assert.match(payload.whatMattersNow.summary, /not proof of low risk|source gap/i);
-  // The static, reviewed rule set (WHO polio recommendation + coverage record for AF) is not a live source; everything else must be empty.
-  assert.equal(payload.evidence.filter((r) => r.dimension !== "medical_access" && !r.id.startsWith("entry")).length, 0);
+  // The static, reviewed rule sets (WHO polio recommendation, command assignment/policy for AF) are not live sources; everything else must be empty.
+  assert.equal(payload.evidence.filter((r) => r.dimension !== "medical_access" && r.dimension !== "command_policy" && !r.id.startsWith("entry")).length, 0);
   assert.ok(payload.evidence.some((r) => r.category === "ihr_temporary_recommendation"), "Afghanistan carries the WHO polio exit recommendation");
 });
 

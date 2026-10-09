@@ -4,7 +4,7 @@ export type Freshness =
   | "NEAR_REAL_TIME" | "CURRENT_NOTICE" | "WEEKLY_SURVEILLANCE" | "CURRENT_GUIDANCE"
   | "HISTORICAL_CLIMATOLOGICAL" | "STRUCTURAL_DATA" | "STALE_CACHE";
 
-export type Dimension = "health_vaccines" | "malaria" | "outbreaks" | "environment" | "disasters" | "security" | "medical_access";
+export type Dimension = "health_vaccines" | "command_policy" | "malaria" | "outbreaks" | "environment" | "disasters" | "security" | "medical_access";
 
 export type SourceStatus =
   | "ok" | "no_current_matching_finding" | "source_returned_no_data" | "source_unavailable"
@@ -106,6 +106,7 @@ export const ENVIRONMENT_KEYS = Object.keys(ENVIRONMENT_LABELS) as EnvironmentKe
 
 export const DIMENSION_LABELS: Record<Dimension, string> = {
   health_vaccines: "Health & Vaccines",
+  command_policy: "Command medical policy",
   malaria: "Malaria",
   outbreaks: "Outbreaks",
   environment: "Environment",
@@ -116,6 +117,7 @@ export const DIMENSION_LABELS: Record<Dimension, string> = {
 
 export const DIMENSION_COLORS: Record<Dimension, string> = {
   health_vaccines: "#34d399",
+  command_policy: "#f472b6",
   malaria: "#fbbf24",
   outbreaks: "#f87171",
   environment: "#fb923c",

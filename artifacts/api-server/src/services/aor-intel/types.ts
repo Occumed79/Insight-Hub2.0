@@ -14,7 +14,7 @@ export type Freshness =
 
 export type GeographyLevel = "point" | "admin_region" | "multi_region" | "country" | "text_only" | "unresolved";
 
-export type Dimension = "health_vaccines" | "malaria" | "outbreaks" | "environment" | "disasters" | "security" | "medical_access";
+export type Dimension = "health_vaccines" | "command_policy" | "malaria" | "outbreaks" | "environment" | "disasters" | "security" | "medical_access";
 
 export type RecommendationType = "routine" | "recommended" | "selected_travelers" | "consider" | "not_routinely_recommended" | "review";
 export type RequirementType =

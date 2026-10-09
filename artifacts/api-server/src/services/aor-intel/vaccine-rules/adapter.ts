@@ -288,7 +288,7 @@ export function monitoredUrls(iso2: string): Array<{ url: string; authority: str
   return [...map.values()].slice(0, 6);
 }
 
-async function checkOne(target: { url: string }, ctx: AdapterContext, store: CacheStore | undefined): Promise<SourceCheckState> {
+export async function checkOne(target: { url: string }, ctx: AdapterContext, store: CacheStore | undefined): Promise<SourceCheckState> {
   const now = ctx.now().toISOString();
   const previous = store ? (await store.get<SourceCheckState>(stateKey(target.url)))?.payload ?? null : null;
   let probe: UrlProbe;
