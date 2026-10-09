@@ -9,7 +9,7 @@
 import type { CommandPolicy, CommandPolicyRule, CommandRuleKind, PolicyDomain, PolicyStatus, PolicyVerificationStatus, Population, RuleScope, StayThreshold } from "./types";
 
 /** Date the pack's extraction was ingested. The pack states research "through October 2026". */
-export const PACK_RETRIEVED_AT = "2026-10-09";
+export const PACK_RETRIEVED_AT = "2026-10-08";
 
 const ALL_DOD: Population[] = ["us_military", "dod_civilian", "dod_contractor", "volunteer", "interagency"];
 const CMD: RuleScope = { level: "command", component: null, countries: [] };
@@ -24,6 +24,9 @@ type RuleInit = {
   populations?: Population[];
   populationText?: string;
   directedPopulations?: Population[];
+  exemptCountries?: string[];
+  exemptionCondition?: string | null;
+  sourceDateOverride?: string | null;
   minimumStay?: StayThreshold | null;
   pcsOnly?: boolean;
   contingencyOnly?: boolean;
@@ -52,6 +55,8 @@ function factory(policyId: string, defaultUrl: string, sourceDate: string | null
     applicabilityPopulation: init.populations ?? [],
     populationText: init.populationText ?? "",
     directedPopulations: init.directedPopulations ?? [],
+    exemptCountries: init.exemptCountries ?? [],
+    exemptionCondition: init.exemptionCondition ?? null,
     minimumStay: init.minimumStay ?? null,
     pcsOnly: init.pcsOnly ?? false,
     contingencyOnly: init.contingencyOnly ?? false,
@@ -67,7 +72,7 @@ function factory(policyId: string, defaultUrl: string, sourceDate: string | null
     immunizationOrProphylaxisRule: init.immunizationOrProphylaxisRule ?? null,
     sourceSection: init.sourceSection,
     sourceUrl: init.sourceUrl ?? defaultUrl,
-    sourceDate,
+    sourceDate: init.sourceDateOverride !== undefined ? init.sourceDateOverride : sourceDate,
     verificationStatus: init.verificationStatus ?? verification,
     sourceGaps: init.sourceGaps ?? [],
     caveats: init.caveats ?? [],
@@ -89,6 +94,11 @@ const CC_TAB_D = "https://www.centcom.mil/Portals/6/MEDICAL/MOD18TabD.pdf";
 const cc = factory("CENTCOM-MOD18", CC_MOD18, "2025-08-19", "COMMAND PUBLICATION (PACK-EXTRACTED)");
 const CC_DEPLOYMENT = over(30, "MOD 18 deployment definition: expected or actual in-country time over 30 days, excluding transit/travel time");
 const CC_NOT_ALL_SHORT = "Stays of 30 days or fewer fall outside the MOD 18 deployment definition as extracted. That is not evidence that no theater requirement exists for a short visit; short-stay and clearance requirements were not extracted (SOURCE_GAP).";
+
+const CC_OCR = "Read from a page-fetch summary of the scanned MOD 18 PDF (OCR artifacts noted by the reader); confirm exact wording against the PDF before operational use.";
+const CC_VAX_POP: Population[] = ["us_military", "dod_civilian", "dod_contractor", "volunteer"];
+const ccVax = (key: string, para: string, title: string, text: string, extra: Partial<RuleInit> = {}): CommandPolicyRule =>
+  cc({ id: `cc:imm:${key}`, domain: "immunization_prophylaxis", title, conditionOrRequirement: text, sourceSection: `MOD 18 para ${para}`, populations: CC_VAX_POP, caveats: [CC_OCR], ...extra });
 
 const centcomRules: CommandPolicyRule[] = [
   cc({ id: "cc:applicability", domain: "applicability", title: "Who MOD 18 applies to", sourceUrl: CC_PAGE, sourceSection: "Theatre Medical Clearance page / MOD 18 applicability",
@@ -113,11 +123,33 @@ const centcomRules: CommandPolicyRule[] = [
     populations: ALL_DOD, minimumStay: CC_DEPLOYMENT,
     conditionOrRequirement: "Deployers/travelers bring medications and prescription products for the deployment duration. For deployments over 30 days the command surgeon memo specifies a minimum 90-day supply, subject to stated exceptions such as controlled substances, shortages, quantity limits, or shelf-life.",
     thresholdOrRule: "Minimum 90-day supply for deployments over 30 days", medicationOrEquipmentRule: "Bring medications for the deployment duration; minimum 90-day supply (>30-day deployments) with exceptions", sourceGaps: ["exact exception wording"] }),
-  cc({ id: "cc:immunization-prophylaxis", domain: "immunization_prophylaxis", title: "Immunization / prophylaxis (command rule)", sourceSection: "MOD 18 / command surgeon memo — immunizations and chemoprophylaxis",
-    populations: ALL_DOD, minimumStay: CC_DEPLOYMENT,
-    conditionOrRequirement: "MOD 18 and the command surgeon memo update pre-deployment requirements involving malaria, rabies, anthrax, and religious waiver / accommodation processes. These are command-policy rules, distinct from CDC travel advice and from host-nation entry law.",
-    immunizationOrProphylaxisRule: "Command requirement; specific agents and schedules not extracted", sourceGaps: ["per-agent requirements (malaria, rabies, anthrax)", "religious waiver / accommodation process steps"],
-    caveats: ["LIVE VERIFY: open the MOD 18 immunization section before stating any specific vaccine or drug requirement."] }),
+  // Immunizations and chemoprophylaxis — read from MOD 18 paras 9 and 14 (resolves the pack's per-agent SOURCE_GAP).
+  // MOD 18 para 9.b: mandatory vaccines apply to DoD personnel "traveling for any period of time in theater", so these
+  // rules carry NO >30-day trigger (that trigger belongs to the deployment definition used by the other MOD 18 rules).
+  ccVax("general", "9.b / 9.xv.1", "Immunizations — general rule", "Mandatory vaccines apply to DoD personnel traveling for any period of time in theater. The first vaccine in a required series must be administered before deployment; later doses may be given in theater. Medical exemptions require separate waivers.", { thresholdOrRule: "Any period of time in theater", requiredDocumentation: "Immunization documentation per vaccine" }),
+  ccVax("tdap", "9.i", "Tetanus / diphtheria / pertussis", "Mandatory. A one-time Tdap dose if no previous dose is recorded; Td if 10 or more years since the last Tdap or Td booster.", { immunizationOrProphylaxisRule: "Tdap once if none recorded; Td if ≥10 years since last Tdap/Td" }),
+  ccVax("varicella", "9.ii", "Varicella", "Mandatory. Proof of one of: born before 1980 (not accepted for health care workers), prior infection, sufficient titer, or 2 vaccine doses.", { immunizationOrProphylaxisRule: "Proof of immunity: birth before 1980 (not HCWs), prior infection, titer, or 2 doses" }),
+  ccVax("mmr", "9.iii", "Measles / mumps / rubella", "Mandatory. Proof of one of: born before 1957, titers for all three components, or documented administration of 2 lifetime doses of MMR.", { immunizationOrProphylaxisRule: "Proof of immunity: birth before 1957, titers for all three, or 2 lifetime doses" }),
+  ccVax("polio", "9.iv", "Polio — documentation", "Mandatory; documentation required. Medical-assistance/medical-intervention exemptions are not accepted for the Afghanistan/Pakistan booster below.", { immunizationOrProphylaxisRule: "Polio documentation required", requiredDocumentation: "Polio vaccination documentation" }),
+  ccVax("polio-afg-pak", "9.iv", "Polio — one-time booster for Afghanistan / Pakistan", "For travel to or through Afghanistan or Pakistan for 4 weeks or more, a one-time polio booster is required before departure.", { scope: { level: "country", component: null, countries: ["AFG", "PAK"] }, minimumStay: atLeast(28, "MOD 18 9.iv: travel to/through Afghanistan or Pakistan for 4 weeks or more"), thresholdOrRule: "≥4 weeks; one-time booster before departure", immunizationOrProphylaxisRule: "One-time polio booster before departure" }),
+  ccVax("influenza", "9.v", "Seasonal influenza", "Mandatory, including event-specific influenza (for example H1N1).", { immunizationOrProphylaxisRule: "Seasonal influenza vaccination", sourceGaps: ["schedule / season window"] }),
+  ccVax("hepa", "9.vi / 5.f.iii", "Hepatitis A", "Mandatory: at least one dose before deployment with subsequent completion of the series in theater. Also applies to local-national and TCN food, water and ice workers (5.f.iii).", { directedPopulations: ["local_national", "tcn"], immunizationOrProphylaxisRule: "≥1 dose before deployment; complete series in theater" }),
+  ccVax("hepb", "9.vii / 5.f.iii", "Hepatitis B", "Mandatory: at least one dose before deployment with subsequent completion of the series in theater. Also applies to local-national and TCN food, water and ice workers (5.f.iii).", { directedPopulations: ["local_national", "tcn"], immunizationOrProphylaxisRule: "≥1 dose before deployment; complete series in theater" }),
+  ccVax("typhoid", "9.viii", "Typhoid", "Mandatory. Booster if more than two years since the last inactivated/injectable dose, or more than five years since a live/oral series. Oral vaccine is acceptable only if time allows all four doses.", { thresholdOrRule: ">2 years (injectable) or >5 years (oral) since last vaccination", immunizationOrProphylaxisRule: "Typhoid booster interval; oral only if all four doses fit" }),
+  ccVax("covid19", "9.xiii", "COVID-19 — host-nation definition", "Country-dependent: where a country has a requirement, personnel must meet that host nation's definition of vaccinated; check the Foreign Clearance Guide.", { caveats: ["This rule defers to host-nation requirements, which are a separate rule class and are not shown here."], immunizationOrProphylaxisRule: "Meet the host nation's definition of vaccinated where it has a requirement" }),
+  ccVax("smallpox", "9.x", "Smallpox — no longer required", "As of 16 May 2014, smallpox vaccination is no longer required for the CENTCOM AOR (explicit statement by the command).", { immunizationOrProphylaxisRule: "Not required (explicit withdrawal, 16 May 2014)" }),
+  ccVax("cholera", "9.xii", "Cholera (oral) — limited use", "Not required for most personnel; only for those designated by the unit or mission.", { populations: [], populationText: "Personnel designated by the unit or mission", immunizationOrProphylaxisRule: "Oral cholera vaccine only for designated personnel" }),
+  ccVax("anthrax", "9.ix / 9.xv.2", "Anthrax", "Required for DoD military and for DoD contractors/civilians in the CENTCOM AOR for 15 consecutive days or longer. Military: required. DoD civilians: required at government expense for emergency-essential and non-combat essential personnel. Contractors: required at government expense as directed in the contract. Volunteers: voluntary. This is a DoD requirement and cannot be waived by CENTCOM. May be administered up to 120 days before deployment; the first two immunizations before deployment are highly advisable.", { populations: ["us_military", "dod_civilian"], directedPopulations: ["dod_contractor"], minimumStay: atLeast(15, "MOD 18 9.ix: 15 consecutive days or longer in the AOR"), status: "non-waivable", waiverAuthority: "Not CENTCOM — DoD requirement that CENTCOM cannot waive", thresholdOrRule: "≥15 consecutive days; may be given up to 120 days before deployment", immunizationOrProphylaxisRule: "Anthrax vaccination (DoD requirement)", sourceGaps: ["agent and dose schedule (MOD 18 cites referenced documents that were not in the text read)"] }),
+  ccVax("rabies-groups", "9.xi", "Rabies pre-exposure vaccination", "Pre-exposure vaccination for high-risk personnel (veterinary personnel, military working dog handlers, animal control, certain security personnel, at-risk civil engineers, laboratory personnel handling rabies-suspect samples). All personnel deploying in support of SOF receive the pre-exposure series. Others per USSOCOM service-specific policy. Also considered for personnel not reasonably expected to get post-exposure prophylaxis within 72 hours. Already-vaccinated personnel: serum tested every two years for virus-neutralizing antibodies, boosted when below the minimum standard; exceptions may be identified by Unit Surgeons.", { populations: ["us_military", "dod_civilian", "dod_contractor"], populationText: "High-risk groups and SOF-supporting deployers (see text)", thresholdOrRule: "Antibody titer check every 2 years", sourceGaps: ["pre-exposure series schedule (not given in the MOD 18 text read)"] }),
+  ccVax("rabies-pakistan", "9.xi.3", "Rabies — Pakistan, all personnel", "For Pakistan, MOD 18 requires pre-exposure rabies vaccination for all personnel.", { scope: { level: "country", component: null, countries: ["PAK"] }, sourceGaps: ["pre-exposure series schedule"] }),
+  ccVax("malaria", "14", "Malaria chemoprophylaxis — agents and regimen", "Required for personnel deploying to listed risk areas in the absence of a local risk assessment. Doxycycline or atovaquone/proguanil are generally acceptable primary agents; mefloquine is the drug of last resort. Start 2 days before entering the risk area for doxycycline and atovaquone/proguanil (2 weeks for mefloquine); continue 4 weeks after leaving for doxycycline or mefloquine, or 1 week for atovaquone/proguanil. Terminal prophylaxis is required: primaquine for 2 weeks after leaving the risk area; G6PD-deficient individuals are not prescribed primaquine. Deploy with the full course or enough for approximately half the deployment.", { thresholdOrRule: "Start 2 days before (doxycycline, atovaquone/proguanil) / 2 weeks (mefloquine); stop 4 weeks (doxycycline, mefloquine) / 1 week (atovaquone/proguanil) after leaving; primaquine 2 weeks terminal", medicationOrEquipmentRule: "Full course, or enough for about half the deployment", immunizationOrProphylaxisRule: "Doxycycline or atovaquone/proguanil; mefloquine last resort; primaquine terminal prophylaxis", requiredEvaluation: "G6PD status before primaquine", sourceGaps: ["malaria-risk countries and seasons beyond Afghanistan, Pakistan and Yemen", "local risk assessment guidance"] }),
+  ccVax("malaria-year-round", "14.a", "Malaria — year-round minimum for Afghanistan, Pakistan, Yemen", "In the absence of a local risk assessment, the minimum requirement is year-round chemoprophylaxis for Afghanistan, Pakistan and Yemen.", { scope: { level: "country", component: null, countries: ["AFG", "PAK", "YEM"] }, thresholdOrRule: "Year-round (minimum, absent a local risk assessment)", immunizationOrProphylaxisRule: "Year-round malaria chemoprophylaxis" }),
+  cc({ id: "cc:waiver-process", domain: "waiver", kind: "process", title: "Waiver request process", sourceSection: "MOD 18 para 6",
+    populations: ALL_DOD, conditionOrRequirement: "Waiver requests use the Tab C form and go to the appropriate surgeon; uniformed members need unit commander endorsement. Initial waivers should be submitted at least 60 days before planned departure. Disapprovals are documented in writing, not by phone. If the sending unit disagrees with a component surgeon's decision, an appeal may be submitted to the CENTCOM Surgeon.",
+    thresholdOrRule: "Submit ≥60 days before planned departure", requiredDocumentation: "Tab C waiver request; unit commander endorsement for uniformed members", waiverAuthority: "Appropriate component surgeon; appeal to the CENTCOM Surgeon", caveats: [CC_OCR] }),
+  cc({ id: "cc:waiver-religious", domain: "waiver", kind: "process", title: "Religious exemption to a medical requirement", sourceSection: "MOD 18 para 6.d.iv",
+    populations: ALL_DOD, conditionOrRequirement: "Requests for religious exemptions to medical requirements must have an approved religious accommodation from the member's command before submission to CENTCOM. Waivers submitted without the approved religious accommodation are denied. MOD 18 has no separate vaccine-specific religious process.",
+    requiredDocumentation: "Approved religious accommodation from the member's command", caveats: [CC_OCR] }),
   cc({ id: "cc:waiver-authority", domain: "waiver", kind: "process", title: "Waiver authority", sourceSection: "MOD 18 — waiver authority",
     populations: ALL_DOD, conditionOrRequirement: "Final waiver authority rests with the CENTCOM Surgeon and/or delegated Service Component Surgeon waiver authorities; the evaluating clinic or local commander is not final authority.",
     waiverAuthority: "CENTCOM Surgeon and/or delegated Service Component Surgeon waiver authorities", sourceGaps: ["component waiver contact list"] }),
@@ -193,10 +225,15 @@ const africomRules: CommandPolicyRule[] = [
   af({ id: "af:waiver-cjtf-hoa", domain: "waiver", kind: "process", scope: { level: "country", component: "CJTF-HOA", countries: HOA }, title: "Waiver routing — CJTF-HOA geography", populations: AF_POP, sourceSection: "ACI 4200.09C — waivers",
     conditionOrRequirement: "CJTF-HOA Surgeon waiver geography explicitly includes Burundi, Djibouti, Eritrea, Ethiopia, Kenya, Rwanda, Seychelles, Somalia, South Sudan, Sudan, Tanzania and Uganda. Whether it governs a given traveler depends on the supported command.",
     waiverAuthority: "CJTF-HOA Surgeon (depending on supported command)", caveats: ["Applies only where the traveler is supported by CJTF-HOA; otherwise another command / component surgeon routes the waiver."] }),
-  af({ id: "af:supplement:yellow-fever", domain: "supplement", title: "Yellow Fever — theater vaccination requirement (command rule)", sourceUrl: AF_YF, sourceSection: "FHP supplement: Yellow Fever vaccination requirements for the USAFRICOM theater (Jun 2024, republished Mar 2026)",
-    populations: AF_POP, conditionOrRequirement: "AFRICOM publishes a theater Yellow Fever vaccination requirement. It is a command requirement and is kept separate from host-nation entry rules and from CDC recommendations. Which countries/areas and exemptions it covers were not extracted.",
-    immunizationOrProphylaxisRule: "Command Yellow Fever vaccination requirement for the theater (scope not extracted)", sourceGaps: ["countries / areas covered", "exemptions and documentation", "validity"],
-    caveats: ["LIVE VERIFY: read the AFRICOM Yellow Fever message before stating who must be vaccinated."] }),
+  af({ id: "af:supplement:yellow-fever", domain: "supplement", title: "Yellow Fever — single lifetime dose required for theater entry (command rule)", sourceUrl: AF_YF, sourceDateOverride: "2024-06-14",
+    sourceSection: "GENADMIN DTG 140953Z Jun 24, CDR USAFRICOM J3 — Yellow Fever vaccination requirements for the USAFRICOM theater (republished Mar 2026)",
+    populations: ["us_military", "dod_civilian", "dod_contractor", "volunteer"], populationText: "All DoD personnel, for both leisure and official travel.",
+    conditionOrRequirement: "Requires a single lifetime dose of YF-VAX for entry to the USAFRICOM theater, given at least 10 days before arrival (validity begins 10 days after vaccination). Covers all countries in the USAFRICOM AOR except Comoros, Morocco and Tunisia, which are exempt for DoD personnel only without a layover in a yellow fever endemic country. This command rule is separate from each host nation's own entry rules, which are in the Electronic Foreign Clearance Guide and Travax.",
+    exemptCountries: ["COM", "MAR", "TUN"], exemptionCondition: "without a layover in a yellow fever endemic country",
+    thresholdOrRule: "Single lifetime dose; at least 10 days before arrival", requiredDocumentation: "CDC 731 ICVP with official yellow fever stamp; persons vaccinated in 2016 or earlier get a new ICVP stating 'life of person vaccinated'",
+    waiverAuthority: "USAFRICOM Command Surgeon's office (waiver requests and doses given less than 10 days before arrival)",
+    immunizationOrProphylaxisRule: "Single lifetime dose of YF-VAX; fractional doses are not acceptable and persons who received one during the 2017–2020 shortage must be revaccinated with a full dose; countries with high transmission may require a booster every 10 years (decided with a travel medicine specialist)",
+    caveats: ["Rescinds and replaces the July 2017 GENADMIN. Dependents, retirees and other DoD beneficiaries follow host-nation requirements and ACIP/CDC recommendations as clinically indicated — that is not a command requirement.", "Read from a page-fetch summary of the message text; confirm exact wording against the AFRICOM page before operational use."] }),
   af({ id: "af:supplement:malaria", domain: "supplement", title: "Malaria chemoprophylaxis for theater entry (command rule)", sourceUrl: AF_MALARIA, sourceSection: "FHP supplement: update to malaria chemoprophylaxis for entry to the USAFRICOM theater (Jul 2025, republished Mar 2026)",
     populations: AF_POP, conditionOrRequirement: "Command-specific malaria chemoprophylaxis logic for theater entry, citing WHO, CDC, DHA deployment-health procedures and AFRICOM campaign health-service guidance. Implemented as a command rule, not as a generic CDC travel recommendation.",
     immunizationOrProphylaxisRule: "Command malaria chemoprophylaxis requirement (agents, countries and exceptions not extracted)", sourceGaps: ["agents and regimens", "countries / areas", "exceptions"],
@@ -322,7 +359,7 @@ export const COMMAND_POLICIES: CommandPolicy[] = [
   { policyId: "CENTCOM-MOD18", command: "CENTCOM", policyTitle: "USCENTCOM theater medical entry requirements — MOD 18 with Tabs A–D", issuingAuthority: "USCENTCOM Command Surgeon", sourceUrl: CC_PAGE,
     additionalSources: [{ title: "MOD 18", url: CC_MOD18 }, { title: "MOD 18 Tab A", url: CC_TAB_A }, { title: "MOD 18 Tab B", url: CC_TAB_B }, { title: "MOD 18 Tab D", url: CC_TAB_D }],
     sourceDate: "2025-08-19", effectiveFrom: "2025-08-19", effectiveTo: null, supersedesPolicyId: "CENTCOM-MOD17", supersededByPolicyId: null, publicStatus: "Current public package, Aug 2025", verificationStatus: "COMMAND PUBLICATION (PACK-EXTRACTED)", lastRetrievedAt: PACK_RETRIEVED_AT, commandMedicalPolicyStatus: "PUBLISHED",
-    caveats: ["Tab C is not part of the extraction; its content is SOURCE_GAP."] },
+    caveats: ["Tab C is the waiver request form (MOD 18 para 6); its contents are not extracted."] },
   { policyId: "CENTCOM-MOD17", command: "CENTCOM", policyTitle: "USCENTCOM Modification 17 (MOD 17)", issuingAuthority: "USCENTCOM Command Surgeon", sourceUrl: CC_PAGE, additionalSources: [],
     sourceDate: null, effectiveFrom: null, effectiveTo: "2025-08-19", supersedesPolicyId: null, supersededByPolicyId: "CENTCOM-MOD18", publicStatus: "Superseded by MOD 18 (19 Aug 2025)", verificationStatus: "COMMAND PUBLICATION — SUPERSEDED", lastRetrievedAt: PACK_RETRIEVED_AT, commandMedicalPolicyStatus: "PUBLISHED",
     caveats: ["Kept as history only. The pack records that MOD 18 supersedes MOD 17 and does not extract MOD 17's content; none is shown."] },
@@ -333,7 +370,7 @@ export const COMMAND_POLICIES: CommandPolicy[] = [
   { policyId: "EUCOM-ECI-4202.01A", command: "EUCOM", policyTitle: "USEUCOM ECI 4202.01A (theater entry framework, with component guidance)", issuingAuthority: "USEUCOM Command Surgeon", sourceUrl: EU_PAGE,
     additionalSources: [{ title: "ECI 4202.01A document page", url: EU_ECI }, { title: "EUCOM document library", url: EU_LIBRARY }],
     sourceDate: "2019-07-03", effectiveFrom: "2019-07-03", effectiveTo: null, supersedesPolicyId: null, supersededByPolicyId: null, publicStatus: "ECI remains applicable but is under rewrite; EUCOM public page current as of 24 Jul 2025", verificationStatus: "COMMAND PUBLICATION — UNDER REWRITE", lastRetrievedAt: PACK_RETRIEVED_AT, commandMedicalPolicyStatus: "PUBLISHED",
-    caveats: ["Under rewrite: a replacement instruction can change these rules without notice. The monitor flags page changes for review."] },
+    caveats: ["Under rewrite: a replacement instruction can change these rules without notice. The monitor flags page changes for review.", "LIVE VERIFY: the pack dates ECI 4202.01A 3 Jul 2019; a page-fetch summary of the EUCOM page read the instruction date as 24 Jul 2025, which is also the page's own currency date (CAO). The two were not reconciled, so the 2019 date is kept as the pack states it."] },
   { policyId: "INDOPACOM-FY26-FHP-P-25-0295", command: "INDOPACOM", policyTitle: "USINDOPACOM GENADMIN P-25-0295 — FY2026 Force Health Protection Guidance", issuingAuthority: "USINDOPACOM J07 / Office of the Command Surgeon", sourceUrl: IP_PAGE,
     additionalSources: [{ title: "FY26 Force Health Protection Guidance (PDF)", url: IP_FHP }],
     sourceDate: null, effectiveFrom: null, effectiveTo: null, supersedesPolicyId: null, supersededByPolicyId: null, publicStatus: "Active until cancelled", verificationStatus: "COMMAND PUBLICATION (PACK-EXTRACTED)", lastRetrievedAt: PACK_RETRIEVED_AT, commandMedicalPolicyStatus: "PUBLISHED",

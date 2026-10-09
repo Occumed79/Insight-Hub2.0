@@ -91,6 +91,7 @@ type CommandRuleView = {
   thresholdOrRule: string | null; waiverAuthority: string | null; requiredEvaluation: string | null; requiredDocumentation: string | null;
   medicationOrEquipmentRule: string | null; immunizationOrProphylaxisRule: string | null; sourceSection: string; sourceGaps: string[]; caveats: string[];
   scope: { level: string; component: string | null; countries: string[] };
+  exemptCountries?: string[]; exemptionCondition?: string | null;
 };
 const COMMAND_KIND_LABEL: Record<string, string> = { requirement: "Command requirement", recommendation: "Command recommendation (not a requirement)", process: "Command process / routing" };
 
@@ -103,6 +104,7 @@ function CommandRuleDetails({ record }: { record: EvidenceRecord }) {
     ["Applies to", rule.populationText || rule.applicabilityPopulation.map(pretty).join(", ") || null],
     ["Only if directed", rule.directedPopulations.length ? rule.directedPopulations.map(pretty).join(", ") : null],
     ["Duration trigger", rule.minimumStay ? `${rule.minimumStay.inclusive ? "At least" : "More than"} ${rule.minimumStay.days} days — ${rule.minimumStay.basis}` : rule.maximumStayDaysExclusive !== null ? `Under ${rule.maximumStayDaysExclusive} days` : null],
+    ["Named exemptions", rule.exemptCountries?.length ? `${rule.exemptCountries.join(", ")}${rule.exemptionCondition ? ` — ${rule.exemptionCondition}` : ""}` : null],
     ["PCS only", rule.pcsOnly ? "Yes" : null],
     ["Threshold / rule", rule.thresholdOrRule],
     ["Waiver authority", rule.waiverAuthority],

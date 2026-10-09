@@ -110,6 +110,9 @@ export interface CommandPolicyRule {
   pcsOnly: boolean;
   /** Rule applies only when the traveler is going to a named contingency operation. */
   contingencyOnly: boolean;
+  /** Destinations (ISO3) the source names as exempt from a command-wide rule, and the condition attached to that exemption. */
+  exemptCountries: string[];
+  exemptionCondition: string | null;
   /** Maximum stay (days) the rule covers, e.g. "visits under 30 days". */
   maximumStayDaysExclusive: number | null;
 
@@ -161,6 +164,8 @@ export interface CommandQuery {
   travelKind?: TravelKind | null;
   /** Component / sub-theater the traveler is supported by (e.g. "USAREUR-AF", "PACAF", "CJTF-HOA"). */
   component?: string | null;
+  /** Whether the itinerary includes a layover in a yellow fever endemic country (AFRICOM YF exemptions depend on it). */
+  layoverInYfEndemicCountry?: boolean | null;
   now?: Date;
 }
 

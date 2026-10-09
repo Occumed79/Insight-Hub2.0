@@ -70,7 +70,7 @@ export function evaluateCommandRule(rule: CommandPolicyRule, query: CommandQuery
   if (rule.applicabilityPopulation.length) {
     if (!query.population) missing.push("traveler population (military, DoD civilian, contractor, dependent …)");
     else if (rule.directedPopulations.includes(query.population)) {
-      missing.push(`whether the command or contract directs this rule for ${query.population.replace(/_/g, " ")}s (the source says "as directed")`);
+      missing.push(`whether this rule reaches ${query.population.replace(/_/g, " ")} personnel (the source limits it to a subgroup or to cases the command or contract directs)`);
     } else if (!rule.applicabilityPopulation.includes(query.population)) {
       excluded = true;
       reasons.push(`The source does not name this population for this rule (it names: ${rule.applicabilityPopulation.join(", ")}).`);
@@ -111,6 +111,13 @@ export function evaluateCommandRule(rule: CommandPolicyRule, query: CommandQuery
       reasons.push(`This rule is specific to ${rule.scope.component}; the traveler is supported by ${query.component}.`);
     } else reasons.push(`Traveler is supported by ${rule.scope.component}.`);
   }
+  if (rule.exemptCountries.includes(query.iso3.toUpperCase())) {
+    if (query.layoverInYfEndemicCountry === true) reasons.push(`${query.iso3} is named as exempt, but the exemption does not hold with a layover in a yellow fever endemic country.`);
+    else if (query.layoverInYfEndemicCountry === false) {
+      excluded = true;
+      reasons.push(`${query.iso3} is named as exempt${rule.exemptionCondition ? ` (${rule.exemptionCondition})` : ""}.`);
+    } else missing.push("whether the itinerary includes a layover in a yellow fever endemic country (the exemption holds only without one)");
+  }
   if (rule.domain === "condition" && !excluded) reasons.push("Applies only if the person has the condition described.");
 
   let applicability: CommandApplicability = "applies";
@@ -128,7 +135,7 @@ export function evaluateCommandTraveler(query: CommandQuery): { resolution: Coun
     const gated = evaluations.filter((entry) => entry.rule.minimumStay || entry.rule.maximumStayDaysExclusive !== null);
     const triggered = gated.some((entry) => entry.applicability !== "does_not_apply");
     const suppressed = gated.some((entry) => entry.reasons.some((reason) => reason.startsWith("Trigger not met")));
-    if (suppressed && !triggered) shortStayNote = "No duration-triggered rule in the extracted policy is met by this stay length. That does not establish that the command has no short-stay requirement; short-visit and clearance requirements were not extracted from the source.";
+    if (suppressed && !triggered) shortStayNote = "No duration-triggered rule in the extracted policy is met by this stay length. Rules with no duration trigger (for example the MOD 18 immunizations, which apply for any period in theater) are evaluated separately. That does not establish that the command has no short-stay requirement; short-visit and clearance requirements were not extracted from the source.";
   }
   return { resolution, evaluations, shortStayNote };
 }

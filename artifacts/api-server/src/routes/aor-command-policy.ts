@@ -1,6 +1,9 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { resolveCountry } from "../services/aor-intel/geo";
 import { assignmentStats, countriesForCommand } from "../services/aor-intel/command-policy/assignments";
+import { AOR_COUNTRY_PROFILES } from "../data/aor-country-profiles";
+import { auditRegistry } from "../services/aor-intel/command-policy/audit";
+import { gapSummary } from "../services/aor-intel/command-policy/source-gaps";
 import { describeCommandCountry, evaluateCommandTraveler, policyQualifiers } from "../services/aor-intel/command-policy/engine";
 import { COMMAND_POLICIES } from "../services/aor-intel/command-policy/policies-data";
 import type { CommandId, CommandQuery, Population, TravelKind } from "../services/aor-intel/command-policy/types";
@@ -91,6 +94,18 @@ router.get("/aor/command-policy/registry", (_req: Request, res: Response) => {
       policies: COMMAND_POLICIES.filter((policy) => policy.command === command).map((policy) => ({ ...policy, qualifiers: policyQualifiers(policy, now) })),
     })),
   });
+});
+
+// Registry integrity audit: unique current counts, duplicates, history, unmapped places.
+router.get("/aor/command-policy/audit", (_req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true, generatedAt: new Date().toISOString(), ...auditRegistry(AOR_COUNTRY_PROFILES.map((entry) => ({ iso3: entry.iso3, country: entry.country }))) });
+});
+
+// Source-gap ledger: what the original sources resolved and what stays LIVE VERIFY.
+router.get("/aor/command-policy/gaps", (_req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true, generatedAt: new Date().toISOString(), ...gapSummary() });
 });
 
 export default router;

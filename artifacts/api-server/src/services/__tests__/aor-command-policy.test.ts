@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildCountryIntel } from "../aor-intel/aggregate";
 import { createMemoryStore } from "../aor-intel/cache";
+import { auditRegistry } from "../aor-intel/command-policy/audit";
+import { gapSummary, SOURCE_GAP_LEDGER } from "../aor-intel/command-policy/source-gaps";
+import { AOR_COUNTRY_PROFILES } from "../../data/aor-country-profiles";
 import { assignmentFor, assignmentHistoryFor, assignmentStats, countriesForCommand, CURRENT_ASSIGNMENTS } from "../aor-intel/command-policy/assignments";
 import { commandPolicyAdapter, createCommandSourceMonitor, monitoredCommandUrls } from "../aor-intel/command-policy/adapter";
 import { describeCommandCountry, evaluateCommandTraveler, resolveCountryCommand } from "../aor-intel/command-policy/engine";
@@ -96,7 +99,7 @@ test("short vs long duration: CENTCOM >30 days (transit excluded), Tab D ≥15 d
   assert.equal(evalRule({ iso3: "KWT", population: "dod_civilian", stayDays: 15 }, "cc:cbrn-tab-d")?.applicability, "applies", "Tab D is at least 15 days");
   const directed = evalRule({ ...contractor, stayDays: 15 }, "cc:cbrn-tab-d");
   assert.equal(directed?.applicability, "unknown", "contractors only when directed");
-  assert.match(directed?.missingInputs[0] ?? "", /as directed/);
+  assert.match(directed?.missingInputs[0] ?? "", /command or contract directs/);
   assert.equal(evalRule({ iso3: "KWT", population: "dod_civilian", stayDays: 14 }, "cc:cbrn-tab-d")?.applicability, "does_not_apply");
   assert.equal(evalRule({ ...contractor }, "cc:medication-supply")?.applicability, "unknown", "no stay entered → unknown, never 'applies'");
   assert.deepEqual(evalRule({ ...contractor }, "cc:medication-supply")?.missingInputs, ["planned in-country days"]);
@@ -154,11 +157,11 @@ test("population, PCS and condition rules: pack-stated statuses only, unstated w
   assert.equal(byId("cc:taba:osa-symptomatic").status, "non-waivable");
   assert.equal(byId("cc:taba:osa-advanced").status, "conditional", "'non-deployable' is not turned into 'non-waivable'");
   assert.ok(byId("cc:taba:osa-advanced").sourceGaps.some((gap) => /waiver/.test(gap)));
-  assert.deepEqual(COMMAND_RULES.filter((rule) => rule.status === "non-waivable").map((rule) => rule.id), ["cc:taba:osa-symptomatic"], "only the pack-stated non-waivable condition");
+  assert.deepEqual(COMMAND_RULES.filter((rule) => rule.status === "non-waivable").map((rule) => rule.id).sort(), ["cc:imm:anthrax", "cc:taba:osa-symptomatic"], "only the two source-stated non-waivable items");
   assert.match(byId("cc:taba:tbi").conditionOrRequirement, /24 hours symptom-free/);
   assert.match(byId("cc:taba:weight").thresholdOrRule ?? "", /136 kg/);
-  assert.match(byId("cc:immunization-prophylaxis").caveats.join(" "), /LIVE VERIFY/);
-  assert.ok(byId("cc:immunization-prophylaxis").sourceGaps.length > 0);
+  assert.match(byId("cc:imm:anthrax").caveats.join(" "), /confirm exact wording against the PDF/);
+  assert.ok(byId("cc:imm:anthrax").sourceGaps.length > 0, "anthrax schedule is still open");
   assert.equal(byId("eu:tbe").kind, "recommendation", "EUCOM TBE memo is guidance, not a requirement");
   assert.equal(byId("af:supplement:yellow-fever").kind, "requirement");
   assert.equal(byId("af:supplement:yellow-fever").sourceUrl, "https://www.africom.mil/document/36281/yellow-fever-vaccination-requirements-for-the-usafricom-theater");
@@ -301,4 +304,112 @@ test("AI validator: command policy is a third class that cannot be blended or tu
   assert.equal(check("There are no theater medical requirements for Canada.", noPolicy), false);
   assert.equal(check("Kuwait travel is safe for contractors under MOD 18.", med), false, "reassurance");
   assert.equal(check("The 99-day supply is required under MOD 18.", med), false, "ungrounded number");
+});
+
+test("registry audit: 195 unique sovereign + 6 entities, no duplicate current assignment, Israel's EUCOM record is history only", () => {
+  const audit = auditRegistry(AOR_COUNTRY_PROFILES.map((entry) => ({ iso3: entry.iso3, country: entry.country })));
+  assert.equal(audit.uniqueCurrentSovereign, 195);
+  assert.equal(audit.uniqueCurrentEntities, 6);
+  assert.equal(audit.uniqueCurrentTotal, 201);
+  assert.equal(audit.currentRows, 201, "one current row per place: no row is repeated");
+  assert.equal(21 + 53 + 50 + 36 + 31 + 4, 195, "the per-command public counts sum to the sovereign total");
+  assert.deepEqual(audit.duplicateCurrent, []);
+  assert.deepEqual(audit.historicalOverlappingCurrent, []);
+  assert.deepEqual(audit.unmappedCountryTable, [], "every entry of the 197-row AOR country table resolves to a command");
+  assert.equal(AOR_COUNTRY_PROFILES.length, 197);
+  assert.deepEqual(audit.mappedButNotInCountryTable.map((entry) => entry.iso3).sort(), ["ESH", "GRL", "PRI", "VIR"], "mapped, but not selectable in the AOR country table");
+  assert.ok(audit.mappedButNotInCountryTable.every((entry) => entry.entityType === "entity"));
+  const expected: Record<CommandId, [number, number]> = { CENTCOM: [21, 1], AFRICOM: [53, 1], EUCOM: [50, 0], INDOPACOM: [36, 1], SOUTHCOM: [31, 0], NORTHCOM: [4, 3] };
+  for (const [command, [sovereign, entities]] of Object.entries(expected)) {
+    const row = audit.perCommand[command as CommandId];
+    assert.equal(row.sovereign, sovereign, command);
+    assert.equal(row.entities, entities, command);
+    assert.equal(row.total, sovereign + entities, command);
+    assert.equal(row.matchesPublicSovereignCount, true, command);
+  }
+  assert.equal(Object.values(audit.perCommand).reduce((total, row) => total + row.sovereign, 0), 195);
+  assert.deepEqual(audit.liveVerifyCommands, ["EUCOM", "INDOPACOM"]);
+  assert.deepEqual(audit.historical, [{ iso3: "ISR", name: "Israel", command: "EUCOM", effectiveTo: "2021-01-15", supersededBy: "CENTCOM" }]);
+  assert.equal(CURRENT_ASSIGNMENTS.filter((row) => row.iso3 === "ISR").length, 1, "Israel has exactly one current assignment");
+  assert.equal(CURRENT_ASSIGNMENTS.filter((row) => row.command === "EUCOM").some((row) => row.iso3 === "ISR"), false);
+
+  // The audit really detects a second current assignment (guards against a vacuous pass).
+  const egypt = CURRENT_ASSIGNMENTS.find((row) => row.iso3 === "EGY")!;
+  const broken = auditRegistry([], [...CURRENT_ASSIGNMENTS, { ...egypt, command: "AFRICOM" }]);
+  assert.deepEqual(broken.duplicateCurrent, [{ iso3: "EGY", commands: ["CENTCOM", "AFRICOM"] }]);
+  const repeated = auditRegistry([], [...CURRENT_ASSIGNMENTS, egypt]);
+  assert.deepEqual(repeated.duplicateCurrent.map((entry) => entry.iso3), ["EGY"], "the same place listed twice is also a duplicate");
+});
+
+test("source-gap ledger: CENTCOM immunizations and AFRICOM Yellow Fever resolved; unreadable items stay LIVE VERIFY with nothing invented", () => {
+  const summary = gapSummary();
+  assert.deepEqual(summary.resolved.sort(), ["africom-yellow-fever-scope", "centcom-immunization-detail"]);
+  assert.deepEqual(summary.openLiveVerify.sort(), ["eucom-country-list", "indopacom-country-list", "indopacom-message-date"]);
+  assert.ok(SOURCE_GAP_LEDGER.every((entry) => entry.attemptedAt === "2026-10-08" && entry.sources.every((url) => url.startsWith("https://"))));
+  for (const entry of SOURCE_GAP_LEDGER.filter((e) => e.status === "OPEN_LIVE_VERIFY")) assert.ok(entry.remaining.length > 0, entry.id);
+  assert.equal(COMMAND_POLICIES.find((p) => p.policyId === "INDOPACOM-FY26-FHP-P-25-0295")?.sourceDate, null, "the Dec 2023 page footer is not used as the message date");
+  assert.ok(CURRENT_ASSIGNMENTS.filter((row) => row.command === "EUCOM" || row.command === "INDOPACOM").every((row) => /LIVE VERIFY/.test(row.verification)));
+  for (const id of SOURCE_GAP_LEDGER.find((e) => e.id === "centcom-immunization-detail")!.ruleIds) assert.ok(COMMAND_RULES.some((rule) => rule.id === id), id);
+  assert.ok(summary.deferred.fields > 0 && summary.deferred.byCommand.AFRICOM, "other rule-level SOURCE_GAP fields remain and are counted, not hidden");
+});
+
+test("CENTCOM MOD 18 immunizations: apply for any period in theater, with source-stated triggers only", () => {
+  const mil = { iso3: "KWT", population: "us_military" as const };
+  assert.equal(evalRule({ ...mil, stayDays: 5 }, "cc:imm:tdap")?.applicability, "applies", "MOD 18 9.b: any period of time in theater");
+  assert.equal(evalRule({ ...mil, stayDays: 5 }, "cc:medication-supply")?.applicability, "does_not_apply", "while the >30-day rules stay gated");
+  assert.equal(evalRule({ ...mil, stayDays: 14 }, "cc:imm:anthrax")?.applicability, "does_not_apply");
+  assert.equal(evalRule({ ...mil, stayDays: 15 }, "cc:imm:anthrax")?.applicability, "applies", "15 consecutive days or longer");
+  assert.equal(evalRule({ iso3: "KWT", population: "dod_contractor", stayDays: 40 }, "cc:imm:anthrax")?.applicability, "unknown", "contractors only as directed in the contract");
+  assert.equal(evalRule({ iso3: "KWT", population: "volunteer", stayDays: 40 }, "cc:imm:anthrax")?.applicability, "does_not_apply", "volunteers: voluntary");
+  const anthrax = COMMAND_RULES.find((rule) => rule.id === "cc:imm:anthrax")!;
+  assert.equal(anthrax.status, "non-waivable");
+  assert.match(anthrax.waiverAuthority ?? "", /cannot waive/);
+  // Country-scoped rules appear only where the source names the country.
+  const rulesFor = (iso3: string) => resolveCountryCommand(iso3).rules.map((rule) => rule.id);
+  assert.ok(rulesFor("AFG").includes("cc:imm:polio-afg-pak") && rulesFor("PAK").includes("cc:imm:polio-afg-pak"));
+  assert.ok(!rulesFor("KWT").includes("cc:imm:polio-afg-pak") && !rulesFor("KWT").includes("cc:imm:rabies-pakistan"));
+  assert.ok(rulesFor("PAK").includes("cc:imm:rabies-pakistan") && !rulesFor("AFG").includes("cc:imm:rabies-pakistan"));
+  for (const iso3 of ["AFG", "PAK", "YEM"]) assert.ok(rulesFor(iso3).includes("cc:imm:malaria-year-round"), iso3);
+  assert.ok(!rulesFor("IRQ").includes("cc:imm:malaria-year-round"));
+  assert.equal(evalRule({ iso3: "AFG", population: "us_military", stayDays: 27 }, "cc:imm:polio-afg-pak")?.applicability, "does_not_apply");
+  assert.equal(evalRule({ iso3: "AFG", population: "us_military", stayDays: 28 }, "cc:imm:polio-afg-pak")?.applicability, "applies", "4 weeks or more");
+  assert.match(COMMAND_RULES.find((rule) => rule.id === "cc:imm:smallpox")!.conditionOrRequirement, /16 May 2014.*no longer required/);
+  assert.match(COMMAND_RULES.find((rule) => rule.id === "cc:imm:covid19")!.caveats.join(" "), /host-nation requirements, which are a separate rule class/);
+  assert.match(COMMAND_RULES.find((rule) => rule.id === "cc:waiver-religious")!.conditionOrRequirement, /denied/);
+  assert.match(COMMAND_RULES.find((rule) => rule.id === "cc:waiver-process")!.thresholdOrRule ?? "", /60 days/);
+  assert.ok(COMMAND_RULES.filter((rule) => rule.id.startsWith("cc:imm:")).every((rule) => rule.policyId === "CENTCOM-MOD18" && rule.sourceSection.startsWith("MOD 18 para")));
+  assert.equal(COMMAND_RULES.some((rule) => rule.id === "cc:immunization-prophylaxis"), false, "the placeholder SOURCE_GAP rule is gone");
+});
+
+test("AFRICOM Yellow Fever: single lifetime dose for all AOR countries except Comoros, Morocco, Tunisia (no YF-endemic layover)", () => {
+  const rule = COMMAND_RULES.find((r) => r.id === "af:supplement:yellow-fever")!;
+  assert.equal(rule.sourceDate, "2024-06-14");
+  assert.deepEqual(rule.exemptCountries, ["COM", "MAR", "TUN"]);
+  assert.match(rule.thresholdOrRule ?? "", /10 days/);
+  assert.match(rule.requiredDocumentation ?? "", /CDC 731/);
+  assert.match(rule.caveats.join(" "), /July 2017/);
+  assert.match(rule.caveats.join(" "), /Dependents, retirees/);
+  const mil = { population: "us_military" as const };
+  assert.equal(evalRule({ iso3: "KEN", ...mil }, "af:supplement:yellow-fever")?.applicability, "applies");
+  assert.equal(evalRule({ iso3: "GHA", ...mil, layoverInYfEndemicCountry: false }, "af:supplement:yellow-fever")?.applicability, "applies", "not an exempt country");
+  for (const iso3 of ["COM", "MAR", "TUN"]) {
+    const noInput = evalRule({ iso3, ...mil }, "af:supplement:yellow-fever");
+    assert.equal(noInput?.applicability, "unknown", iso3);
+    assert.match(noInput?.missingInputs[0] ?? "", /layover/);
+    assert.equal(evalRule({ iso3, ...mil, layoverInYfEndemicCountry: false }, "af:supplement:yellow-fever")?.applicability, "does_not_apply", iso3);
+    assert.equal(evalRule({ iso3, ...mil, layoverInYfEndemicCountry: true }, "af:supplement:yellow-fever")?.applicability, "applies", `${iso3} with an endemic layover`);
+  }
+  assert.equal(evalRule({ iso3: "KEN", population: "interagency" }, "af:supplement:yellow-fever")?.applicability, "does_not_apply", "the message names DoD personnel");
+  assert.equal(resolveCountryCommand("EGY").rules.some((r) => r.id === "af:supplement:yellow-fever"), false, "Egypt is CENTCOM, not AFRICOM");
+});
+
+test("validator: the AFRICOM Yellow Fever command rule can be called required, but not blended with CDC or host-nation records", async () => {
+  const kenya = (await commandPolicyAdapter(ctxFor("KE"))).records;
+  const cdc: EvidenceRecord = { ...kenya[0], id: "cdc-yf", dimension: "health_vaccines", category: "travel_vaccine", requirementType: null, recommendationType: "recommended", extra: {} };
+  const all = [...kenya, cdc];
+  const id = "command-rule:KEN:af:supplement:yellow-fever";
+  const check = (text: string, ...ids: string[]) => validateStatements({ statements: [{ text, evidenceIds: ids }] }, all).statements.length === 1;
+  assert.equal(check("A single lifetime yellow fever vaccine dose is required for entry to the AFRICOM theater.", id), true);
+  assert.equal(check("A single lifetime yellow fever vaccine dose is required for entry to the AFRICOM theater, and CDC recommends it.", id, cdc.id), false);
+  assert.equal(check("AFRICOM recommends yellow fever vaccination.", id), false, "command requirement restated as a recommendation");
 });
