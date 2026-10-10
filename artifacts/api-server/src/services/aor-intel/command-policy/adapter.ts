@@ -108,8 +108,10 @@ function assignmentRecord(ctx: AdapterContext, resolution: CountryCommandResolut
     id: `command-assignment:${ctx.country.iso3}:${assignment.command}`,
     dimension: "command_policy",
     category: "command_assignment",
-    subtype: assignment.entityType,
-    title: `${ctx.country.name} is in the ${COMMAND_NAMES[assignment.command]} (${assignment.command}) area of responsibility`,
+    subtype: assignment.geographicClass,
+    title: assignment.geographicClass === "sovereign_state"
+      ? `${ctx.country.name} is in the ${COMMAND_NAMES[assignment.command]} (${assignment.command}) area of responsibility`
+      : `${ctx.country.name} (${assignment.geographicClass.replace(/_/g, " ")}, not a sovereign state) is in the ${COMMAND_NAMES[assignment.command]} (${assignment.command}) area of responsibility`,
     summary: `${assignment.verification}. ${assignment.note ?? `Assignment taken from ${assignment.sourceAuthority}.`}${history.length ? ` History preserved: previously ${history.map((entry) => entry.command).join(", ")}${history[0]?.effectiveTo ? ` until ${history[0].effectiveTo}` : ""}.` : ""}`,
     evidence: [`Registry ${ASSIGNMENT_REGISTRY_VERSION}`, `Command public scope: ${source.publicCount}`, `Authority: ${assignment.sourceAuthority}`, "The Unified Command Plan is classified; assignments are built from public DoD and command material."].join(" | "),
     sourceName: assignment.sourceAuthority,
@@ -119,7 +121,7 @@ function assignmentRecord(ctx: AdapterContext, resolution: CountryCommandResolut
     geometry: { type: "None" },
     geographyLevel: "country",
     geographyNote: SEPARATION_NOTE,
-    extra: { ruleClass: COMMAND_RULE_CLASS, command: assignment.command, assignment, history, verificationStatus: assignment.verification },
+    extra: { ruleClass: COMMAND_RULE_CLASS, command: assignment.command, assignment, geographicClass: assignment.geographicClass, history, verificationStatus: assignment.verification },
   });
 }
 

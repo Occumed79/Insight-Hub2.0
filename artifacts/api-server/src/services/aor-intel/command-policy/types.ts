@@ -26,12 +26,24 @@ export type AssignmentVerification =
   | "PUBLIC-SOURCE BASELINE"
   | "PUBLIC-SOURCE BASELINE — LIVE VERIFY"; // count is official but no one-page enumeration was retrieved
 
+/** Geographic record classes. Only `sovereign_state` counts toward a command's sovereign-state total. */
+export type GeographicClass = "sovereign_state" | "territory" | "dependency" | "area_of_special_sovereignty" | "other_entity";
+
+/** Whether an official command AOR page itself names a non-sovereign entity. */
+export type EntityEvidence = "command_page_names_it" | "pack_only_not_named_by_command_page";
+
 export interface CountryAorAssignment {
   iso3: string;
   name: string;
   command: CommandId;
   /** "sovereign" is counted in the command's public count; "entity" is a territory / geographic entity listed separately. */
+  /** Derived: "sovereign" exactly when geographicClass is sovereign_state. */
   entityType: "sovereign" | "entity";
+  geographicClass: GeographicClass;
+  /** Why this class was chosen (an official statement or listing), or null for sovereign states. */
+  classBasis: string | null;
+  /** Non-sovereign records only. */
+  entityEvidence: EntityEvidence | null;
   basis: AssignmentBasis;
   verification: AssignmentVerification;
   sourceAuthority: string;

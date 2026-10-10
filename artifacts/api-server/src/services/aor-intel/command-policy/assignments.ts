@@ -5,7 +5,7 @@
 // (Israel, EUCOM → CENTCOM) is a record, never a silent overwrite.
 
 import { ASSIGNMENT_ROWS, type CommandId } from "./assignments-rows";
-import type { AssignmentBasis, AssignmentVerification, CountryAorAssignment } from "./types";
+import type { AssignmentBasis, AssignmentVerification, CountryAorAssignment, EntityEvidence, GeographicClass } from "./types";
 
 export const ASSIGNMENT_REGISTRY_VERSION = "2026-10-pack-1";
 
@@ -86,13 +86,26 @@ export const ISRAEL_REASSIGNMENT = {
   announced: "2021-01-15",
 };
 
-const ENTITY_ROWS: Array<{ iso3: string; name: string; command: CommandId; note: string; basis: AssignmentBasis }> = [
-  { iso3: "GRL", name: "Greenland", command: "NORTHCOM", note: "Official NORTHCOM public AOR page. A territory, not a sovereign state.", basis: "official_boundary_statement" },
-  { iso3: "PRI", name: "Puerto Rico", command: "NORTHCOM", note: "Official NORTHCOM public AOR page. A territory, not a sovereign state.", basis: "official_boundary_statement" },
-  { iso3: "VIR", name: "U.S. Virgin Islands", command: "NORTHCOM", note: "Official NORTHCOM public AOR page. A territory, not a sovereign state.", basis: "official_boundary_statement" },
-  { iso3: "TWN", name: "Taiwan", command: "INDOPACOM", note: "Operational geographic entity; not counted in the command's 36-nation public count.", basis: "official_count_normalized_list" },
-  { iso3: "PSE", name: "Palestinian Territories", command: "CENTCOM", note: "Geographic entity in the CENTCOM theater; not counted in the command's 21-nation public count.", basis: "official_count_normalized_list" },
-  { iso3: "ESH", name: "Western Sahara", command: "AFRICOM", note: "Geographic entity in the AFRICOM theater; not counted as a separate sovereign state in the 53-state public count.", basis: "official_count_normalized_list" },
+const STATE_FACT_SHEET = "https://www.state.gov/dependencies-and-areas-of-special-sovereignty/";
+const US_TERRITORY_BASIS = "SOUTHCOM's AOR page excludes 'U.S. commonwealths, territories, and possessions' from its Caribbean coverage, and the State Department dependencies fact sheet lists it under United States sovereignty.";
+
+const ENTITY_ROWS: Array<{ iso3: string; name: string; command: CommandId; geographicClass: GeographicClass; classBasis: string; evidence: EntityEvidence; note: string; basis: AssignmentBasis; sourceUrl?: string; sourceAuthority?: string }> = [
+  { iso3: "GRL", name: "Greenland", command: "NORTHCOM", geographicClass: "dependency", evidence: "command_page_names_it", basis: "official_boundary_statement",
+    classBasis: "Named in NORTHCOM's AOR sentence without a class; the State Department fact sheet lists it under Danish sovereignty among 'dependencies and areas of special sovereignty'. The fact sheet does not distinguish dependency from area of special sovereignty, so 'dependency' is the documented convention for a non-U.S. entry.",
+    note: "NORTHCOM's AOR page names Greenland (\"encompasses the continental United States, Alaska, Canada, Mexico, Greenland\"). Not a sovereign state." },
+  { iso3: "PRI", name: "Puerto Rico", command: "NORTHCOM", geographicClass: "territory", evidence: "command_page_names_it", basis: "official_boundary_statement",
+    classBasis: US_TERRITORY_BASIS, note: "NORTHCOM's AOR page names Puerto Rico among the Caribbean portions of its AOR. Not a sovereign state." },
+  { iso3: "VIR", name: "U.S. Virgin Islands", command: "NORTHCOM", geographicClass: "territory", evidence: "command_page_names_it", basis: "official_boundary_statement",
+    classBasis: US_TERRITORY_BASIS, note: "NORTHCOM's AOR page names the U.S. Virgin Islands among the Caribbean portions of its AOR. Not a sovereign state." },
+  { iso3: "TWN", name: "Taiwan", command: "INDOPACOM", geographicClass: "other_entity", evidence: "pack_only_not_named_by_command_page", basis: "official_count_normalized_list",
+    classBasis: "Not classified by an official command source and not on the State Department dependencies fact sheet.",
+    note: "From the extraction pack only: an operational geographic entity not counted in the command's public nation count. The INDOPACOM page read on 2026-10-10 does not name Taiwan. LIVE VERIFY." },
+  { iso3: "PSE", name: "Palestinian Territories", command: "CENTCOM", geographicClass: "other_entity", evidence: "pack_only_not_named_by_command_page", basis: "official_count_normalized_list",
+    classBasis: "Not classified by an official command source and not on the State Department dependencies fact sheet.",
+    note: "From the extraction pack only: a geographic entity in the CENTCOM theater not counted in the 21-nation public count. The CENTCOM AOR page read on 2026-10-10 names no territory. LIVE VERIFY." },
+  { iso3: "ESH", name: "Western Sahara", command: "AFRICOM", geographicClass: "other_entity", evidence: "pack_only_not_named_by_command_page", basis: "official_count_normalized_list",
+    classBasis: "Not classified by an official command source and not on the State Department dependencies fact sheet.",
+    note: "From the extraction pack only: a geographic entity in the AFRICOM theater not counted in the 53-state public count. The AFRICOM page read on 2026-10-10 names no territory. LIVE VERIFY." },
 ];
 
 function build(): CountryAorAssignment[] {
@@ -106,6 +119,9 @@ function build(): CountryAorAssignment[] {
         name,
         command,
         entityType: "sovereign",
+        geographicClass: "sovereign_state",
+        classBasis: null,
+        entityEvidence: null,
         basis: source.basis,
         verification: source.verification,
         sourceAuthority: israel ? ISRAEL_REASSIGNMENT.authority : source.authority,
@@ -124,8 +140,11 @@ function build(): CountryAorAssignment[] {
       name: entity.name,
       command: entity.command,
       entityType: "entity",
+      geographicClass: entity.geographicClass,
+      classBasis: entity.classBasis,
+      entityEvidence: entity.evidence,
       basis: entity.basis,
-      verification: source.verification,
+      verification: entity.evidence === "pack_only_not_named_by_command_page" ? "PUBLIC-SOURCE BASELINE — LIVE VERIFY" : source.verification,
       sourceAuthority: source.authority,
       sourceUrl: source.url,
       effectiveFrom: null,
@@ -144,6 +163,9 @@ const HISTORY: CountryAorAssignment[] = [
     name: "Israel",
     command: "EUCOM",
     entityType: "sovereign",
+    geographicClass: "sovereign_state",
+    classBasis: null,
+    entityEvidence: null,
     basis: "official_boundary_statement",
     verification: "PUBLIC-SOURCE BASELINE",
     sourceAuthority: ISRAEL_REASSIGNMENT.authority,
@@ -188,3 +210,35 @@ export function assignmentStats(): { version: string; byCommand: Record<CommandI
   }
   return { version: ASSIGNMENT_REGISTRY_VERSION, byCommand, ucpAuthority: { authority: DOD_UCP_AUTHORITY, url: DOD_UCP_URL, note: "The UCP itself is classified; assignments are constructed from public DoD and command material." } };
 }
+
+/**
+ * What each command's OFFICIAL public AOR description says about non-sovereign places, reviewed 2026-10-10.
+ * `declaredCount` is only set where the command itself states a number; `named` lists only places the command names.
+ */
+export interface EntityCoverageReview {
+  command: CommandId;
+  reviewedAt: string;
+  sourceUrl: string;
+  declaredEntityCount: number | null;
+  declaredWording: string | null;
+  named: string[];
+  finding: string;
+  status: "COMPLETE_AS_STATED" | "INCOMPLETE_LIVE_VERIFY";
+}
+
+export const ENTITY_COVERAGE_REVIEW: Record<CommandId, EntityCoverageReview> = {
+  NORTHCOM: { command: "NORTHCOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.northcom.mil/About/About/", declaredEntityCount: null, declaredWording: null, named: ["GRL", "PRI", "VIR"], status: "COMPLETE_AS_STATED",
+    finding: "The AOR sentence names Greenland, Puerto Rico and the U.S. Virgin Islands (and The Bahamas, a sovereign state) and says 'portions of the Caribbean region'. It does not classify any place. Bermuda, Turks and Caicos, the British Virgin Islands and the Cayman Islands are not mentioned, so none is assigned." },
+  SOUTHCOM: { command: "SOUTHCOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.southcom.mil/About/Area-of-Responsibility/", declaredEntityCount: 12, declaredWording: "31 countries and 12 dependencies and areas of special sovereignty", named: [], status: "INCOMPLETE_LIVE_VERIFY",
+    finding: "SOUTHCOM states 12 dependencies and areas of special sovereignty but its public pages name none; the AOR page links the State Department fact sheet, which lists places by sovereignty and does not assign them to any command. SOUTHCOM's About page describes the Caribbean 'except U.S. commonwealths, territories, and possessions'. No SOUTHCOM entity is recorded until an official source enumerates them." },
+  CENTCOM: { command: "CENTCOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.centcom.mil/AREA-OF-RESPONSIBILITY/", declaredEntityCount: null, declaredWording: "The 21 nations of the AOR", named: [], status: "COMPLETE_AS_STATED",
+    finding: "The AOR page gives only the 21-nation count and regional descriptors; it names no territory. The Palestinian Territories record comes from the extraction pack, not from the command page." },
+  AFRICOM: { command: "AFRICOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.africom.mil/about-the-command", declaredEntityCount: null, declaredWording: "The area of responsibility consists of 53 African states", named: [], status: "COMPLETE_AS_STATED",
+    finding: "The page states 53 African states and refers to 'island nations' generally; it names no territory or dependency. The Western Sahara record comes from the extraction pack." },
+  EUCOM: { command: "EUCOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.eucom.mil/about", declaredEntityCount: null, declaredWording: null, named: [], status: "INCOMPLETE_LIVE_VERIFY",
+    finding: "No retrievable EUCOM page describes the AOR or states a count of countries/territories, so no entity can be confirmed or ruled out. The country list also remains LIVE VERIFY." },
+  INDOPACOM: { command: "INDOPACOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.pacom.mil/About-USINDOPACOM/", declaredEntityCount: null, declaredWording: "The 38 nations comprising the Asia-Pacific region", named: [], status: "INCOMPLETE_LIVE_VERIFY",
+    finding: "The About page names no territory or dependency (only Hawaii and Alaska as U.S. states). It states '38 nations comprising the Asia-Pacific region', a regional phrase that differs from the pack's 36-nation command count; the two were not reconciled. Taiwan comes from the extraction pack." },
+};
+
+export const STATE_DEPARTMENT_FACT_SHEET = STATE_FACT_SHEET;

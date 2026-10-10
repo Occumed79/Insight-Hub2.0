@@ -33,7 +33,7 @@ export const SOURCE_GAP_LEDGER: SourceGapEntry[] = [
   {
     id: "indopacom-country-list", command: "INDOPACOM", item: "Current INDOPACOM country list", status: "OPEN_LIVE_VERIFY", attemptedAt: ATTEMPT,
     sources: ["https://www.pacom.mil/About-USINDOPACOM/USPACOM-Area-of-Responsibility/", "https://www.pacom.mil/Leadership/Article/2590636/commander-us-pacific-command/", "https://www.pacom.mil/Resources/Travel-Requirements/"],
-    outcome: "The AOR page and the 36-nation article could not be fetched. The Travel Requirements page lists no countries. The 36-nation baseline rests only on the pack's normalization of the public count.",
+    outcome: "The AOR page and the 36-nation article could not be fetched. The Travel Requirements page lists no countries. The INDOPACOM About page (read 2026-10-10) lists no countries and states '38 nations comprising the Asia-Pacific region', a regional phrase that differs from the pack's 36-nation command count and was not reconciled. The 36-nation baseline rests only on the pack's normalization of the public count.",
     ruleIds: [], remaining: ["official one-page enumeration of the INDOPACOM AOR"],
   },
   {
@@ -41,6 +41,30 @@ export const SOURCE_GAP_LEDGER: SourceGapEntry[] = [
     sources: ["https://www.pacom.mil/Portals/55/Documents/Surgeon/FY26%20Force%20Health%20Protection%20Guidance%20for%20USINDOPACOM%20AOR.pdf?ver=BeAhcnVciTeRV1jWl1x5BA%3D%3D", "https://www.pacom.mil/Resources/Travel-Requirements/"],
     outcome: "The PDF could not be fetched. The Travel Requirements page carries no message date; its only date, 'as of December 8, 2023', belongs to the page's general travel procedures and is not used as the GENADMIN date. The date stays null.",
     ruleIds: ["ip:order"], remaining: ["message DTG / issue date", "populations", "stay-duration thresholds", "immunization requirements"],
+  },
+  {
+    id: "southcom-dependencies", command: "SOUTHCOM", item: "SOUTHCOM's 12 dependencies and areas of special sovereignty", status: "OPEN_LIVE_VERIFY", attemptedAt: "2026-10-10",
+    sources: ["https://www.southcom.mil/About/Area-of-Responsibility/", "https://www.southcom.mil/About/", "https://www.state.gov/dependencies-and-areas-of-special-sovereignty/"],
+    outcome: "SOUTHCOM states '31 countries and 12 dependencies and areas of special sovereignty' but names none of the 12 on its AOR or About pages. The State Department fact sheet the page links lists places by sovereignty and does not assign any to a command. No SOUTHCOM entity is recorded, because naming them would be an inference, not an official assignment. For information only: the fact sheet's non-U.S. Caribbean and South Atlantic entries (Anguilla, Aruba, British Virgin Islands, Cayman Islands, Curaçao, Falkland Islands, French Guiana, Montserrat, Saint Barthélemy, Saint Martin, Sint Maarten, Turks and Caicos Islands) happen to total 12, but that is not an official enumeration and is not used.",
+    ruleIds: [], remaining: ["an official SOUTHCOM enumeration of the 12 places", "which sovereign state each belongs to"],
+  },
+  {
+    id: "northcom-entities", command: "NORTHCOM", item: "NORTHCOM territories and dependencies", status: "RESOLVED", attemptedAt: "2026-10-10",
+    sources: ["https://www.northcom.mil/About/About/"],
+    outcome: "The official AOR sentence names Greenland, Puerto Rico and the U.S. Virgin Islands (plus The Bahamas, a sovereign state) and 'portions of the Caribbean region'. Bermuda, Turks and Caicos, the British Virgin Islands and the Cayman Islands are not mentioned, so none is assigned. The page does not classify the three places; classes are recorded with their basis.",
+    ruleIds: [], remaining: ["which other Caribbean places fall under 'portions of the Caribbean region'"],
+  },
+  {
+    id: "centcom-africom-entities", command: "CENTCOM", item: "CENTCOM and AFRICOM named territories", status: "RESOLVED", attemptedAt: "2026-10-10",
+    sources: ["https://www.centcom.mil/AREA-OF-RESPONSIBILITY/", "https://www.africom.mil/about-the-command"],
+    outcome: "Neither official page names a territory or dependency (CENTCOM: 21 nations; AFRICOM: 53 African states). The Palestinian Territories and Western Sahara records come from the extraction pack only and are flagged as such.",
+    ruleIds: [], remaining: ["an official source naming the Palestinian Territories (CENTCOM) or Western Sahara (AFRICOM)"],
+  },
+  {
+    id: "eucom-indopacom-entities", command: "EUCOM", item: "EUCOM and INDOPACOM named territories", status: "OPEN_LIVE_VERIFY", attemptedAt: "2026-10-10",
+    sources: ["https://www.eucom.mil/about", "https://www.pacom.mil/About-USINDOPACOM/"],
+    outcome: "No retrievable EUCOM page describes the AOR. The INDOPACOM About page names no territory (only Hawaii and Alaska as U.S. states). The Taiwan record comes from the extraction pack only. Entity coverage for both commands cannot be confirmed or ruled out.",
+    ruleIds: [], remaining: ["EUCOM AOR description", "official INDOPACOM naming of territories such as Taiwan"],
   },
   {
     id: "centcom-immunization-detail", command: "CENTCOM", item: "MOD 18 per-agent immunization / chemoprophylaxis detail", status: "RESOLVED", attemptedAt: ATTEMPT,

@@ -2,70 +2,121 @@
 // Counts are computed from the rows, never typed in, so a duplicate or overlapping current assignment cannot hide.
 
 import { ASSIGNMENT_ROWS } from "./assignments-rows";
-import { assignmentFor, assignmentHistoryFor, CURRENT_ASSIGNMENTS, COMMAND_SOURCES } from "./assignments";
-import type { CommandId, CountryAorAssignment } from "./types";
+import { assignmentFor, assignmentHistoryFor, CURRENT_ASSIGNMENTS, COMMAND_SOURCES, ENTITY_COVERAGE_REVIEW } from "./assignments";
+import type { CommandId, CountryAorAssignment, GeographicClass } from "./types";
 
 const COMMANDS = Object.keys(ASSIGNMENT_ROWS) as CommandId[];
+const CLASSES: GeographicClass[] = ["sovereign_state", "territory", "dependency", "area_of_special_sovereignty", "other_entity"];
+const emptyClasses = (): Record<GeographicClass, number> => ({ sovereign_state: 0, territory: 0, dependency: 0, area_of_special_sovereignty: 0, other_entity: 0 });
+
+export interface CommandAuditRow {
+  sovereign: number;
+  entities: number;
+  total: number;
+  byClass: Record<GeographicClass, number>;
+  publicCount: string;
+  matchesPublicSovereignCount: boolean | null;
+  liveVerify: boolean;
+  /** Entities the command's own page says it covers, versus entities recorded here. */
+  entityDeclared: number | null;
+  entityRecorded: number;
+  entityCoverageStatus: "COMPLETE_AS_STATED" | "INCOMPLETE_LIVE_VERIFY";
+}
 
 export interface RegistryAudit {
+  /** Sovereign states only. */
+  sovereignStates: number;
+  /** Territories, dependencies, areas of special sovereignty and other entities, all non-sovereign. */
+  territoriesDependenciesEntities: number;
+  totalCurrentRecords: number;
+  byClass: Record<GeographicClass, number>;
+  // Kept names (same values as above) used by earlier tests and endpoints.
   uniqueCurrentSovereign: number;
   uniqueCurrentEntities: number;
   uniqueCurrentTotal: number;
   currentRows: number;
-  perCommand: Record<CommandId, { sovereign: number; entities: number; total: number; publicCount: string; matchesPublicSovereignCount: boolean | null; liveVerify: boolean }>;
+  perCommand: Record<CommandId, CommandAuditRow>;
   /** ISO3 codes with more than one CURRENT assignment (must be empty). */
   duplicateCurrent: Array<{ iso3: string; commands: CommandId[] }>;
   /** Superseded assignments, kept as history; none of these is counted as current. */
   historical: Array<{ iso3: string; name: string; command: CommandId; effectiveTo: string | null; supersededBy: CommandId | null }>;
   /** Historical records whose ISO3 also resolves to the same command as a current record (must be empty). */
   historicalOverlappingCurrent: string[];
-  /** Entries of the app's AOR country table with no command assignment (must be empty). */
-  unmappedCountryTable: Array<{ iso3: string; name: string }>;
-  /** Current assignments whose country/entity is not in the app's AOR country table (mapped, but not selectable in the UI). */
-  mappedButNotInCountryTable: Array<{ iso3: string; name: string; entityType: CountryAorAssignment["entityType"]; command: CommandId }>;
+  /** Places the UI selector offers that have no command assignment (must be empty). */
+  unmappedSelectable: Array<{ iso3: string; name: string }>;
+  /** Current records not offered by the UI selector (mapped, but cannot be picked). */
+  mappedMissingFromSelector: Array<{ iso3: string; name: string; geographicClass: GeographicClass; command: CommandId }>;
+  /** Commands whose own pages declare more entities than the registry can name. */
+  declaredButUnenumerated: Array<{ command: CommandId; declared: number; recorded: number; shortfall: number; wording: string | null }>;
+  /** Non-sovereign records named by an official command page versus carried only from the extraction pack. */
+  entityEvidence: { commandPageNamesIt: string[]; packOnly: string[] };
   liveVerifyCommands: CommandId[];
+  entityLiveVerifyCommands: CommandId[];
 }
 
 const PUBLIC_SOVEREIGN_COUNT: Partial<Record<CommandId, number>> = { CENTCOM: 21, AFRICOM: 53, EUCOM: 50, INDOPACOM: 36, SOUTHCOM: 31, NORTHCOM: 4 };
 
 export function auditRegistry(countryTable: ReadonlyArray<{ iso3: string; country: string }> = [], rows: readonly CountryAorAssignment[] = CURRENT_ASSIGNMENTS): RegistryAudit {
   const byIso = new Map<string, Set<CommandId>>();
+  const rowCount = new Map<string, number>();
   for (const row of rows) {
     const set = byIso.get(row.iso3) ?? new Set<CommandId>();
     set.add(row.command);
     byIso.set(row.iso3, set);
+    rowCount.set(row.iso3, (rowCount.get(row.iso3) ?? 0) + 1);
   }
-  const duplicates = [...byIso.entries()].filter(([, commands]) => commands.size > 1).map(([iso3, commands]) => ({ iso3, commands: [...commands] }));
-  // A repeated row for the same command is also a duplicate even though it names one command.
-  const rowCount = new Map<string, number>();
-  for (const row of rows) rowCount.set(row.iso3, (rowCount.get(row.iso3) ?? 0) + 1);
-  for (const [iso3, count] of rowCount) if (count > 1 && !duplicates.some((entry) => entry.iso3 === iso3)) duplicates.push({ iso3, commands: [...(byIso.get(iso3) ?? [])] });
+  const duplicates: RegistryAudit["duplicateCurrent"] = [];
+  for (const [iso3, count] of rowCount) {
+    const commands = [...(byIso.get(iso3) ?? [])];
+    if (commands.length > 1 || count > 1) duplicates.push({ iso3, commands });
+  }
 
-  const sovereign = rows.filter((row) => row.entityType === "sovereign");
-  const entities = rows.filter((row) => row.entityType === "entity");
+  const sovereign = rows.filter((row) => row.geographicClass === "sovereign_state");
+  const entities = rows.filter((row) => row.geographicClass !== "sovereign_state");
+
+  const byClass = emptyClasses();
+  for (const row of rows) byClass[row.geographicClass] += 1;
 
   const perCommand = {} as RegistryAudit["perCommand"];
   for (const command of COMMANDS) {
-    const s = sovereign.filter((row) => row.command === command).length;
-    const e = entities.filter((row) => row.command === command).length;
+    const mine = rows.filter((row) => row.command === command);
+    const classes = emptyClasses();
+    for (const row of mine) classes[row.geographicClass] += 1;
+    const s = classes.sovereign_state;
+    const e = mine.length - s;
     const expected = PUBLIC_SOVEREIGN_COUNT[command] ?? null;
-    perCommand[command] = { sovereign: s, entities: e, total: s + e, publicCount: COMMAND_SOURCES[command].publicCount, matchesPublicSovereignCount: expected === null ? null : expected === s, liveVerify: /LIVE VERIFY/.test(COMMAND_SOURCES[command].verification) };
+    const review = ENTITY_COVERAGE_REVIEW[command];
+    perCommand[command] = {
+      sovereign: s, entities: e, total: mine.length, byClass: classes,
+      publicCount: COMMAND_SOURCES[command].publicCount,
+      matchesPublicSovereignCount: expected === null ? null : expected === s,
+      liveVerify: /LIVE VERIFY/.test(COMMAND_SOURCES[command].verification),
+      entityDeclared: review.declaredEntityCount, entityRecorded: e, entityCoverageStatus: review.status,
+    };
   }
 
   const historical: RegistryAudit["historical"] = [];
   for (const row of rows) {
-    for (const old of assignmentHistoryFor(row.iso3)) {
-      historical.push({ iso3: old.iso3, name: old.name, command: old.command, effectiveTo: old.effectiveTo, supersededBy: row.command });
-    }
+    for (const old of assignmentHistoryFor(row.iso3)) historical.push({ iso3: old.iso3, name: old.name, command: old.command, effectiveTo: old.effectiveTo, supersededBy: row.command });
   }
   const historicalOverlappingCurrent = historical.filter((old) => rows.some((row) => row.iso3 === old.iso3 && row.command === old.command)).map((old) => old.iso3);
 
   const tableIso = new Set(countryTable.map((entry) => entry.iso3));
   const unmapped = countryTable.filter((entry) => !assignmentFor(entry.iso3)).map((entry) => ({ iso3: entry.iso3, name: entry.country }));
   const alias = (iso3: string) => (iso3 === "XKX" ? "XKS" : iso3);
-  const notInTable = countryTable.length ? rows.filter((row) => !tableIso.has(row.iso3) && !tableIso.has(alias(row.iso3))).map((row) => ({ iso3: row.iso3, name: row.name, entityType: row.entityType, command: row.command })) : [];
+  const missing = countryTable.length ? rows.filter((row) => !tableIso.has(row.iso3) && !tableIso.has(alias(row.iso3))).map((row) => ({ iso3: row.iso3, name: row.name, geographicClass: row.geographicClass, command: row.command })) : [];
+
+  const declaredButUnenumerated = COMMANDS.flatMap((command) => {
+    const declared = perCommand[command].entityDeclared;
+    const recorded = perCommand[command].entityRecorded;
+    return declared !== null && recorded < declared ? [{ command, declared, recorded, shortfall: declared - recorded, wording: ENTITY_COVERAGE_REVIEW[command].declaredWording }] : [];
+  });
 
   return {
+    sovereignStates: new Set(sovereign.map((row) => row.iso3)).size,
+    territoriesDependenciesEntities: new Set(entities.map((row) => row.iso3)).size,
+    totalCurrentRecords: byIso.size,
+    byClass,
     uniqueCurrentSovereign: new Set(sovereign.map((row) => row.iso3)).size,
     uniqueCurrentEntities: new Set(entities.map((row) => row.iso3)).size,
     uniqueCurrentTotal: byIso.size,
@@ -74,8 +125,16 @@ export function auditRegistry(countryTable: ReadonlyArray<{ iso3: string; countr
     duplicateCurrent: duplicates,
     historical,
     historicalOverlappingCurrent,
-    unmappedCountryTable: unmapped,
-    mappedButNotInCountryTable: notInTable,
+    unmappedSelectable: unmapped,
+    mappedMissingFromSelector: missing,
+    declaredButUnenumerated,
+    entityEvidence: {
+      commandPageNamesIt: entities.filter((row) => row.entityEvidence === "command_page_names_it").map((row) => row.iso3).sort(),
+      packOnly: entities.filter((row) => row.entityEvidence === "pack_only_not_named_by_command_page").map((row) => row.iso3).sort(),
+    },
     liveVerifyCommands: COMMANDS.filter((command) => perCommand[command].liveVerify),
+    entityLiveVerifyCommands: COMMANDS.filter((command) => perCommand[command].entityCoverageStatus === "INCOMPLETE_LIVE_VERIFY"),
   };
 }
+
+export { CLASSES as GEOGRAPHIC_CLASSES };

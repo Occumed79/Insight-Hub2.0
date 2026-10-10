@@ -30,7 +30,7 @@ test("registry: sovereign counts match each command's public count, no country i
   assert.deepEqual(entities, ["ESH:AFRICOM", "GRL:NORTHCOM", "PRI:NORTHCOM", "PSE:CENTCOM", "TWN:INDOPACOM", "VIR:NORTHCOM"], "territories are separate from the sovereign count");
   assert.equal(assignmentStats().byCommand.EUCOM.sovereign, 50);
   // LIVE VERIFY flags exactly where the pack says the one-page enumeration was not retrieved.
-  const flagged = new Set(CURRENT_ASSIGNMENTS.filter((entry) => /LIVE VERIFY/.test(entry.verification)).map((entry) => entry.command));
+  const flagged = new Set(CURRENT_ASSIGNMENTS.filter((entry) => entry.geographicClass === "sovereign_state" && /LIVE VERIFY/.test(entry.verification)).map((entry) => entry.command));
   assert.deepEqual([...flagged].sort(), ["EUCOM", "INDOPACOM"]);
 });
 
@@ -306,29 +306,33 @@ test("AI validator: command policy is a third class that cannot be blended or tu
   assert.equal(check("The 99-day supply is required under MOD 18.", med), false, "ungrounded number");
 });
 
-test("registry audit: 195 unique sovereign + 6 entities, no duplicate current assignment, Israel's EUCOM record is history only", () => {
+test("registry audit: 195 sovereign + 6 non-sovereign records by class, no duplicate current assignment, Israel's EUCOM record is history only", () => {
   const audit = auditRegistry(AOR_COUNTRY_PROFILES.map((entry) => ({ iso3: entry.iso3, country: entry.country })));
-  assert.equal(audit.uniqueCurrentSovereign, 195);
-  assert.equal(audit.uniqueCurrentEntities, 6);
-  assert.equal(audit.uniqueCurrentTotal, 201);
+  assert.equal(audit.sovereignStates, 195);
+  assert.equal(audit.territoriesDependenciesEntities, 6);
+  assert.equal(audit.totalCurrentRecords, 201);
   assert.equal(audit.currentRows, 201, "one current row per place: no row is repeated");
+  assert.deepEqual(audit.byClass, { sovereign_state: 195, territory: 2, dependency: 1, area_of_special_sovereignty: 0, other_entity: 3 });
   assert.equal(21 + 53 + 50 + 36 + 31 + 4, 195, "the per-command public counts sum to the sovereign total");
   assert.deepEqual(audit.duplicateCurrent, []);
   assert.deepEqual(audit.historicalOverlappingCurrent, []);
-  assert.deepEqual(audit.unmappedCountryTable, [], "every entry of the 197-row AOR country table resolves to a command");
+  assert.deepEqual(audit.unmappedSelectable, [], "every entry of the 197-row AOR country table resolves to a command");
   assert.equal(AOR_COUNTRY_PROFILES.length, 197);
-  assert.deepEqual(audit.mappedButNotInCountryTable.map((entry) => entry.iso3).sort(), ["ESH", "GRL", "PRI", "VIR"], "mapped, but not selectable in the AOR country table");
-  assert.ok(audit.mappedButNotInCountryTable.every((entry) => entry.entityType === "entity"));
+  assert.deepEqual(audit.mappedMissingFromSelector.map((entry) => entry.iso3).sort(), ["ESH", "GRL", "PRI", "VIR"], "mapped, but not selectable in the AOR country table");
+  assert.deepEqual(audit.mappedMissingFromSelector.map((entry) => `${entry.iso3}:${entry.geographicClass}`).sort(), ["ESH:other_entity", "GRL:dependency", "PRI:territory", "VIR:territory"]);
   const expected: Record<CommandId, [number, number]> = { CENTCOM: [21, 1], AFRICOM: [53, 1], EUCOM: [50, 0], INDOPACOM: [36, 1], SOUTHCOM: [31, 0], NORTHCOM: [4, 3] };
   for (const [command, [sovereign, entities]] of Object.entries(expected)) {
     const row = audit.perCommand[command as CommandId];
     assert.equal(row.sovereign, sovereign, command);
     assert.equal(row.entities, entities, command);
     assert.equal(row.total, sovereign + entities, command);
+    assert.equal(row.byClass.sovereign_state, sovereign, command);
     assert.equal(row.matchesPublicSovereignCount, true, command);
   }
+  assert.deepEqual(audit.perCommand.NORTHCOM.byClass, { sovereign_state: 4, territory: 2, dependency: 1, area_of_special_sovereignty: 0, other_entity: 0 });
+  assert.deepEqual(audit.perCommand.INDOPACOM.byClass.other_entity, 1);
   assert.equal(Object.values(audit.perCommand).reduce((total, row) => total + row.sovereign, 0), 195);
-  assert.deepEqual(audit.liveVerifyCommands, ["EUCOM", "INDOPACOM"]);
+  assert.deepEqual(audit.liveVerifyCommands, ["EUCOM", "INDOPACOM"], "sovereign country-list LIVE VERIFY is unchanged");
   assert.deepEqual(audit.historical, [{ iso3: "ISR", name: "Israel", command: "EUCOM", effectiveTo: "2021-01-15", supersededBy: "CENTCOM" }]);
   assert.equal(CURRENT_ASSIGNMENTS.filter((row) => row.iso3 === "ISR").length, 1, "Israel has exactly one current assignment");
   assert.equal(CURRENT_ASSIGNMENTS.filter((row) => row.command === "EUCOM").some((row) => row.iso3 === "ISR"), false);
@@ -341,14 +345,48 @@ test("registry audit: 195 unique sovereign + 6 entities, no duplicate current as
   assert.deepEqual(repeated.duplicateCurrent.map((entry) => entry.iso3), ["EGY"], "the same place listed twice is also a duplicate");
 });
 
-test("source-gap ledger: CENTCOM immunizations and AFRICOM Yellow Fever resolved; unreadable items stay LIVE VERIFY with nothing invented", () => {
+test("geographic classes: non-sovereign places never inflate the sovereign count; SOUTHCOM's declared 12 are reported, not guessed", async () => {
+  const audit = auditRegistry(AOR_COUNTRY_PROFILES.map((entry) => ({ iso3: entry.iso3, country: entry.country })));
+  const classOf = (iso3: string) => assignmentFor(iso3)?.geographicClass;
+  assert.equal(classOf("PRI"), "territory");
+  assert.equal(classOf("VIR"), "territory");
+  assert.equal(classOf("GRL"), "dependency");
+  assert.equal(classOf("TWN"), "other_entity");
+  assert.equal(classOf("PSE"), "other_entity");
+  assert.equal(classOf("ESH"), "other_entity");
+  assert.equal(classOf("KWT"), "sovereign_state");
+  for (const row of CURRENT_ASSIGNMENTS) {
+    assert.equal(row.entityType === "sovereign", row.geographicClass === "sovereign_state", row.iso3);
+    if (row.geographicClass === "sovereign_state") assert.ok(row.classBasis === null && row.entityEvidence === null, row.iso3);
+    else assert.ok(row.classBasis && row.entityEvidence, `${row.iso3} records why it is not a sovereign state`);
+  }
+  assert.equal(countriesForCommand("NORTHCOM").length, 4, "Greenland, Puerto Rico and USVI are not counted as NORTHCOM countries");
+  assert.equal(CURRENT_ASSIGNMENTS.filter((row) => row.command === "SOUTHCOM" && row.geographicClass !== "sovereign_state").length, 0, "no SOUTHCOM entity is invented: no official page names the 12");
+  assert.deepEqual(audit.declaredButUnenumerated.find((entry) => entry.command === "SOUTHCOM"), { command: "SOUTHCOM", declared: 12, recorded: 0, shortfall: 12, wording: "31 countries and 12 dependencies and areas of special sovereignty" });
+  assert.equal(audit.perCommand.SOUTHCOM.entityCoverageStatus, "INCOMPLETE_LIVE_VERIFY");
+  assert.deepEqual(audit.entityLiveVerifyCommands, ["EUCOM", "INDOPACOM", "SOUTHCOM"]);
+  assert.deepEqual([...audit.entityEvidence.commandPageNamesIt].sort(), ["GRL", "PRI", "VIR"]);
+  assert.deepEqual([...audit.entityEvidence.packOnly].sort(), ["ESH", "PSE", "TWN"]);
+  // Assignment evidence says "not a sovereign state" for a non-sovereign place, and nothing for a sovereign one.
+  const asPlace = (iso3: string, name: string) => ({ ...ctxFor("KW"), country: { ...resolveCountry("KW")!, iso3, name } });
+  const pri = (await commandPolicyAdapter(asPlace("PRI", "Puerto Rico"))).records.find((r) => r.category === "command_assignment");
+  assert.match(pri?.title ?? "", /Puerto Rico \(territory, not a sovereign state\)/);
+  assert.equal(pri?.extra?.geographicClass, "territory");
+  const grl = (await commandPolicyAdapter(asPlace("GRL", "Greenland"))).records.find((r) => r.category === "command_assignment");
+  assert.match(grl?.title ?? "", /Greenland \(dependency, not a sovereign state\)/);
+  const kwt = (await commandPolicyAdapter(ctxFor("KW"))).records.find((r) => r.category === "command_assignment");
+  assert.doesNotMatch(kwt?.title ?? "", /not a sovereign state/);
+  assert.equal(kwt?.extra?.geographicClass, "sovereign_state");
+});
+
+test("source-gap ledger: CENTCOM immunizations, AFRICOM Yellow Fever and the NORTHCOM/CENTCOM/AFRICOM entity reviews resolved; unreadable items stay LIVE VERIFY with nothing invented", () => {
   const summary = gapSummary();
-  assert.deepEqual(summary.resolved.sort(), ["africom-yellow-fever-scope", "centcom-immunization-detail"]);
-  assert.deepEqual(summary.openLiveVerify.sort(), ["eucom-country-list", "indopacom-country-list", "indopacom-message-date"]);
-  assert.ok(SOURCE_GAP_LEDGER.every((entry) => entry.attemptedAt === "2026-10-08" && entry.sources.every((url) => url.startsWith("https://"))));
+  assert.deepEqual(summary.resolved.sort(), ["africom-yellow-fever-scope", "centcom-africom-entities", "centcom-immunization-detail", "northcom-entities"]);
+  assert.deepEqual(summary.openLiveVerify.sort(), ["eucom-country-list", "eucom-indopacom-entities", "indopacom-country-list", "indopacom-message-date", "southcom-dependencies"]);
+  assert.ok(SOURCE_GAP_LEDGER.every((entry) => ["2026-10-08", "2026-10-10"].includes(String(entry.attemptedAt)) && entry.sources.every((url) => url.startsWith("https://"))));
   for (const entry of SOURCE_GAP_LEDGER.filter((e) => e.status === "OPEN_LIVE_VERIFY")) assert.ok(entry.remaining.length > 0, entry.id);
   assert.equal(COMMAND_POLICIES.find((p) => p.policyId === "INDOPACOM-FY26-FHP-P-25-0295")?.sourceDate, null, "the Dec 2023 page footer is not used as the message date");
-  assert.ok(CURRENT_ASSIGNMENTS.filter((row) => row.command === "EUCOM" || row.command === "INDOPACOM").every((row) => /LIVE VERIFY/.test(row.verification)));
+  assert.ok(CURRENT_ASSIGNMENTS.filter((row) => row.geographicClass === "sovereign_state" && (row.command === "EUCOM" || row.command === "INDOPACOM")).every((row) => /LIVE VERIFY/.test(row.verification)));
   for (const id of SOURCE_GAP_LEDGER.find((e) => e.id === "centcom-immunization-detail")!.ruleIds) assert.ok(COMMAND_RULES.some((rule) => rule.id === id), id);
   assert.ok(summary.deferred.fields > 0 && summary.deferred.byCommand.AFRICOM, "other rule-level SOURCE_GAP fields remain and are counted, not hidden");
 });
