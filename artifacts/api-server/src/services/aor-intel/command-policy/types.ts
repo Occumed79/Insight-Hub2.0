@@ -30,7 +30,12 @@ export type AssignmentVerification =
 export type GeographicClass = "sovereign_state" | "territory" | "dependency" | "area_of_special_sovereignty" | "other_entity";
 
 /** Whether an official command AOR page itself names a non-sovereign entity. */
-export type EntityEvidence = "command_page_names_it" | "pack_only_not_named_by_command_page";
+export type EntityEvidence =
+  | "command_page_names_it"
+  | "pack_only_not_named_by_command_page"
+  // The command declares a count of such places but names none; this record is an INFERENCE (placed by count-match against the
+  // State Department fact sheet), not an official assignment. Always LIVE VERIFY.
+  | "inferred_not_named_by_command_page";
 
 export interface CountryAorAssignment {
   iso3: string;

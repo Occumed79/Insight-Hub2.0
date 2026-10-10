@@ -121,7 +121,7 @@ function assignmentRecord(ctx: AdapterContext, resolution: CountryCommandResolut
     geometry: { type: "None" },
     geographyLevel: "country",
     geographyNote: SEPARATION_NOTE,
-    extra: { ruleClass: COMMAND_RULE_CLASS, command: assignment.command, assignment, geographicClass: assignment.geographicClass, history, verificationStatus: assignment.verification },
+    extra: { ruleClass: COMMAND_RULE_CLASS, command: assignment.command, assignment, geographicClass: assignment.geographicClass, entityEvidence: assignment.entityEvidence, history, verificationStatus: assignment.verification },
   });
 }
 

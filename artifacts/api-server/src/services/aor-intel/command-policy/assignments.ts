@@ -89,6 +89,8 @@ export const ISRAEL_REASSIGNMENT = {
 const STATE_FACT_SHEET = "https://www.state.gov/dependencies-and-areas-of-special-sovereignty/";
 const US_TERRITORY_BASIS = "SOUTHCOM's AOR page excludes 'U.S. commonwealths, territories, and possessions' from its Caribbean coverage, and the State Department dependencies fact sheet lists it under United States sovereignty.";
 
+const SOUTHCOM_INFERRED_BASIS = (sovereign: string) => `INFERRED. SOUTHCOM declares 12 dependencies and areas of special sovereignty but names none. This place is one of the 12 non-U.S. Caribbean / South Atlantic entries on the State Department fact sheet (${sovereign} sovereignty); that count-match is the only basis. The fact sheet does not assign places to commands and does not separate dependency from area of special sovereignty, so 'dependency' is the documented convention.`;
+const SOUTHCOM_INFERRED_NOTE = "INFERRED, not an official assignment: SOUTHCOM's AOR page states '31 countries and 12 dependencies and areas of special sovereignty' and names none of the 12. Placed here by matching the count against the State Department fact sheet. LIVE VERIFY against an official SOUTHCOM enumeration. Not a sovereign state.";
 const ENTITY_ROWS: Array<{ iso3: string; name: string; command: CommandId; geographicClass: GeographicClass; classBasis: string; evidence: EntityEvidence; note: string; basis: AssignmentBasis; sourceUrl?: string; sourceAuthority?: string }> = [
   { iso3: "GRL", name: "Greenland", command: "NORTHCOM", geographicClass: "dependency", evidence: "command_page_names_it", basis: "official_boundary_statement",
     classBasis: "Named in NORTHCOM's AOR sentence without a class; the State Department fact sheet lists it under Danish sovereignty among 'dependencies and areas of special sovereignty'. The fact sheet does not distinguish dependency from area of special sovereignty, so 'dependency' is the documented convention for a non-U.S. entry.",
@@ -106,6 +108,18 @@ const ENTITY_ROWS: Array<{ iso3: string; name: string; command: CommandId; geogr
   { iso3: "ESH", name: "Western Sahara", command: "AFRICOM", geographicClass: "other_entity", evidence: "pack_only_not_named_by_command_page", basis: "official_count_normalized_list",
     classBasis: "Not classified by an official command source and not on the State Department dependencies fact sheet.",
     note: "From the extraction pack only: a geographic entity in the AFRICOM theater not counted in the 53-state public count. The AFRICOM page read on 2026-10-10 names no territory. LIVE VERIFY." },
+  { iso3: "AIA", name: "Anguilla", command: "SOUTHCOM", geographicClass: "dependency", evidence: "inferred_not_named_by_command_page", basis: "official_count_normalized_list", classBasis: SOUTHCOM_INFERRED_BASIS("UK"), note: SOUTHCOM_INFERRED_NOTE },
+  { iso3: "ABW", name: "Aruba", command: "SOUTHCOM", geographicClass: "dependency", evidence: "inferred_not_named_by_command_page", basis: "official_count_normalized_list", classBasis: SOUTHCOM_INFERRED_BASIS("Netherlands"), note: SOUTHCOM_INFERRED_NOTE },
+  { iso3: "VGB", name: "British Virgin Islands", command: "SOUTHCOM", geographicClass: "dependency", evidence: "inferred_not_named_by_command_page", basis: "official_count_normalized_list", classBasis: SOUTHCOM_INFERRED_BASIS("UK"), note: SOUTHCOM_INFERRED_NOTE },
+  { iso3: "CYM", name: "Cayman Islands", command: "SOUTHCOM", geographicClass: "dependency", evidence: "inferred_not_named_by_command_page", basis: "official_count_normalized_list", classBasis: SOUTHCOM_INFERRED_BASIS("UK"), note: SOUTHCOM_INFERRED_NOTE },
+  { iso3: "CUW", name: "Curaçao", command: "SOUTHCOM", geographicClass: "dependency", evidence: "inferred_not_named_by_command_page", basis: "official_count_normalized_list", classBasis: SOUTHCOM_INFERRED_BASIS("Netherlands"), note: SOUTHCOM_INFERRED_NOTE },
+  { iso3: "FLK", name: "Falkland Islands", command: "SOUTHCOM", geographicClass: "dependency", evidence: "inferred_not_named_by_command_page", basis: "official_count_normalized_list", classBasis: SOUTHCOM_INFERRED_BASIS("UK"), note: SOUTHCOM_INFERRED_NOTE },
+  { iso3: "GUF", name: "French Guiana", command: "SOUTHCOM", geographicClass: "dependency", evidence: "inferred_not_named_by_command_page", basis: "official_count_normalized_list", classBasis: SOUTHCOM_INFERRED_BASIS("France"), note: SOUTHCOM_INFERRED_NOTE },
+  { iso3: "MSR", name: "Montserrat", command: "SOUTHCOM", geographicClass: "dependency", evidence: "inferred_not_named_by_command_page", basis: "official_count_normalized_list", classBasis: SOUTHCOM_INFERRED_BASIS("UK"), note: SOUTHCOM_INFERRED_NOTE },
+  { iso3: "BLM", name: "Saint Barthélemy", command: "SOUTHCOM", geographicClass: "dependency", evidence: "inferred_not_named_by_command_page", basis: "official_count_normalized_list", classBasis: SOUTHCOM_INFERRED_BASIS("France"), note: SOUTHCOM_INFERRED_NOTE },
+  { iso3: "MAF", name: "Saint Martin", command: "SOUTHCOM", geographicClass: "dependency", evidence: "inferred_not_named_by_command_page", basis: "official_count_normalized_list", classBasis: SOUTHCOM_INFERRED_BASIS("France"), note: SOUTHCOM_INFERRED_NOTE },
+  { iso3: "SXM", name: "Sint Maarten", command: "SOUTHCOM", geographicClass: "dependency", evidence: "inferred_not_named_by_command_page", basis: "official_count_normalized_list", classBasis: SOUTHCOM_INFERRED_BASIS("Netherlands"), note: SOUTHCOM_INFERRED_NOTE },
+  { iso3: "TCA", name: "Turks and Caicos Islands", command: "SOUTHCOM", geographicClass: "dependency", evidence: "inferred_not_named_by_command_page", basis: "official_count_normalized_list", classBasis: SOUTHCOM_INFERRED_BASIS("UK"), note: SOUTHCOM_INFERRED_NOTE },
 ];
 
 function build(): CountryAorAssignment[] {
@@ -144,7 +158,7 @@ function build(): CountryAorAssignment[] {
       classBasis: entity.classBasis,
       entityEvidence: entity.evidence,
       basis: entity.basis,
-      verification: entity.evidence === "pack_only_not_named_by_command_page" ? "PUBLIC-SOURCE BASELINE — LIVE VERIFY" : source.verification,
+      verification: entity.evidence !== "command_page_names_it" ? "PUBLIC-SOURCE BASELINE — LIVE VERIFY" : source.verification,
       sourceAuthority: source.authority,
       sourceUrl: source.url,
       effectiveFrom: null,
@@ -230,7 +244,7 @@ export const ENTITY_COVERAGE_REVIEW: Record<CommandId, EntityCoverageReview> = {
   NORTHCOM: { command: "NORTHCOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.northcom.mil/About/About/", declaredEntityCount: null, declaredWording: null, named: ["GRL", "PRI", "VIR"], status: "COMPLETE_AS_STATED",
     finding: "The AOR sentence names Greenland, Puerto Rico and the U.S. Virgin Islands (and The Bahamas, a sovereign state) and says 'portions of the Caribbean region'. It does not classify any place. Bermuda, Turks and Caicos, the British Virgin Islands and the Cayman Islands are not mentioned, so none is assigned." },
   SOUTHCOM: { command: "SOUTHCOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.southcom.mil/About/Area-of-Responsibility/", declaredEntityCount: 12, declaredWording: "31 countries and 12 dependencies and areas of special sovereignty", named: [], status: "INCOMPLETE_LIVE_VERIFY",
-    finding: "SOUTHCOM states 12 dependencies and areas of special sovereignty but its public pages name none; the AOR page links the State Department fact sheet, which lists places by sovereignty and does not assign them to any command. SOUTHCOM's About page describes the Caribbean 'except U.S. commonwealths, territories, and possessions'. No SOUTHCOM entity is recorded until an official source enumerates them." },
+    finding: "SOUTHCOM states 12 dependencies and areas of special sovereignty but its public pages name none; the AOR page links the State Department fact sheet, which lists places by sovereignty and does not assign them to any command. Twelve records are held as INFERENCES (count-match against the fact sheet's non-U.S. Caribbean and South Atlantic entries), tagged inferred_not_named_by_command_page and LIVE VERIFY. Coverage stays INCOMPLETE until an official SOUTHCOM enumeration confirms or corrects them. SOUTHCOM's About page describes the Caribbean 'except U.S. commonwealths, territories, and possessions'." },
   CENTCOM: { command: "CENTCOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.centcom.mil/AREA-OF-RESPONSIBILITY/", declaredEntityCount: null, declaredWording: "The 21 nations of the AOR", named: [], status: "COMPLETE_AS_STATED",
     finding: "The AOR page gives only the 21-nation count and regional descriptors; it names no territory. The Palestinian Territories record comes from the extraction pack, not from the command page." },
   AFRICOM: { command: "AFRICOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.africom.mil/about-the-command", declaredEntityCount: null, declaredWording: "The area of responsibility consists of 53 African states", named: [], status: "COMPLETE_AS_STATED",

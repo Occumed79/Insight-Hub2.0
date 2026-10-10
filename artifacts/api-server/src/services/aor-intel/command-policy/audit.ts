@@ -20,6 +20,8 @@ export interface CommandAuditRow {
   /** Entities the command's own page says it covers, versus entities recorded here. */
   entityDeclared: number | null;
   entityRecorded: number;
+  /** Recorded entities that are inferences (the command declares a count but names none), not official assignments. */
+  entityInferred: number;
   entityCoverageStatus: "COMPLETE_AS_STATED" | "INCOMPLETE_LIVE_VERIFY";
 }
 
@@ -47,9 +49,10 @@ export interface RegistryAudit {
   /** Current records not offered by the UI selector (mapped, but cannot be picked). */
   mappedMissingFromSelector: Array<{ iso3: string; name: string; geographicClass: GeographicClass; command: CommandId }>;
   /** Commands whose own pages declare more entities than the registry can name. */
-  declaredButUnenumerated: Array<{ command: CommandId; declared: number; recorded: number; shortfall: number; wording: string | null }>;
+  /** `officiallyNamed` = recorded minus inferred; `shortfall` = declared minus officiallyNamed. */
+  declaredButUnenumerated: Array<{ command: CommandId; declared: number; recorded: number; inferred: number; officiallyNamed: number; shortfall: number; wording: string | null }>;
   /** Non-sovereign records named by an official command page versus carried only from the extraction pack. */
-  entityEvidence: { commandPageNamesIt: string[]; packOnly: string[] };
+  entityEvidence: { commandPageNamesIt: string[]; packOnly: string[]; inferred: string[] };
   liveVerifyCommands: CommandId[];
   entityLiveVerifyCommands: CommandId[];
 }
@@ -91,7 +94,7 @@ export function auditRegistry(countryTable: ReadonlyArray<{ iso3: string; countr
       publicCount: COMMAND_SOURCES[command].publicCount,
       matchesPublicSovereignCount: expected === null ? null : expected === s,
       liveVerify: /LIVE VERIFY/.test(COMMAND_SOURCES[command].verification),
-      entityDeclared: review.declaredEntityCount, entityRecorded: e, entityCoverageStatus: review.status,
+      entityDeclared: review.declaredEntityCount, entityRecorded: e, entityInferred: mine.filter((row) => row.entityEvidence === "inferred_not_named_by_command_page").length, entityCoverageStatus: review.status,
     };
   }
 
@@ -109,7 +112,9 @@ export function auditRegistry(countryTable: ReadonlyArray<{ iso3: string; countr
   const declaredButUnenumerated = COMMANDS.flatMap((command) => {
     const declared = perCommand[command].entityDeclared;
     const recorded = perCommand[command].entityRecorded;
-    return declared !== null && recorded < declared ? [{ command, declared, recorded, shortfall: declared - recorded, wording: ENTITY_COVERAGE_REVIEW[command].declaredWording }] : [];
+    const inferred = perCommand[command].entityInferred;
+    const officiallyNamed = recorded - inferred;
+    return declared !== null && officiallyNamed < declared ? [{ command, declared, recorded, inferred, officiallyNamed, shortfall: declared - officiallyNamed, wording: ENTITY_COVERAGE_REVIEW[command].declaredWording }] : [];
   });
 
   return {
@@ -131,6 +136,7 @@ export function auditRegistry(countryTable: ReadonlyArray<{ iso3: string; countr
     entityEvidence: {
       commandPageNamesIt: entities.filter((row) => row.entityEvidence === "command_page_names_it").map((row) => row.iso3).sort(),
       packOnly: entities.filter((row) => row.entityEvidence === "pack_only_not_named_by_command_page").map((row) => row.iso3).sort(),
+      inferred: entities.filter((row) => row.entityEvidence === "inferred_not_named_by_command_page").map((row) => row.iso3).sort(),
     },
     liveVerifyCommands: COMMANDS.filter((command) => perCommand[command].liveVerify),
     entityLiveVerifyCommands: COMMANDS.filter((command) => perCommand[command].entityCoverageStatus === "INCOMPLETE_LIVE_VERIFY"),
