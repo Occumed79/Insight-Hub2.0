@@ -26,16 +26,24 @@ export type AssignmentVerification =
   | "PUBLIC-SOURCE BASELINE"
   | "PUBLIC-SOURCE BASELINE — LIVE VERIFY"; // count is official but no one-page enumeration was retrieved
 
-/** Geographic record classes. Only `sovereign_state` counts toward a command's sovereign-state total. */
-export type GeographicClass = "sovereign_state" | "territory" | "dependency" | "area_of_special_sovereignty" | "other_entity";
+/**
+ * Geographic record classes. Only `sovereign_state` counts toward a command's sovereign-state total. A class is recorded only
+ * as far as an official source supports it; `candidate_unverified` is never a verified assignment class (see CandidateEntity).
+ */
+export type GeographicClass =
+  | "sovereign_state"
+  | "territory"
+  | "dependency"
+  | "overseas_department"
+  | "autonomous_country"
+  | "collectivity"
+  | "area_of_special_sovereignty"
+  | "disputed_entity"
+  | "other_entity"
+  | "candidate_unverified";
 
-/** Whether an official command AOR page itself names a non-sovereign entity. */
-export type EntityEvidence =
-  | "command_page_names_it"
-  | "pack_only_not_named_by_command_page"
-  // The command declares a count of such places but names none; this record is an INFERENCE (placed by count-match against the
-  // State Department fact sheet), not an official assignment. Always LIVE VERIFY.
-  | "inferred_not_named_by_command_page";
+/** Whether official command material itself names a non-sovereign entity. */
+export type EntityEvidence = "command_page_names_it" | "pack_only_not_named_by_command_page";
 
 export interface CountryAorAssignment {
   iso3: string;
@@ -58,6 +66,30 @@ export interface CountryAorAssignment {
   /** The assignment this one replaced (assignment-history record), if the pack establishes one. */
   supersedesCommand: CommandId | null;
   note: string | null;
+  /** Publication date of the specific source for this record, when the source states one. Never inferred from the retrieval date. */
+  sourceDate?: string | null;
+  /** How old / how well-dated the source is, stated plainly so an older source is not read as current. */
+  sourceCurrencyNote?: string | null;
+}
+
+/**
+ * A place that might belong to a command's AOR but that NO authoritative source identifies for that command. It is not an
+ * assignment: it never appears in CURRENT_ASSIGNMENTS, assignmentFor(), the audit totals, or any evidence record.
+ */
+export interface CandidateEntity {
+  iso3: string;
+  name: string;
+  /** The command whose declared-but-unnamed entity count this place might help fill. */
+  candidateForCommand: CommandId;
+  geographicClass: "candidate_unverified";
+  /** The class the cited reference supports for the place itself, kept so it is not flattened into "dependency". */
+  referenceClass: GeographicClass;
+  referenceClassBasis: string;
+  referenceSovereign: string;
+  status: "LIVE_VERIFY";
+  isOfficialAssignment: false;
+  reason: string;
+  referenceUrl: string;
 }
 
 export type Population =

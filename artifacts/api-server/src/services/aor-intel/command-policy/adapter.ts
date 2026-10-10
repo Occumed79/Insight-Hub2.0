@@ -112,7 +112,7 @@ function assignmentRecord(ctx: AdapterContext, resolution: CountryCommandResolut
     title: assignment.geographicClass === "sovereign_state"
       ? `${ctx.country.name} is in the ${COMMAND_NAMES[assignment.command]} (${assignment.command}) area of responsibility`
       : `${ctx.country.name} (${assignment.geographicClass.replace(/_/g, " ")}, not a sovereign state) is in the ${COMMAND_NAMES[assignment.command]} (${assignment.command}) area of responsibility`,
-    summary: `${assignment.verification}. ${assignment.note ?? `Assignment taken from ${assignment.sourceAuthority}.`}${history.length ? ` History preserved: previously ${history.map((entry) => entry.command).join(", ")}${history[0]?.effectiveTo ? ` until ${history[0].effectiveTo}` : ""}.` : ""}`,
+    summary: `${assignment.verification}. ${assignment.note ?? `Assignment taken from ${assignment.sourceAuthority}.`}${assignment.sourceCurrencyNote ? ` Source age: ${assignment.sourceCurrencyNote}` : ""}${history.length ? ` History preserved: previously ${history.map((entry) => entry.command).join(", ")}${history[0]?.effectiveTo ? ` until ${history[0].effectiveTo}` : ""}.` : ""}`,
     evidence: [`Registry ${ASSIGNMENT_REGISTRY_VERSION}`, `Command public scope: ${source.publicCount}`, `Authority: ${assignment.sourceAuthority}`, "The Unified Command Plan is classified; assignments are built from public DoD and command material."].join(" | "),
     sourceName: assignment.sourceAuthority,
     sourceUrl: assignment.sourceUrl,
