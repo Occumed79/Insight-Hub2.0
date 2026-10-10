@@ -5,6 +5,7 @@ import { AOR_COUNTRY_PROFILES } from "../data/aor-country-profiles";
 import { auditRegistry } from "../services/aor-intel/command-policy/audit";
 import { gapSummary } from "../services/aor-intel/command-policy/source-gaps";
 import { describeCommandCountry, evaluateCommandTraveler, policyQualifiers } from "../services/aor-intel/command-policy/engine";
+import { RESEARCH_EVIDENCE, DSCA_SECURITY_COOPERATION } from "../services/aor-intel/command-policy/verified-research";
 import { COMMAND_POLICIES } from "../services/aor-intel/command-policy/policies-data";
 import type { CommandId, CommandQuery, Population, TravelKind } from "../services/aor-intel/command-policy/types";
 
@@ -76,6 +77,11 @@ router.get("/aor/command-policy", (req: Request, res: Response) => {
       sourceSection: rule.sourceSection,
       sourceUrl: rule.sourceUrl,
       verificationStatus: rule.verificationStatus,
+      issuingAuthority: rule.issuingAuthority,
+      lastRetrievedAt: rule.lastRetrievedAt,
+      sourceDate: rule.sourceDate,
+      sourceDocumentId: rule.sourceDocumentId,
+      caveats: rule.caveats,
     })),
     notice: "'unknown' means an input was missing. A rule that is not triggered is not evidence that the command has no requirement; SOURCE_GAP fields were not extracted from the source.",
   });
@@ -88,6 +94,8 @@ router.get("/aor/command-policy/registry", (_req: Request, res: Response) => {
     ok: true,
     generatedAt: now.toISOString(),
     ...assignmentStats(),
+    researchEvidence: RESEARCH_EVIDENCE,
+    securityCooperation: DSCA_SECURITY_COOPERATION,
     commands: COMMANDS.map((command) => ({
       command,
       countries: countriesForCommand(command, true).map((entry) => ({ iso3: entry.iso3, name: entry.name, entityType: entry.entityType, verification: entry.verification })),

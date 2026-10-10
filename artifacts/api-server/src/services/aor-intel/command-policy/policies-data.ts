@@ -6,6 +6,8 @@
 //  - Thresholds are never carried from one command to another.
 //  - USNORTHCOM has no public command-wide medical-entry policy in the pack: it is recorded as NOT_PUBLICLY_VERIFIED.
 
+import { RESEARCHED_MEDICAL_RULES } from "./researched-medical-rules";
+import { USARPAC_FHP_URL } from "./verified-research";
 import type { CommandPolicy, CommandPolicyRule, CommandRuleKind, PolicyDomain, PolicyStatus, PolicyVerificationStatus, Population, RuleScope, StayThreshold } from "./types";
 
 /** Date the pack's extraction was ingested. The pack states research "through October 2026". */
@@ -43,12 +45,16 @@ type RuleInit = {
   sourceGaps?: string[];
   caveats?: string[];
   verificationStatus?: PolicyVerificationStatus;
+  issuingAuthority?: string;
+  lastRetrievedAt?: string;
 };
 
 function factory(policyId: string, defaultUrl: string, sourceDate: string | null, verification: PolicyVerificationStatus) {
   return (init: RuleInit): CommandPolicyRule => ({
     id: init.id,
     policyId,
+    issuingAuthority: init.issuingAuthority,
+    lastRetrievedAt: init.lastRetrievedAt,
     domain: init.domain,
     kind: init.kind ?? "requirement",
     scope: init.scope ?? CMD,
@@ -215,6 +221,9 @@ const AF_POP: Population[] = ["us_military", "dod_civilian", "dod_contractor", "
 const HOA = ["BDI", "DJI", "ERI", "ETH", "KEN", "RWA", "SYC", "SOM", "SSD", "SDN", "TZA", "UGA"];
 
 const africomRules: CommandPolicyRule[] = [
+  af({ id: "af:forms-routing", issuingAuthority: "USAFRICOM Command Surgeon", lastRetrievedAt: "2026-10-10", domain: "documentation", kind: "process", title: "AFRICOM screening and electronic waiver forms", sourceUrl: "https://www.africom.mil/staff-resources/theater-medical-clearance", sourceSection: "Theater Medical Clearance — Relevant Documents and component routing", populations: AF_POP,
+    conditionOrRequirement: "Public page names AC Form 42 Travel Medical Screening Checklist and AC Form 43 Medical Waiver Request; download the waiver PDF and electronically fill and sign before submission. SETAF-AF travel medicine: usarmy.usag-italy.setaf-af.mbx.medical@army.mil. Naval Forces Africa: naveuraf6fltforcemedical@us.navy.mil. HQ/unmatched waiver RFIs: africom.stuttgart.acsg.mbx.j004-force-health-protection@mail.mil. Choose the supported component; these contacts do not override existing SOCAFRICA/CJTF-HOA routing.", requiredDocumentation: "AC Form 42; electronically completed and signed AC Form 43", sourceDateOverride: null,
+    verificationStatus: "COMMAND PUBLICATION (PRIMARY-SOURCE VERIFIED)", sourceGaps: ["September 2026 form version and document contents"], caveats: ["Indexed primary page text retrieved 2026-10-10. Publication/index dates are not effective or supersession dates."] }),
   af({ id: "af:applicability", domain: "applicability", title: "Who ACI 4200.09C applies to", populations: AF_POP, sourceSection: "Theater Medical Clearance page",
     populationText: "All U.S. military on official or leisure travel; DoD civilians, contractors, subcontractors and volunteers on official travel; and U.S. interagency personnel supporting AFRICOM missions. The public page states the instruction applies for travel of any duration.",
     conditionOrRequirement: "Force health protection instruction applies to travel of any duration.", thresholdOrRule: "Any duration", sourceGaps: ["clearance procedure steps", "condition-level standards"] }),
@@ -281,7 +290,7 @@ const eucomRules: CommandPolicyRule[] = [
 
 const IP_PAGE = "https://www.pacom.mil/Resources/Travel-Requirements/";
 const IP_FHP = "https://www.pacom.mil/Portals/55/Documents/Surgeon/FY26%20Force%20Health%20Protection%20Guidance%20for%20USINDOPACOM%20AOR.pdf?ver=BeAhcnVciTeRV1jWl1x5BA%3D%3D";
-const ip = factory("INDOPACOM-FY26-FHP-P-25-0295", IP_FHP, null, "COMMAND PUBLICATION (PACK-EXTRACTED)");
+const ip = factory("INDOPACOM-FY26-FHP-P-25-0295", IP_FHP, "2025-11-07", "COMMAND PUBLICATION (PACK-EXTRACTED)");
 const IP_POP: Population[] = ["us_military", "dod_civilian", "dod_contractor"];
 const ipWaiver = (component: string) =>
   ip({ id: `ip:waiver:${component.toLowerCase()}`, domain: "waiver", kind: "process", scope: { level: "component", component, countries: [] }, title: `Waiver contact — ${component}`, populations: IP_POP, sourceSection: "FY26 FHP Guidance — component waiver contacts",
@@ -372,9 +381,9 @@ export const COMMAND_POLICIES: CommandPolicy[] = [
     sourceDate: "2019-07-03", effectiveFrom: "2019-07-03", effectiveTo: null, supersedesPolicyId: null, supersededByPolicyId: null, publicStatus: "ECI remains applicable but is under rewrite; EUCOM public page current as of 24 Jul 2025", verificationStatus: "COMMAND PUBLICATION — UNDER REWRITE", lastRetrievedAt: PACK_RETRIEVED_AT, commandMedicalPolicyStatus: "PUBLISHED",
     caveats: ["Under rewrite: a replacement instruction can change these rules without notice. The monitor flags page changes for review.", "LIVE VERIFY: the pack dates ECI 4202.01A 3 Jul 2019; a page-fetch summary of the EUCOM page read the instruction date as 24 Jul 2025, which is also the page's own currency date (CAO). The two were not reconciled, so the 2019 date is kept as the pack states it."] },
   { policyId: "INDOPACOM-FY26-FHP-P-25-0295", command: "INDOPACOM", policyTitle: "USINDOPACOM GENADMIN P-25-0295 — FY2026 Force Health Protection Guidance", issuingAuthority: "USINDOPACOM J07 / Office of the Command Surgeon", sourceUrl: IP_PAGE,
-    additionalSources: [{ title: "FY26 Force Health Protection Guidance (PDF)", url: IP_FHP }],
-    sourceDate: null, effectiveFrom: null, effectiveTo: null, supersedesPolicyId: null, supersededByPolicyId: null, publicStatus: "Active until cancelled", verificationStatus: "COMMAND PUBLICATION (PACK-EXTRACTED)", lastRetrievedAt: PACK_RETRIEVED_AT, commandMedicalPolicyStatus: "PUBLISHED",
-    caveats: ["Issue date of the GENADMIN was not extracted."] },
+    additionalSources: [{ title: "FY26 Force Health Protection Guidance (PDF)", url: IP_FHP }, { title: "USARPAC component FHP handbook (FY25 basis; advisory compilation)", url: USARPAC_FHP_URL }],
+    sourceDate: "2025-11-07", effectiveFrom: null, effectiveTo: null, supersedesPolicyId: null, supersededByPolicyId: null, publicStatus: "Active until cancelled", verificationStatus: "COMMAND PUBLICATION (PACK-EXTRACTED)", lastRetrievedAt: "2026-10-10", commandMedicalPolicyStatus: "PUBLISHED",
+    caveats: ["DTG 070905Z Nov 25 verified from indexed official PDF page 1 on 2026-10-10. Direct PDF fetch returned 403; effective date and supersession not inferred. Prior pack issue date was null."] },
   { policyId: "SOUTHCOM-REG-40-501", command: "SOUTHCOM", policyTitle: "USSOUTHCOM SC Reg 40-501 Medical Suitability Screening, MOD 3 and medical waiver process", issuingAuthority: "USSOUTHCOM Command Surgeon", sourceUrl: SC_CLEARANCE,
     additionalSources: [{ title: "SC Regulation 40-501", url: SC_REG }, { title: "MOD 3 Amplification of the Minimal Standards of Fitness", url: SC_MOD3 }, { title: "Medical Waiver Process", url: SC_WAIVER }],
     sourceDate: "2023-02-21", effectiveFrom: null, effectiveTo: null, supersedesPolicyId: null, supersededByPolicyId: null, publicStatus: "Public 2023-updated package (UPDATED_21FEB23 in document names)", verificationStatus: "COMMAND PUBLICATION (PACK-EXTRACTED)", lastRetrievedAt: PACK_RETRIEVED_AT, commandMedicalPolicyStatus: "PUBLISHED",
@@ -384,7 +393,7 @@ export const COMMAND_POLICIES: CommandPolicy[] = [
     caveats: ["Not evidence that none exists. Do not apply another command's thresholds."] },
 ];
 
-export const COMMAND_RULES: CommandPolicyRule[] = [...centcomRules, ...africomRules, ...eucomRules, ...indopacomRules, ...southcomRules];
+export const COMMAND_RULES: CommandPolicyRule[] = [...centcomRules, ...africomRules, ...eucomRules, ...indopacomRules, ...RESEARCHED_MEDICAL_RULES, ...southcomRules];
 
 /** Official pages and documents the source monitor fingerprints for change (command → URLs). */
 export const COMMAND_MONITOR_TARGETS: Record<string, Array<{ url: string; authority: string; purpose: string }>> = {
@@ -405,6 +414,7 @@ export const COMMAND_MONITOR_TARGETS: Record<string, Array<{ url: string; author
     { url: EU_LIBRARY, authority: "USEUCOM – document library", purpose: "New or replaced guidance (TBE memo, ECI rewrite)" },
   ],
   INDOPACOM: [
+    { url: USARPAC_FHP_URL, authority: "USARPAC ACSMED", purpose: "Component handbook; review FY26 compatibility and source anomalies" },
     { url: IP_PAGE, authority: "USINDOPACOM – Travel Requirements", purpose: "Command FHP landing page" },
     { url: IP_FHP, authority: "USINDOPACOM – FY26 FHP Guidance", purpose: "Policy document the rules were read from" },
   ],

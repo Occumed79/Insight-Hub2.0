@@ -76,6 +76,18 @@ export function evaluateCommandRule(rule: CommandPolicyRule, query: CommandQuery
       reasons.push(`The source does not name this population for this rule (it names: ${rule.applicabilityPopulation.join(", ")}).`);
     }
   }
+  if (rule.officialTravelOnly) {
+    if (!query.travelKind) missing.push("official travel type (component handbook does not cover leisure)");
+    else if (query.travelKind === "leisure" || query.travelKind === "pcs") {
+      excluded = true;
+      reasons.push("This component handbook covers operational/TDY movements, not leisure or PCS travel.");
+    }
+  }
+  if (rule.unconditionalExemptCountries?.includes(query.iso3.toUpperCase())) {
+    excluded = true;
+    reasons.push("Destination is expressly excluded from this component handbook; other command/Service requirements remain applicable.");
+  }
+  if (rule.applicabilityConditions?.length) missing.push(...rule.applicabilityConditions);
   if (rule.pcsOnly) {
     if (!query.travelKind) missing.push("type of travel (PCS, TDY/deployment, leisure)");
     else if (query.travelKind !== "pcs") {

@@ -30,9 +30,9 @@ test("registry: sovereign counts match each command's public count, no country i
   const entities = CURRENT_ASSIGNMENTS.filter((entry) => entry.entityType === "entity").map((entry) => `${entry.iso3}:${entry.command}`).sort();
   assert.deepEqual(entities, ["ASM:INDOPACOM", "ESH:AFRICOM", "GRL:NORTHCOM", "GUM:INDOPACOM", "MNP:INDOPACOM", "PRI:NORTHCOM", "PSE:CENTCOM", "TWN:INDOPACOM", "VIR:NORTHCOM"], "territories are separate from the sovereign count; no SOUTHCOM entity is an assignment");
   assert.equal(assignmentStats().byCommand.EUCOM.sovereign, 50);
-  // LIVE VERIFY flags exactly where the pack says the one-page enumeration was not retrieved.
+  // Only the still-unverified membership remains flagged after primary-source follow-up.
   const flagged = new Set(CURRENT_ASSIGNMENTS.filter((entry) => entry.geographicClass === "sovereign_state" && /LIVE VERIFY/.test(entry.verification)).map((entry) => entry.command));
-  assert.deepEqual([...flagged].sort(), ["EUCOM", "INDOPACOM"]);
+  assert.deepEqual([...flagged].sort(), ["INDOPACOM"]);
 });
 
 test("country → command regression cases from the pack, including Israel's 2021 reassignment history", () => {
@@ -119,7 +119,7 @@ test("short vs long duration: CENTCOM >30 days (transit excluded), Tab D ≥15 d
   assert.equal(evalRule({ iso3: "POL", population: "us_military", stayDays: 3 }, "eu:applicability")?.applicability, "applies", "EUCOM: any duration");
   // INDOPACOM: duration triggers were not extracted — none may be invented.
   const indopacom = resolveCountryCommand("JPN").rules;
-  assert.ok(indopacom.every((rule) => rule.minimumStay === null && rule.maximumStayDaysExclusive === null));
+  assert.ok(indopacom.filter((rule) => !rule.sourceDocumentId).every((rule) => rule.minimumStay === null && rule.maximumStayDaysExclusive === null));
   assert.ok(indopacom.find((rule) => rule.id === "ip:order")?.sourceGaps.includes("stay-duration triggers"));
 });
 
@@ -175,17 +175,17 @@ test("data integrity: every rule belongs to a policy, cites an https command/DoD
     assert.ok(policyIds.has(rule.policyId), rule.id);
     assert.ok(!ids.has(rule.id), `duplicate ${rule.id}`);
     ids.add(rule.id);
-    assert.match(rule.sourceUrl, /^https:\/\/www\.(centcom|africom|eucom|pacom|southcom)\.mil\//, rule.id);
+    assert.match(rule.sourceUrl, /^https:\/\/(www\.(centcom|africom|eucom|pacom|southcom)\.mil|api\.army\.mil)\//, rule.id);
     assert.ok(rule.sourceSection.length > 3, rule.id);
-    assert.ok(["COMMAND PUBLICATION (PACK-EXTRACTED)", "COMMAND PUBLICATION — UNDER REWRITE"].includes(rule.verificationStatus), rule.id);
+    assert.ok(["COMMAND PUBLICATION (PACK-EXTRACTED)", "COMMAND PUBLICATION — UNDER REWRITE", "COMMAND PUBLICATION (PRIMARY-SOURCE VERIFIED)"].includes(rule.verificationStatus), rule.id);
     if (rule.scope.level === "country") assert.ok(rule.scope.countries.length > 0, rule.id);
   }
   for (const policy of COMMAND_POLICIES) {
     assert.ok(policy.lastRetrievedAt);
     if (policy.commandMedicalPolicyStatus === "NOT_PUBLICLY_VERIFIED") assert.equal(policy.verificationStatus, "NOT PUBLICLY VERIFIED");
   }
-  // The pack gives no INDOPACOM GENADMIN issue date or SOUTHCOM effective date: none may be fabricated.
-  assert.equal(COMMAND_POLICIES.find((p) => p.policyId === "INDOPACOM-FY26-FHP-P-25-0295")?.sourceDate, null);
+  // Indexed official message header supplies the issue date; SOUTHCOM effective date remains unknown.
+  assert.equal(COMMAND_POLICIES.find((p) => p.policyId === "INDOPACOM-FY26-FHP-P-25-0295")?.sourceDate, "2025-11-07");
   assert.equal(COMMAND_POLICIES.find((p) => p.policyId === "SOUTHCOM-REG-40-501")?.effectiveFrom, null);
 });
 
@@ -279,7 +279,7 @@ test("pipeline: command policy is its own dimension and observation group, separ
 
   const poland = await run("PL");
   assert.ok(poland?.whatMattersNow.observations.some((o) => o.dimension === "command_policy" && /under rewrite/i.test(o.headline)));
-  assert.ok(poland?.whatMattersNow.observations.some((o) => /country list is a normalized baseline \(LIVE VERIFY\)/.test(o.headline)));
+  assert.ok(!poland?.whatMattersNow.observations.some((o) => /country list is a normalized baseline \(LIVE VERIFY\)/.test(o.headline)));
 });
 
 test("AI validator: command policy is a third class that cannot be blended or turned into absence", async () => {
@@ -335,7 +335,7 @@ test("registry audit: 195 sovereign + 9 non-sovereign records by class, no dupli
   assert.equal(audit.perCommand.INDOPACOM.byClass.territory, 3);
   assert.equal(audit.perCommand.SOUTHCOM.entities, 0);
   assert.equal(Object.values(audit.perCommand).reduce((total, row) => total + row.sovereign, 0), 195);
-  assert.deepEqual(audit.liveVerifyCommands, ["EUCOM", "INDOPACOM"], "sovereign country-list LIVE VERIFY is unchanged");
+  assert.deepEqual(audit.liveVerifyCommands, ["INDOPACOM"], "only INDOPACOM sovereign membership remains LIVE VERIFY");
   assert.deepEqual(audit.historical, [{ iso3: "ISR", name: "Israel", command: "EUCOM", effectiveTo: "2021-01-15", supersededBy: "CENTCOM" }]);
   assert.equal(CURRENT_ASSIGNMENTS.filter((row) => row.iso3 === "ISR").length, 1, "Israel has exactly one current assignment");
   assert.equal(CURRENT_ASSIGNMENTS.filter((row) => row.command === "EUCOM").some((row) => row.iso3 === "ISR"), false);
@@ -383,16 +383,16 @@ test("geographic classes: non-sovereign places never inflate the sovereign count
   assert.equal(south.verifiedNamedDependencyCount, 0);
   assert.deepEqual(audit.declaredButUnenumerated, [{ command: "SOUTHCOM", officialDeclared: 12, verifiedNamed: 0, shortfall: 12, wording: "31 countries and 12 dependencies and areas of special sovereignty" }]);
   assert.equal(south.entityCoverageStatus, "INCOMPLETE_LIVE_VERIFY");
-  assert.deepEqual(audit.entityLiveVerifyCommands, ["EUCOM", "INDOPACOM", "SOUTHCOM"]);
+  assert.deepEqual(audit.entityLiveVerifyCommands, ["AFRICOM", "EUCOM", "INDOPACOM", "SOUTHCOM"]);
   assert.deepEqual([...audit.entityEvidence.commandPageNamesIt].sort(), ["ASM", "GRL", "GUM", "MNP", "PRI", "VIR"]);
-  assert.deepEqual([...audit.entityEvidence.packOnly].sort(), ["ESH", "PSE", "TWN"]);
-  assert.equal(audit.perCommand.INDOPACOM.verifiedNamedEntities, 3);
+  assert.deepEqual([...audit.entityEvidence.packOnly].sort(), ["ESH"]);
+  assert.equal(audit.perCommand.INDOPACOM.verifiedNamedEntities, 4);
   assert.equal(audit.perCommand.NORTHCOM.verifiedNamedDependencyCount, 1);
 
-  // Official counts: EUCOM 50 and INDOPACOM 36 are resolved; membership lists remain LIVE VERIFY.
+  // Both counts are verified; only INDOPACOM individual membership remains LIVE VERIFY.
   assert.equal(audit.perCommand.EUCOM.officialCurrentCountryCount, 50);
   assert.equal(audit.perCommand.INDOPACOM.officialCurrentCountryCount, 36);
-  assert.deepEqual(audit.liveVerifyCommands, ["EUCOM", "INDOPACOM"]);
+  assert.deepEqual(audit.liveVerifyCommands, ["INDOPACOM"]);
   assert.deepEqual(audit.sourceConflicts.map((c) => `${c.command}:${c.value}:${c.resolution}`).sort(), ["INDOPACOM:38:RESOLVED_TOWARD_CURRENT_COUNT", "SOUTHCOM:16:RETAINED_AS_HISTORICAL_EVIDENCE"]);
   assert.equal(audit.sourceConflicts.find((c) => c.command === "SOUTHCOM")?.sourceDate, "2016-03-10", "the older SOUTHCOM figure keeps its date");
 
@@ -429,14 +429,14 @@ test("geographic classes: non-sovereign places never inflate the sovereign count
   assert.equal(kwt?.extra?.geographicClass, "sovereign_state");
 });
 
-test("source-gap ledger: CENTCOM immunizations, AFRICOM Yellow Fever and the NORTHCOM/CENTCOM/AFRICOM entity reviews resolved; unreadable items stay LIVE VERIFY with nothing invented", () => {
+test("source-gap ledger: verified enumerations and dates resolve; geographic and unreadable content gaps remain explicit", () => {
   const summary = gapSummary();
-  assert.deepEqual(summary.resolved.sort(), ["africom-yellow-fever-scope", "centcom-africom-entities", "centcom-immunization-detail", "northcom-entities"]);
-  assert.deepEqual(summary.openLiveVerify.sort(), ["eucom-country-list", "eucom-indopacom-entities", "indopacom-country-list", "indopacom-message-date", "southcom-dependencies"]);
+  assert.deepEqual(summary.resolved.sort(), ["africom-yellow-fever-scope", "centcom-immunization-detail", "eucom-country-list", "indopacom-message-date", "northcom-entities"]);
+  assert.deepEqual(summary.openLiveVerify.sort(), ["africom-2026-forms", "centcom-africom-entities", "eucom-indopacom-entities", "indopacom-country-list", "indopacom-fy26-content", "southcom-dependencies"]);
   assert.ok(SOURCE_GAP_LEDGER.every((entry) => ["2026-10-08", "2026-10-10"].includes(String(entry.attemptedAt)) && entry.sources.every((url) => url.startsWith("https://"))));
   for (const entry of SOURCE_GAP_LEDGER.filter((e) => e.status === "OPEN_LIVE_VERIFY")) assert.ok(entry.remaining.length > 0, entry.id);
-  assert.equal(COMMAND_POLICIES.find((p) => p.policyId === "INDOPACOM-FY26-FHP-P-25-0295")?.sourceDate, null, "the Dec 2023 page footer is not used as the message date");
-  assert.ok(CURRENT_ASSIGNMENTS.filter((row) => row.geographicClass === "sovereign_state" && (row.command === "EUCOM" || row.command === "INDOPACOM")).every((row) => /LIVE VERIFY/.test(row.verification)));
+  assert.equal(COMMAND_POLICIES.find((p) => p.policyId === "INDOPACOM-FY26-FHP-P-25-0295")?.sourceDate, "2025-11-07", "the Dec 2023 page footer is not used as the message date");
+  assert.ok(CURRENT_ASSIGNMENTS.filter((row) => row.geographicClass === "sovereign_state" && row.command === "INDOPACOM").every((row) => /LIVE VERIFY/.test(row.verification)));
   for (const id of SOURCE_GAP_LEDGER.find((e) => e.id === "centcom-immunization-detail")!.ruleIds) assert.ok(COMMAND_RULES.some((rule) => rule.id === id), id);
   assert.ok(summary.deferred.fields > 0 && summary.deferred.byCommand.AFRICOM, "other rule-level SOURCE_GAP fields remain and are counted, not hidden");
 });

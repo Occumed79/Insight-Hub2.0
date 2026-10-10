@@ -12,6 +12,7 @@ export type { CommandId };
 export const SOURCE_GAP = "SOURCE_GAP" as const;
 
 export type PolicyVerificationStatus =
+  | "COMMAND PUBLICATION (PRIMARY-SOURCE VERIFIED)"
   | "COMMAND PUBLICATION (PACK-EXTRACTED)" // read from the command's own publication by the extraction pack
   | "COMMAND PUBLICATION — UNDER REWRITE" // the command says the framework is being rewritten
   | "COMMAND PUBLICATION — SUPERSEDED" // an explicitly established newer document replaced it
@@ -43,7 +44,7 @@ export type GeographicClass =
   | "candidate_unverified";
 
 /** Whether official command material itself names a non-sovereign entity. */
-export type EntityEvidence = "command_page_names_it" | "pack_only_not_named_by_command_page";
+export type EntityEvidence = "command_page_names_it" | "primary_us_government_names_it" | "pack_only_not_named_by_command_page";
 
 export interface CountryAorAssignment {
   iso3: string;
@@ -70,6 +71,8 @@ export interface CountryAorAssignment {
   sourceDate?: string | null;
   /** How old / how well-dated the source is, stated plainly so an older source is not read as current. */
   sourceCurrencyNote?: string | null;
+  lastRetrievedAt?: string;
+  previousEvidence?: Array<{ sourceAuthority: string; sourceUrl: string; verification: AssignmentVerification; note: string | null }>;
 }
 
 /**
@@ -145,6 +148,13 @@ export interface StayThreshold {
 export interface CommandPolicyRule {
   id: string;
   policyId: string;
+  issuingAuthority?: string;
+  lastRetrievedAt?: string;
+  sourceWording?: string;
+  sourceDocumentId?: string;
+  officialTravelOnly?: boolean;
+  unconditionalExemptCountries?: string[];
+  applicabilityConditions?: string[];
   domain: PolicyDomain;
   kind: CommandRuleKind;
   scope: RuleScope;

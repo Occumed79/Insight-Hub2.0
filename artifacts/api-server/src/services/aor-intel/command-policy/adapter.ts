@@ -4,6 +4,7 @@ import type { AdapterContext, AdapterResult, EvidenceRecord } from "../types";
 import { isoOrNull, makeRecord, result } from "../util";
 import { checkOne } from "../vaccine-rules/adapter";
 import { COMMAND_NAMES, COMMAND_SOURCES, ASSIGNMENT_REGISTRY_VERSION } from "./assignments";
+import { researchFor, RESEARCH_RETRIEVED_AT } from "./verified-research";
 import { COMMAND_MONITOR_TARGETS } from "./policies-data";
 import { COMMAND_NOT_ASSIGNED_TEXT, NOT_PUBLICLY_VERIFIED_TEXT, policyQualifiers, resolveCountryCommand, stayText } from "./engine";
 import type { CommandPolicy, CommandPolicyRule, CountryCommandResolution } from "./types";
@@ -56,7 +57,8 @@ function ruleRecord(ctx: AdapterContext, resolution: CountryCommandResolution, r
     title: `${command} — ${rule.title}`,
     summary: ruleSummary(rule),
     evidence: ruleEvidence(rule),
-    sourceName: `${COMMAND_NAMES[command]} — ${rule.policyId}`,
+    sourceName: rule.issuingAuthority ?? `${COMMAND_NAMES[command]} — ${rule.policyId}`,
+    retrievedAt: midnight(rule.lastRetrievedAt ?? (resolution.policy?.lastRetrievedAt ?? null)) ?? undefined,
     sourceUrl: rule.sourceUrl,
     publishedAt: midnight(rule.sourceDate),
     freshness: "STRUCTURAL_DATA",
@@ -116,7 +118,9 @@ function assignmentRecord(ctx: AdapterContext, resolution: CountryCommandResolut
     evidence: [`Registry ${ASSIGNMENT_REGISTRY_VERSION}`, `Command public scope: ${source.publicCount}`, `Authority: ${assignment.sourceAuthority}`, "The Unified Command Plan is classified; assignments are built from public DoD and command material."].join(" | "),
     sourceName: assignment.sourceAuthority,
     sourceUrl: assignment.sourceUrl,
-    publishedAt: midnight(assignment.effectiveFrom),
+    publishedAt: midnight(assignment.sourceDate ?? null),
+    updatedAt: midnight(assignment.effectiveFrom),
+    retrievedAt: midnight(assignment.lastRetrievedAt ?? null) ?? undefined,
     freshness: "STRUCTURAL_DATA",
     geometry: { type: "None" },
     geographyLevel: "country",
@@ -132,6 +136,19 @@ export async function commandPolicyAdapter(ctx: AdapterContext): Promise<Adapter
     return result(ctx, META, "no_current_matching_finding", [], `${COMMAND_NOT_ASSIGNED_TEXT} (${ctx.country.name}, ${ctx.country.iso3 || "no ISO3"}).`);
   }
   const records: EvidenceRecord[] = [assignmentRecord(ctx, resolution)];
+  for (const source of researchFor(resolution.command!, resolution.assignment!.iso3)) {
+    records.push(makeRecord(ctx, "command-medical-policy", {
+      id: `command-research:${ctx.country.iso3}:${source.id}`, dimension: "command_policy",
+      category: "command_source_research", subtype: source.scope,
+      title: `${source.command} — verified source: ${source.id}`,
+      summary: source.finding, evidence: source.sourceWording,
+      sourceName: source.issuingAuthority, sourceUrl: source.sourceUrl,
+      publishedAt: midnight(source.publicationDate), retrievedAt: midnight(source.retrievedAt)!,
+      freshness: "STRUCTURAL_DATA", geometry: { type: "None" }, geographyLevel: "country",
+      geographyNote: SEPARATION_NOTE,
+      extra: { ruleClass: COMMAND_RULE_CLASS, sourceResearch: source, executableRequirement: false },
+    }));
+  }
   if (resolution.policy) records.push(policyRecord(ctx, resolution.policy, now, false));
   for (const old of resolution.supersededPolicies) records.push(policyRecord(ctx, old, now, true));
   for (const rule of resolution.rules) records.push(ruleRecord(ctx, resolution, rule));

@@ -59,7 +59,7 @@ export interface RegistryAudit {
   /** `shortfall` = officially declared minus verified named. Candidates never close a shortfall. */
   declaredButUnenumerated: Array<{ command: CommandId; officialDeclared: number; verifiedNamed: number; shortfall: number; wording: string | null }>;
   /** Non-sovereign records named by an official command page versus carried only from the extraction pack. */
-  entityEvidence: { commandPageNamesIt: string[]; packOnly: string[] };
+  entityEvidence: { commandPageNamesIt: string[]; primaryUsGovernmentNamesIt: string[]; packOnly: string[] };
   /** Candidate / LIVE VERIFY places held outside the registry. Never counted, never an assignment. */
   candidates: { count: number; isOfficialAssignment: false; entries: Array<{ iso3: string; name: string; candidateForCommand: CommandId; status: "LIVE_VERIFY"; referenceClass: GeographicClass }> };
   /** Conflicting official statements retained as evidence. */
@@ -106,7 +106,7 @@ export function auditRegistry(countryTable: ReadonlyArray<{ iso3: string; countr
       matchesPublicSovereignCount: expected === null ? null : expected === s,
       liveVerify: /LIVE VERIFY/.test(COMMAND_SOURCES[command].verification),
       entityRecorded: e,
-      verifiedNamedEntities: mine.filter((row) => row.geographicClass !== "sovereign_state" && row.entityEvidence === "command_page_names_it").length,
+      verifiedNamedEntities: mine.filter((row) => row.geographicClass !== "sovereign_state" && row.entityEvidence !== "pack_only_not_named_by_command_page").length,
       packOnlyEntities: mine.filter((row) => row.geographicClass !== "sovereign_state" && row.entityEvidence === "pack_only_not_named_by_command_page").length,
       officialCurrentCountryCount: review.officialCurrentCountryCount,
       officialCurrentDependencyOrSpecialAreaCount: review.officialCurrentDependencyOrSpecialAreaCount,
@@ -151,6 +151,7 @@ export function auditRegistry(countryTable: ReadonlyArray<{ iso3: string; countr
     declaredButUnenumerated,
     entityEvidence: {
       commandPageNamesIt: entities.filter((row) => row.entityEvidence === "command_page_names_it").map((row) => row.iso3).sort(),
+      primaryUsGovernmentNamesIt: entities.filter((row) => row.entityEvidence === "primary_us_government_names_it").map((row) => row.iso3).sort(),
       packOnly: entities.filter((row) => row.entityEvidence === "pack_only_not_named_by_command_page").map((row) => row.iso3).sort(),
     },
     candidates: { count: CANDIDATE_ENTITIES.length, isOfficialAssignment: false, entries: CANDIDATE_ENTITIES.map((c) => ({ iso3: c.iso3, name: c.name, candidateForCommand: c.candidateForCommand, status: c.status, referenceClass: c.referenceClass })) },

@@ -4,10 +4,11 @@
 // normalized by the extraction pack, keeps provenance per command, and keeps assignment HISTORY so a reassignment
 // (Israel, EUCOM → CENTCOM) is a record, never a silent overwrite.
 
+import { EUCOM_ENUMERATION_URL, CRS_CENTCOM_URL, CRS_INDOPACOM_URL, RESEARCH_RETRIEVED_AT } from "./verified-research";
 import { ASSIGNMENT_ROWS, type CommandId } from "./assignments-rows";
 import type { AssignmentBasis, AssignmentVerification, CountryAorAssignment, EntityEvidence, GeographicClass } from "./types";
 
-export const ASSIGNMENT_REGISTRY_VERSION = "2026-10-pack-1";
+export const ASSIGNMENT_REGISTRY_VERSION = "2026-10-10-verified-2";
 
 interface CommandSource {
   authority: string;
@@ -45,12 +46,12 @@ export const COMMAND_SOURCES: Record<CommandId, CommandSource> = {
     note: "The 53-state mapping is authoritative at the command level: AFRICOM states the count and its history identifies Egypt as the sole African state retained by CENTCOM.",
   },
   EUCOM: {
-    authority: "USEUCOM – commander page (\"NATO and 50 countries\"; undated)",
-    url: "https://www.eucom.mil/commander",
-    basis: "official_count_normalized_list",
-    verification: "PUBLIC-SOURCE BASELINE — LIVE VERIFY",
+    authority: "USEUCOM – The Region (command-published geographic enumeration)",
+    url: EUCOM_ENUMERATION_URL,
+    basis: "official_list",
+    verification: "PUBLIC-SOURCE BASELINE",
     publicCount: "50 countries",
-    note: "The count of 50 is supported by the current EUCOM commander page (Gen. Alexus G. Grynkewich; the page carries no date). The count is not in question. No official source supplies the individual membership, so the list is a normalized baseline and stays LIVE VERIFY.",
+    note: "All 50 existing rows explicitly named in the command's nine geographic groups, retrieved 2026-10-10 from indexed primary text. Undated page; direct fetch returned 403. NATO tab is a separate, overlapping list and is not used for AOR enumeration.",
   },
   INDOPACOM: {
     authority: "USINDOPACOM – command material stating 36 countries (command fact sheet, undated; Keystone INDOPACOM brief, 11 June 2026)",
@@ -98,12 +99,14 @@ const ENTITY_ROWS: Array<{ iso3: string; name: string; command: CommandId; geogr
     classBasis: US_TERRITORY_BASIS, note: "NORTHCOM's AOR page names Puerto Rico among the Caribbean portions of its AOR. Not a sovereign state." },
   { iso3: "VIR", name: "U.S. Virgin Islands", command: "NORTHCOM", geographicClass: "territory", evidence: "command_page_names_it", basis: "official_boundary_statement",
     classBasis: US_TERRITORY_BASIS, note: "NORTHCOM's AOR page names the U.S. Virgin Islands among the Caribbean portions of its AOR. Not a sovereign state." },
-  { iso3: "TWN", name: "Taiwan", command: "INDOPACOM", geographicClass: "other_entity", evidence: "pack_only_not_named_by_command_page", basis: "official_count_normalized_list",
-    classBasis: "Not classified by an official command source and not on the State Department dependencies fact sheet.",
-    note: "From the extraction pack only: an operational geographic entity not counted in the command's public nation count. The INDOPACOM page read on 2026-10-10 does not name Taiwan. LIVE VERIFY." },
-  { iso3: "PSE", name: "Palestinian Territories", command: "CENTCOM", geographicClass: "other_entity", evidence: "pack_only_not_named_by_command_page", basis: "official_count_normalized_list",
-    classBasis: "Not classified by an official command source and not on the State Department dependencies fact sheet.",
-    note: "From the extraction pack only: a geographic entity in the CENTCOM theater not counted in the 21-nation public count. The CENTCOM AOR page read on 2026-10-10 names no territory. LIVE VERIFY." },
+  { iso3: "TWN", name: "Taiwan", command: "INDOPACOM", geographicClass: "other_entity", evidence: "primary_us_government_names_it", basis: "official_boundary_statement",
+    classBasis: "Represented separately as a geographic entity named by CRS, without asserting sovereign recognition.",
+    sourceUrl: CRS_INDOPACOM_URL, sourceAuthority: "Congressional Research Service", sourceDate: "2024-03-05", sourceCurrencyNote: "Dated CRS evidence; retrieved 2026-10-10. No new effective date inferred.",
+    note: "CRS IF12604 v2 names Taiwan under Focal Points in the INDOPACOM AOR. DSCA corroborates Pacific CMD security-cooperation treatment. Does not establish inclusion or exclusion in the 36-nation count." },
+  { iso3: "PSE", name: "Palestinian Territories", command: "CENTCOM", geographicClass: "other_entity", evidence: "primary_us_government_names_it", basis: "official_boundary_statement",
+    classBasis: "Represented separately as a geographic entity named by CRS, without asserting sovereign recognition.",
+    sourceUrl: CRS_CENTCOM_URL, sourceAuthority: "Congressional Research Service", sourceDate: "2022-03-30", sourceCurrencyNote: "Dated CRS evidence; retrieved 2026-10-10. No new effective date inferred.",
+    note: "CRS IF11428 v4 explicitly includes West Bank & Gaza in CENTCOM AOR. PSE represents that geographic entity; no sovereign-state or public-count claim." },
   { iso3: "GUM", name: "Guam", command: "INDOPACOM", geographicClass: "territory", evidence: "command_page_names_it", basis: "official_boundary_statement",
     classBasis: "The USPACOM fact sheet describes it, with others, as one of the 'U.S. territories in the AOR'; the class recorded is the command's own. The 11 June 2026 Keystone INDOPACOM brief (keystone.ndu.edu) also lists it under 'U.S. territories'.",
     note: "Named by the USPACOM fact sheet: 'Other U.S. territories in the AOR include Guam, American Samoa and the Commonwealth of the Northern Mariana Islands.' Not a sovereign state.",
@@ -142,6 +145,8 @@ function build(): CountryAorAssignment[] {
         effectiveFrom: israel ? ISRAEL_REASSIGNMENT.announced : null,
         effectiveTo: null,
         supersedesCommand: israel ? "EUCOM" : null,
+        ...(command === "EUCOM" ? { lastRetrievedAt: RESEARCH_RETRIEVED_AT } : {}),
+        ...(command === "EUCOM" ? { previousEvidence: [{ sourceAuthority: "USEUCOM commander page / extraction pack", sourceUrl: "https://www.eucom.mil/commander", verification: "PUBLIC-SOURCE BASELINE — LIVE VERIFY" as const, note: "Original normalized membership retained as baseline; individually verified against The Region." }] } : {}),
         note: israel ? "Assigned to CENTCOM by the 2020 UCP change announced by DoD on 15 Jan 2021 (previously EUCOM). The effective date recorded is the announcement date." : source.note,
       });
     }
@@ -157,7 +162,9 @@ function build(): CountryAorAssignment[] {
       classBasis: entity.classBasis,
       entityEvidence: entity.evidence,
       basis: entity.basis,
-      verification: entity.evidence === "pack_only_not_named_by_command_page" ? "PUBLIC-SOURCE BASELINE — LIVE VERIFY" : source.verification,
+      verification: entity.evidence === "pack_only_not_named_by_command_page" ? "PUBLIC-SOURCE BASELINE — LIVE VERIFY" : entity.evidence === "primary_us_government_names_it" ? "PUBLIC-SOURCE BASELINE" : source.verification,
+      ...(["TWN", "PSE"].includes(entity.iso3) ? { lastRetrievedAt: RESEARCH_RETRIEVED_AT } : {}),
+      ...(["TWN", "PSE"].includes(entity.iso3) ? { previousEvidence: [{ sourceAuthority: "AOR Command/Theater Medical Policy extraction pack", sourceUrl: source.url, verification: "PUBLIC-SOURCE BASELINE — LIVE VERIFY" as const, note: "Original pack-only mapping retained; replaced by explicitly named CRS geographic evidence." }] } : {}),
       sourceAuthority: entity.sourceAuthority ?? source.authority,
       sourceUrl: entity.sourceUrl ?? source.url,
       ...(entity.sourceCurrencyNote !== undefined ? { sourceDate: entity.sourceDate ?? null, sourceCurrencyNote: entity.sourceCurrencyNote } : {}),
@@ -268,11 +275,11 @@ export const ENTITY_COVERAGE_REVIEW: Record<CommandId, EntityCoverageReview> = {
     status: "INCOMPLETE_LIVE_VERIFY",
     finding: "SOUTHCOM officially states 31 countries and 12 dependencies and areas of special sovereignty but its public pages name none of the 12; the AOR page links the State Department fact sheet, which lists places by sovereignty and assigns none to a command. Zero are recorded as assignments. Plausible candidates are held apart in candidate-entities.ts as candidate_unverified / LIVE VERIFY and are never returned as assignments. SOUTHCOM's About page describes the Caribbean 'except U.S. commonwealths, territories, and possessions'." },
   CENTCOM: { command: "CENTCOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.centcom.mil/AREA-OF-RESPONSIBILITY/", officialCurrentCountryCount: 21, officialCurrentDependencyOrSpecialAreaCount: null, declaredWording: "The 21 nations of the AOR", named: [], sourceConflicts: [], status: "COMPLETE_AS_STATED",
-    finding: "The AOR page gives only the 21-nation count and regional descriptors; it names no territory. The Palestinian Territories record comes from the extraction pack, not from the command page." },
-  AFRICOM: { command: "AFRICOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.africom.mil/about-the-command", officialCurrentCountryCount: 53, officialCurrentDependencyOrSpecialAreaCount: null, declaredWording: "The area of responsibility consists of 53 African states", named: [], sourceConflicts: [], status: "COMPLETE_AS_STATED",
-    finding: "The page states 53 African states and refers to 'island nations' generally; it names no territory or dependency. The Western Sahara record comes from the extraction pack." },
+    finding: "The AOR page gives only the 21-nation count and regional descriptors; it names no territory. CRS IF11428 v4 explicitly names West Bank & Gaza in the AOR; PSE is now supported by dated primary U.S. government evidence, with the original pack provenance retained." },
+  AFRICOM: { command: "AFRICOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.africom.mil/about-the-command", officialCurrentCountryCount: 53, officialCurrentDependencyOrSpecialAreaCount: null, declaredWording: "The area of responsibility consists of 53 African states", named: [], sourceConflicts: [], status: "INCOMPLETE_LIVE_VERIFY",
+    finding: "The page states 53 African states and refers to 'island nations' generally; it names no territory or dependency. Western Sahara remains pack-only for geography. DSCA explicitly codes it AF for security cooperation, which does not verify a geographic assignment." },
   EUCOM: { command: "EUCOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.eucom.mil/commander", officialCurrentCountryCount: 50, officialCurrentDependencyOrSpecialAreaCount: null, declaredWording: "U.S. defense operations and relations with NATO and 50 countries", named: [], sourceConflicts: [], status: "INCOMPLETE_LIVE_VERIFY",
-    finding: "The current EUCOM commander page supports the count of 50 countries (the page is undated). It names no country and no territory, so the individual membership stays LIVE VERIFY and no entity can be confirmed or ruled out." },
+    finding: "The Region explicitly enumerates all 50 countries in nine geographic groups, matching the registry. Country membership resolved. The page does not enumerate territories, so territory completeness stays unresolved." },
   INDOPACOM: { command: "INDOPACOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.pacom.mil/Portals/55/Documents/pdf/USPACOM%20FACT%20SHEET%20v3.pdf", officialCurrentCountryCount: 36, officialCurrentDependencyOrSpecialAreaCount: null, declaredWording: "36 countries", named: ["GUM", "ASM", "MNP"],
     sourceConflicts: [{
       statement: "The 38 nations comprising the Asia-Pacific region", value: 38, kind: "country_count",
@@ -280,7 +287,7 @@ export const ENTITY_COVERAGE_REVIEW: Record<CommandId, EntityCoverageReview> = {
       note: "The About page uses '38 nations' as a regional description. The command fact sheet (undated) and the 11 June 2026 Keystone INDOPACOM brief both state 36 countries, so the count is 36. The 38 is kept as evidence, not as the count.",
     }],
     status: "INCOMPLETE_LIVE_VERIFY",
-    finding: "INDOPACOM material states 36 countries and names Guam, American Samoa and the Commonwealth of the Northern Mariana Islands as U.S. territories in the AOR ('Other U.S. territories in the AOR include …', which is not an exhaustive list). The fact sheet is undated and carries the former USPACOM name, so it is treated as an older source; the 11 June 2026 Keystone INDOPACOM brief lists the same three territories. Taiwan comes from the extraction pack only. The country list stays LIVE VERIFY." },
+    finding: "INDOPACOM material states 36 countries and names Guam, American Samoa and the Commonwealth of the Northern Mariana Islands as U.S. territories in the AOR ('Other U.S. territories in the AOR include …', which is not an exhaustive list). The fact sheet is undated and carries the former USPACOM name, so it is treated as an older source; the 11 June 2026 Keystone INDOPACOM brief lists the same three territories. CRS IF12604 v2 explicitly names Taiwan under Focal Points in the INDOPACOM AOR. The exact 36-country membership and counting treatment of Taiwan stay LIVE VERIFY." },
 };
 
 export const STATE_DEPARTMENT_FACT_SHEET = STATE_FACT_SHEET;

@@ -10,7 +10,7 @@
 import type { CandidateEntity } from "./types";
 
 const STATE = "https://www.state.gov/dependencies-and-areas-of-special-sovereignty/";
-const WHY = "SOUTHCOM declares 12 dependencies and areas of special sovereignty and names none. This place is on the State Department list of non-U.S. entries in the Caribbean / South Atlantic, which does not assign places to commands. Candidate only: no authoritative source identifies it for SOUTHCOM.";
+const WHY = "SOUTHCOM declares 12 dependencies and areas of special sovereignty and names none. This place is on the State Department list of non-U.S. entries in the Caribbean / South Atlantic, which does not assign places to commands. Candidate only: DSCA C4.T2A separately names security-cooperation responsibilities, but no command geographic enumeration identifies this place as one of the 12.";
 
 const RAW: Array<Pick<CandidateEntity, "iso3" | "name" | "referenceClass" | "referenceClassBasis" | "referenceSovereign">> = [
   { iso3: "AIA", name: "Anguilla", referenceClass: "candidate_unverified", referenceClassBasis: "Class wording not read for this place.", referenceSovereign: "United Kingdom (per the State list; not re-read in this pass)" },
@@ -37,4 +37,4 @@ export const CANDIDATE_ENTITIES: readonly CandidateEntity[] = RAW.map((entry) =>
   referenceUrl: STATE,
 }));
 
-export const CANDIDATE_NOTICE = "Candidate / LIVE VERIFY only. Not an official assignment. No authoritative source identifies these places for SOUTHCOM.";
+export const CANDIDATE_NOTICE = "Candidate / LIVE VERIFY only. Not an official assignment. DSCA security-cooperation codes are available separately; they do not establish these places as SOUTHCOM geographic assignments.";
