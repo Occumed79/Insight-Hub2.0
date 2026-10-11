@@ -21,7 +21,7 @@ test("primary enumeration and dated entity evidence preserve former baseline wit
     assert.ok(assignmentFor(iso3)?.previousEvidence?.length);
     assert.equal(assignmentFor(iso3)?.effectiveFrom, null);
   }
-  assert.deepEqual(auditRegistry().entityEvidence.primaryUsGovernmentNamesIt.sort(), ["PSE", "TWN"]);
+  assert.deepEqual(auditRegistry().entityEvidence.primaryUsGovernmentNamesIt.sort(), ["GEO:GAZA_STRIP", "GEO:WEST_BANK", "PSE", "TWN"], "CRS IF11428 names West Bank & Gaza, so the directory's provisional Gaza / West Bank rows are upgraded");
   assert.equal(assignmentFor("ESH")?.verification, "PUBLIC-SOURCE BASELINE — LIVE VERIFY");
 });
 
@@ -31,7 +31,10 @@ test("security-cooperation codes cannot replace geographic AOR evidence or enume
   assert.equal(code("Cuba"), "NORTHCOM");
   assert.equal(assignmentFor("CUB")?.command, "SOUTHCOM");
   assert.equal(assignmentFor("GRL")?.command, "NORTHCOM");
-  assert.equal(assignmentFor("AIA"), null);
+  // Anguilla is mapped by the global directory as a regional footprint, not as a command-named or verified assignment.
+  assert.equal(assignmentFor("AIA")?.command, "SOUTHCOM");
+  assert.equal(assignmentFor("AIA")?.directory?.evidenceClass, "regional_inference");
+  assert.equal(assignmentFor("AIA")?.entityEvidence, "directory_geographic_mapping");
   assert.equal(RESEARCH_EVIDENCE.find(r => r.id === "western-sahara-dsca")?.scope, "security_cooperation");
 });
 

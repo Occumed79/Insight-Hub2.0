@@ -6,9 +6,10 @@
 
 import { EUCOM_ENUMERATION_URL, CRS_CENTCOM_URL, CRS_INDOPACOM_URL, RESEARCH_RETRIEVED_AT } from "./verified-research";
 import { ASSIGNMENT_ROWS, type CommandId } from "./assignments-rows";
-import type { AssignmentBasis, AssignmentVerification, CountryAorAssignment, EntityEvidence, GeographicClass } from "./types";
+import { buildLocationIndex, ID_ALIASES, integrateDirectory, locationsUnder, lookupLocation, SPLIT_PARENTS, ambiguityFor, type IntegrationReport, type LocationResolution } from "./global-directory";
+import type { AmbiguousParent, AssignmentBasis, AssignmentVerification, CountryAorAssignment, EntityEvidence, GeographicClass } from "./types";
 
-export const ASSIGNMENT_REGISTRY_VERSION = "2026-10-10-verified-2";
+export const ASSIGNMENT_REGISTRY_VERSION = "2026-10-11-global-directory-1";
 
 interface CommandSource {
   authority: string;
@@ -196,20 +197,61 @@ const HISTORY: CountryAorAssignment[] = [
     supersedesCommand: null,
     note: "Superseded: moved from EUCOM to CENTCOM by the 2020 UCP change (DoD announcement 15 Jan 2021). Start date of the earlier assignment is not stated in the pack.",
   },
+  {
+    iso3: "GRL",
+    name: "Greenland",
+    command: "EUCOM",
+    entityType: "entity",
+    geographicClass: "dependency",
+    classBasis: null,
+    entityEvidence: null,
+    basis: "official_boundary_statement",
+    verification: "PUBLIC-SOURCE BASELINE",
+    sourceAuthority: "USNORTHCOM – press release: Greenland now in U.S. Northern Command area of responsibility (formal UCP reassignment)",
+    sourceUrl: "https://www.northcom.mil/Newsroom/Press-Releases/Article/4218865/greenland-now-in-us-northern-command-area-of-responsibility/",
+    effectiveFrom: null,
+    effectiveTo: "2025-06-17",
+    supersedesCommand: null,
+    note: "Superseded: Greenland was transferred from EUCOM to NORTHCOM on 17 June 2025 (formal UCP reassignment, per the global directory). The start date of the earlier EUCOM assignment is not stated in the sources.",
+  },
 ];
 
-export const CURRENT_ASSIGNMENTS: readonly CountryAorAssignment[] = build();
+/** Registry rows (the sovereign + named-entity base) merged with the 285-record global directory into one list of single-AOR records. */
+const INTEGRATION = integrateDirectory(build(), { commandNames: COMMAND_NAMES });
+export const CURRENT_ASSIGNMENTS: readonly CountryAorAssignment[] = INTEGRATION.records;
+export const DIRECTORY_INTEGRATION_REPORT: IntegrationReport = INTEGRATION.report;
 const BY_ISO3 = new Map(CURRENT_ASSIGNMENTS.map((entry) => [entry.iso3, entry]));
+export const LOCATION_INDEX = buildLocationIndex(CURRENT_ASSIGNMENTS);
 
 /** The AOR country table uses XKS for Kosovo; the pack uses the common user-assigned code XKX. */
-const ISO3_ALIASES: Record<string, string> = { XKS: "XKX" };
+const ISO3_ALIASES: Record<string, string> = ID_ALIASES;
 const canonicalIso3 = (iso3: string) => {
   const code = String(iso3 || "").toUpperCase();
   return ISO3_ALIASES[code] ?? code;
 };
 
+/**
+ * Resolve a place to its single geographic assignment. Accepts a record id, ISO3 or the workbook's own code. A split ISO parent
+ * (USA, UMI, ATF) has no assignment of its own, so this returns null for it; use resolveLocation() to get its constituents.
+ */
 export function assignmentFor(iso3: string): CountryAorAssignment | null {
-  return BY_ISO3.get(canonicalIso3(iso3)) ?? null;
+  const code = canonicalIso3(iso3);
+  if (SPLIT_PARENTS[code]) return null;
+  return BY_ISO3.get(code) ?? LOCATION_INDEX.byId.get(String(iso3 || "").trim()) ?? null;
+}
+
+/** Full location lookup by id, ISO2/ISO3, name or alias. Split ISO parents resolve to their constituents, never to one inherited command. */
+export function resolveLocation(query: string): LocationResolution {
+  return lookupLocation(LOCATION_INDEX, query);
+}
+
+/** Locations that sit under a sovereign / administrative parent (US, UMI, ATF constituents; SHN, BES, SJM, PSE children). */
+export function locationsUnderParent(parentIso3: string): CountryAorAssignment[] {
+  return locationsUnder(LOCATION_INDEX, canonicalIso3(parentIso3));
+}
+
+export function ambiguousParentFor(iso3: string): AmbiguousParent | null {
+  return ambiguityFor(LOCATION_INDEX, canonicalIso3(iso3));
 }
 
 export function assignmentHistoryFor(iso3: string): CountryAorAssignment[] {
@@ -290,14 +332,14 @@ export const ENTITY_COVERAGE_REVIEW: Record<CommandId, EntityCoverageReview> = {
     finding: "The page states 53 African states and refers to 'island nations' generally; it names no territory or dependency. Western Sahara remains pack-only for geography. DSCA explicitly codes it AF for security cooperation, which does not verify a geographic assignment." },
   EUCOM: { command: "EUCOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.eucom.mil/commander", officialCurrentCountryCount: 50, officialCurrentDependencyOrSpecialAreaCount: null, declaredWording: "U.S. defense operations and relations with NATO and 50 countries", named: [], sourceConflicts: [], status: "INCOMPLETE_LIVE_VERIFY",
     finding: "The Region explicitly enumerates all 50 countries in nine geographic groups, matching the registry. Country membership resolved. The page does not enumerate territories, so territory completeness stays unresolved." },
-  INDOPACOM: { command: "INDOPACOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.pacom.mil/Portals/55/Documents/pdf/USPACOM%20FACT%20SHEET%20v3.pdf", officialCurrentCountryCount: 36, officialCurrentDependencyOrSpecialAreaCount: null, declaredWording: "36 countries", named: ["GUM", "ASM", "MNP"],
+  INDOPACOM: { command: "INDOPACOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.pacom.mil/Portals/55/Documents/pdf/USPACOM%20FACT%20SHEET%20v3.pdf", officialCurrentCountryCount: 36, officialCurrentDependencyOrSpecialAreaCount: null, declaredWording: "36 countries", named: ["GUM", "ASM", "MNP", "ATA"],
     sourceConflicts: [{
       statement: "The 38 nations comprising the Asia-Pacific region", value: 38, kind: "country_count",
       sourceUrl: "https://www.pacom.mil/About-USINDOPACOM/", sourceDate: null, resolution: "RESOLVED_TOWARD_CURRENT_COUNT",
       note: "The About page uses '38 nations' as a regional description. The command fact sheet (undated) and the 11 June 2026 Keystone INDOPACOM brief both state 36 countries, so the count is 36. The 38 is kept as evidence, not as the count.",
     }],
     status: "INCOMPLETE_LIVE_VERIFY",
-    finding: "INDOPACOM material states 36 countries and names Guam, American Samoa and the Commonwealth of the Northern Mariana Islands as U.S. territories in the AOR ('Other U.S. territories in the AOR include …', which is not an exhaustive list). The fact sheet is undated and carries the former USPACOM name, so it is treated as an older source; the 11 June 2026 Keystone INDOPACOM brief lists the same three territories. CRS IF12604 v2 explicitly names Taiwan under Focal Points in the INDOPACOM AOR. The exact 36-country membership and counting treatment of Taiwan stay LIVE VERIFY." },
+    finding: "INDOPACOM material states 36 countries and names Guam, American Samoa and the Commonwealth of the Northern Mariana Islands as U.S. territories in the AOR ('Other U.S. territories in the AOR include …', which is not an exhaustive list). The fact sheet is undated and carries the former USPACOM name, so it is treated as an older source; the 11 June 2026 Keystone INDOPACOM brief lists the same three territories. CRS IF12604 v2 explicitly names Taiwan under Focal Points in the INDOPACOM AOR. Antarctica (ATA) is recorded from the global directory's INDOPACOM command-history source (2002 assignment). The exact 36-country membership and counting treatment of Taiwan stay LIVE VERIFY." },
 };
 
 export const STATE_DEPARTMENT_FACT_SHEET = STATE_FACT_SHEET;

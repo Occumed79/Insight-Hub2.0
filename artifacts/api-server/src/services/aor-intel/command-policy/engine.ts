@@ -1,10 +1,21 @@
-import { assignmentFor, assignmentHistoryFor, COMMAND_NAMES } from "./assignments";
+import { ambiguousParentFor, assignmentFor, assignmentHistoryFor, COMMAND_NAMES } from "./assignments";
 import { COMMAND_POLICIES, COMMAND_RULES } from "./policies-data";
 import type {
   CommandApplicability, CommandId, CommandPolicy, CommandPolicyRule, CommandQuery, CommandRuleEvaluation, CountryCommandResolution, StayThreshold,
 } from "./types";
 
 export const NOT_PUBLICLY_VERIFIED_TEXT = "NOT PUBLICLY VERIFIED — no current public command-wide medical-entry policy was located for this command. No other command's requirements are applied.";
+export const PROVISIONAL_ASSIGNMENT_TEXT = "The geographic assignment for this location is PROVISIONAL (the directory flags it provisional or contested and no controlling source names it), so whether this command's policy reaches the location is unconfirmed.";
+export const REGIONAL_ASSIGNMENT_TEXT = "The geographic assignment for this location is a regional mapping, not an individually named assignment; confirm it with the command before relying on the command policy.";
+
+function assignmentQualifierOf(assignment: NonNullable<CountryCommandResolution["assignment"]>): CountryCommandResolution["assignmentQualifier"] {
+  const detail = assignment.directory;
+  if (!detail) return null;
+  if (detail.provisional) return { evidenceClass: detail.evidenceClass, provisional: true, text: PROVISIONAL_ASSIGNMENT_TEXT };
+  if (detail.evidenceClass === "regional_inference") return { evidenceClass: detail.evidenceClass, provisional: false, text: REGIONAL_ASSIGNMENT_TEXT };
+  return null;
+}
+
 export const COMMAND_NOT_ASSIGNED_TEXT = "No combatant command assignment for this country is recorded in the configured registry, so no command medical policy is shown. This is not evidence that none applies.";
 
 const POLICY_BY_ID = new Map(COMMAND_POLICIES.map((policy) => [policy.policyId, policy]));
@@ -23,11 +34,15 @@ function supersededPoliciesFor(command: CommandId): CommandPolicy[] {
  */
 export function resolveCountryCommand(iso3Input: string): CountryCommandResolution {
   const iso3 = String(iso3Input || "").trim().toUpperCase();
+  const ambiguousParent = ambiguousParentFor(iso3);
+  if (ambiguousParent) {
+    return { iso3, assigned: false, command: null, assignment: null, history: [], policy: null, supersededPolicies: [], commandMedicalPolicyStatus: "LOCATION_AMBIGUOUS", rules: [], note: ambiguousParent.message, ambiguousParent, assignmentQualifier: null };
+  }
   const assignment = assignmentFor(iso3);
   const canonical = assignment?.iso3 ?? iso3;
   const history = assignmentHistoryFor(iso3);
   if (!assignment) {
-    return { iso3, assigned: false, command: null, assignment: null, history, policy: null, supersededPolicies: [], commandMedicalPolicyStatus: "COMMAND_NOT_ASSIGNED", rules: [], note: COMMAND_NOT_ASSIGNED_TEXT };
+    return { iso3, assigned: false, command: null, assignment: null, history, policy: null, supersededPolicies: [], commandMedicalPolicyStatus: "COMMAND_NOT_ASSIGNED", rules: [], note: COMMAND_NOT_ASSIGNED_TEXT, ambiguousParent: null, assignmentQualifier: null };
   }
   const policy = currentPolicyFor(assignment.command);
   const policyRules = policy ? COMMAND_RULES.filter((rule) => rule.policyId === policy.policyId) : [];
@@ -47,6 +62,8 @@ export function resolveCountryCommand(iso3Input: string): CountryCommandResoluti
     commandMedicalPolicyStatus: status,
     rules,
     note: status === "NOT_PUBLICLY_VERIFIED" ? NOT_PUBLICLY_VERIFIED_TEXT : null,
+    ambiguousParent: null,
+    assignmentQualifier: assignmentQualifierOf(assignment),
   };
 }
 
@@ -187,7 +204,17 @@ export function evaluateCommandRule(rule: CommandPolicyRule, query: CommandQuery
 
 export function evaluateCommandTraveler(query: CommandQuery): { resolution: CountryCommandResolution; evaluations: CommandRuleEvaluation[]; shortStayNote: string | null } {
   const resolution = resolveCountryCommand(query.iso3);
-  const evaluations = resolution.rules.map((rule) => evaluateCommandRule(rule, query));
+  const qualifier = resolution.assignmentQualifier ?? null;
+  const evaluations = resolution.rules.map((rule) => {
+    const evaluation = evaluateCommandRule(rule, query);
+    if (!qualifier) return evaluation;
+    // Geography alone never makes a requirement universal, and a provisional geographic assignment must not be presented as settled:
+    // a rule that would apply becomes "unknown" until the assignment is confirmed. Rules that already do not apply stay excluded.
+    if (qualifier.provisional && evaluation.applicability === "applies") {
+      return { ...evaluation, applicability: "unknown" as const, reasons: [...evaluation.reasons, qualifier.text], missingInputs: [...evaluation.missingInputs, "confirmation of the geographic command assignment for this location (provisional)"] };
+    }
+    return { ...evaluation, reasons: [...evaluation.reasons, qualifier.text] };
+  });
   let shortStayNote: string | null = null;
   const stay = query.stayDays;
   if (resolution.policy && stay !== null && stay !== undefined) {
@@ -230,6 +257,10 @@ export interface CommandAnswers {
   ruleCount: number;
   sourceGapCount: number;
   assignmentHistory: Array<{ command: CommandId; effectiveTo: string | null; note: string | null }>;
+  /** Evidence class of the geographic assignment itself, kept apart from the command's medical policy. */
+  assignmentEvidenceClass: import("./types").EvidenceClass | null;
+  assignmentProvisional: boolean;
+  ambiguousParent: import("./types").AmbiguousParent | null;
 }
 
 export function describeCommandCountry(iso3: string, now: Date = new Date()): CommandAnswers {
@@ -261,6 +292,9 @@ export function describeCommandCountry(iso3: string, now: Date = new Date()): Co
     ruleCount: rules.length,
     sourceGapCount: rules.reduce((total, rule) => total + rule.sourceGaps.length, 0),
     assignmentHistory: resolution.history.map((entry) => ({ command: entry.command, effectiveTo: entry.effectiveTo, note: entry.note })),
+    assignmentEvidenceClass: resolution.assignment?.directory?.evidenceClass ?? null,
+    assignmentProvisional: resolution.assignment?.directory?.provisional ?? false,
+    ambiguousParent: resolution.ambiguousParent ?? null,
   };
 }
 

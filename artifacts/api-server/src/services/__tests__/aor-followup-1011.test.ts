@@ -61,7 +61,8 @@ test("geographic gaps stay open with attempts recorded: INDOPACOM roster, SOUTHC
   assert.equal(audit.perCommand.INDOPACOM.officialCurrentCountryCount, 36);
   assert.equal(audit.perCommand.SOUTHCOM.verifiedNamedDependencyCount, 0);
   assert.equal(audit.perCommand.SOUTHCOM.officialCurrentDependencyOrSpecialAreaCount, 12);
-  assert.equal(CURRENT_ASSIGNMENTS.filter((r) => r.command === "SOUTHCOM").length, 31);
+  assert.equal(CURRENT_ASSIGNMENTS.filter((r) => r.command === "SOUTHCOM" && r.geographicClass === "sovereign_state").length, 31);
+  assert.ok(CURRENT_ASSIGNMENTS.filter((r) => r.command === "SOUTHCOM" && r.geographicClass !== "sovereign_state").every((r) => r.directory?.evidenceClass === "regional_inference"), "directory territories under SOUTHCOM are regional mappings, never command-named assignments");
   assert.equal(assignmentFor("ESH")?.geographicClass, "disputed_entity");
-  assert.equal(audit.sovereignStates + audit.territoriesDependenciesEntities, audit.totalCurrentRecords, "non-sovereign records are counted apart from sovereign states");
+  assert.equal(audit.byClass.sovereign_state + audit.byClass.sovereign_component + audit.territoriesDependenciesEntities, audit.totalCurrentRecords, "non-sovereign records and sovereign components are counted apart from sovereign states");
 });

@@ -2,12 +2,14 @@
 // Counts are computed from the rows, never typed in, so a duplicate or overlapping current assignment cannot hide.
 
 import { ASSIGNMENT_ROWS } from "./assignments-rows";
-import { assignmentFor, assignmentHistoryFor, CURRENT_ASSIGNMENTS, COMMAND_SOURCES, ENTITY_COVERAGE_REVIEW } from "./assignments";
+import { assignmentFor, assignmentHistoryFor, CURRENT_ASSIGNMENTS, COMMAND_SOURCES, DIRECTORY_INTEGRATION_REPORT, ENTITY_COVERAGE_REVIEW } from "./assignments";
+import { directoryCounts, SPLIT_PARENTS, type DirectoryCounts } from "./global-directory";
 import { CANDIDATE_ENTITIES } from "./candidate-entities";
 import type { CommandId, CountryAorAssignment, GeographicClass } from "./types";
 
 const COMMANDS = Object.keys(ASSIGNMENT_ROWS) as CommandId[];
-export const GEOGRAPHIC_CLASSES: readonly GeographicClass[] = ["sovereign_state", "territory", "dependency", "overseas_department", "autonomous_country", "collectivity", "area_of_special_sovereignty", "disputed_entity", "other_entity", "candidate_unverified"];
+export const GEOGRAPHIC_CLASSES: readonly GeographicClass[] = ["sovereign_state", "territory", "dependency", "overseas_department", "autonomous_country", "collectivity", "area_of_special_sovereignty", "sovereign_component", "disputed_entity", "other_entity", "candidate_unverified"];
+const NAMED_EVIDENCE = new Set(["command_page_names_it", "primary_us_government_names_it"]);
 const DEPENDENCY_TYPE = new Set<GeographicClass>(["dependency", "overseas_department", "autonomous_country", "collectivity", "area_of_special_sovereignty"]);
 const emptyClasses = (): Record<GeographicClass, number> => Object.fromEntries(GEOGRAPHIC_CLASSES.map((name) => [name, 0])) as Record<GeographicClass, number>;
 
@@ -24,6 +26,10 @@ export interface CommandAuditRow {
   /** Non-sovereign records named by official command material (verified named) and records carried from the extraction pack only. */
   verifiedNamedEntities: number;
   packOnlyEntities: number;
+  /** Records placed by the global directory's geographic mapping; the command does not name them. */
+  regionalMappedEntities: number;
+  /** Geographic components of a sovereign state that spans AORs (US: contiguous, Alaska, Hawaii). */
+  sovereignComponents: number;
   /** The command's own current statements. Counts the command states are kept even when it names no individual place. */
   officialCurrentCountryCount: number | null;
   officialCurrentDependencyOrSpecialAreaCount: number | null;
@@ -59,7 +65,16 @@ export interface RegistryAudit {
   /** `shortfall` = officially declared minus verified named. Candidates never close a shortfall. */
   declaredButUnenumerated: Array<{ command: CommandId; officialDeclared: number; verifiedNamed: number; shortfall: number; wording: string | null }>;
   /** Non-sovereign records named by an official command page versus carried only from the extraction pack. */
-  entityEvidence: { commandPageNamesIt: string[]; primaryUsGovernmentNamesIt: string[]; packOnly: string[] };
+  entityEvidence: { commandPageNamesIt: string[]; primaryUsGovernmentNamesIt: string[]; packOnly: string[]; directoryGeographicMapping: string[] };
+  /** Global directory counts. A complete directory is NOT 285 independently verified assignments; the evidence classes are counted apart. */
+  directory: DirectoryCounts & {
+    integration: { recordsAddedFromDirectory: number; registryRecordsEnriched: number; splitParentRowsReplacedByConstituents: string[]; commandConflicts: number };
+    /** Selector entries that are split ISO parents (US, UM, TF): they resolve only through constituents. */
+    splitParentsInSelector: Array<{ iso3: string; name: string }>;
+    multipleOrBlankAor: number;
+  };
+  /** Sovereign states that span more than one AOR and so have no AOR of their own (they are counted in sovereignStates, not in any single command). */
+  compositeSovereignParents: Array<{ iso3: string; name: string; commands: CommandId[] }>;
   /** Candidate / LIVE VERIFY places held outside the registry. Never counted, never an assignment. */
   candidates: { count: number; isOfficialAssignment: false; entries: Array<{ iso3: string; name: string; candidateForCommand: CommandId; status: "LIVE_VERIFY"; referenceClass: GeographicClass }> };
   /** Conflicting official statements retained as evidence. */
@@ -86,7 +101,12 @@ export function auditRegistry(countryTable: ReadonlyArray<{ iso3: string; countr
   }
 
   const sovereign = rows.filter((row) => row.geographicClass === "sovereign_state");
-  const entities = rows.filter((row) => row.geographicClass !== "sovereign_state");
+  const entities = rows.filter((row) => row.geographicClass !== "sovereign_state" && row.geographicClass !== "sovereign_component");
+  const components = rows.filter((row) => row.geographicClass === "sovereign_component");
+  const compositeParents = [...new Set(components.map((row) => row.directory?.parentIso3).filter((code): code is string => !!code && !!SPLIT_PARENTS[code]))];
+  const compositeSovereignParents = compositeParents.filter((code) => components.some((row) => row.directory?.parentIso3 === code)).map((code) => ({
+    iso3: code, name: SPLIT_PARENTS[code].name, commands: [...new Set(components.filter((row) => row.directory?.parentIso3 === code).map((row) => row.command))].sort() as CommandId[],
+  }));
 
   const byClass = emptyClasses();
   for (const row of rows) byClass[row.geographicClass] += 1;
@@ -97,17 +117,22 @@ export function auditRegistry(countryTable: ReadonlyArray<{ iso3: string; countr
     const classes = emptyClasses();
     for (const row of mine) classes[row.geographicClass] += 1;
     const s = classes.sovereign_state;
-    const e = mine.length - s;
+    const comp = mine.filter((row) => row.geographicClass === "sovereign_component");
+    const e = mine.length - s - comp.length;
+    // A composite sovereign parent counts toward a command's sovereign tally only through components the command's own material names.
+    const namedComposite = new Set(comp.filter((row) => row.directory?.evidenceClass === "individually_verified").map((row) => row.directory?.parentIso3)).size;
     const expected = PUBLIC_SOVEREIGN_COUNT[command] ?? null;
     const review = ENTITY_COVERAGE_REVIEW[command];
     perCommand[command] = {
       sovereign: s, entities: e, total: mine.length, byClass: classes,
       publicCount: COMMAND_SOURCES[command].publicCount,
-      matchesPublicSovereignCount: expected === null ? null : expected === s,
+      matchesPublicSovereignCount: expected === null ? null : expected === s + namedComposite,
       liveVerify: /LIVE VERIFY/.test(COMMAND_SOURCES[command].verification),
       entityRecorded: e,
-      verifiedNamedEntities: mine.filter((row) => row.geographicClass !== "sovereign_state" && row.entityEvidence !== "pack_only_not_named_by_command_page").length,
+      verifiedNamedEntities: mine.filter((row) => row.geographicClass !== "sovereign_state" && row.geographicClass !== "sovereign_component" && row.entityEvidence !== null && NAMED_EVIDENCE.has(row.entityEvidence)).length,
       packOnlyEntities: mine.filter((row) => row.geographicClass !== "sovereign_state" && row.entityEvidence === "pack_only_not_named_by_command_page").length,
+      regionalMappedEntities: mine.filter((row) => row.geographicClass !== "sovereign_state" && row.geographicClass !== "sovereign_component" && row.entityEvidence === "directory_geographic_mapping").length,
+      sovereignComponents: comp.length,
       officialCurrentCountryCount: review.officialCurrentCountryCount,
       officialCurrentDependencyOrSpecialAreaCount: review.officialCurrentDependencyOrSpecialAreaCount,
       verifiedNamedDependencyCount: mine.filter((row) => row.entityEvidence === "command_page_names_it" && DEPENDENCY_TYPE.has(row.geographicClass)).length,
@@ -122,9 +147,10 @@ export function auditRegistry(countryTable: ReadonlyArray<{ iso3: string; countr
   const historicalOverlappingCurrent = historical.filter((old) => rows.some((row) => row.iso3 === old.iso3 && row.command === old.command)).map((old) => old.iso3);
 
   const tableIso = new Set(countryTable.map((entry) => entry.iso3));
-  const unmapped = countryTable.filter((entry) => !assignmentFor(entry.iso3)).map((entry) => ({ iso3: entry.iso3, name: entry.country }));
+  const splitInSelector = countryTable.filter((entry) => !!SPLIT_PARENTS[entry.iso3]).map((entry) => ({ iso3: entry.iso3, name: entry.country }));
+  const unmapped = countryTable.filter((entry) => !assignmentFor(entry.iso3) && !SPLIT_PARENTS[entry.iso3]).map((entry) => ({ iso3: entry.iso3, name: entry.country }));
   const alias = (iso3: string) => (iso3 === "XKX" ? "XKS" : iso3);
-  const missing = countryTable.length ? rows.filter((row) => !tableIso.has(row.iso3) && !tableIso.has(alias(row.iso3))).map((row) => ({ iso3: row.iso3, name: row.name, geographicClass: row.geographicClass, command: row.command })) : [];
+  const missing = countryTable.length ? rows.filter((row) => !tableIso.has(row.iso3) && !tableIso.has(alias(row.iso3)) && !tableIso.has(row.directory?.workbookCode3 ?? "")).map((row) => ({ iso3: row.iso3, name: row.name, geographicClass: row.geographicClass, command: row.command })) : [];
 
   const declaredButUnenumerated = COMMANDS.flatMap((command) => {
     const declared = perCommand[command].officialCurrentDependencyOrSpecialAreaCount;
@@ -134,11 +160,11 @@ export function auditRegistry(countryTable: ReadonlyArray<{ iso3: string; countr
   const sourceConflicts = COMMANDS.flatMap((command) => ENTITY_COVERAGE_REVIEW[command].sourceConflicts.map((c) => ({ command, statement: c.statement, value: c.value, kind: c.kind, sourceDate: c.sourceDate, resolution: c.resolution })));
 
   return {
-    sovereignStates: new Set(sovereign.map((row) => row.iso3)).size,
+    sovereignStates: new Set(sovereign.map((row) => row.iso3)).size + compositeSovereignParents.length,
     territoriesDependenciesEntities: new Set(entities.map((row) => row.iso3)).size,
     totalCurrentRecords: byIso.size,
     byClass,
-    uniqueCurrentSovereign: new Set(sovereign.map((row) => row.iso3)).size,
+    uniqueCurrentSovereign: new Set(sovereign.map((row) => row.iso3)).size + compositeSovereignParents.length,
     uniqueCurrentEntities: new Set(entities.map((row) => row.iso3)).size,
     uniqueCurrentTotal: byIso.size,
     currentRows: rows.length,
@@ -153,6 +179,19 @@ export function auditRegistry(countryTable: ReadonlyArray<{ iso3: string; countr
       commandPageNamesIt: entities.filter((row) => row.entityEvidence === "command_page_names_it").map((row) => row.iso3).sort(),
       primaryUsGovernmentNamesIt: entities.filter((row) => row.entityEvidence === "primary_us_government_names_it").map((row) => row.iso3).sort(),
       packOnly: entities.filter((row) => row.entityEvidence === "pack_only_not_named_by_command_page").map((row) => row.iso3).sort(),
+      directoryGeographicMapping: entities.filter((row) => row.entityEvidence === "directory_geographic_mapping").map((row) => row.iso3).sort(),
+    },
+    compositeSovereignParents,
+    directory: {
+      ...directoryCounts(rows),
+      integration: {
+        recordsAddedFromDirectory: DIRECTORY_INTEGRATION_REPORT.added.length,
+        registryRecordsEnriched: DIRECTORY_INTEGRATION_REPORT.enriched.length,
+        splitParentRowsReplacedByConstituents: DIRECTORY_INTEGRATION_REPORT.splitParentsRemoved,
+        commandConflicts: DIRECTORY_INTEGRATION_REPORT.commandConflicts.length,
+      },
+      splitParentsInSelector: splitInSelector,
+      multipleOrBlankAor: rows.filter((row) => !row.command || /MULTIPLE|[,;/]/.test(String(row.command))).length,
     },
     candidates: { count: CANDIDATE_ENTITIES.length, isOfficialAssignment: false, entries: CANDIDATE_ENTITIES.map((c) => ({ iso3: c.iso3, name: c.name, candidateForCommand: c.candidateForCommand, status: c.status, referenceClass: c.referenceClass })) },
     sourceConflicts,

@@ -1,7 +1,7 @@
 import { OCR_SOURCE_DOCUMENT_REGISTRY } from "../services/aor-intel/command-policy/ocr-source-documents";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { resolveCountry } from "../services/aor-intel/geo";
-import { assignmentStats, countriesForCommand } from "../services/aor-intel/command-policy/assignments";
+import { assignmentStats, countriesForCommand, resolveLocation } from "../services/aor-intel/command-policy/assignments";
 import { AOR_COUNTRY_PROFILES } from "../data/aor-country-profiles";
 import { auditRegistry } from "../services/aor-intel/command-policy/audit";
 import { gapSummary } from "../services/aor-intel/command-policy/source-gaps";
@@ -17,12 +17,14 @@ const POPULATIONS: Population[] = ["us_military", "dod_civilian", "dod_contracto
 const TRAVEL_KINDS: TravelKind[] = ["official_tdy_deployment", "pcs", "leisure", "contingency"];
 const COMMANDS: CommandId[] = ["CENTCOM", "AFRICOM", "EUCOM", "INDOPACOM", "SOUTHCOM", "NORTHCOM"];
 
-/** Accepts ISO2 (resolved through the AOR country table) or ISO3. */
+/** Accepts ISO2 (resolved through the AOR country table), ISO3, or a directory record id / constituent name (e.g. "GEO:UNITED_STATES_HAWAII", "Hawaii"). */
 function iso3Of(value: unknown): string | null {
-  const text = String(value ?? "").trim().toUpperCase();
+  const raw = String(value ?? "").trim();
+  const text = raw.toUpperCase();
   if (/^[A-Z]{3}$/.test(text)) return text;
   if (/^[A-Z]{2}$/.test(text)) return resolveCountry(text)?.iso3 || null;
-  return null;
+  const found = raw ? resolveLocation(raw) : null;
+  return found && found.status === "resolved" ? found.record.iso3 : null;
 }
 const pick = <T extends string>(value: unknown, allowed: readonly T[]): T | null => (allowed.includes(String(value ?? "").toLowerCase() as T) ? (String(value).toLowerCase() as T) : null);
 const number = (value: unknown): number | null => {
@@ -106,10 +108,25 @@ router.get("/aor/command-policy/registry", (_req: Request, res: Response) => {
     ocrSourceDocuments: OCR_SOURCE_DOCUMENT_REGISTRY,
     commands: COMMANDS.map((command) => ({
       command,
-      countries: countriesForCommand(command, true).map((entry) => ({ iso3: entry.iso3, name: entry.name, entityType: entry.entityType, verification: entry.verification })),
+      countries: countriesForCommand(command, true).map((entry) => ({ iso3: entry.iso3, name: entry.name, entityType: entry.entityType, verification: entry.verification, geographicClass: entry.geographicClass, evidenceClass: entry.directory?.evidenceClass ?? null, provisional: entry.directory?.provisional ?? false })),
       policies: COMMAND_POLICIES.filter((policy) => policy.command === command).map((policy) => ({ ...policy, qualifiers: policyQualifiers(policy, now) })),
     })),
   });
+});
+
+// Geographic location lookup: one location → one primary geographic AOR. A split ISO parent (US, UM, TF) returns its constituents, never a command.
+//   /api/aor/command-policy/location?q=Hawaii
+router.get("/aor/command-policy/location", (req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const q = String(req.query.q ?? "").trim().slice(0, 120);
+  if (!q) return res.status(400).json({ ok: false, error: "q must name a country, territory or constituent location" });
+  const found = resolveLocation(q);
+  if (found.status === "resolved") {
+    const record = found.record;
+    return res.json({ ok: true, status: "resolved", via: found.via, location: { id: record.iso3, name: record.name, command: record.command, geographicClass: record.geographicClass, evidenceClass: record.directory?.evidenceClass ?? null, provisional: record.directory?.provisional ?? false, parentIso3: record.directory?.parentIso3 ?? null }, assignment: record });
+  }
+  if (found.status === "ambiguous_parent") return res.status(200).json({ ok: true, status: "ambiguous_parent", message: found.ambiguity.message, parent: { iso2: found.ambiguity.parentIso2, iso3: found.ambiguity.parentIso3, name: found.ambiguity.parentName }, constituents: found.ambiguity.constituents });
+  return res.status(404).json({ ok: false, status: "not_found", error: "No directory location matches. Supply a more specific country, territory or island name." });
 });
 
 // Registry integrity audit: unique current counts, duplicates, history, unmapped places.

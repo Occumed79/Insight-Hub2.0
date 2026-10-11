@@ -114,7 +114,7 @@ function assignmentRecord(ctx: AdapterContext, resolution: CountryCommandResolut
     title: assignment.geographicClass === "sovereign_state"
       ? `${ctx.country.name} is in the ${COMMAND_NAMES[assignment.command]} (${assignment.command}) area of responsibility`
       : `${ctx.country.name} (${assignment.geographicClass.replace(/_/g, " ")}, not a sovereign state) is in the ${COMMAND_NAMES[assignment.command]} (${assignment.command}) area of responsibility`,
-    summary: `${assignment.verification}. ${assignment.note ?? `Assignment taken from ${assignment.sourceAuthority}.`}${assignment.sourceCurrencyNote ? ` Source age: ${assignment.sourceCurrencyNote}` : ""}${history.length ? ` History preserved: previously ${history.map((entry) => entry.command).join(", ")}${history[0]?.effectiveTo ? ` until ${history[0].effectiveTo}` : ""}.` : ""}`,
+    summary: `${assignment.verification}.${assignment.directory ? ` Assignment evidence: ${assignment.directory.evidenceClass.replace(/_/g, " ")}${assignment.directory.provisional ? " (PROVISIONAL)" : ""}.` : ""} ${assignment.note ?? `Assignment taken from ${assignment.sourceAuthority}.`}${assignment.sourceCurrencyNote ? ` Source age: ${assignment.sourceCurrencyNote}` : ""}${history.length ? ` History preserved: previously ${history.map((entry) => entry.command).join(", ")}${history[0]?.effectiveTo ? ` until ${history[0].effectiveTo}` : ""}.` : ""}`,
     evidence: [`Registry ${ASSIGNMENT_REGISTRY_VERSION}`, `Command public scope: ${source.publicCount}`, `Authority: ${assignment.sourceAuthority}`, "The Unified Command Plan is classified; assignments are built from public DoD and command material."].join(" | "),
     sourceName: assignment.sourceAuthority,
     sourceUrl: assignment.sourceUrl,
@@ -125,13 +125,16 @@ function assignmentRecord(ctx: AdapterContext, resolution: CountryCommandResolut
     geometry: { type: "None" },
     geographyLevel: "country",
     geographyNote: SEPARATION_NOTE,
-    extra: { ruleClass: COMMAND_RULE_CLASS, command: assignment.command, assignment, geographicClass: assignment.geographicClass, entityEvidence: assignment.entityEvidence, history, verificationStatus: assignment.verification },
+    extra: { ruleClass: COMMAND_RULE_CLASS, command: assignment.command, assignment, geographicClass: assignment.geographicClass, entityEvidence: assignment.entityEvidence, evidenceClass: assignment.directory?.evidenceClass ?? null, provisional: assignment.directory?.provisional ?? false, assignmentQualifier: resolution.assignmentQualifier ?? null, history, verificationStatus: assignment.verification },
   });
 }
 
 export async function commandPolicyAdapter(ctx: AdapterContext): Promise<AdapterResult> {
   const now = ctx.now();
   const resolution = resolveCountryCommand(ctx.country.iso3);
+  if (resolution.ambiguousParent) {
+    return result(ctx, META, "no_current_matching_finding", [], resolution.ambiguousParent.message);
+  }
   if (!resolution.assigned) {
     return result(ctx, META, "no_current_matching_finding", [], `${COMMAND_NOT_ASSIGNED_TEXT} (${ctx.country.name}, ${ctx.country.iso3 || "no ISO3"}).`);
   }
