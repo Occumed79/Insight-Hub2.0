@@ -119,9 +119,9 @@ const ENTITY_ROWS: Array<{ iso3: string; name: string; command: CommandId; geogr
     classBasis: "The USPACOM fact sheet describes it, with others, as one of the 'U.S. territories in the AOR'. The command's own wording is 'Commonwealth of the Northern Mariana Islands'; the class recorded is the command's 'territory'.",
     note: "Named by the USPACOM fact sheet: 'Other U.S. territories in the AOR include Guam, American Samoa and the Commonwealth of the Northern Mariana Islands.' Not a sovereign state.",
     sourceUrl: "https://www.pacom.mil/Portals/55/Documents/pdf/USPACOM%20FACT%20SHEET%20v3.pdf", sourceAuthority: "USPACOM – Headquarters fact sheet (undated; predates the INDOPACOM name)", sourceDate: null, sourceCurrencyNote: SOURCE_NOTE_USPACOM_FACT_SHEET },
-  { iso3: "ESH", name: "Western Sahara", command: "AFRICOM", geographicClass: "other_entity", evidence: "pack_only_not_named_by_command_page", basis: "official_count_normalized_list",
-    classBasis: "Not classified by an official command source and not on the State Department dependencies fact sheet.",
-    note: "From the extraction pack only: a geographic entity in the AFRICOM theater not counted in the 53-state public count. The AFRICOM page read on 2026-10-10 names no territory. LIVE VERIFY." },
+  { iso3: "ESH", name: "Western Sahara", command: "AFRICOM", geographicClass: "disputed_entity", evidence: "pack_only_not_named_by_command_page", basis: "official_count_normalized_list",
+    classBasis: "Class recorded as disputed_entity because the UN MINURSO background page (updated 23 Jan 2026) describes a former Spanish colony, an armed conflict between the Frente POLISARIO and Morocco/Mauritania after 1975, and a referendum that 'has never been held'. The U.S. government's position on its sovereignty was not read in this pass and is not asserted. Not classified by any combatant-command source.",
+    note: "Command assignment is PROVISIONAL and unverified: it comes from the extraction pack only. AFRICOM's page (read 2026-10-10 and 2026-10-11) names no territory and counts 53 African states, which does not name Western Sahara. Kept apart: geographic location (north-west Africa); disputed political status (UN source above); geographic command responsibility (unverified); documented security-cooperation coverage (DSCA SAMM C4.T2A codes it AFRICOM, which is not a UCP boundary). LIVE VERIFY." },
 ];
 
 function build(): CountryAorAssignment[] {
@@ -239,7 +239,7 @@ export function assignmentStats(): { version: string; byCommand: Record<CommandI
 export interface SourceConflict {
   statement: string;
   value: number;
-  kind: "country_count" | "dependency_or_special_area_count";
+  kind: "country_count" | "dependency_or_special_area_count" | "combined_nations_and_territories_count";
   sourceUrl: string;
   sourceDate: string | null;
   resolution: "RESOLVED_TOWARD_CURRENT_COUNT" | "RETAINED_AS_HISTORICAL_EVIDENCE";
@@ -271,7 +271,17 @@ export const ENTITY_COVERAGE_REVIEW: Record<CommandId, EntityCoverageReview> = {
       statement: "promote security cooperation with the 31 nations and 16 areas of special sovereignty in our AOR", value: 16, kind: "dependency_or_special_area_count",
       sourceUrl: "https://www.southcom.mil/Portals/7/Documents/Posture%20Statements/SOUTHCOM_POSTURE_STATEMENT_FINAL_2016.pdf?ver=2017-01-04-094258-267", sourceDate: "2016-03-10", resolution: "RETAINED_AS_HISTORICAL_EVIDENCE",
       note: "Posture statement of Adm. Kurt W. Tidd to the Senate Armed Services Committee, 10 March 2016. It disagrees with the current page's 12 on areas of special sovereignty (the 31 agrees). It is older and is not used as the current count; it is kept as source-conflict evidence. Neither source names the places.",
-    }],
+    },
+    {
+      statement: "encompasses 31 countries and 16 dependencies and areas of special sovereignty", value: 16, kind: "dependency_or_special_area_count",
+      sourceUrl: "https://www.stratnavapp.com/StratML/Part1/4ee6dd5f-7323-4220-8679-c391e6445d80", sourceDate: null, resolution: "RETAINED_AS_HISTORICAL_EVIDENCE",
+      note: "The 'SOUTHCOM Area of Responsibility' entry in a StratML copy of the USSOUTHCOM strategic plan, hosted by stratnavapp.com (a third-party host, not a command site). Undated. It repeats the 16 and names none of the places. Weaker than the dated 2016 posture statement and not used as the current count.",
+    },
+    {
+      statement: "the 45 nations and territories of Central and South America and the Caribbean Sea", value: 45, kind: "combined_nations_and_territories_count",
+      sourceUrl: "https://www.stratnavapp.com/StratML/Part1/4ee6dd5f-7323-4220-8679-c391e6445d80", sourceDate: null, resolution: "RETAINED_AS_HISTORICAL_EVIDENCE",
+      note: "From a commander biography in the same undated StratML copy. 45 is not 31 plus 12 (43) or 31 plus 16 (47), so it matches neither declared figure and is kept only as an unreconciled inconsistency. It names no place.",
+        }],
     status: "INCOMPLETE_LIVE_VERIFY",
     finding: "SOUTHCOM officially states 31 countries and 12 dependencies and areas of special sovereignty but its public pages name none of the 12; the AOR page links the State Department fact sheet, which lists places by sovereignty and assigns none to a command. Zero are recorded as assignments. Plausible candidates are held apart in candidate-entities.ts as candidate_unverified / LIVE VERIFY and are never returned as assignments. SOUTHCOM's About page describes the Caribbean 'except U.S. commonwealths, territories, and possessions'." },
   CENTCOM: { command: "CENTCOM", reviewedAt: "2026-10-10", sourceUrl: "https://www.centcom.mil/AREA-OF-RESPONSIBILITY/", officialCurrentCountryCount: 21, officialCurrentDependencyOrSpecialAreaCount: null, declaredWording: "The 21 nations of the AOR", named: [], sourceConflicts: [], status: "COMPLETE_AS_STATED",

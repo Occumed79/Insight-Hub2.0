@@ -313,14 +313,14 @@ test("registry audit: 195 sovereign + 9 non-sovereign records by class, no dupli
   assert.equal(audit.territoriesDependenciesEntities, 9);
   assert.equal(audit.totalCurrentRecords, 204);
   assert.equal(audit.currentRows, 204, "one current row per place: no row is repeated");
-  assert.deepEqual(audit.byClass, { sovereign_state: 195, territory: 5, dependency: 1, overseas_department: 0, autonomous_country: 0, collectivity: 0, area_of_special_sovereignty: 0, disputed_entity: 0, other_entity: 3, candidate_unverified: 0 });
+  assert.deepEqual(audit.byClass, { sovereign_state: 195, territory: 5, dependency: 1, overseas_department: 0, autonomous_country: 0, collectivity: 0, area_of_special_sovereignty: 0, disputed_entity: 1, other_entity: 2, candidate_unverified: 0 });
   assert.equal(21 + 53 + 50 + 36 + 31 + 4, 195, "the per-command public counts sum to the sovereign total");
   assert.deepEqual(audit.duplicateCurrent, []);
   assert.deepEqual(audit.historicalOverlappingCurrent, []);
   assert.deepEqual(audit.unmappedSelectable, [], "every entry of the 197-row AOR country table resolves to a command");
   assert.equal(AOR_COUNTRY_PROFILES.length, 197);
   assert.deepEqual(audit.mappedMissingFromSelector.map((entry) => entry.iso3).sort(), ["ASM", "ESH", "GRL", "GUM", "MNP", "PRI", "VIR"], "mapped, but not selectable in the AOR country table");
-  assert.deepEqual(audit.mappedMissingFromSelector.map((entry) => `${entry.iso3}:${entry.geographicClass}`).sort(), ["ASM:territory", "ESH:other_entity", "GRL:dependency", "GUM:territory", "MNP:territory", "PRI:territory", "VIR:territory"]);
+  assert.deepEqual(audit.mappedMissingFromSelector.map((entry) => `${entry.iso3}:${entry.geographicClass}`).sort(), ["ASM:territory", "ESH:disputed_entity", "GRL:dependency", "GUM:territory", "MNP:territory", "PRI:territory", "VIR:territory"]);
   const expected: Record<CommandId, [number, number]> = { CENTCOM: [21, 1], AFRICOM: [53, 1], EUCOM: [50, 0], INDOPACOM: [36, 4], SOUTHCOM: [31, 0], NORTHCOM: [4, 3] };
   for (const [command, [sovereign, entities]] of Object.entries(expected)) {
     const row = audit.perCommand[command as CommandId];
@@ -353,7 +353,11 @@ test("geographic classes: non-sovereign places never inflate the sovereign count
   const classOf = (iso3: string) => assignmentFor(iso3)?.geographicClass;
   for (const iso3 of ["PRI", "VIR", "GUM", "ASM", "MNP"]) assert.equal(classOf(iso3), "territory", iso3);
   assert.equal(classOf("GRL"), "dependency");
-  for (const iso3 of ["TWN", "PSE", "ESH"]) assert.equal(classOf(iso3), "other_entity", iso3);
+  for (const iso3 of ["TWN", "PSE"]) assert.equal(classOf(iso3), "other_entity", iso3);
+  assert.equal(classOf("ESH"), "disputed_entity", "Western Sahara: disputed status is recorded; command assignment stays provisional");
+  assert.match(assignmentFor("ESH")!.note ?? "", /PROVISIONAL and unverified/);
+  assert.equal(assignmentFor("ESH")!.entityEvidence, "pack_only_not_named_by_command_page");
+  assert.match(assignmentFor("ESH")!.verification, /LIVE VERIFY/);
   assert.equal(classOf("KWT"), "sovereign_state");
   for (const row of CURRENT_ASSIGNMENTS) {
     assert.equal(row.entityType === "sovereign", row.geographicClass === "sovereign_state", row.iso3);
@@ -393,8 +397,9 @@ test("geographic classes: non-sovereign places never inflate the sovereign count
   assert.equal(audit.perCommand.EUCOM.officialCurrentCountryCount, 50);
   assert.equal(audit.perCommand.INDOPACOM.officialCurrentCountryCount, 36);
   assert.deepEqual(audit.liveVerifyCommands, ["INDOPACOM"]);
-  assert.deepEqual(audit.sourceConflicts.map((c) => `${c.command}:${c.value}:${c.resolution}`).sort(), ["INDOPACOM:38:RESOLVED_TOWARD_CURRENT_COUNT", "SOUTHCOM:16:RETAINED_AS_HISTORICAL_EVIDENCE"]);
+  assert.deepEqual(audit.sourceConflicts.map((c) => `${c.command}:${c.value}:${c.resolution}`).sort(), ["INDOPACOM:38:RESOLVED_TOWARD_CURRENT_COUNT", "SOUTHCOM:16:RETAINED_AS_HISTORICAL_EVIDENCE", "SOUTHCOM:16:RETAINED_AS_HISTORICAL_EVIDENCE", "SOUTHCOM:45:RETAINED_AS_HISTORICAL_EVIDENCE"]);
   assert.equal(audit.sourceConflicts.find((c) => c.command === "SOUTHCOM")?.sourceDate, "2016-03-10", "the older SOUTHCOM figure keeps its date");
+  assert.equal(audit.sourceConflicts.filter((c) => c.command === "SOUTHCOM" && c.sourceDate === null).length, 2, "undated third-party-hosted figures stay undated");
 
   // Candidates: held apart, never counted, never resolvable as an assignment.
   assert.equal(audit.candidates.count, 12);
@@ -432,7 +437,7 @@ test("geographic classes: non-sovereign places never inflate the sovereign count
 test("source-gap ledger: verified enumerations and dates resolve; geographic and unreadable content gaps remain explicit", () => {
   const summary = gapSummary();
   assert.deepEqual(summary.resolved.sort(), ["africom-yellow-fever-scope", "centcom-immunization-detail", "eucom-country-list", "indopacom-fy26-content", "indopacom-message-date", "northcom-entities"]);
-  assert.deepEqual(summary.openLiveVerify.sort(), ["africom-2026-forms", "centcom-africom-entities", "eucom-indopacom-entities", "indopacom-country-list", "ocr-damaged-text", "southcom-dependencies", "usfk-change1"]);
+  assert.deepEqual(summary.openLiveVerify.sort(), ["africom-2026-forms", "africom-aci-version", "africom-yf-ascension", "centcom-africom-entities", "eucom-indopacom-entities", "indopacom-country-list", "ocr-damaged-text", "southcom-dependencies", "usfk-change1"]);
   assert.ok(SOURCE_GAP_LEDGER.every((entry) => ["2026-10-08", "2026-10-10", "2026-10-11"].includes(String(entry.attemptedAt)) && entry.sources.every((url) => url.startsWith("https://"))));
   for (const entry of SOURCE_GAP_LEDGER.filter((e) => e.status === "OPEN_LIVE_VERIFY")) assert.ok(entry.remaining.length > 0, entry.id);
   assert.equal(COMMAND_POLICIES.find((p) => p.policyId === "INDOPACOM-FY26-FHP-P-25-0295")?.sourceDate, "2025-11-07", "the Dec 2023 page footer is not used as the message date");

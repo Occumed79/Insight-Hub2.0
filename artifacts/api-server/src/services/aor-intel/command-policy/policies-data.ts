@@ -9,6 +9,7 @@
 import { OCR_MEDICAL_RULES, OCR_COMPONENT_RULES } from "./ocr-medical-rules";
 import { ocrDocument, OCR_SOURCE_DOCUMENT_REGISTRY } from "./ocr-source-documents";
 import { RESEARCHED_MEDICAL_RULES } from "./researched-medical-rules";
+import { SOUTHCOM_CLASS_DEVIATION_RULES, SC_CLASS_DEVIATION_URL } from "./contractor-clause-rules";
 import { USARPAC_FHP_URL } from "./verified-research";
 import type { CommandPolicy, CommandPolicyRule, CommandRuleKind, PolicyDomain, PolicyStatus, PolicyVerificationStatus, Population, RuleScope, StayThreshold } from "./types";
 
@@ -449,6 +450,7 @@ function enrichPackRule(old: CommandPolicyRule): CommandPolicyRule {
 }
 export const COMMAND_RULES: CommandPolicyRule[] = [
   ...[...centcomRules, ...africomRules, ...eucomRules, ...indopacomRules, ...RESEARCHED_MEDICAL_RULES, ...southcomRules].map(enrichPackRule),
+  ...SOUTHCOM_CLASS_DEVIATION_RULES,
   ...ocrRules.filter(rule => !Object.values(replacements).includes(rule.id)),
 ];
 
@@ -480,6 +482,7 @@ export const COMMAND_MONITOR_TARGETS: Record<string, Array<{ url: string; author
     { url: SC_REG, authority: "USSOUTHCOM – SC Reg 40-501", purpose: "Policy document the rules were read from" },
     { url: SC_MOD3, authority: "USSOUTHCOM – MOD 3", purpose: "Fitness standards and waiver triggers" },
     { url: SC_WAIVER, authority: "USSOUTHCOM – Medical Waiver Process", purpose: "Waiver process" },
+    { url: SC_CLASS_DEVIATION_URL, authority: "DoD DPAP class deviation 2014-00016 (USSOUTHCOM contractor personnel)", purpose: "Contractor-personnel clause; watch for incorporation or rescission" },
   ],
   NORTHCOM: [{ url: "https://www.northcom.mil/About/About/", authority: "USNORTHCOM – About / AOR", purpose: "AOR page; watch for a published medical-entry policy" }],
 };

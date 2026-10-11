@@ -132,6 +132,35 @@ export function deferredRuleGaps(): Array<{ command: CommandId; ruleId: string; 
   return COMMAND_RULES.filter((rule) => rule.sourceGaps.length).map((rule) => ({ command: policyCommand.get(rule.policyId) as CommandId, ruleId: rule.id, gaps: rule.sourceGaps }));
 }
 
+// 2026-10-11 follow-up. Attempts that did not resolve a gap are recorded against the gap; nothing is promoted.
+const followUp = (id: string, addendum: string, sources: string[], remaining?: string[]) => {
+  const entry = SOURCE_GAP_LEDGER.find((e) => e.id === id)!;
+  entry.attemptedAt = "2026-10-11";
+  entry.outcome += ` 2026-10-11 follow-up: ${addendum}`;
+  for (const url of sources) if (!entry.sources.includes(url)) entry.sources.push(url);
+  if (remaining) entry.remaining = remaining;
+};
+followUp("indopacom-country-list",
+  "CRS IF12604 v4 (5 Feb 2026) states no country count and names no roster, and mentions Guam only as a force-location figure; American Samoa and CNMI are not mentioned there. The undated command fact sheet names China, India, Indonesia, Nauru, the Philippines, the Republic of Korea, Japan, the Federated States of Micronesia, the Marshall Islands and Palau as illustrations (plus the treaty alliances ANZUS and Southeast Asia, which are not rosters), not as an enumeration, and gives the count 36. No official source supplying the 36 names was found, so none was built from proximity, regional convention, DSCA codes or count-matching. The official aggregate (36) stays separate from the verified named roster, which is not complete.",
+  ["https://www.everycrsreport.com/files/2026-02-05_IF12604_1066659990228419fbdf0bb862984c66f9d71c1a.pdf"]);
+followUp("southcom-dependencies",
+  "The SOUTHCOM About page states no count. A CRS defense primer (IF13067, 21 Jul 2025) states no count and names Aruba and Curaçao only as cooperative security locations, which is a basing fact, not an AOR enumeration. An undated StratML copy of the SOUTHCOM strategic plan on a third-party host repeats 16 dependencies and areas, plus a biography figure of 45 nations and territories; both are kept as source-conflict evidence. DSCA SAMM C4.T2A codes Aruba, Curaçao, the Falkland Islands and French Guiana SO for security cooperation; that is not a geographic enumeration of the 12. The 12 remain unnamed and unverified, candidates stay outside the registry.",
+  ["https://www.everycrsreport.com/files/2025-07-21_IF13067_1feb1a72e2f91f0132f90a046e29e47a98db903d.html", "https://www.stratnavapp.com/StratML/Part1/4ee6dd5f-7323-4220-8679-c391e6445d80"]);
+followUp("centcom-africom-entities",
+  "Western Sahara: no command, DoD or State source read states a combatant-command geographic assignment. AFRICOM's page states 53 African states, a figure that does not name the territory. The DSCA table's security-cooperation code is the only command-level assignment found, and it is not a UCP boundary. Four things are kept apart on the record: geographic location (northwest Africa), disputed political status, geographic command responsibility (unverified, pack-only) and documented security-cooperation coverage (DSCA, AFRICOM). The record stays provisional / LIVE VERIFY.",
+  ["https://www.africom.mil/about-the-command", "https://samm.dsca.mil/table/table-c4t2a"]);
+SOURCE_GAP_LEDGER.push({
+  id: "africom-aci-version", command: "AFRICOM", item: "Current AFRICOM parent instruction version (4200.09B vs 4200.09C)", status: "OPEN_LIVE_VERIFY", attemptedAt: "2026-10-11",
+  sources: ["https://www.africom.mil/theater-medical-clearance"],
+  outcome: "The command's Theater Medical Clearance page lists ACI 4200.09B and ACN 4200.09B, both dated 18 March 2025, and no ACI 4200.09C. The registry carries the parent instruction as ACI 4200.09C dated 1 June 2026 (extraction pack; the same date is the AC Form 42 footer, which cites ACI 4200.09). The rules were not changed: their provenance is the individually dated messages and forms, and the parent version label is recorded as unresolved.",
+  ruleIds: [], remaining: ["which ACI version is current", "whether a 4200.09C exists and was published, or the pack label is wrong"],
+}, {
+  id: "africom-yf-ascension", command: "AFRICOM", item: "Yellow fever Modification 2 — Ascension Island exception (271320Z Jul 18)", status: "OPEN_LIVE_VERIFY", attemptedAt: "2026-10-11",
+  sources: ["https://health.mil/Reference-Center/Policies/2018/07/01/YELLOW-FEVER-VACCINATION-REQUIREMENTS-FOR-USAFRICOM-MODIFICATION-2-EXCEPTION-FOR-ASCENSION-ISLAND"],
+  outcome: "A 2018 message exempted DoD personnel traveling directly from CONUS to Ascension Island and back, and required a single lifetime YF-VAX dose for travel to Ascension from outside CONUS. Whether the 14 Jun 2024 theater message supersedes it was not established, and Ascension Island has no ISO3 record in the registry, so it is held as dated evidence and not executed.",
+  ruleIds: [], remaining: ["whether 140953Z Jun 24 addresses or supersedes the Ascension Island exception"],
+});
+
 export function gapSummary() {
   const deferred = deferredRuleGaps();
   const byCommand: Record<string, { ruleGapRules: number; ruleGapFields: number }> = {};
