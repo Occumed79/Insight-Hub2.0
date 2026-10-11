@@ -8,6 +8,7 @@ import { gapSummary } from "../services/aor-intel/command-policy/source-gaps";
 import { describeCommandCountry, evaluateCommandTraveler, policyQualifiers } from "../services/aor-intel/command-policy/engine";
 import { RESEARCH_EVIDENCE, DSCA_SECURITY_COOPERATION } from "../services/aor-intel/command-policy/verified-research";
 import { COMMAND_POLICIES } from "../services/aor-intel/command-policy/policies-data";
+import { resolveMedicalApplicability, type MedicalApplicabilityQuery, type PublicHealthInput } from "../services/aor-intel/command-policy/medical-applicability";
 import type { CommandId, CommandQuery, Population, TravelKind } from "../services/aor-intel/command-policy/types";
 
 // Combatant Command medical policy is its own rule class. These routes never read host-nation vaccine rules or CDC/WHO guidance.
@@ -140,5 +141,54 @@ router.get("/aor/command-policy/gaps", (_req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-store");
   res.json({ ok: true, generatedAt: new Date().toISOString(), ...gapSummary() });
 });
+
+// Unified, assignment-specific medical applicability. Composes the command, host-nation and caller-supplied public-health layers
+// without merging them: every item carries its own authority layer and status (REQUIRED / RECOMMENDED / CONDITIONAL / NOT_APPLICABLE / UNKNOWN).
+//   GET  /api/aor/medical-applicability?destination=Kuwait&population=dod_contractor&contractorAuthorization=caaf&stayDays=45
+//   POST /api/aor/medical-applicability  (JSON body; accepts `publicHealth` guidance from the live CDC/WHO adapters)
+const triState = (value: unknown): boolean | null => (value === true || value === "true" ? true : value === false || value === "false" ? false : null);
+function medicalQueryFrom(source: Record<string, unknown>): MedicalApplicabilityQuery {
+  const list = (value: unknown): string[] => (Array.isArray(value) ? value : typeof value === "string" && value ? value.split(",") : []).map((entry) => String(entry).trim()).filter(Boolean).slice(0, 40);
+  const transit = Array.isArray(source.transit)
+    ? (source.transit as Array<Record<string, unknown>>).map((leg) => ({ country: String(leg?.country ?? "").slice(0, 3).toUpperCase(), hours: Number(leg?.hours) })).filter((leg) => leg.country && Number.isFinite(leg.hours) && leg.hours >= 0).slice(0, 20)
+    : [];
+  const publicHealth: PublicHealthInput[] | null = Array.isArray(source.publicHealth)
+    ? (source.publicHealth as Array<Record<string, unknown>>).filter((entry) => entry && entry.id && entry.recommendation && entry.url).map((entry) => ({
+        id: String(entry.id), topic: String(entry.topic ?? entry.id), category: entry.category as PublicHealthInput["category"], authority: String(entry.authority ?? "Public-health guidance"),
+        recommendation: String(entry.recommendation), url: String(entry.url), publishedAt: entry.publishedAt ? String(entry.publishedAt) : null, condition: entry.condition ? String(entry.condition) : null,
+      })).slice(0, 60)
+    : null;
+  const permanent = source.permanentAssignmentIso3 === "NONE" ? "NONE" : source.permanentAssignmentIso3 ? iso3Of(source.permanentAssignmentIso3) : null;
+  return {
+    destination: String(source.destination ?? "").trim().slice(0, 120),
+    installation: source.installation ? String(source.installation).slice(0, 80) : null,
+    population: pick(source.population, POPULATIONS),
+    civilianCategory: pick(source.civilianCategory, ["emergency_essential", "non_combat_essential", "expeditionary", "other"] as const),
+    contractorAuthorization: pick(source.contractorAuthorization, ["caaf", "non_caaf"] as const),
+    contractRequirementsApply: triState(source.contractRequirementsApply),
+    permanentAssignmentIso3: permanent,
+    onDeploymentOrders: triState(source.onDeploymentOrders),
+    highRiskOrLiveFire: triState(source.highRiskOrLiveFire),
+    stayDays: number(source.stayDays),
+    travelKind: pick(source.travelKind, TRAVEL_KINDS),
+    component: source.component ? String(source.component).slice(0, 40) : null,
+    layoverInYfEndemicCountry: triState(source.layoverInYfEndemicCountry),
+    arrivingFrom: source.arrivingFrom ? String(source.arrivingFrom).slice(0, 3).toUpperCase() : null,
+    visitedCountries: list(source.visitedCountries).map((entry) => entry.toUpperCase()),
+    transit,
+    ageYears: number(source.ageYears),
+    publicHealth,
+    now: new Date(),
+  };
+}
+function medicalApplicability(source: Record<string, unknown>, res: Response) {
+  res.setHeader("Cache-Control", "no-store");
+  const query = medicalQueryFrom(source);
+  if (!query.destination) return res.status(400).json({ ok: false, error: "destination must name a country, territory or constituent location" });
+  const result = resolveMedicalApplicability(query);
+  return res.status(result.status === "LOCATION_NOT_FOUND" ? 404 : 200).json({ ok: result.status !== "LOCATION_NOT_FOUND", generatedAt: (query.now as Date).toISOString(), ...result });
+}
+router.get("/aor/medical-applicability", (req: Request, res: Response) => medicalApplicability(req.query as Record<string, unknown>, res));
+router.post("/aor/medical-applicability", (req: Request, res: Response) => medicalApplicability((req.body ?? {}) as Record<string, unknown>, res));
 
 export default router;
