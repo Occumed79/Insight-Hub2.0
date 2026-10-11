@@ -106,6 +106,10 @@ export interface DirectoryDetail {
   authorityTier: AuthorityTier;
   /** True when the directory or the registry marks the assignment provisional / contested. */
   provisional: boolean;
+  /** Two applicable sources of the same authority tier disagree and no effective dates order them; the existing assignment is kept and flagged. */
+  contested: boolean;
+  /** The claim the evidence class and tier above were taken from. Always a claim for THIS record's command, never a displaced one. */
+  evidenceBasis: { command: CommandId; label: string; origin: "registry" | "directory" | "repository_evidence"; effectiveDate: string | null; source: ControllingSource };
   /** Sovereignty is disputed or unsettled. Recorded apart from the AOR, which is never "multiple". */
   disputedSovereignty: boolean;
   /** Evidence-class / command corrections applied from stronger controlling sources; the displaced claim is kept here. */

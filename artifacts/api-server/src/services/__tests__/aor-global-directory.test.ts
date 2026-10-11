@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { CROSSWALK_ROWS, DIRECTORY_ROWS } from "../aor-intel/command-policy/global-directory-rows";
 import {
-  COMMAND_ALIASES, classOfCategory, commandIdFromLabel, integrateDirectory, recordIdOf, SPLIT_PARENTS, WORKBOOK_COMMAND_IDS,
+  COMMAND_ALIASES, classOfCategory, commandIdFromLabel, compareControl, integrateDirectory, recordIdOf, resolveClaims, SPLIT_PARENTS, WORKBOOK_COMMAND_IDS, type Claim,
 } from "../aor-intel/command-policy/global-directory";
 import {
   assignmentFor, assignmentHistoryFor, COMMAND_NAMES, CURRENT_ASSIGNMENTS, DIRECTORY_INTEGRATION_REPORT, LOCATION_INDEX, locationsUnderParent, resolveLocation,
@@ -334,4 +334,151 @@ test("12. no previously integrated command medical rule is lost", () => {
   assert.equal(resolveCountryCommand("CAN").commandMedicalPolicyStatus, "NOT_PUBLICLY_VERIFIED", "NORTHCOM still has no public command-wide policy; none is borrowed");
   assert.equal(resolveCountryCommand("GRL").commandMedicalPolicyStatus, "NOT_PUBLICLY_VERIFIED");
   assert.equal(resolveCountryCommand("XKS").command, "EUCOM");
+});
+
+/* ------------------------------------------------------------------ */
+/* Control order: authority and effective date first, evidence class never                */
+/* ------------------------------------------------------------------ */
+
+const claim = (command: CommandId, tier: Claim["tier"], evidenceClass: Claim["evidenceClass"], effectiveDate: string | null = null, origin: Claim["origin"] = "directory"): Claim => ({
+  command, tier, evidenceClass, effectiveDate, origin, label: `${origin} ${command} t${tier}`, source: { authority: `${origin} authority`, url: `https://example.test/${origin}/${command}/${tier}`, date: effectiveDate, tier },
+});
+const baseRow = (over: Partial<CountryAorAssignment> = {}): CountryAorAssignment => ({
+  iso3: "ZZA", name: "Testland", command: "EUCOM", entityType: "entity", geographicClass: "territory", classBasis: "test", entityEvidence: "command_page_names_it", basis: "official_boundary_statement",
+  verification: "PUBLIC-SOURCE BASELINE", sourceAuthority: "registry source", sourceUrl: "https://example.test/registry", effectiveFrom: null, effectiveTo: null, supersedesCommand: null, note: null, ...over,
+});
+const dirRow = (workbookAor: string, evidence: string, sourceDate: string) => [{
+  name: "Testland", iso2: "ZA", iso3: "ZZA", category: "U.S. territory / possession", administering: "United States", workbookAor, appAlias: workbookAor.replace(/^US/, ""), basis: "test basis",
+  evidence, sourceDate, sourceUrl: "https://example.test/directory", note: null, origin: "ISO 3166-1", parentIso2: null, parentIso3: null,
+}];
+const integrate = (base: CountryAorAssignment, workbookAor: string, evidence: string, sourceDate: string) => integrateDirectory([base], { commandNames: COMMAND_NAMES, rows: dirRow(workbookAor, evidence, sourceDate) });
+
+test("control order: a more controlling authority wins even when its evidence class is weaker", () => {
+  // Tier 4 (official command material, aggregate count) controls over tier 5 (other official U.S. government document that names the place).
+  assert.ok(compareControl(claim("NORTHCOM", 4, "official_aggregate_count"), claim("EUCOM", 5, "individually_verified")) < 0);
+  assert.ok(compareControl(claim("EUCOM", 5, "individually_verified"), claim("NORTHCOM", 4, "official_aggregate_count")) > 0);
+  // Tier 1 (Presidential UCP / boundary directive) controls over everything below it, including a "verified" tier 4 claim.
+  assert.ok(compareControl(claim("CENTCOM", 1, "provisional"), claim("AFRICOM", 4, "individually_verified")) < 0);
+  const decision = resolveClaims([claim("EUCOM", 5, "individually_verified"), claim("NORTHCOM", 4, "official_aggregate_count")], "EUCOM");
+  assert.equal(decision.winner.command, "NORTHCOM");
+  assert.equal(decision.evidence.command, "NORTHCOM");
+  assert.equal(decision.evidence.evidenceClass, "official_aggregate_count", "the class comes from the winning claim, not from the better-classified loser");
+  assert.equal(decision.contested, false);
+  // Within one command, the more controlling supporter supplies the evidence; class only breaks an exact tie.
+  const same = resolveClaims([claim("EUCOM", 5, "individually_verified"), claim("EUCOM", 4, "official_aggregate_count")], null);
+  assert.equal(same.evidence.tier, 4);
+  assert.equal(resolveClaims([claim("EUCOM", 4, "regional_inference"), claim("EUCOM", 4, "individually_verified")], null).evidence.evidenceClass, "individually_verified");
+});
+
+test("control order: at the same authority tier the later effective date controls; partial or missing dates never order", () => {
+  assert.ok(compareControl(claim("NORTHCOM", 4, "individually_verified", "2025-06-17"), claim("EUCOM", 4, "individually_verified", "2024-03-01")) < 0);
+  assert.ok(compareControl(claim("EUCOM", 4, "individually_verified", "2024-03-01"), claim("NORTHCOM", 4, "individually_verified", "2025-06-17")) > 0);
+  assert.equal(compareControl(claim("EUCOM", 4, "individually_verified", "2025-06-17"), claim("NORTHCOM", 4, "individually_verified", "2025-06-17")), 0);
+  assert.equal(compareControl(claim("EUCOM", 4, "individually_verified", null), claim("NORTHCOM", 4, "individually_verified", "2025-06-17")), 0);
+  assert.equal(compareControl(claim("EUCOM", 4, "individually_verified", "2025-08"), claim("NORTHCOM", 4, "individually_verified", "2025-08-19")), 0, "a year-month does not order against a full date in the same month");
+  assert.ok(compareControl(claim("EUCOM", 4, "individually_verified", "2025-07"), claim("NORTHCOM", 4, "individually_verified", "2025-08-19")) > 0);
+});
+
+test("integration: a higher-tier directory claim replaces a better-classified registry claim and brings its own evidence class", () => {
+  // Registry: tier 5, individually verified, EUCOM. Directory: tier 4 "Regional command confirmation" (aggregate count), NORTHCOM.
+  const { records, report } = integrate(baseRow({ entityEvidence: "primary_us_government_names_it", sourceDate: "2024-01-01" }), "USNORTHCOM", "Regional command confirmation", "Undated current command page");
+  const row = records[0];
+  assert.equal(row.command, "NORTHCOM", "the more controlling authority decides the AOR");
+  assert.equal(detail(row).evidenceClass, "official_aggregate_count", "not the loser's individually_verified");
+  assert.equal(detail(row).authorityTier, 4);
+  assert.equal(detail(row).evidenceBasis.command, "NORTHCOM");
+  assert.equal(detail(row).evidenceBasis.origin, "directory");
+  assert.notEqual(row.entityEvidence, "primary_us_government_names_it", "the displaced source's evidence tag is not attached to the new AOR");
+  assert.equal(row.sourceUrl, "https://example.test/directory");
+  assert.equal(row.basis, "official_count_normalized_list");
+  assert.ok(row.previousEvidence?.some((e) => e.sourceUrl === "https://example.test/registry"), "the displaced registry source is retained");
+  assert.ok(detail(row).conflictHistory.some((c) => /^EUCOM/.test(c.claim) && /tier 4 over tier 5/.test(c.reason) && /whatever the evidence classes/.test(c.reason)));
+  assert.equal(report.commandConflicts.length, 1);
+  assert.deepEqual(report.corrections.filter((c) => c.field === "command").map((c) => c.to), ["NORTHCOM"]);
+});
+
+test("integration: a better-classified but lower-authority directory claim never replaces the controlling registry claim", () => {
+  // Registry: tier 5 EUCOM. Directory: tier 6 regional mapping, NORTHCOM → the directory (workbook) assignment is corrected.
+  const { records, report } = integrate(baseRow({ entityEvidence: "primary_us_government_names_it" }), "USNORTHCOM", "Regional mapping", "Updated 2026 (command page)");
+  const row = records[0];
+  assert.equal(row.command, "EUCOM");
+  assert.equal(detail(row).evidenceClass, "individually_verified");
+  assert.equal(detail(row).evidenceBasis.command, "EUCOM");
+  assert.equal(detail(row).evidenceBasis.origin, "registry");
+  assert.equal(row.entityEvidence, "primary_us_government_names_it");
+  assert.equal(row.sourceUrl, "https://example.test/registry");
+  assert.ok(detail(row).conflictHistory.some((c) => /^NORTHCOM/.test(c.claim)), "the displaced workbook claim stays in the history");
+  const correction = report.corrections.find((c) => c.field === "command");
+  assert.ok(correction && /NORTHCOM \(directory\)/.test(correction.from) && correction.to === "EUCOM", "the workbook assignment correction is reported");
+});
+
+test("integration: same authority tier, different effective dates — the later source supersedes and the earlier becomes history", () => {
+  const later = integrate(baseRow({ sourceDate: "2024-03-01" }), "USNORTHCOM", "Direct command confirmation", "2025-06-17");
+  const row = later.records[0];
+  assert.equal(detail(row).authorityTier, 4);
+  assert.equal(row.command, "NORTHCOM", "the 2025 source supersedes the 2024 source at the same tier");
+  assert.equal(detail(row).contested, false);
+  assert.equal(row.effectiveFrom, "2025-06-17");
+  assert.equal(row.supersedesCommand, "EUCOM");
+  assert.equal(detail(row).evidenceBasis.command, "NORTHCOM");
+  assert.equal(detail(row).evidenceBasis.effectiveDate, "2025-06-17");
+  assert.equal(row.sourceDate, "2025-06-17");
+  assert.equal(later.report.history.length, 1);
+  assert.equal(later.report.history[0].command, "EUCOM");
+  assert.equal(later.report.history[0].effectiveTo, "2025-06-17");
+  assert.ok(detail(row).conflictHistory.some((c) => /later effective date \(2025-06-17 over 2024-03-01\)/.test(c.reason)));
+  assert.ok(row.previousEvidence?.some((e) => e.sourceUrl === "https://example.test/registry"));
+
+  const earlier = integrate(baseRow({ sourceDate: "2026-01-10" }), "USNORTHCOM", "Direct command confirmation", "2025-06-17");
+  const kept = earlier.records[0];
+  assert.equal(kept.command, "EUCOM", "an older directory source does not supersede a later registry source at the same tier");
+  assert.equal(detail(kept).contested, false);
+  assert.equal(detail(kept).evidenceBasis.origin, "registry");
+  assert.equal(earlier.report.history.length, 0, "nothing is superseded, so no history is invented");
+  assert.ok(detail(kept).conflictHistory.some((c) => /^NORTHCOM/.test(c.claim) && /later effective date \(2026-01-10 over 2025-06-17\)/.test(c.reason)));
+});
+
+test("integration: same tier with no orderable dates is contested — incumbent kept, flagged provisional, nothing picked arbitrarily", () => {
+  for (const [registryDate, directoryDate] of [[undefined, "2025-06-17"], ["2025-06-17", "2025-06-17"], ["2025-08", "2025-08-19"], [undefined, "Undated current command page"]] as const) {
+    const { records, report } = integrate(baseRow(registryDate ? { sourceDate: registryDate } : {}), "USNORTHCOM", "Direct command confirmation", directoryDate);
+    const row = records[0];
+    assert.equal(row.command, "EUCOM", `${registryDate}/${directoryDate}: the incumbent AOR is kept`);
+    assert.equal(detail(row).contested, true, `${registryDate}/${directoryDate}`);
+    assert.equal(detail(row).provisional, true);
+    assert.equal(detail(row).evidenceClass, "provisional", "a contested assignment is never presented as verified");
+    assert.match(row.verification, /LIVE VERIFY/);
+    assert.equal(detail(row).evidenceBasis.command, "EUCOM");
+    assert.ok(detail(row).conflictHistory.some((c) => /^NORTHCOM/.test(c.claim) && /cannot be established/.test(c.reason)));
+    assert.equal(report.commandConflicts[0].reason.startsWith("contested"), true);
+    assert.equal(report.corrections.filter((c) => c.field === "command").length, 0);
+  }
+  // A contested record carries the uncertainty into medical-rule evaluation like any other provisional assignment.
+  const decision = resolveClaims([claim("EUCOM", 4, "individually_verified", null, "registry"), claim("NORTHCOM", 4, "individually_verified", "2025-06-17")], "EUCOM");
+  assert.equal(decision.contested, true);
+  assert.equal(decision.winner.command, "EUCOM");
+});
+
+test("no record carries an evidence class taken from a claim for a different command", () => {
+  for (const row of CURRENT_ASSIGNMENTS) {
+    assert.equal(detail(row).evidenceBasis.command, row.command, `${row.iso3}: evidence basis belongs to the assigned command`);
+    assert.equal(detail(row).contested, false, `${row.iso3}: no real record is contested`);
+    assert.equal(detail(row).authorityTier, detail(row).evidenceBasis.source.tier, row.iso3);
+  }
+  assert.equal(DIRECTORY_INTEGRATION_REPORT.commandConflicts.length, 0);
+  // The authority-first order leaves the real classification unchanged.
+  const counts = auditRegistry().directory;
+  assert.deepEqual([counts.individuallyVerified, counts.officialAggregateCount, counts.regionalInference, counts.provisional], [118, 89, 74, 4]);
+  assert.equal(detail(assignmentFor("GRL")!).authorityTier, 2);
+  assert.equal(detail(assignmentFor("GRL")!).evidenceBasis.origin, "directory");
+});
+
+test("reporting: 118 individually verified versus 167 not yet individually verified; the 4 provisional are only the contested subset", () => {
+  const counts = auditRegistry().directory;
+  assert.equal(counts.individuallyVerified, 118);
+  assert.equal(counts.notIndividuallyVerified, 167);
+  assert.deepEqual(counts.outstandingIndividualVerification, { total: 167, official_aggregate_count: 89, regional_inference: 74, provisional: 4 });
+  assert.equal(counts.individuallyVerified + counts.notIndividuallyVerified, 285);
+  assert.equal(counts.unresolvedAuthoritative.length, 4, "only the contested / provisional subset is listed as unresolved");
+  assert.ok(counts.unresolvedAuthoritative.length < counts.notIndividuallyVerified, "the provisional records are not the whole verification gap");
+  assert.ok(counts.officialAggregateCount + counts.regionalInference > counts.provisional);
 });

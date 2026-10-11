@@ -133,17 +133,84 @@ export function classOfCategory(category: string): GeographicClass {
 
 const CLASS_RANK: Record<EvidenceClass, number> = { individually_verified: 3, official_aggregate_count: 2, regional_inference: 1, provisional: 0 };
 
-interface Claim {
+/**
+ * One source's claim about which command a location belongs to. A claim carries its own command, authority tier and effective date;
+ * its evidence class only describes how well THAT claim identifies the location and travels with the claim, never with another command.
+ */
+export interface Claim {
+  command: CommandId;
   evidenceClass: EvidenceClass;
   tier: AuthorityTier;
+  /** ISO date (or year-month) from which the claim is effective, when the source states one. Never inferred. */
+  effectiveDate: string | null;
   source: ControllingSource;
   label: string;
+  origin: "registry" | "directory" | "repository_evidence";
 }
 
-/** True when `a` is the stronger claim: better evidence class first, then the more controlling authority tier. */
-const stronger = (a: Claim, b: Claim) => CLASS_RANK[a.evidenceClass] > CLASS_RANK[b.evidenceClass] || (a.evidenceClass === b.evidenceClass && a.tier < b.tier);
+/** Two partial ISO dates are ordered only up to the precision both state ("2025-08" vs "2025-08-19" is not an ordering). */
+function compareDates(a: string, b: string): number {
+  const n = Math.min(a.length, b.length);
+  const x = a.slice(0, n);
+  const y = b.slice(0, n);
+  return x === y ? 0 : x < y ? -1 : 1;
+}
 
-function workbookClaim(row: DirectoryRow, id: string): Claim {
+/**
+ * Which of two claims CONTROLS the geographic assignment. Authority first: the lower tier (Presidential UCP / boundary directive … regional
+ * inference) controls. At the same tier the claim with the later effective date controls (amendment / supersession). Evidence class is not
+ * consulted: it describes confidence and must never override a controlling directive.
+ * Returns <0 when `a` controls, >0 when `b` controls, 0 when control cannot be established (same tier and no orderable effective dates).
+ */
+export function compareControl(a: Claim, b: Claim): number {
+  if (a.tier !== b.tier) return a.tier - b.tier;
+  if (a.effectiveDate && b.effectiveDate) {
+    const order = compareDates(a.effectiveDate, b.effectiveDate);
+    if (order !== 0) return -order; // the later effective date controls
+  }
+  return 0;
+}
+
+/** Best of several claims FOR THE SAME COMMAND: authority/date first, evidence class only breaks an exact tie. */
+function bestSupporter(claims: readonly Claim[]): Claim {
+  return claims.reduce((best, claim) => {
+    const order = compareControl(claim, best);
+    if (order < 0) return claim;
+    if (order === 0 && CLASS_RANK[claim.evidenceClass] > CLASS_RANK[best.evidenceClass]) return claim;
+    return best;
+  });
+}
+
+export interface ClaimResolution {
+  winner: Claim;
+  /** The claim the winning assignment's evidence class is taken from: always a claim for the winning command. */
+  evidence: Claim;
+  /** Same tier, no orderable effective dates, different commands: control cannot be established, so the incumbent is kept and flagged contested. */
+  contested: boolean;
+  losers: Claim[];
+}
+
+export function resolveClaims(claims: readonly Claim[], incumbent: CommandId | null): ClaimResolution {
+  const commands = [...new Set(claims.map((claim) => claim.command))];
+  const leads = commands.map((command) => bestSupporter(claims.filter((claim) => claim.command === command)));
+  let winner = leads[0];
+  let contested = false;
+  if (leads.length > 1) {
+    const ordered = [...leads].sort((a, b) => compareControl(a, b));
+    const top = ordered[0];
+    const tied = ordered.slice(1).filter((claim) => compareControl(top, claim) === 0);
+    if (tied.length) {
+      contested = true;
+      const pool = [top, ...tied];
+      winner = pool.find((claim) => claim.command === incumbent) ?? top;
+    } else winner = top;
+  }
+  const supporters = claims.filter((claim) => claim.command === winner.command);
+  const evidence = bestSupporter(supporters);
+  return { winner, evidence, contested, losers: claims.filter((claim) => claim.command !== winner.command) };
+}
+
+function workbookClaim(row: DirectoryRow, id: string, command: CommandId): Claim {
   const source = (tier: AuthorityTier): ControllingSource => ({
     authority: `Directory source for ${row.name}`,
     url: row.sourceUrl,
@@ -151,31 +218,34 @@ function workbookClaim(row: DirectoryRow, id: string): Claim {
     tier,
   });
   const label = `Directory evidence: ${row.evidence}`;
+  const make = (evidenceClass: EvidenceClass, tier: AuthorityTier): Claim => ({ command, evidenceClass, tier, effectiveDate: source(tier).date, source: source(tier), label, origin: "directory" });
   switch (row.evidence) {
     case "Direct command confirmation":
       // Greenland: the directory's basis is a formal UCP reassignment (2025-06-17), i.e. tier 2 (a later authorized amendment).
-      return id === "GRL" ? { evidenceClass: "individually_verified", tier: 2, source: source(2), label } : { evidenceClass: "individually_verified", tier: 4, source: source(4), label };
+      return id === "GRL" ? make("individually_verified", 2) : make("individually_verified", 4);
     case "Regional command confirmation":
-      return { evidenceClass: "official_aggregate_count", tier: 4, source: source(4), label };
+      return make("official_aggregate_count", 4);
     case "Provisional geographic mapping":
     case "Regional mapping; disputed status":
     case "Geographic mapping (not explicit roster)":
-      return { evidenceClass: "provisional", tier: 6, source: source(6), label };
+      return make("provisional", 6);
     default:
-      return { evidenceClass: "regional_inference", tier: 6, source: source(6), label };
+      return make("regional_inference", 6);
   }
 }
 
 function registryClaim(base: CountryAorAssignment): Claim {
   const source = (tier: AuthorityTier): ControllingSource => ({ authority: base.sourceAuthority, url: base.sourceUrl, date: base.sourceDate ?? null, tier });
   const label = `Registry evidence: ${base.entityEvidence ?? base.basis}`;
-  if (base.entityEvidence === "pack_only_not_named_by_command_page") return { evidenceClass: "provisional", tier: 6, source: source(6), label };
-  if (base.entityEvidence === "primary_us_government_names_it") return { evidenceClass: "individually_verified", tier: 5, source: source(5), label };
-  if (base.entityEvidence === "command_page_names_it") return { evidenceClass: "individually_verified", tier: 4, source: source(4), label };
-  if (base.supersedesCommand) return { evidenceClass: "individually_verified", tier: 2, source: source(2), label: "Registry evidence: DoD UCP change" };
-  if (base.basis === "official_count_normalized_list") return { evidenceClass: "official_aggregate_count", tier: 4, source: source(4), label };
-  if (base.basis === "official_list" || base.basis === "official_boundary_statement") return { evidenceClass: "individually_verified", tier: 4, source: source(4), label };
-  return { evidenceClass: "regional_inference", tier: 6, source: source(6), label };
+  const effectiveDate = base.effectiveFrom ?? base.sourceDate ?? null;
+  const make = (evidenceClass: EvidenceClass, tier: AuthorityTier, text = label): Claim => ({ command: base.command, evidenceClass, tier, effectiveDate, source: source(tier), label: text, origin: "registry" });
+  if (base.entityEvidence === "pack_only_not_named_by_command_page") return make("provisional", 6);
+  if (base.entityEvidence === "primary_us_government_names_it") return make("individually_verified", 5);
+  if (base.entityEvidence === "command_page_names_it") return make("individually_verified", 4);
+  if (base.supersedesCommand) return make("individually_verified", 2, "Registry evidence: DoD UCP change");
+  if (base.basis === "official_count_normalized_list") return make("official_aggregate_count", 4);
+  if (base.basis === "official_list" || base.basis === "official_boundary_statement") return make("individually_verified", 4);
+  return make("regional_inference", 6);
 }
 
 /**
@@ -185,18 +255,22 @@ function registryClaim(base: CountryAorAssignment): Claim {
 const NORTHCOM_ABOUT_URL = "https://www.northcom.mil/About/About/";
 const OVERRIDES: Record<string, Claim> = {
   "GEO:UNITED_STATES_CONTIGUOUS_48_STATES_AND_WASHINGTON_DC": {
+    command: "NORTHCOM", origin: "repository_evidence", effectiveDate: null,
     evidenceClass: "individually_verified", tier: 4, label: "NORTHCOM AOR page names the continental United States",
     source: { authority: "USNORTHCOM – About / Area of Responsibility (AOR sentence: \"encompasses the continental United States, Alaska, Canada, Mexico, Greenland\")", url: NORTHCOM_ABOUT_URL, date: null, tier: 4 },
   },
   "GEO:UNITED_STATES_ALASKA": {
+    command: "NORTHCOM", origin: "repository_evidence", effectiveDate: null,
     evidenceClass: "individually_verified", tier: 4, label: "NORTHCOM AOR page names Alaska",
     source: { authority: "USNORTHCOM – About / Area of Responsibility (AOR sentence: \"encompasses the continental United States, Alaska, Canada, Mexico, Greenland\")", url: NORTHCOM_ABOUT_URL, date: null, tier: 4 },
   },
   "GEO:GAZA_STRIP": {
+    command: "CENTCOM", origin: "repository_evidence", effectiveDate: "2022-03-30",
     evidenceClass: "individually_verified", tier: 5, label: "CRS IF11428 v4 names West Bank & Gaza in the CENTCOM AOR",
     source: { authority: "Congressional Research Service IF11428 v4 – explicitly includes West Bank & Gaza in the CENTCOM AOR", url: CRS_CENTCOM_URL, date: "2022-03-30", tier: 5 },
   },
   "GEO:WEST_BANK": {
+    command: "CENTCOM", origin: "repository_evidence", effectiveDate: "2022-03-30",
     evidenceClass: "individually_verified", tier: 5, label: "CRS IF11428 v4 names West Bank & Gaza in the CENTCOM AOR",
     source: { authority: "Congressional Research Service IF11428 v4 – explicitly includes West Bank & Gaza in the CENTCOM AOR", url: CRS_CENTCOM_URL, date: "2022-03-30", tier: 5 },
   },
@@ -248,13 +322,15 @@ export interface IntegrationReport {
   enriched: string[];
   /** Registry rows removed because their ISO code is a split parent with no AOR of its own. */
   splitParentsRemoved: string[];
-  commandConflicts: Array<{ id: string; registry: CommandId; directory: CommandId; applied: CommandId; reason: string }>;
+  commandConflicts: Array<{ id: string; registry: CommandId | null; directory: CommandId; applied: CommandId; reason: string }>;
   corrections: Array<{ id: string; name: string; field: "evidence_class" | "command"; from: string; to: string; authority: string }>;
+  /** Superseded assignments produced by a dated reassignment found during integration (added to the registry history). */
+  history: CountryAorAssignment[];
 }
 
 export function integrateDirectory(base: readonly CountryAorAssignment[], deps: IntegrationDeps): { records: CountryAorAssignment[]; report: IntegrationReport } {
   const rows = deps.rows ?? DIRECTORY_ROWS;
-  const report: IntegrationReport = { added: [], enriched: [], splitParentsRemoved: [], commandConflicts: [], corrections: [] };
+  const report: IntegrationReport = { added: [], enriched: [], splitParentsRemoved: [], commandConflicts: [], corrections: [], history: [] };
 
   const kept = base.filter((entry) => {
     if (SPLIT_PARENTS[entry.iso3]) { report.splitParentsRemoved.push(entry.iso3); return false; }
@@ -283,34 +359,54 @@ export function integrateDirectory(base: readonly CountryAorAssignment[], deps: 
     if (!directoryCommand) throw new Error(`Unknown workbook command "${row.workbookAor}" for ${row.name}`);
 
     const existing = byId.get(id);
-    const wb = workbookClaim(row, id);
+    const wb = workbookClaim(row, id, directoryCommand);
     const reg = existing ? registryClaim(existing) : null;
     const override = OVERRIDES[id] ?? null;
-    const candidates = [wb, reg, override].filter((claim): claim is Claim => claim !== null);
-    const final = candidates.reduce((best, claim) => (stronger(claim, best) ? claim : best));
+    const claims = [reg, override, wb].filter((claim): claim is Claim => claim !== null);
 
-    // Command: registry vs directory. Equal or weaker directory authority never overrides; a stronger one does and is recorded.
-    let command: CommandId = existing ? existing.command : directoryCommand;
+    // Control is decided by authority and effective date first. The evidence class is then taken ONLY from claims for the winning command.
+    const decision = resolveClaims(claims, existing ? existing.command : directoryCommand);
+    const command = decision.winner.command;
+    const evidence = decision.evidence;
     const conflictHistory = [...(DISPLACED_CLAIMS[id] ?? [])];
-    if (existing && existing.command !== directoryCommand) {
-      const directoryWins = wb.tier < (reg as Claim).tier;
-      command = directoryWins ? directoryCommand : existing.command;
-      const applied = directoryWins ? "directory" : "registry";
-      report.commandConflicts.push({ id, registry: existing.command, directory: directoryCommand, applied: command, reason: `${applied} claim carries the more controlling authority (tier ${directoryWins ? wb.tier : (reg as Claim).tier})` });
-      conflictHistory.push({ claim: `${directoryWins ? existing.command : directoryCommand} (${directoryWins ? "registry" : "directory"})`, source: directoryWins ? (reg as Claim).source.url : row.sourceUrl, reason: `Displaced: the ${applied} assignment is backed by the higher authority tier.` });
-    }
-
     const corrections: DirectoryCorrection[] = [];
-    if (final !== wb) {
+    const reassigned: CountryAorAssignment[] = [];
+
+    for (const loser of decision.losers) {
+      const why = decision.contested
+        ? `Same authority tier (${loser.tier}) and no orderable effective dates: control cannot be established, so the existing assignment is kept and flagged contested.`
+        : loser.tier !== decision.winner.tier
+          ? `Displaced: the winning claim carries the more controlling authority (tier ${decision.winner.tier} over tier ${loser.tier}), whatever the evidence classes.`
+          : `Displaced: same authority tier (${loser.tier}); the winning claim has the later effective date (${decision.winner.effectiveDate} over ${loser.effectiveDate}).`;
+      conflictHistory.push({ claim: `${loser.command} — ${loser.label}${loser.effectiveDate ? ` (effective ${loser.effectiveDate})` : ""}`, source: loser.source.url, reason: why });
+    }
+    if (decision.losers.length) {
+      const directoryLost = directoryCommand !== command;
+      const displaced = decision.losers[0];
+      report.commandConflicts.push({
+        id, registry: existing?.command ?? null, directory: directoryCommand, applied: command,
+        reason: decision.contested ? "contested at the same authority tier with no orderable dates; existing assignment kept" : `${decision.winner.origin} claim controls (tier ${decision.winner.tier}${decision.winner.effectiveDate ? `, effective ${decision.winner.effectiveDate}` : ""})`,
+      });
+      if (!decision.contested) {
+        corrections.push({
+          field: "command", from: `${displaced.command} (${displaced.origin})`, to: command,
+          controllingSource: decision.winner.source,
+          reason: `${decision.winner.label} controls${directoryLost ? ", so the directory's own assignment is corrected" : ""}; the displaced ${displaced.origin} assignment is kept in the conflict history.`,
+        });
+      }
+    }
+    // The directory's own weaker evidence for the SAME command is a class correction, not a command one.
+    if (wb.command === command && evidence !== wb) {
       corrections.push({
-        field: "evidence_class", from: `${wb.evidenceClass} (tier ${wb.tier}; directory label "${row.evidence}")`, to: `${final.evidenceClass} (tier ${final.tier})`,
-        controllingSource: final.source,
-        reason: `${final.label}. The directory labelled this "${row.evidence}"; the stronger source is applied and the directory claim is kept as provenance.`,
+        field: "evidence_class", from: `${wb.evidenceClass} (tier ${wb.tier}; directory label "${row.evidence}")`, to: `${evidence.evidenceClass} (tier ${evidence.tier})`,
+        controllingSource: evidence.source,
+        reason: `${evidence.label}. The directory labelled this "${row.evidence}"; the stronger source for the same command is applied and the directory claim is kept as provenance.`,
       });
     }
 
     const parent = parentOf(row);
     const category = classOfCategory(row.category);
+    const evidenceClass: EvidenceClass = decision.contested ? "provisional" : evidence.evidenceClass;
     const detail: DirectoryDetail = {
       recordId: id,
       idKind: !row.iso3 ? "synthetic" : row.origin === "ISO 3166-1" ? "iso_3166_1" : "workbook_code",
@@ -331,62 +427,81 @@ export function integrateDirectory(base: readonly CountryAorAssignment[], deps: 
       workbookSourceUrl: row.sourceUrl,
       workbookNote: row.note,
       aliases: aliasesFor(row, id),
-      evidenceClass: final.evidenceClass,
-      authorityTier: final.tier,
-      provisional: final.evidenceClass === "provisional",
+      evidenceClass,
+      authorityTier: evidence.tier,
+      provisional: evidenceClass === "provisional",
+      contested: decision.contested,
+      evidenceBasis: { command: evidence.command, label: evidence.label, origin: evidence.origin, effectiveDate: evidence.effectiveDate, source: evidence.source },
       disputedSovereignty: DISPUTED_SOVEREIGNTY.test(`${row.category} ${row.administering} ${row.note ?? ""}`) || existing?.geographicClass === "disputed_entity",
       corrections,
       conflictHistory,
     };
 
+    // Evidence-bearing fields for a record whose evidence comes from a directory / repository claim (never from a losing claim).
+    const fieldsFrom = (claim: Claim, text: string): Pick<CountryAorAssignment, "entityEvidence" | "basis" | "verification" | "sourceAuthority" | "sourceUrl" | "sourceDate" | "sourceCurrencyNote"> => {
+      const verified = claim.evidenceClass === "individually_verified";
+      const fromDirectory = claim.origin === "directory";
+      return {
+        entityEvidence: category === "sovereign_state" ? null : verified ? (claim.tier === 5 ? "primary_us_government_names_it" : "command_page_names_it") : "directory_geographic_mapping",
+        basis: verified ? "official_boundary_statement" : claim.evidenceClass === "official_aggregate_count" ? "official_count_normalized_list" : "regional_geographic_mapping",
+        verification: verified ? "PUBLIC-SOURCE BASELINE" : "PUBLIC-SOURCE BASELINE — LIVE VERIFY",
+        sourceAuthority: fromDirectory ? `${deps.commandNames[command]} – ${row.sourceUrl.replace(/^https?:\/\//, "").split("/")[0]} (directory source)` : claim.source.authority,
+        sourceUrl: claim.source.url,
+        sourceDate: claim.source.date,
+        sourceCurrencyNote: text,
+      };
+    };
+    const displacedEvidence = (claim: Claim, note: string) => ({ sourceAuthority: claim.source.authority, sourceUrl: claim.source.url, verification: "PUBLIC-SOURCE BASELINE — LIVE VERIFY" as const, note });
+
+    let record: CountryAorAssignment;
     if (existing) {
-      const merged: CountryAorAssignment = { ...existing, command, directory: detail };
-      // The directory's own source is the controlling one only when it is the strongest claim for this record (Greenland: 2025 UCP reassignment).
-      if (final === wb && wb.tier < (reg as Claim).tier && existing.command === directoryCommand) {
-        merged.previousEvidence = [...(existing.previousEvidence ?? []), { sourceAuthority: existing.sourceAuthority, sourceUrl: existing.sourceUrl, verification: existing.verification, note: "Earlier evidence for the same assignment; the directory's controlling source is stronger." }];
-        merged.sourceAuthority = "USNORTHCOM – press release: Greenland now in U.S. Northern Command area of responsibility (formal UCP reassignment)";
-        merged.sourceUrl = row.sourceUrl;
-        merged.sourceDate = wb.source.date;
-        merged.effectiveFrom = wb.source.date;
-        merged.supersedesCommand = "EUCOM";
-        merged.sourceCurrencyNote = "Dated controlling source (2025-06-17) per the directory; the previous EUCOM assignment is preserved as history.";
-        merged.note = `${existing.note ?? ""} Transferred from EUCOM to NORTHCOM on 17 June 2025 (formal UCP reassignment).`.trim();
+      record = { ...existing, command, directory: detail };
+      if (evidence.origin !== "registry") {
+        // The winning evidence is the directory's or the repository's own: its source, class and dates replace the existing row's evidence fields.
+        const carried = [...(existing.previousEvidence ?? [])];
+        record = {
+          ...record,
+          ...fieldsFrom(evidence, `Controlling evidence: ${evidence.label}${evidence.effectiveDate ? `, effective ${evidence.effectiveDate}` : ""}. Directory source date text: "${row.sourceDate}".`),
+          previousEvidence: [...carried, { sourceAuthority: existing.sourceAuthority, sourceUrl: existing.sourceUrl, verification: existing.verification, note: command === existing.command ? "Earlier evidence for the same assignment; a more controlling source now applies." : `Displaced ${existing.command} assignment evidence; the ${command} claim controls.` }],
+        };
+        if (command !== existing.command) {
+          record.effectiveFrom = evidence.effectiveDate;
+          record.supersedesCommand = existing.command;
+          record.note = `${row.evidence} — basis: ${row.basis}.${row.note ? ` ${row.note}` : ""} Replaces the earlier ${existing.command} assignment.`;
+          if (evidence.effectiveDate) reassigned.push({ ...existing, effectiveTo: evidence.effectiveDate, supersedesCommand: null, directory: undefined, note: `Superseded by ${command} (effective ${evidence.effectiveDate}) on a more controlling or later source.` });
+        }
+        if (id === "GRL" && command === "NORTHCOM") {
+          record.sourceAuthority = "USNORTHCOM – press release: Greenland now in U.S. Northern Command area of responsibility (formal UCP reassignment)";
+          record.effectiveFrom = evidence.effectiveDate;
+          record.supersedesCommand = "EUCOM";
+          record.sourceCurrencyNote = "Dated controlling source (2025-06-17) per the directory; the previous EUCOM assignment is preserved as history.";
+          record.note = `${existing.note ?? ""} Transferred from EUCOM to NORTHCOM on 17 June 2025 (formal UCP reassignment).`.trim();
+        }
       }
-      // Directory evidence the registry superseded is retained as provenance on the record.
-      if (final !== wb) {
-        merged.previousEvidence = [...(merged.previousEvidence ?? []), { sourceAuthority: wb.source.authority, sourceUrl: row.sourceUrl, verification: "PUBLIC-SOURCE BASELINE — LIVE VERIFY", note: `Directory evidence "${row.evidence}" (${row.sourceDate}). Retained; the stronger source above controls.` }];
-      }
-      out.push(merged);
+      if (decision.contested) record = { ...record, verification: "PUBLIC-SOURCE BASELINE — LIVE VERIFY" };
+      // Directory evidence for the same command that the stronger source supersedes stays on the record.
+      if (wb.command === command && evidence !== wb) record.previousEvidence = [...(record.previousEvidence ?? []), displacedEvidence(wb, `Directory evidence "${row.evidence}" (${row.sourceDate}). Retained; the stronger source above controls.`)];
       report.enriched.push(id);
     } else {
-      const verifiedByOverrideOrDirect = final.evidenceClass === "individually_verified";
-      const entityEvidence: EntityEvidence = verifiedByOverrideOrDirect ? (final.tier === 5 ? "primary_us_government_names_it" : "command_page_names_it") : "directory_geographic_mapping";
-      const source = final === wb ? { authority: `${deps.commandNames[command]} – ${row.sourceUrl.replace(/^https?:\/\//, "").split("/")[0]} (directory source)`, url: row.sourceUrl } : { authority: final.source.authority, url: final.source.url };
-      const dated = /^\d{4}-\d{2}(-\d{2})?$/.test(row.sourceDate) ? row.sourceDate : null;
-      const record: CountryAorAssignment = {
+      record = {
         iso3: id,
         name: row.name,
         command,
         entityType: category === "sovereign_state" ? "sovereign" : "entity",
         geographicClass: category,
         classBasis: `Directory category "${row.category}"${row.administering ? `; administering / sovereignty: ${row.administering}` : ""}.`,
-        entityEvidence: category === "sovereign_state" ? null : entityEvidence,
-        basis: verifiedByOverrideOrDirect ? "official_boundary_statement" : "regional_geographic_mapping",
-        verification: verifiedByOverrideOrDirect ? "PUBLIC-SOURCE BASELINE" : "PUBLIC-SOURCE BASELINE — LIVE VERIFY",
-        sourceAuthority: source.authority,
-        sourceUrl: source.url,
-        sourceDate: final === wb ? dated : final.source.date,
-        sourceCurrencyNote: `Directory source date text: "${row.sourceDate}".${final === wb ? "" : " The directory's own evidence is kept in previousEvidence."}`,
+        ...fieldsFrom(evidence, `Directory source date text: "${row.sourceDate}".${evidence.origin === "directory" ? "" : " The directory's own evidence is kept in previousEvidence."}`),
         effectiveFrom: null,
         effectiveTo: null,
         supersedesCommand: null,
         note: `${row.evidence} — basis: ${row.basis}.${row.note ? ` ${row.note}` : ""}`.trim(),
-        ...(final !== wb ? { previousEvidence: [{ sourceAuthority: `Directory source for ${row.name}`, sourceUrl: row.sourceUrl, verification: "PUBLIC-SOURCE BASELINE — LIVE VERIFY" as const, note: `Directory evidence "${row.evidence}" (${row.sourceDate}). Retained; the stronger source controls.` }] } : {}),
+        ...(wb.command === command && evidence !== wb ? { previousEvidence: [displacedEvidence(wb, `Directory evidence "${row.evidence}" (${row.sourceDate}). Retained; the stronger source controls.`)] } : {}),
         directory: detail,
       };
-      out.push(record);
       report.added.push(id);
     }
+    out.push(record);
+    report.history.push(...reassigned);
     for (const c of corrections) report.corrections.push({ id, name: row.name, field: c.field, from: c.from, to: c.to, authority: c.controllingSource.authority });
   }
 
@@ -505,7 +620,13 @@ export interface DirectoryCounts {
   officialAggregateCount: number;
   regionalInference: number;
   provisional: number;
-  /** Records whose current primary assignment remains unsupported by an authoritative source or genuinely contested. */
+  /**
+   * Everything that is NOT individually verified: official aggregate counts + regional inference + provisional. This, not the provisional
+   * subset below, is the outstanding individual-verification gap.
+   */
+  notIndividuallyVerified: number;
+  outstandingIndividualVerification: { total: number; official_aggregate_count: number; regional_inference: number; provisional: number };
+  /** ONLY the provisional / contested subset: records whose current primary assignment is unsupported by an authoritative source or genuinely contested. */
   unresolvedAuthoritative: Array<{ id: string; name: string; command: CommandId; reason: string }>;
   byEvidenceClassPerCommand: Record<CommandId, Record<EvidenceClass, number>>;
   splitParents: Array<{ iso3: string; name: string; constituents: number; commands: CommandId[] }>;
@@ -527,6 +648,13 @@ export function directoryCounts(records: readonly CountryAorAssignment[]): Direc
     officialAggregateCount: tally("official_aggregate_count"),
     regionalInference: tally("regional_inference"),
     provisional: tally("provisional"),
+    notIndividuallyVerified: withDirectory.length - tally("individually_verified"),
+    outstandingIndividualVerification: {
+      total: withDirectory.length - tally("individually_verified"),
+      official_aggregate_count: tally("official_aggregate_count"),
+      regional_inference: tally("regional_inference"),
+      provisional: tally("provisional"),
+    },
     unresolvedAuthoritative: withDirectory.filter((record) => (record.directory as DirectoryDetail).provisional).map((record) => ({
       id: record.iso3, name: record.name, command: record.command,
       reason: (record.directory as DirectoryDetail).disputedSovereignty ? "Provisional geographic mapping on a location with disputed or unsettled status; no controlling source names the assignment." : "Provisional geographic mapping; no controlling source names the assignment.",

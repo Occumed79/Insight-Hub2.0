@@ -255,7 +255,7 @@ export function ambiguousParentFor(iso3: string): AmbiguousParent | null {
 }
 
 export function assignmentHistoryFor(iso3: string): CountryAorAssignment[] {
-  return HISTORY.filter((entry) => entry.iso3 === canonicalIso3(iso3));
+  return [...HISTORY, ...INTEGRATION.report.history].filter((entry) => entry.iso3 === canonicalIso3(iso3));
 }
 
 export function countriesForCommand(command: CommandId, includeEntities = false): CountryAorAssignment[] {
