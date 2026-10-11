@@ -12,6 +12,7 @@ export type { CommandId };
 export const SOURCE_GAP = "SOURCE_GAP" as const;
 
 export type PolicyVerificationStatus =
+  | "COMMAND PUBLICATION (USER-SUPPLIED OCR)"
   | "COMMAND PUBLICATION (PRIMARY-SOURCE VERIFIED)"
   | "COMMAND PUBLICATION (PACK-EXTRACTED)" // read from the command's own publication by the extraction pack
   | "COMMAND PUBLICATION — UNDER REWRITE" // the command says the framework is being rewritten
@@ -148,11 +149,17 @@ export interface StayThreshold {
 export interface CommandPolicyRule {
   id: string;
   policyId: string;
+  indopacomFY26Scope?: boolean;
+  mandatoryVaccinationGroups?: boolean;
+  durationProfile?: "indopacom_paragraph9" | "indopacom_blood_donor";
+  sourceProvenance?: {access: "user_supplied_ocr"; filename: string; sha256: string; startLine: number; endLine: number; documentId: string};
+  previousRuleEvidence?: Array<{conditionOrRequirement: string; sourceDate: string | null; sourceUrl: string; verificationStatus: PolicyVerificationStatus; sourceGaps: string[]; caveats: string[]}>;
   issuingAuthority?: string;
   lastRetrievedAt?: string;
   sourceWording?: string;
   sourceDocumentId?: string;
   officialTravelOnly?: boolean;
+  officialTravelIncludesPcs?: boolean;
   unconditionalExemptCountries?: string[];
   applicabilityConditions?: string[];
   domain: PolicyDomain;
@@ -217,6 +224,12 @@ export interface CommandPolicy {
 export interface CommandQuery {
   /** Destination country (ISO3). */
   iso3: string;
+  civilianCategory?: "emergency_essential" | "non_combat_essential" | "expeditionary" | "other" | null;
+  contractorAuthorization?: "caaf" | "non_caaf" | null;
+  contractRequirementsApply?: boolean | null;
+  permanentAssignmentIso3?: string | null;
+  onDeploymentOrders?: boolean | null;
+  highRiskOrLiveFire?: boolean | null;
   population?: Population | null;
   /** Expected / actual in-country days, excluding transit time where the policy says so. */
   stayDays?: number | null;

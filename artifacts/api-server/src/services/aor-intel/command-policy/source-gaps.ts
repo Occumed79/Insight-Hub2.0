@@ -2,6 +2,7 @@
 // carries the detail; OPEN_LIVE_VERIFY means the pack marked it and a read was attempted but did not yield the data;
 // OPEN_DEFERRED means the field exists in the source, the pack did not extract it, and no feature needs it yet.
 
+import { OCR_SOURCE_DOCUMENT_REGISTRY } from "./ocr-source-documents";
 import { RESEARCHED_MEDICAL_RULES } from "./researched-medical-rules";
 import { RESEARCH_EVIDENCE } from "./verified-research";
 import type { CommandId } from "./types";
@@ -102,6 +103,28 @@ export const SOURCE_GAP_LEDGER: SourceGapEntry[] = [
     ruleIds: ["af:supplement:yellow-fever"], remaining: ["the message does not list the AOR countries; scope is 'all other countries in the AOR' and follows the AFRICOM registry"],
   },
 ];
+
+const fy26Gap = SOURCE_GAP_LEDGER.find(entry => entry.id === "indopacom-fy26-content")!;
+fy26Gap.previousOutcome = fy26Gap.outcome;
+fy26Gap.status = "RESOLVED";
+fy26Gap.attemptedAt = "2026-10-11";
+fy26Gap.outcome = "User-supplied FY26 OCR supplies detailed applicability, 30/45-day profiles, donor exception, vaccinations, waiver criteria/routing, malaria and medication requirements. Exact OCR, hash, source URL and line ranges retained. Damaged wording and the referenced USFK amendment have separate open gaps.";
+fy26Gap.ruleIds = COMMAND_RULES.filter(rule => rule.sourceDocumentId === "INDOPACOM-FY26-FHP-P-25-0295").map(rule => rule.id);
+fy26Gap.remaining = [];
+SOURCE_GAP_LEDGER.push({
+ id: "usfk-change1", command: "INDOPACOM", item: "Referenced USFK Change 1 of 21 November 2024", status: "OPEN_LIVE_VERIFY", attemptedAt: "2026-10-11",
+ sources: [OCR_SOURCE_DOCUMENT_REGISTRY.documents.find(doc => doc.id === "USFKI-4200.02-2024-08-20")!.sourceUrl],
+ outcome: "FY26 references Change 1; uploaded USFK base instruction lacks amendment marker. Base content integrated with dated provenance and parent conflicts; not represented as amended text.", ruleIds: ["ip:usfk"], remaining: ["Full authenticated amended text and exact changed paragraphs"],
+}, {
+ id: "ocr-damaged-text", command: "INDOPACOM", item: "OCR omissions and ambiguous source quantities", status: "OPEN_LIVE_VERIFY", attemptedAt: "2026-10-11",
+ sources: [OCR_SOURCE_DOCUMENT_REGISTRY.documents[0].sourceUrl], outcome: "Selected FY26 paragraph 7.H text, USFK primaquine dose, and flattened tables are incomplete/ambiguous. No missing dose, category or upper bound reconstructed.",
+ ruleIds: COMMAND_RULES.filter(rule => rule.sourceProvenance && rule.sourceGaps.length).map(rule => rule.id), remaining: ["Original PDF confirmation of damaged fields; current risk classifications where source refers to live surveillance"],
+});
+const formsGap = SOURCE_GAP_LEDGER.find(entry => entry.id === "africom-2026-forms")!;
+formsGap.previousOutcome = formsGap.outcome;
+formsGap.attemptedAt = "2026-10-11";
+formsGap.outcome += " June 2026 AC42 contents now integrated from OCR; September versions remain unverified and no replacement inferred.";
+formsGap.ruleIds.push("af:ocr:ac42");
 
 /** Rule-level SOURCE_GAP fields still open, grouped by command. These are deferred, not attempted. */
 export function deferredRuleGaps(): Array<{ command: CommandId; ruleId: string; gaps: string[] }> {

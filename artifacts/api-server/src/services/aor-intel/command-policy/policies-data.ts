@@ -1,11 +1,13 @@
 // Command medical / Force Health Protection policy data, transcribed from the Insight Hub 2 AOR Command & Theater
-// Medical Policy Extraction Pack (sections 5–10). Nothing here was re-read from the original PDFs.
+// Medical Policy Extraction Pack (sections 5–10). Pack observations are retained; dated source-document OCR enrichments are attributed separately.
 //
 //  - Only values the pack states are populated. Fields the source document contains but the pack did not extract are
 //    listed in `sourceGaps` (open the source only when a feature needs the field or the source monitor reports a change).
 //  - Thresholds are never carried from one command to another.
 //  - USNORTHCOM has no public command-wide medical-entry policy in the pack: it is recorded as NOT_PUBLICLY_VERIFIED.
 
+import { OCR_MEDICAL_RULES, OCR_COMPONENT_RULES } from "./ocr-medical-rules";
+import { ocrDocument, OCR_SOURCE_DOCUMENT_REGISTRY } from "./ocr-source-documents";
 import { RESEARCHED_MEDICAL_RULES } from "./researched-medical-rules";
 import { USARPAC_FHP_URL } from "./verified-research";
 import type { CommandPolicy, CommandPolicyRule, CommandRuleKind, PolicyDomain, PolicyStatus, PolicyVerificationStatus, Population, RuleScope, StayThreshold } from "./types";
@@ -364,7 +366,7 @@ const southcomRules: CommandPolicyRule[] = [
 /* Policies                                                            */
 /* ------------------------------------------------------------------ */
 
-export const COMMAND_POLICIES: CommandPolicy[] = [
+const packPolicies: CommandPolicy[] = [
   { policyId: "CENTCOM-MOD18", command: "CENTCOM", policyTitle: "USCENTCOM theater medical entry requirements — MOD 18 with Tabs A–D", issuingAuthority: "USCENTCOM Command Surgeon", sourceUrl: CC_PAGE,
     additionalSources: [{ title: "MOD 18", url: CC_MOD18 }, { title: "MOD 18 Tab A", url: CC_TAB_A }, { title: "MOD 18 Tab B", url: CC_TAB_B }, { title: "MOD 18 Tab D", url: CC_TAB_D }],
     sourceDate: "2025-08-19", effectiveFrom: "2025-08-19", effectiveTo: null, supersedesPolicyId: "CENTCOM-MOD17", supersededByPolicyId: null, publicStatus: "Current public package, Aug 2025", verificationStatus: "COMMAND PUBLICATION (PACK-EXTRACTED)", lastRetrievedAt: PACK_RETRIEVED_AT, commandMedicalPolicyStatus: "PUBLISHED",
@@ -393,7 +395,62 @@ export const COMMAND_POLICIES: CommandPolicy[] = [
     caveats: ["Not evidence that none exists. Do not apply another command's thresholds."] },
 ];
 
-export const COMMAND_RULES: CommandPolicyRule[] = [...centcomRules, ...africomRules, ...eucomRules, ...indopacomRules, ...RESEARCHED_MEDICAL_RULES, ...southcomRules];
+// Preserve the pack and public landing-page observations alongside the dated instruction.
+export const COMMAND_POLICIES: CommandPolicy[] = packPolicies.map(policy => {
+  if (policy.policyId === "EUCOM-ECI-4202.01A") {
+    const doc = ocrDocument(policy.policyId);
+    return { ...policy, sourceDate: doc.publicationDate, effectiveFrom: doc.effectiveDate,
+      sourceUrl: doc.sourceUrl, supersedesPolicyId: "EUCOM-ECI-4202.01-2019",
+      verificationStatus: "COMMAND PUBLICATION (USER-SUPPLIED OCR)" as const,
+      lastRetrievedAt: doc.retrievedAt, publicStatus: "24 July 2025 signed instruction; TBE amended 2 March 2026",
+      caveats: ["Previous pack observation: source/effective date 3 July 2019; landing page said under rewrite.",
+        "The dated 2025 instruction explicitly cancels ECI 4202.01 of 3 July 2019 and provides baseline standards. It is stronger than stale landing-page wording.", ...doc.conflicts] };
+  }
+  if (policy.policyId === "INDOPACOM-FY26-FHP-P-25-0295") {
+    const doc = ocrDocument(policy.policyId);
+    return { ...policy, supersedesPolicyId: "INDOPACOM-FY25-FHP-2024-10-16",
+      verificationStatus: "COMMAND PUBLICATION (USER-SUPPLIED OCR)" as const, lastRetrievedAt: doc.retrievedAt,
+      caveats: ["Prior direct PDF fetch returned 403; user-supplied OCR now supplies detailed content.",
+        "FY26 explicitly cancels reference AE, FY25 guidance of 16 October 2024; active until cancelled does not establish a separate effective date.", ...doc.conflicts] };
+  }
+  const conflicts = OCR_SOURCE_DOCUMENT_REGISTRY.documents.filter(doc => doc.command === policy.command).flatMap(doc => doc.conflicts);
+  return conflicts.length ? { ...policy, caveats: [...policy.caveats, ...new Set(conflicts)] } : policy;
+});
+for (const [id, command, title, date, replacement] of [
+  ["EUCOM-ECI-4202.01-2019", "EUCOM", "ECI 4202.01, 3 July 2019", "2019-07-03", "EUCOM-ECI-4202.01A"],
+  ["INDOPACOM-FY25-FHP-2024-10-16", "INDOPACOM", "FY25 Force Health Protection Guidance", "2024-10-16", "INDOPACOM-FY26-FHP-P-25-0295"],
+] as const) {
+  const current = COMMAND_POLICIES.find(p => p.policyId === replacement)!;
+  COMMAND_POLICIES.push({ ...current, policyId: id, command, policyTitle: title, sourceDate: date,
+    effectiveFrom: null, effectiveTo: current.sourceDate, supersedesPolicyId: null, supersededByPolicyId: replacement,
+    publicStatus: "Historical instruction explicitly cancelled by successor", verificationStatus: "COMMAND PUBLICATION — SUPERSEDED",
+    caveats: ["Cancellation/date identified in current source; old instruction content not independently extracted."] });
+}
+
+const ocrRules = [...OCR_MEDICAL_RULES, ...OCR_COMPONENT_RULES];
+const replacements: Record<string, string> = {
+  "ip:order": "ip:fy26:scope", "eu:tbe": "eu:ocr:tbe-current",
+  "af:supplement:malaria": "af:ocr:malaria-first-line", "af:supplement:chikungunya": "af:ocr:chikungunya",
+  "af:supplement:mpox": "af:ocr:mpox",
+  "ip:waiver:usindopacom": "ip:fy26:contact-usindopacom", "ip:waiver:usarpac": "ip:fy26:contact-usarpac", "ip:waiver:pacaf": "ip:fy26:contact-pacaf",
+};
+function enrichPackRule(old: CommandPolicyRule): CommandPolicyRule {
+  const update = ocrRules.find(rule => rule.id === replacements[old.id]);
+  const previousRuleEvidence = [{ conditionOrRequirement: old.conditionOrRequirement, sourceDate: old.sourceDate,
+    sourceUrl: old.sourceUrl, verificationStatus: old.verificationStatus, sourceGaps: old.sourceGaps, caveats: old.caveats }];
+  if (update) return { ...update, id: old.id, previousRuleEvidence };
+  if (old.id === "ip:waiver-others") return { ...old, sourceGaps: [], conditionOrRequirement: "PACFLT, MARFORPAC, SOCPAC and USFK contact/routing details are carried by individually sourced FY26 component rules.", previousRuleEvidence };
+  if (old.id === "ip:usfk") return { ...old, sourceGaps: ["USFK Change 1 dated 21 Nov 2024: uploaded base lacks amendment marker"],
+    caveats: ["Base USFKI 4200.02 of 20 August 2024 extracted separately; FY26's referenced Change 1 remains unverified."], previousRuleEvidence };
+  if (old.id === "eu:component-readiness") return { ...old, sourceDate: "2025-07-24", sourceUrl: ocrDocument("EUCOM-ECI-4202.01A").sourceUrl,
+    verificationStatus: "COMMAND PUBLICATION (USER-SUPPLIED OCR)", lastRetrievedAt: "2026-10-11",
+    caveats: ["2025 instruction establishes baseline entry/fitness standards and permits component-specific standards; supported component remains relevant."], previousRuleEvidence };
+  return old;
+}
+export const COMMAND_RULES: CommandPolicyRule[] = [
+  ...[...centcomRules, ...africomRules, ...eucomRules, ...indopacomRules, ...RESEARCHED_MEDICAL_RULES, ...southcomRules].map(enrichPackRule),
+  ...ocrRules.filter(rule => !Object.values(replacements).includes(rule.id)),
+];
 
 /** Official pages and documents the source monitor fingerprints for change (command → URLs). */
 export const COMMAND_MONITOR_TARGETS: Record<string, Array<{ url: string; authority: string; purpose: string }>> = {
@@ -409,9 +466,9 @@ export const COMMAND_MONITOR_TARGETS: Record<string, Array<{ url: string; author
     { url: AF_LIBRARY, authority: "USAFRICOM – FHP document library", purpose: "New or replaced FHP documents" },
   ],
   EUCOM: [
-    { url: EU_PAGE, authority: "USEUCOM – Theatre Medical Clearance", purpose: "Command medical policy index page (framework under rewrite)" },
-    { url: EU_ECI, authority: "USEUCOM – ECI 4202.01A", purpose: "Policy document; watch for the rewrite" },
-    { url: EU_LIBRARY, authority: "USEUCOM – document library", purpose: "New or replaced guidance (TBE memo, ECI rewrite)" },
+    { url: EU_PAGE, authority: "USEUCOM – Theatre Medical Clearance", purpose: "Command medical policy index page; dated instruction controls stale version text" },
+    { url: EU_ECI, authority: "USEUCOM – ECI 4202.01A", purpose: "Policy document; verify newer instruction/amendments" },
+    { url: EU_LIBRARY, authority: "USEUCOM – document library", purpose: "New or replaced guidance and TBE memo" },
   ],
   INDOPACOM: [
     { url: USARPAC_FHP_URL, authority: "USARPAC ACSMED", purpose: "Component handbook; review FY26 compatibility and source anomalies" },
@@ -426,3 +483,9 @@ export const COMMAND_MONITOR_TARGETS: Record<string, Array<{ url: string; author
   ],
   NORTHCOM: [{ url: "https://www.northcom.mil/About/About/", authority: "USNORTHCOM – About / AOR", purpose: "AOR page; watch for a published medical-entry policy" }],
 };
+
+// Monitor official publication locations for newly ingested document evidence.
+for (const doc of OCR_SOURCE_DOCUMENT_REGISTRY.documents) {
+  const targets = COMMAND_MONITOR_TARGETS[doc.command];
+  if (!targets.some(target => target.url === doc.sourceUrl)) targets.push({ url: doc.sourceUrl, authority: doc.issuingAuthority, purpose: `Version/currentness of ${doc.title}` });
+}

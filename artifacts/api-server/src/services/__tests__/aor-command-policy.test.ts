@@ -88,8 +88,8 @@ test("source supersession: MOD 18 supersedes MOD 17, which is kept as history wi
   assert.equal(kuwait.rules.some((rule) => rule.policyId === "CENTCOM-MOD17"), false);
   // EUCOM: still applicable, under rewrite — and the document is over three years old.
   const poland = describeCommandCountry("POL", NOW);
-  assert.ok(poland.qualifiers.some((q) => /under rewrite/i.test(q)));
-  assert.ok(poland.qualifiers.some((q) => /over 3 years old/.test(q)));
+  assert.equal(poland.qualifiers.some((q) => /under rewrite/i.test(q)), false);
+  assert.equal(poland.qualifiers.some((q) => /over 3 years old/.test(q)), false);
 });
 
 test("short vs long duration: CENTCOM >30 days (transit excluded), Tab D ≥15 days, SOUTHCOM <30 vs ≥30, AFRICOM any duration", () => {
@@ -120,7 +120,7 @@ test("short vs long duration: CENTCOM >30 days (transit excluded), Tab D ≥15 d
   // INDOPACOM: duration triggers were not extracted — none may be invented.
   const indopacom = resolveCountryCommand("JPN").rules;
   assert.ok(indopacom.filter((rule) => !rule.sourceDocumentId).every((rule) => rule.minimumStay === null && rule.maximumStayDaysExclusive === null));
-  assert.ok(indopacom.find((rule) => rule.id === "ip:order")?.sourceGaps.includes("stay-duration triggers"));
+  assert.ok(indopacom.find((rule) => rule.id === "ip:order")?.sourceProvenance?.access === "user_supplied_ocr");
 });
 
 test("waiver routing: CJTF-HOA geography, component-specific EUCOM routing, contractor routing", () => {
@@ -158,7 +158,7 @@ test("population, PCS and condition rules: pack-stated statuses only, unstated w
   assert.equal(byId("cc:taba:osa-symptomatic").status, "non-waivable");
   assert.equal(byId("cc:taba:osa-advanced").status, "conditional", "'non-deployable' is not turned into 'non-waivable'");
   assert.ok(byId("cc:taba:osa-advanced").sourceGaps.some((gap) => /waiver/.test(gap)));
-  assert.deepEqual(COMMAND_RULES.filter((rule) => rule.status === "non-waivable").map((rule) => rule.id).sort(), ["cc:imm:anthrax", "cc:taba:osa-symptomatic"], "only the two source-stated non-waivable items");
+  assert.deepEqual(COMMAND_RULES.filter((rule) => rule.status === "non-waivable").map((rule) => rule.id).sort(), ["cc:imm:anthrax", "cc:taba:osa-symptomatic", "ip:fy26:psychotic-bipolar"], "source-stated non-waivable items");
   assert.match(byId("cc:taba:tbi").conditionOrRequirement, /24 hours symptom-free/);
   assert.match(byId("cc:taba:weight").thresholdOrRule ?? "", /136 kg/);
   assert.match(byId("cc:imm:anthrax").caveats.join(" "), /confirm exact wording against the PDF/);
@@ -175,9 +175,9 @@ test("data integrity: every rule belongs to a policy, cites an https command/DoD
     assert.ok(policyIds.has(rule.policyId), rule.id);
     assert.ok(!ids.has(rule.id), `duplicate ${rule.id}`);
     ids.add(rule.id);
-    assert.match(rule.sourceUrl, /^https:\/\/(www\.(centcom|africom|eucom|pacom|southcom)\.mil|api\.army\.mil)\//, rule.id);
+    assert.match(rule.sourceUrl, /^https:\/\/(www\.(centcom|africom|eucom|pacom|southcom|usfk)\.mil|api\.army\.mil)\//, rule.id);
     assert.ok(rule.sourceSection.length > 3, rule.id);
-    assert.ok(["COMMAND PUBLICATION (PACK-EXTRACTED)", "COMMAND PUBLICATION — UNDER REWRITE", "COMMAND PUBLICATION (PRIMARY-SOURCE VERIFIED)"].includes(rule.verificationStatus), rule.id);
+    assert.ok(["COMMAND PUBLICATION (PACK-EXTRACTED)", "COMMAND PUBLICATION — UNDER REWRITE", "COMMAND PUBLICATION (PRIMARY-SOURCE VERIFIED)", "COMMAND PUBLICATION (USER-SUPPLIED OCR)"].includes(rule.verificationStatus), rule.id);
     if (rule.scope.level === "country") assert.ok(rule.scope.countries.length > 0, rule.id);
   }
   for (const policy of COMMAND_POLICIES) {
@@ -278,7 +278,7 @@ test("pipeline: command policy is its own dimension and observation group, separ
   assert.equal(canada?.evidence.filter((r) => r.category === "command_rule").length, 0);
 
   const poland = await run("PL");
-  assert.ok(poland?.whatMattersNow.observations.some((o) => o.dimension === "command_policy" && /under rewrite/i.test(o.headline)));
+  assert.ok(poland?.whatMattersNow.observations.some((o) => o.dimension === "command_policy" && /2025|ECI|EUCOM/.test(o.headline)));
   assert.ok(!poland?.whatMattersNow.observations.some((o) => /country list is a normalized baseline \(LIVE VERIFY\)/.test(o.headline)));
 });
 
@@ -431,9 +431,9 @@ test("geographic classes: non-sovereign places never inflate the sovereign count
 
 test("source-gap ledger: verified enumerations and dates resolve; geographic and unreadable content gaps remain explicit", () => {
   const summary = gapSummary();
-  assert.deepEqual(summary.resolved.sort(), ["africom-yellow-fever-scope", "centcom-immunization-detail", "eucom-country-list", "indopacom-message-date", "northcom-entities"]);
-  assert.deepEqual(summary.openLiveVerify.sort(), ["africom-2026-forms", "centcom-africom-entities", "eucom-indopacom-entities", "indopacom-country-list", "indopacom-fy26-content", "southcom-dependencies"]);
-  assert.ok(SOURCE_GAP_LEDGER.every((entry) => ["2026-10-08", "2026-10-10"].includes(String(entry.attemptedAt)) && entry.sources.every((url) => url.startsWith("https://"))));
+  assert.deepEqual(summary.resolved.sort(), ["africom-yellow-fever-scope", "centcom-immunization-detail", "eucom-country-list", "indopacom-fy26-content", "indopacom-message-date", "northcom-entities"]);
+  assert.deepEqual(summary.openLiveVerify.sort(), ["africom-2026-forms", "centcom-africom-entities", "eucom-indopacom-entities", "indopacom-country-list", "ocr-damaged-text", "southcom-dependencies", "usfk-change1"]);
+  assert.ok(SOURCE_GAP_LEDGER.every((entry) => ["2026-10-08", "2026-10-10", "2026-10-11"].includes(String(entry.attemptedAt)) && entry.sources.every((url) => url.startsWith("https://"))));
   for (const entry of SOURCE_GAP_LEDGER.filter((e) => e.status === "OPEN_LIVE_VERIFY")) assert.ok(entry.remaining.length > 0, entry.id);
   assert.equal(COMMAND_POLICIES.find((p) => p.policyId === "INDOPACOM-FY26-FHP-P-25-0295")?.sourceDate, "2025-11-07", "the Dec 2023 page footer is not used as the message date");
   assert.ok(CURRENT_ASSIGNMENTS.filter((row) => row.geographicClass === "sovereign_state" && row.command === "INDOPACOM").every((row) => /LIVE VERIFY/.test(row.verification)));

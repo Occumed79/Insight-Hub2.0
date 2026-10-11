@@ -67,6 +67,53 @@ export function evaluateCommandRule(rule: CommandPolicyRule, query: CommandQuery
   const missing: string[] = [];
   let excluded = false;
 
+  if (rule.indopacomFY26Scope) {
+    if (!query.travelKind) missing.push("official travel type (FY26 excludes personal leave)");
+    else if (query.travelKind === "leisure") { excluded = true; reasons.push("FY26 excludes personal leave travel."); }
+    if (query.iso3.toUpperCase() === "GUM") { excluded = true; reasons.push("FY26 paragraphs 3–17 exempt travel remaining in Guam; Service/occupational requirements remain."); }
+    if (query.population === "us_military" && query.travelKind === "pcs") missing.push("Service-specific applicability for uniformed PCS (FY26 operational/TDY scope)");
+    const exemptLocations = ["AUS", "JPN", "SGP", "KOR"];
+    if (query.population === "dod_civilian" && exemptLocations.includes(query.iso3.toUpperCase())) {
+      if (!query.civilianCategory) missing.push("civilian essential/expeditionary classification (FY26 geographic exemption)");
+      else if (query.civilianCategory === "other") {
+        if (query.travelKind === "pcs" || query.permanentAssignmentIso3?.toUpperCase() === query.iso3.toUpperCase()) {
+          excluded = true; reasons.push("Non-essential/non-expeditionary civilian PCS or permanent assignment falls under FY26 2.C.2 exemption.");
+        } else if (!query.permanentAssignmentIso3) missing.push("permanent assignment country (enter NONE if not permanently assigned)");
+      }
+    }
+    if (query.population === "dod_contractor") {
+      if (query.contractRequirementsApply === false) { excluded = true; reasons.push("FY26 contractor applicability is limited by Statement of Work."); }
+      else if (query.contractRequirementsApply !== true) missing.push("whether Statement of Work reaches this contractor requirement");
+      if (exemptLocations.includes(query.iso3.toUpperCase())) {
+        if (!query.contractorAuthorization) missing.push("CAAF/Non-CAAF classification");
+        else if (query.contractorAuthorization === "non_caaf") {
+          if (query.permanentAssignmentIso3?.toUpperCase() === query.iso3.toUpperCase()) { excluded = true; reasons.push("Permanently assigned Non-CAAF falls under FY26 2.C.3 exemption."); }
+          else if (!query.permanentAssignmentIso3) missing.push("permanent assignment country (enter NONE if not permanently assigned)");
+        }
+      }
+    }
+  }
+  if (rule.mandatoryVaccinationGroups) {
+    if (query.population === "dod_civilian") {
+      if (!query.civilianCategory) missing.push("civilian essential/expeditionary vaccination category");
+      else if (query.civilianCategory === "other") { excluded = true; reasons.push("FY26 routine mandate does not cover other civilians; entry/Service/occupational requirements remain."); }
+    }
+    if (query.population === "dod_contractor") {
+      if (!query.contractorAuthorization) missing.push("CAAF/Non-CAAF vaccination category");
+      else if (query.contractorAuthorization === "non_caaf") { excluded = true; reasons.push("FY26 routine mandate does not cover Non-CAAF; entry/Service/occupational requirements remain."); }
+    }
+  }
+  if (rule.durationProfile === "indopacom_paragraph9" && query.stayDays !== null && query.stayDays !== undefined) {
+    if (query.onDeploymentOrders === false && query.stayDays < 45) { excluded = true; reasons.push("FY26 paragraph 9 requires non-deployment travel of at least 45 days."); }
+    else if (query.onDeploymentOrders == null && query.stayDays >= 30 && query.stayDays < 45) missing.push("whether on deployment orders (paragraph 9: deployment ≥30 days versus other travel ≥45)");
+  }
+  if (rule.durationProfile === "indopacom_blood_donor") {
+    if (query.stayDays == null && query.highRiskOrLiveFire !== true) missing.push("planned days or high-risk/live-fire activity");
+    else if (query.stayDays != null && query.stayDays < 30) {
+      if (query.highRiskOrLiveFire === false) { excluded = true; reasons.push("Mandatory donor trigger absent; commanders can separately direct shorter-travel screening."); }
+      else if (query.highRiskOrLiveFire !== true) missing.push("high-risk or live-fire activities (donor screening any-duration trigger)");
+    }
+  }
   if (rule.applicabilityPopulation.length) {
     if (!query.population) missing.push("traveler population (military, DoD civilian, contractor, dependent …)");
     else if (rule.directedPopulations.includes(query.population)) {
@@ -78,9 +125,9 @@ export function evaluateCommandRule(rule: CommandPolicyRule, query: CommandQuery
   }
   if (rule.officialTravelOnly) {
     if (!query.travelKind) missing.push("official travel type (component handbook does not cover leisure)");
-    else if (query.travelKind === "leisure" || query.travelKind === "pcs") {
+    else if (query.travelKind === "leisure" || (query.travelKind === "pcs" && !rule.officialTravelIncludesPcs)) {
       excluded = true;
-      reasons.push("This component handbook covers operational/TDY movements, not leisure or PCS travel.");
+      reasons.push("Source limits this rule to official travel; PCS is included only where the cited instruction covers it.");
     }
   }
   if (rule.unconditionalExemptCountries?.includes(query.iso3.toUpperCase())) {

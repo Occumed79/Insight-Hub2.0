@@ -1,3 +1,4 @@
+import { OCR_SOURCE_DOCUMENT_REGISTRY } from "./ocr-source-documents";
 // Primary-source follow-up, retrieved 2026-10-10. Security-cooperation codes are NOT geographic AOR assignments.
 import type { CommandId } from "./types";
 export const RESEARCH_RETRIEVED_AT = "2026-10-10";
@@ -29,7 +30,7 @@ export interface ResearchEvidence {
   publicationDate: string | null;
   effectiveDate: string | null;
   retrievedAt: string;
-  access: "full_document" | "indexed_primary_text";
+  access: "full_document" | "indexed_primary_text" | "user_supplied_ocr";
   scope: "geographic_aor" | "security_cooperation" | "medical_policy" | "publication_index";
   sourceWording: string;
   finding: string;
@@ -47,6 +48,24 @@ export const RESEARCH_EVIDENCE: ResearchEvidence[] = [
   evidence({ id: "usarpac-fhp-2025", command: "INDOPACOM", iso3: [], issuingAuthority: "USARPAC Assistant Chief of Staff-Medical, COL Alison L. Batig", sourceUrl: USARPAC_FHP_URL, publicationDate: "2025-03-01", access: "full_document", scope: "medical_policy", sourceWording: "this document is not intended as an order, regulation, or source of independent authority", finding: "36-page component handbook, dated 1 March 2025; posted at Army URL in December 2025. Applies to Army operational movements, DA civilians and accompanying contractors per SOW/DoD policy. FY25 basis; current FY26 parent guidance must be consulted. Extracted component rules are advisory summaries of cited requirements, not new theater-wide orders. Effective upon signature; expires three years after signature; signature date is not separately established.", conflicts: ["Section 1-3(a) says 30 days or longer; 1-3(c) says 30 days or less require risk assessment. Preserve both at exactly 30 days.", "Section 3-3(b), under Anthrax, says pre-exposure anthrax prophylaxis uses Jynneos rather than ACAM2000. This product/disease mismatch is retained as a source anomaly and is NOT executable vaccine guidance."], supersession: "No explicit supersession located. Does not supersede more stringent subordinate policy (1-3(d)); cites FY25 INDOPACOM rather than FY26." }),
   evidence({ id: "africom-clearance-forms", command: "AFRICOM", iso3: [], issuingAuthority: "USAFRICOM Command Surgeon", sourceUrl: "https://www.africom.mil/staff-resources/theater-medical-clearance", publicationDate: null, access: "indexed_primary_text", scope: "medical_policy", sourceWording: "AC Form 43, USAFRICOM Medical Waiver Request (Please download the PDF form to fill and sign electronically prior to submission.)", finding: "Public page names AC Form 42 screening and AC Form 43 electronic waiver form, SETAF-AF and Naval Forces Africa routing contacts, and exact FHP message DTGs. Library now lists September 18, 2026 screening/counseling publications, but posting dates alone do not establish supersession.", conflicts: ["AC Form 42 listings from June and September 2026 coexist; document library metadata is not proof a form version supersedes another."] }),
 ];
+
+// These are document observations, not geographic membership evidence.
+RESEARCH_EVIDENCE.push(...OCR_SOURCE_DOCUMENT_REGISTRY.documents.map(doc => ({
+  id: `ocr:${doc.id}`, command: doc.command, iso3: doc.id.startsWith("USFKI-") ? ["KOR"] : [],
+  issuingAuthority: doc.issuingAuthority, sourceUrl: doc.sourceUrl,
+  publicationDate: doc.publicationDate, effectiveDate: doc.effectiveDate, retrievedAt: doc.retrievedAt,
+  access: doc.access, scope: "medical_policy" as const,
+  sourceWording: doc.effectiveWording ?? "Exact OCR text retained in ocrSourceDocuments; damaged text is not reconstructed.",
+  finding: `${doc.title}: user-supplied OCR retained with filename, SHA256 and line range. Relevant normalized rules are separately attributed to this document.`,
+  conflicts: doc.conflicts, supersession: doc.supersedes.length ? doc.supersedes.join("; ") : null,
+})));
+RESEARCH_EVIDENCE.push({
+  id: "fda-ixchiq-license-suspension", command: "AFRICOM", iso3: [], issuingAuthority: "U.S. Food and Drug Administration",
+  sourceUrl: "https://www.fda.gov/safety/medical-product-safety-information/fda-update-safety-ixchiq-chikungunya-vaccine-live-fda-suspends-biologics-license-fda-safety",
+  publicationDate: "2025-08-22", effectiveDate: "2025-08-22", retrievedAt: "2026-10-11", access: "full_document", scope: "medical_policy",
+  sourceWording: "has suspended the biologics license", finding: "FDA suspended IXCHIQ's license following serious safety concerns. The earlier AFRICOM 7 August 2025 product paragraph is retained as dated evidence, not a current product recommendation. Confirm current authorized product and patient eligibility before use.",
+  conflicts: ["AFRICOM August 7 memorandum lists IXCHIQ as FDA approved; the later FDA licensing action controls U.S. product authorization. This does not cancel the command's outbreak-risk framework."], supersession: "Later FDA licensing action controls product status, not command policy applicability.",
+});
 
 export const DSCA_SECURITY_COOPERATION = {
   issuingAuthority: "Defense Security Cooperation Agency, SAMM C4.T2A",

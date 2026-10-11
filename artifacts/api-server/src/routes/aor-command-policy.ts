@@ -1,3 +1,4 @@
+import { OCR_SOURCE_DOCUMENT_REGISTRY } from "../services/aor-intel/command-policy/ocr-source-documents";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { resolveCountry } from "../services/aor-intel/geo";
 import { assignmentStats, countriesForCommand } from "../services/aor-intel/command-policy/assignments";
@@ -40,6 +41,12 @@ router.get("/aor/command-policy", (req: Request, res: Response) => {
   const query: CommandQuery = {
     iso3,
     population: pick(req.query.population, POPULATIONS),
+    civilianCategory: pick(req.query.civilianCategory, ["emergency_essential", "non_combat_essential", "expeditionary", "other"] as const),
+    contractorAuthorization: pick(req.query.contractorAuthorization, ["caaf", "non_caaf"] as const),
+    contractRequirementsApply: req.query.contractRequirementsApply === "true" ? true : req.query.contractRequirementsApply === "false" ? false : null,
+    permanentAssignmentIso3: req.query.permanentAssignmentIso3 === "NONE" ? "NONE" : iso3Of(req.query.permanentAssignmentIso3),
+    onDeploymentOrders: req.query.onDeploymentOrders === "true" ? true : req.query.onDeploymentOrders === "false" ? false : null,
+    highRiskOrLiveFire: req.query.highRiskOrLiveFire === "true" ? true : req.query.highRiskOrLiveFire === "false" ? false : null,
     stayDays: number(req.query.stayDays),
     travelKind: pick(req.query.travelKind, TRAVEL_KINDS),
     component: req.query.component ? String(req.query.component).slice(0, 40) : null,
@@ -96,6 +103,7 @@ router.get("/aor/command-policy/registry", (_req: Request, res: Response) => {
     ...assignmentStats(),
     researchEvidence: RESEARCH_EVIDENCE,
     securityCooperation: DSCA_SECURITY_COOPERATION,
+    ocrSourceDocuments: OCR_SOURCE_DOCUMENT_REGISTRY,
     commands: COMMANDS.map((command) => ({
       command,
       countries: countriesForCommand(command, true).map((entry) => ({ iso3: entry.iso3, name: entry.name, entityType: entry.entityType, verification: entry.verification })),
