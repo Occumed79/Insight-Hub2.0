@@ -34,7 +34,6 @@ const WarCostsSiteEvidence = React.lazy(() => import("@/pages/war-costs-site-evi
 const ReviewerInjuriesMedicalPage = React.lazy(() => import("@/pages/reviewer-injuries-medical"));
 const ReviewerAorFactorsPage = React.lazy(() => import("@/pages/reviewer-aor-factors-experience"));
 const ReviewerDrugCheckerPage = React.lazy(() => import("@/pages/reviewer-drug-checker-experience"));
-const ReviewerClinicalCalculatorsPage = React.lazy(() => import("@/pages/reviewer-clinical-calculators-experience"));
 const ReviewerStandardsIntelligencePage = React.lazy(() => import("@/pages/reviewer-standards-experience"));
 const EntitiesPage = React.lazy(() => import("@/pages/entities-contextual").then((module) => ({ default: module.ContextualEntitiesPage })));
 const CompetitorsPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.CompetitorsPage })));
@@ -99,7 +98,6 @@ function WarCostsSiteEvidenceRoute() { return <WarCostsSiteEvidence />; }
 function InjuriesMedicalRoute() { return <ReviewerInjuriesMedicalPage />; }
 function AorRoute() { return <ReviewerAorFactorsPage />; }
 function DrugCheckerRoute() { return <ReviewerDrugCheckerPage />; }
-function ClinicalCalculatorsRoute() { return <ReviewerClinicalCalculatorsPage />; }
 function StandardsRoute() { return <ReviewerStandardsIntelligencePage />; }
 
 function StandaloneMapPage({ children }: { children: React.ReactNode }) {
@@ -135,7 +133,6 @@ function Router() {
         <Route path="/aor-factors" component={AorRoute} />
         <Route path="/aor-risk-intelligence" component={AorRoute} />
         <Route path="/drug-checker" component={DrugCheckerRoute} />
-        <Route path="/clinical-calculators" component={ClinicalCalculatorsRoute} />
         <Route path="/standards-intelligence" component={StandardsRoute} />
         <Route path="/industry-injury-benchmarks" component={IndustryImpactCalculatorRoute} />
         <Route path="/onet-master-tool" component={OnetMasterToolRoute} />
