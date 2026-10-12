@@ -166,7 +166,6 @@ async function installDeterministicApi(page: Page) {
     if (path.endsWith("/api/bls/industry-benchmark")) return fulfillJson(route, { ok: true, benchmark: blsOverviewFixture.sectors[0].benchmark });
     if (path.endsWith("/api/occupational-discovery/onet/profile")) return fulfillJson(route, onetProfileFixture);
     if (path.endsWith("/api/occupational-discovery/onet/profile-by-code")) return fulfillJson(route, { ok: true, profile: onetProfileFixture.profile });
-    if (path.endsWith("/api/job-intelligence/profiles")) return fulfillJson(route, { ok: true, profiles: [] });
     if (path.includes("/api/federal-intel/")) return fulfillJson(route, { items: [], bucket: "fixture", total: 0, page: 1, limit: 200, pages: 0 });
 
     return fulfillJson(route, { ok: true, configured: true, results: [], records: [] });
@@ -300,12 +299,6 @@ test("reviewed intelligence hierarchy aliases and calculator workstation remain 
   await expect(page.locator('nav[aria-label="Insight Hub intelligence tools"] a').filter({ hasText: "Industry Injury Benchmarks" })).toHaveCount(0);
   await expectNoDocumentOverflow(page);
 
-  await page.goto("/occupational-demands");
-  await expect(page.getByRole("heading", { name: "Job Intelligence", exact: true })).toBeVisible();
-  await expect(page.locator('a[aria-current="page"]').filter({ hasText: "Job Intelligence" })).toHaveCount(2);
-  await expect(page.locator('nav[aria-label="Insight Hub intelligence tools"] a').filter({ hasText: "Occupational Demands" })).toHaveCount(0);
-  await expectNoDocumentOverflow(page);
-
   await page.goto("/occupational-calculators");
   await expect(page.getByRole("heading", { name: "Occupational Calculators", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Workforce Health" }).click();
@@ -316,18 +309,10 @@ test("reviewed intelligence hierarchy aliases and calculator workstation remain 
   expect(pageErrors).toEqual([]);
 });
 
-test("exact O*NET code can be reviewed from Job Intelligence without title ambiguity", async ({ page }) => {
-  const pageErrors = collectPageErrors(page);
-  await page.goto("/job-intelligence");
-
-  const search = page.getByPlaceholder("Search occupation title");
-  await search.fill("49-3011.00");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
-
-  await expect(page.getByText("Aircraft Mechanics and Service Technicians", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("49-3011.00", { exact: true }).first()).toBeVisible();
-  await expectNoDocumentOverflow(page);
-  expect(pageErrors).toEqual([]);
+test("retired Job Intelligence is absent from navigation; O*NET remains available", async ({ page }) => {
+  await page.goto("/onet-master-tool");
+  await expect(page.getByRole("heading", { name: "O*NET Master Tool" })).toBeVisible();
+  await expect(page.locator('nav[aria-label="Insight Hub intelligence tools"] a').filter({ hasText: "Job Intelligence" })).toHaveCount(0);
 });
 
 test("active Location Overlap Leaflet map renders safely", async ({ page }) => {
