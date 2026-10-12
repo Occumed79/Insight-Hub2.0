@@ -1,3 +1,5 @@
+> Update 2026-10-12: Job Intelligence legacy code/API routes deleted; Standards Intelligence old case evaluator/API deleted; current Standards tab is reserved for regulatory/guideline **change monitoring**, not employee case evaluation. This earlier audit otherwise records its 2026-09-07 state.
+
 # Insight Hub 2.0 second-pass workspace audit
 
 Reviewed: 2026-09-07. This file records production route ownership, visible dependencies, persistence, and acceptance coverage. It is intentionally an audit artifact rather than a visual design specification.
@@ -7,11 +9,10 @@ Reviewed: 2026-09-07. This file records production route ownership, visible depe
 | Workspace | Production component | Page-owned interaction / presentation | Shared visible dependency after remediation | Persistence | Acceptance |
 | --- | --- | --- | --- | --- | --- |
 | Injuries & Medical Conditions | `reviewer-injuries-medical` | Anatomy-first body-region navigator and evidence workbench | None at route boundary | API-backed cases; transient selection | `injury-hologram.spec.ts` |
-| Job Intelligence | `job-intelligence-v2` | Occupation discovery and duty evidence editor | None at route boundary | API profiles; one explicit legacy-local import path | `job-intelligence.spec.ts` |
 | AOR Factors | `reviewer-aor-factors-live` | Map-first command/country operating picture | None at route boundary | Current entity context only | `aor-consolidation.spec.ts` |
 | Drug Checker | `reviewer-drug-checker` | Medication/regimen scientific workspace | None at route boundary | Temporary form state | `reviewed-intelligence.spec.ts` |
 | Clinical Calculators | `reviewer-clinical-calculators` | Focused instrument selector and calculation surfaces | None at route boundary | Temporary inputs | `clinical-calculators.spec.ts` |
-| Standards Intelligence | `reviewer-standards-intelligence` | Dense standards/evidence reader | None at route boundary | Source API | `reviewed-intelligence.spec.ts` |
+| Standards Intelligence | `reviewer-standards-experience` | Regulatory changes monitor pending rebuild (old case evaluator removed) | Rebuild hold | No monitoring backend yet | Pending |
 | Federal Agencies | `federal-agencies-v2` | Agency-profile evidence workstation | None at route boundary | Source API | `ui-hardening.spec.ts` |
 | State Agencies | `state-agencies-v2` | State map and jurisdiction evidence | None at route boundary | Source API | `state-map.spec.ts` |
 | SEC Filings | `sec-filings` | Document/issuer intelligence terminal | None at route boundary | Tracked issuers remain session-only; durable backend migration is open | `reviewed-intelligence.spec.ts` |
@@ -38,7 +39,7 @@ The route-level `CinematicToolPage` and `CinematicDirectPage` abstractions were 
 
 ### KEEP — current product
 
-`/`, `/entities`, `/clients`, `/competitors`, `/federal-agencies`, `/state-agencies`, `/sec-filings`, `/leadership-map`, `/dba-intelligence`, `/fec-filings`, `/injuries-medical-conditions`, `/job-intelligence`, `/aor-factors`, `/drug-checker`, `/clinical-calculators`, `/standards-intelligence`, `/onet-master-tool`, `/occupational-data-explorer`, `/industry-impact-calculator`, `/occupational-calculators`, `/war-costs-intelligence`, `/war-costs-map`, `/war-costs-tools`, `/war-costs-special-tools`, `/war-costs-visualizations`, `/war-costs-accountability`, `/war-costs-site-evidence`, `/federal-awards`, `/public-legal-references`, and `/geographic-footprint`.
+`/`, `/entities`, `/clients`, `/competitors`, `/federal-agencies`, `/state-agencies`, `/sec-filings`, `/leadership-map`, `/dba-intelligence`, `/fec-filings`, `/injuries-medical-conditions`, `/aor-factors`, `/drug-checker`, `/clinical-calculators`, `/standards-intelligence`, `/onet-master-tool`, `/occupational-data-explorer`, `/industry-impact-calculator`, `/occupational-calculators`, `/war-costs-intelligence`, `/war-costs-map`, `/war-costs-tools`, `/war-costs-special-tools`, `/war-costs-visualizations`, `/war-costs-accountability`, `/war-costs-site-evidence`, `/federal-awards`, `/public-legal-references`, and `/geographic-footprint`.
 
 ### INTERNAL — supporting capability intentionally outside primary navigation
 
@@ -46,7 +47,7 @@ The route-level `CinematicToolPage` and `CinematicDirectPage` abstractions were 
 
 ### REDIRECT / compatibility aliases
 
-Wouter currently resolves these aliases to their modern component without a URL rewrite: `/prospects` → entities, `/aor-risk-intelligence` → AOR Factors, `/industry-injury-benchmarks` → Industry Impact, `/occupational-demands` → Job Intelligence, `/war-costs` → Defense Medical Support, `/geographic-data` → Footprint Map, `/geographic-overlap` → Location Overlap, `/occupational-exposure` → Injury Workforce Exposure, and `/company-live-intelligence` → Corporate Signals. `/legacy-job-intelligence` is retained as an explicit legacy compatibility surface pending usage telemetry.
+Wouter currently resolves these aliases to their modern component without a URL rewrite: `/prospects` → entities, `/aor-risk-intelligence` → AOR Factors, `/industry-injury-benchmarks` → Industry Impact, `/war-costs` → Defense Medical Support, `/geographic-data` → Footprint Map, `/geographic-overlap` → Location Overlap, `/occupational-exposure` → Injury Workforce Exposure, and `/company-live-intelligence` → Corporate Signals. The duplicate Job Intelligence routes and case-evaluation Standards API were retired on 2026-10-12.
 
 ### DELETE
 
@@ -60,7 +61,7 @@ Two curated-intelligence gaps remain: SEC tracked issuers use `sessionStorage`, 
 
 ## Repository cleanup findings
 
-The similarly named `industry-impact-calculator.tsx`, `occupational-calculators.tsx`, `reviewer-job-intelligence.tsx`, and the `*-legacy.tsx` files are not assumed safe to delete merely from their names: current routed files import or wrap several of them, and tests or compatibility routes still exercise others. This pass therefore records them instead of deleting live dependencies. The repository audit remains the mechanical guard against newly unreachable frontend files.
+The similarly named `industry-impact-calculator.tsx`, `occupational-calculators.tsx`, and the `*-legacy.tsx` files are not assumed safe to delete merely from their names: current routed files import or wrap several of them, and tests or compatibility routes still exercise others. This pass therefore records them instead of deleting live dependencies. The repository audit remains the mechanical guard against newly unreachable frontend files.
 
 ## Mechanical versus visual verification
 
