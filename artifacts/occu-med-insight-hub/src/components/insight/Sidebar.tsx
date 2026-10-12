@@ -31,7 +31,6 @@ const navGroups: NavGroup[] = [
       { href: "/injuries-medical-conditions", label: "Injuries & Medical Conditions", icon: Activity },
       { href: "/aor-factors", label: "AOR Factors", icon: ShieldAlert },
       { href: "/drug-checker", label: "Drug Checker", icon: Pill },
-      { href: "/clinical-calculators", label: "Clinical Calculators", icon: Calculator },
       { href: "/standards-intelligence", label: "Standards Intelligence", icon: Stethoscope },
     ],
   },
