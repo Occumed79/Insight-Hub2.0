@@ -10,6 +10,8 @@ import { logger } from "../lib/logger";
 const router: IRouter = Router();
 const store = createNeonBackedStore((error) => logger.warn({ err: error instanceof Error ? error.message : String(error) }, "AOR intel cache store unavailable; using in-process cache"));
 
+// Legacy primary names are supported. A separate second-account token can act
+// as the primary when the first is missing, or a one-time in-browser failover.
 const CESIUM_TOKEN_ENV_NAMES = ["CESIUM_ION_ACCESS_TOKEN", "CESIUM_ION_TOKEN", "VITE_CESIUM_ION_TOKEN"] as const;
 
 async function fetchWithTimeout(url: string, init: { headers?: Record<string, string>; timeoutMs?: number; method?: "GET" | "POST"; body?: unknown } = {}): Promise<unknown> {
@@ -49,13 +51,18 @@ export const liveIntelDeps = (): IntelDeps => ({ store, internalJson, externalJs
 
 router.get("/aor/cesium-config", (_req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-store");
-  const found = CESIUM_TOKEN_ENV_NAMES.map((name) => ({ name, value: process.env[name]?.trim() ?? "" })).find((entry) => entry.value);
-  res.status(found ? 200 : 503).json({
-    configured: Boolean(found),
-    token: found?.value ?? "",
+  const primary = CESIUM_TOKEN_ENV_NAMES.map((name) => process.env[name]?.trim()).find(Boolean) ?? "";
+  const second = process.env.CESIUM_ION_ACCESS_TOKEN_2?.trim() ?? "";
+  const active = primary || second;
+  // Cesium ion access tokens are browser credentials. Never return unrelated server secrets.
+  const fallbackToken = primary && second && primary !== second ? second : null;
+  res.status(active ? 200 : 503).json({
+    configured: Boolean(active),
+    token: active,
+    fallbackToken,
     provider: "Cesium ion",
-    requiredEnv: "CESIUM_ION_ACCESS_TOKEN",
-    ...(found ? {} : { error: "Cesium ion access token is not configured. Set CESIUM_ION_ACCESS_TOKEN on the API service (a public ion token with access to Cesium World Terrain and imagery)." }),
+    requiredEnv: "CESIUM_ION_ACCESS_TOKEN or CESIUM_ION_ACCESS_TOKEN_2",
+    ...(active ? {} : { error: "No Cesium ion token is configured. Set CESIUM_ION_ACCESS_TOKEN or CESIUM_ION_ACCESS_TOKEN_2 on the API service (with World Terrain and imagery access)." }),
   });
 });
 
