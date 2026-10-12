@@ -30,10 +30,21 @@ export function createNeonBackedStore(onError?: (error: unknown) => void): Cache
   const memory = createMemoryStore();
   let dbModule: Promise<typeof import("@workspace/db") | null> | null = null;
   const load = () => {
-    dbModule ??= import("@workspace/db").catch((error) => {
-      onError?.(error);
-      return null;
-    });
+    dbModule ??= import("@workspace/db")
+      .then(async (mod) => {
+        // The table is created on first use (same approach as the geospatial cache) so a database that never had `db push` run still persists the cache.
+        await mod.pool.query(`CREATE TABLE IF NOT EXISTS aor_intel_cache (
+          key text PRIMARY KEY,
+          payload jsonb NOT NULL,
+          retrieved_at timestamp NOT NULL DEFAULT now(),
+          expires_at timestamp NOT NULL
+        )`);
+        return mod;
+      })
+      .catch((error) => {
+        onError?.(error);
+        return null;
+      });
     return dbModule;
   };
   return {

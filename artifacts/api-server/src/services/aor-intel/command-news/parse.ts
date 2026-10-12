@@ -1,7 +1,9 @@
 // Tolerant, dependency-free parsing of RSS 2.0 / Atom feeds and of official HTML listing pages.
 // Nothing here summarizes or interprets: it extracts the title, link, date and the source's own description.
 
-export interface ParsedItem { title: string; url: string; summary: string; publishedAt: string | null; updatedAt: string | null; categories: string[] }
+export interface ParsedItem { title: string; url: string; summary: string; publishedAt: string | null; updatedAt: string | null; categories: string[];
+  /** Listing pages only: a sort position (never shown as a date) derived from the page's own order, for items whose date the page does not state. */
+  orderHint?: string | null }
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "–", mdash: "—", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", hellip: "…" };
 
@@ -153,7 +155,7 @@ export function discoverDirectoryFeeds(html: string, base: string, limit = 16): 
     if (!url) return;
     const parsed = new URL(url);
     if (parsed.hostname.replace(/^www\./, "") !== host || !FEED_HREF.test(parsed.pathname + parsed.search)) return;
-    if (parsed.pathname.replace(/\/+$/, "") === baseUrl.pathname.replace(/\/+$/, "") && !parsed.search) return;
+    if (/sitemap/i.test(parsed.pathname) || (parsed.pathname.replace(/\/+$/, "") === baseUrl.pathname.replace(/\/+$/, "") && !parsed.search)) return;
     if (found.some((entry) => entry.url === url)) return;
     const format = /atom/i.test(parsed.pathname + parsed.search) ? "atom" : "rss";
     const clean = label.trim();
@@ -164,6 +166,9 @@ export function discoverDirectoryFeeds(html: string, base: string, limit = 16): 
     const tag = match[0];
     if (/rel=["']?alternate/i.test(tag) && /type=["']application\/(rss|atom)\+xml/i.test(tag)) add(tag.match(/href=["']([^"']+)["']/i)?.[1], tag.match(/title=["']([^"']+)["']/i)?.[1] ?? "");
   }
+  // Addresses carried by other attributes (data-href, <option value>, <input value>) or written out as text.
+  for (const match of html.matchAll(/\b(?:data-[\w-]+|value|content|data-url|data-feed)=["']([^"']+)["']/gi)) add(match[1], "");
+  for (const match of html.matchAll(/https?:\/\/[^\s"'<>)]+/gi)) add(match[0].replace(/[.,;]+$/, ""), "");
   const rssKeys = new Set(found.filter((entry) => entry.format === "rss").map((entry) => entry.url.replace(/\/rss\//i, "/atom/")));
   return found.filter((entry) => !(entry.format === "atom" && rssKeys.has(entry.url))).slice(0, limit);
 }
@@ -172,47 +177,93 @@ const ARTICLE_PATH = /\/(news|article|articles|press-?release|press-?releases|me
 const NAVIGATION_TEXT = /^(home|news|press releases?|media|more|read more|next|previous|page \d+|skip to|contact|about|search|menu|subscribe|rss)\b/i;
 
 const MONTHS = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
-const TEXT_DATE = new RegExp(`\\b(${MONTHS})\\.?\\s+(\\d{1,2}),?\\s+(\\d{4})\\b`, "i");
+const MONTH_FIRST = new RegExp(`\\b(${MONTHS})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})\\b`, "i");
+const DAY_FIRST = new RegExp(`\\b(\\d{1,2})\\s+(${MONTHS})\\.?,?\\s+(\\d{4})\\b`, "i");
+const NUMERIC = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/;
+const ISO_DAY = /\b(\d{4})-(\d{2})-(\d{2})\b/;
 
-/** A date a listing page states next to an item: a <time datetime>, or "Oct. 10, 2025" text, found between this link and the next article link. */
+/** A date a listing page states next to an item: a <time datetime>, "Oct. 10, 2026", "10 Oct 2026", "10/10/2026" or "2026-10-10", found between this link and the next article link. */
 export function nearbyDate(segment: string): string | null {
   const time = segment.match(/<time\b[^>]*\bdatetime=["']([^"']+)["']/i)?.[1];
   if (time) { const iso = toIsoDate(time); if (iso) return iso; }
-  const text = stripMarkup(segment).match(TEXT_DATE);
-  if (text) { const iso = toIsoDate(`${text[1].replace(/\./, "")} ${text[2]}, ${text[3]} 12:00:00 UTC`); if (iso) return iso; }
+  const text = stripMarkup(segment);
+  const at = (value: string) => toIsoDate(`${value} 12:00:00 UTC`);
+  let match = text.match(MONTH_FIRST);
+  if (match) { const iso = at(`${match[1].replace(/\./, "")} ${match[2]}, ${match[3]}`); if (iso) return iso; }
+  match = text.match(DAY_FIRST);
+  if (match) { const iso = at(`${match[2].replace(/\./, "")} ${match[1]}, ${match[3]}`); if (iso) return iso; }
+  match = text.match(ISO_DAY);
+  if (match) { const iso = at(`${match[1]}-${match[2]}-${match[3]}`); if (iso) return iso; }
+  match = text.match(NUMERIC);
+  if (match && Number(match[1]) <= 12 && Number(match[2]) <= 31) { const iso = at(`${match[3]}-${match[1].padStart(2, "0")}-${match[2].padStart(2, "0")}`); if (iso) return iso; }
   return null;
 }
 
-/** Fallback when a listing page offers no feed: anchors that point at article-like paths on the same site, with the link text as the title. */
+/** Article views on the command sites' publishing platform: /Article/<number>/<slug>. Listings use these for stories; month archives, biographies and notices do not match. */
+const PLATFORM_ARTICLE = /\/Article\/(?:Article\/)?\d{4,}\//i;
+const NOT_NEWS_SECTION = /\/(Contact|Directory|Biography|Biographies|Leadership|About|Staff|Careers|Images?|Videos?|Photos?|Year)(\/|$)/i;
+
+/**
+ * Fallback when a listing page offers no feed: story links on the same site, with the link text as the title. When the page uses the platform's
+ * /Article/<id>/ addresses only those are kept (month archives, biographies and site notices are not stories). Each item carries the date the page
+ * states beside it; items the page leaves undated get an `orderHint` from their neighbours so the stream keeps the page's own order. No date is invented.
+ */
 export function parseListing(html: string, base: string): ParsedItem[] {
   const origin = new URL(base).hostname.replace(/^www\./, "");
   const basePath = new URL(base).pathname.replace(/\/+$/, "");
   const anchors = [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)];
-  const seen = new Set<string>();
-  const items: ParsedItem[] = [];
-  const articleAt: Array<{ index: number; url: string }> = [];
+  const candidates: Array<{ index: number; end: number; url: string; text: string }> = [];
   for (const match of anchors) {
     const href = match[1].match(/href=["']([^"']+)["']/i)?.[1];
     const url = href ? safeUrl(href, base) : null;
     if (!url) continue;
     const parsed = new URL(url);
-    if (parsed.hostname.replace(/^www\./, "") === origin && ARTICLE_PATH.test(parsed.pathname) && parsed.pathname.replace(/\/+$/, "") !== basePath && !/\/(Page=|index\.html$)/i.test(url)) articleAt.push({ index: match.index ?? 0, url });
+    if (parsed.hostname.replace(/^www\./, "") !== origin || !ARTICLE_PATH.test(parsed.pathname)) continue;
+    if (parsed.pathname.replace(/\/+$/, "") === basePath || /\/(Page=|index\.html$)/i.test(url) || NOT_NEWS_SECTION.test(parsed.pathname)) continue;
+    candidates.push({ index: match.index ?? 0, end: (match.index ?? 0) + match[0].length, url, text: stripMarkup(match[2]) });
   }
-  for (const match of anchors) {
-    const href = match[1].match(/href=["']([^"']+)["']/i)?.[1];
-    if (!href) continue;
-    const url = safeUrl(href, base);
-    if (!url) continue;
-    const start = match.index ?? 0;
-    if (!articleAt.some((entry) => entry.index === start)) continue;
-    const title = stripMarkup(match[2]);
-    if (title.length < 18 || NAVIGATION_TEXT.test(title) || seen.has(url)) continue;
-    seen.add(url);
-    const end = start + match[0].length;
-    const next = articleAt.find((entry) => entry.index > start && entry.url !== url)?.index ?? end + 600;
-    items.push({ title, url, summary: "", publishedAt: nearbyDate(html.slice(end, Math.min(next, end + 600))), updatedAt: null, categories: [] });
+  const platform = candidates.filter((entry) => PLATFORM_ARTICLE.test(new URL(entry.url).pathname));
+  const kept = platform.length ? platform : candidates;
+
+  // One item per address, titled by the longest link text found for it (image and caption links repeat the address with shorter text).
+  const order: string[] = [];
+  const byUrl = new Map<string, { title: string; first: number; dates: Array<string | null> }>();
+  kept.forEach((entry, position) => {
+    const next = kept.slice(position + 1).find((other) => other.url !== entry.url)?.index ?? entry.end + 600;
+    const date = nearbyDate(html.slice(entry.end, Math.min(next, entry.end + 600)));
+    const existing = byUrl.get(entry.url);
+    if (!existing) { byUrl.set(entry.url, { title: entry.text, first: entry.index, dates: [date] }); order.push(entry.url); return; }
+    if (entry.text.length > existing.title.length) existing.title = entry.text;
+    existing.dates.push(date);
+  });
+  const items: ParsedItem[] = [];
+  for (const url of order) {
+    const found = byUrl.get(url)!;
+    if (found.title.length < 18 || NAVIGATION_TEXT.test(found.title)) continue;
+    items.push({ title: found.title, url, summary: "", publishedAt: found.dates.find(Boolean) ?? null, updatedAt: null, categories: [], orderHint: null });
+  }
+  // Undated items inherit a position from the nearest dated item below them (listings run newest first), a minute apart so the page's order is kept.
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].publishedAt) continue;
+    let end = i;
+    while (end < items.length && !items[end].publishedAt) end++;
+    const below = items[end]?.publishedAt ?? null;
+    const above = i > 0 ? items[i - 1].publishedAt ?? items[i - 1].orderHint ?? null : null;
+    for (let j = i; j < end; j++) {
+      const base = below ? Date.parse(below) + (end - j) * 60_000 : above ? Date.parse(above) - (j - i + 1) * 60_000 : null;
+      items[j].orderHint = base === null ? null : new Date(base).toISOString();
+    }
+    i = end - 1;
   }
   return items;
+}
+
+/** What a directory page held, for the monitor when no feed could be read from it. */
+export function describeDirectoryPage(html: string, base: string): string {
+  const links = [...html.matchAll(/<a\b[^>]*href=["']([^"']+)["']/gi)].map((match) => safeUrl(match[1], base)).filter((url): url is string => Boolean(url));
+  const mentioning = links.filter((url) => /rss|feed|xml|atom|syndic/i.test(url));
+  const scripts = (html.match(/<script\b/gi) ?? []).length;
+  return `The page answered (${html.length} characters, ${links.length} links, ${scripts} scripts) but lists no feed address that could be read${mentioning.length ? `; links that mention a feed: ${mentioning.slice(0, 3).join(", ")}` : " and none of its links mention a feed"}. If the list is built by script, it is not visible to this monitor.`;
 }
 
 const HEALTH_TERMS = ["health", "medical", "medicine", "surgeon", "vaccin", "immuniz", "outbreak", "epidemic", "pandemic", "disease", "covid", "malaria", "dengue", "ebola", "cholera", "mpox", "hospital", "public health", "force health", "biological", "quarantine", "clinic", "tricare"];

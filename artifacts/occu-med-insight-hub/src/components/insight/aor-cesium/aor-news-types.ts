@@ -22,6 +22,8 @@ export interface NewsItem {
   summary: string;
   publishedAt: string | null;
   updatedAt: string | null;
+  /** Stream position for undated listing items (the page's own order). Not a date. */
+  orderHint?: string | null;
   firstSeenAt: string;
   lastSeenAt: string;
   lastChangedAt: string | null;

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createMemoryStore } from "../aor-intel/cache";
 import { COMMAND_NEWS_COMMANDS, COMMAND_NEWS_SOURCES, sourcesForCommand } from "../aor-intel/command-news/sources";
-import { canonicalUrl, classifyFeedKind, discoverDirectoryFeeds, discoverFeedUrls, healthTerms, looksLikeFeed, nearbyDate, parseFeed, parseListing, policyTerms, safeUrl } from "../aor-intel/command-news/parse";
+import { canonicalUrl, classifyFeedKind, describeDirectoryPage, discoverDirectoryFeeds, discoverFeedUrls, healthTerms, looksLikeFeed, nearbyDate, parseFeed, parseListing, policyTerms, safeUrl } from "../aor-intel/command-news/parse";
 import { collectSource, dedupe, getCommandNews, getNewsMonitor, type FetchText, type NewsDeps } from "../aor-intel/command-news/service";
 import { countryTags } from "../aor-intel/command-news/countries";
 
@@ -158,6 +158,60 @@ test("parseListing keeps same-site article links with real titles, reads the dat
     ["https://www.eucom.mil/news/article/43", null],
   ]);
   assert.equal(nearbyDate("<span>no date here</span>"), null);
+});
+
+// Addresses and titles below are the ones the production monitor read from the live INDOPACOM / SOUTHCOM listing pages on 2026-10-12; the surrounding
+// markup is an approximation of that platform's listing, not a capture.
+const PLATFORM_LISTING = `<html><body><nav><a href="/Contact/Directory/Biography/Article/4223733/command-senior-enlisted-leader-us-pacific-command">Senior Enlisted Leader</a>
+<a href="/Newsroom/Digital-Content-Refresh">Digital Content Refresh</a></nav>
+<div class="hero"><a href="/Media/News/News-Articles/Article/4623136/84th-tes-provides-total-force-support-throughout-the-pacific"><img alt=""></a>
+<a href="/Media/News/News-Articles/Article/4623136/84th-tes-provides-total-force-support-throughout-the-pacific">84th TES provides Total Force support throughout the Pacific</a></div>
+<div class="item"><a href="/Media/News/News-Articles/Article/4623132/a-new-chapter-in-sustainment">A New Chapter in Sustainment: 10th Support Group transitions</a></div>
+<div class="item"><a href="/Media/News/News-Articles/Article/4623116/4th-multi-domain-task-force-officially-activates">Short</a><a href="/Media/News/News-Articles/Article/4623116/4th-multi-domain-task-force-officially-activates">4th Multi-Domain Task Force Officially Activates</a><span class="date">10/08/2026</span></div>
+<div class="item"><a href="/Media/News/News-Articles/Article/4619667/george-hw-bush-carrier-strike-group-arrives-in-thailand">George H.W. Bush Carrier Strike Group arrives in Thailand</a><p>Oct. 4, 2026</p></div>
+<div class="item"><a href="/Media/News/News-Articles/Article/4620720/usrok-partnership-highlighted-during-vandenberg-visit">U.S.–ROK partnership highlighted during Vandenberg visit</a><time datetime="2026-09-29T08:00:00Z">29 Sep</time></div>
+<ul><li><a href="/News/PressReleases/Year/2026/Month/9">September 2026 (10)</a></li><li><a href="/News/PressReleases/Year/2025/Month/9">September 2025 (2)</a></li></ul></body></html>`;
+
+test("platform listings: only story links are kept (no biographies, notices or month archives), the longest link text is the title, and dates are read in the formats pages use", () => {
+  const items = parseListing(PLATFORM_LISTING, "https://www.pacom.mil/Media/NEWS/");
+  assert.deepEqual(items.map((entry) => entry.title), [
+    "84th TES provides Total Force support throughout the Pacific", "A New Chapter in Sustainment: 10th Support Group transitions", "4th Multi-Domain Task Force Officially Activates",
+    "George H.W. Bush Carrier Strike Group arrives in Thailand", "U.S.–ROK partnership highlighted during Vandenberg visit",
+  ]);
+  assert.deepEqual(items.map((entry) => entry.publishedAt), [null, null, "2026-10-08T12:00:00.000Z", "2026-10-04T12:00:00.000Z", "2026-09-29T08:00:00.000Z"]);
+});
+
+test("undated listing items keep the page's own order through an order hint that is never a date; dated items have none needed", () => {
+  const items = parseListing(PLATFORM_LISTING, "https://www.pacom.mil/Media/NEWS/");
+  assert.equal(items[0].publishedAt, null);
+  assert.ok(items[0].orderHint! > items[1].orderHint!, "the first undated item sorts above the second");
+  assert.ok(items[1].orderHint! > "2026-10-08T12:00:00.000Z", "both sit just above the next dated item");
+  assert.ok(items[1].orderHint! < "2026-10-08T13:00:00.000Z");
+});
+
+test("nearbyDate understands month-first, day-first, numeric and ISO dates", () => {
+  assert.equal(nearbyDate("Sept. 5, 2026"), "2026-09-05T12:00:00.000Z");
+  assert.equal(nearbyDate("5 September 2026"), "2026-09-05T12:00:00.000Z");
+  assert.equal(nearbyDate("09/05/2026"), "2026-09-05T12:00:00.000Z");
+  assert.equal(nearbyDate("2026-09-05"), "2026-09-05T12:00:00.000Z");
+  assert.equal(nearbyDate("13/45/2026"), null);
+});
+
+test("the stream orders undated listing items by the page's order among dated ones, and shows no date for them", async () => {
+  const d = deps({ "https://www.pacom.mil/Media/NEWS/": { body: PLATFORM_LISTING }, "https://www.pacom.mil/Media/Press-Releases-and-Readouts/": { status: 403 } });
+  const response = await getCommandNews("INDOPACOM", d);
+  assert.deepEqual(response.items.map((item) => item.title.slice(0, 12)), ["84th TES pro", "A New Chapte", "4th Multi-Do", "George H.W. ", "U.S.–ROK par"]);
+  assert.equal(response.items[0].publishedAt, null);
+  const refused = response.sources.find((entry) => entry.sourceId === "indopacom-press-releases")!;
+  assert.match(refused.sourceError ?? "", /HTTP 403 \(the site refused this automated request\)/);
+});
+
+test("a feed directory that answers but exposes no feed addresses is reported with what the page held, not as an empty feed", async () => {
+  const page = "<html><body><a href='/News'>News</a><a href='/rss-help'>About RSS</a><script src='/x.js'></script></body></html>";
+  assert.match(describeDirectoryPage(page, "https://www.southcom.mil/RSS/"), /2 links, 1 scripts\) but lists no feed address.*links that mention a feed: https:\/\/www\.southcom\.mil\/rss-help/);
+  const result = await collectSource(source("southcom-rss-directory"), deps({ "https://www.southcom.mil/RSS/": { body: page } }));
+  assert.equal(result.report.status, "source_returned_no_data");
+  assert.match(result.report.feeds[0].error ?? "", /lists no feed address/);
 });
 
 test("health and medical-policy wording is deterministic, limited to the item's own text, and never a requirement", () => {
@@ -375,7 +429,7 @@ test("one publication in two feeds becomes one record: the most specific type wi
 });
 
 test("dedupe also merges the same story published under two addresses (same command, same title, same stated date)", () => {
-  const base = { command: "EUCOM" as const, sourceId: "s", sourceName: "S", kind: "news" as const, summary: "", publishedAt: "2026-10-05T10:00:00.000Z", updatedAt: null, firstSeenAt: "2026-10-11T12:00:00.000Z", lastSeenAt: "2026-10-11T12:00:00.000Z", lastChangedAt: null, changeCount: 0, lastChange: null, baseline: true, retrievedAt: "2026-10-11T12:00:00.000Z", freshness: "CURRENT_NOTICE" as const, lastKnownData: false, healthTerms: [], policyTerms: [], countries: [], sources: [{ sourceId: "s", sourceName: "S", kind: "news" as const, feedUrls: [] }] };
+  const base = { command: "EUCOM" as const, sourceId: "s", sourceName: "S", kind: "news" as const, summary: "", publishedAt: "2026-10-05T10:00:00.000Z", updatedAt: null, orderHint: null, firstSeenAt: "2026-10-11T12:00:00.000Z", lastSeenAt: "2026-10-11T12:00:00.000Z", lastChangedAt: null, changeCount: 0, lastChange: null, baseline: true, retrievedAt: "2026-10-11T12:00:00.000Z", freshness: "CURRENT_NOTICE" as const, lastKnownData: false, healthTerms: [], policyTerms: [], countries: [], sources: [{ sourceId: "s", sourceName: "S", kind: "news" as const, feedUrls: [] }] };
   const out = dedupe([{ ...base, id: "1", title: "Same Story!", url: "https://www.eucom.mil/a" }, { ...base, id: "2", title: "same story", url: "https://www.eucom.mil/b" }, { ...base, id: "3", title: "Same story", url: "https://www.eucom.mil/c", publishedAt: "2026-10-06T10:00:00.000Z" }]);
   assert.equal(out.items.length, 2);
   assert.equal(out.merged, 1);

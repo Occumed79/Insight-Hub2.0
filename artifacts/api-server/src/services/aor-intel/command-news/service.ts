@@ -12,7 +12,7 @@ import type { CacheStore } from "../cache";
 import type { CommandId } from "../command-policy/assignments-rows";
 import type { Freshness } from "../types";
 import { COMMAND_NEWS_COMMANDS, COMMAND_NEWS_SOURCES, sourcesForCommand, type CommandNewsSource, type NewsKind, type UrlBasis } from "./sources";
-import { canonicalUrl, discoverDirectoryFeeds, discoverFeedUrls, healthTerms, looksLikeFeed, normalizeTitle, parseFeed, parseListing, policyTerms, classifyFeedKind, type ParsedItem } from "./parse";
+import { canonicalUrl, describeDirectoryPage, discoverDirectoryFeeds, discoverFeedUrls, healthTerms, looksLikeFeed, normalizeTitle, parseFeed, parseListing, policyTerms, classifyFeedKind, type ParsedItem } from "./parse";
 import { countryTags, type CountryTag } from "./countries";
 
 export type NewsSourceStatus = "ok" | "source_returned_no_data" | "source_unavailable" | "stale_cache";
@@ -49,6 +49,8 @@ export interface NewsItem {
   publishedAt: string | null;
   /** The source's own "updated" stamp (Atom <updated>), when it gave one. */
   updatedAt: string | null;
+  /** Where an undated listing item sits in the stream (from the page's own order). Not a date; never displayed as one. */
+  orderHint: string | null;
   /** First time this monitor saw the item. */
   firstSeenAt: string;
   lastSeenAt: string;
@@ -120,6 +122,8 @@ interface TrackedRecord {
   changes: NewsChange[];
   baseline: boolean;
   inFeed: boolean;
+  /** Sort position for listing items whose date the page does not state; never displayed as a date. */
+  orderHint?: string | null;
 }
 
 interface Stored { v: 2; records: TrackedRecord[]; report: NewsSourceReport }
@@ -154,7 +158,7 @@ async function getText(deps: NewsDeps, url: string): Promise<FetchedText> {
   } catch (error) {
     throw new SourceFailure(`Request failed: ${errorText(error)}`);
   }
-  if (fetched.status >= 400) throw new SourceFailure(`Source returned HTTP ${fetched.status}`, fetched.status);
+  if (fetched.status >= 400) throw new SourceFailure(`Source returned HTTP ${fetched.status}${fetched.status === 401 || fetched.status === 403 ? " (the site refused this automated request)" : ""}`, fetched.status);
   return fetched;
 }
 
@@ -203,7 +207,7 @@ async function attempt(source: CommandNewsSource, deps: NewsDeps, at: string): P
       const directory = await getText(deps, source.directoryUrl);
       const feeds = discoverDirectoryFeeds(directory.body, directory.finalUrl, MAX_FEEDS_PER_SOURCE);
       out.pageStatus = directory.status;
-      out.feeds.push({ url: source.directoryUrl, role: "directory", kind: null, label: "RSS directory", status: feeds.length ? "ok" : "no_items", httpStatus: directory.status, itemCount: feeds.length, error: feeds.length ? null : "The directory page lists no feed addresses that could be read.", attemptedAt: at });
+      out.feeds.push({ url: source.directoryUrl, role: "directory", kind: null, label: "RSS directory", status: feeds.length ? "ok" : "no_items", httpStatus: directory.status, itemCount: feeds.length, error: feeds.length ? null : describeDirectoryPage(directory.body, directory.finalUrl), attemptedAt: at });
       const results = await runPool(feeds.map((feed) => () => readFeed(deps, feed.url, "discovered", feed.kind, feed.label || null, at)), FEED_CONCURRENCY);
       results.forEach((result, index) => {
         out.feeds.push(result.attempt);
@@ -271,7 +275,7 @@ export function track(previous: TrackedRecord[], gathered: Gathered[], now: Date
     const hash = hashOf(item);
     const known = byId.get(id);
     if (!known) {
-      byId.set(id, { id, url: canonicalUrl(item.url), title: item.title, summary: item.summary, publishedAt: item.publishedAt, updatedAt: item.updatedAt, kind, categories: item.categories, feedUrls: [...feedUrls], hash, firstSeenAt: stamp, lastSeenAt: stamp, lastChangedAt: null, changes: [], baseline, inFeed: true });
+      byId.set(id, { id, url: canonicalUrl(item.url), title: item.title, summary: item.summary, publishedAt: item.publishedAt, updatedAt: item.updatedAt, kind, categories: item.categories, feedUrls: [...feedUrls], hash, firstSeenAt: stamp, lastSeenAt: stamp, lastChangedAt: null, changes: [], baseline, inFeed: true, orderHint: item.orderHint ?? null });
       continue;
     }
     const fields: string[] = [];
@@ -287,6 +291,7 @@ export function track(previous: TrackedRecord[], gathered: Gathered[], now: Date
     known.categories = item.categories.length ? item.categories : known.categories;
     known.lastSeenAt = stamp;
     known.inFeed = true;
+    known.orderHint = item.orderHint ?? known.orderHint ?? null;
     if (fields.length) {
       known.title = item.title; known.summary = item.summary; known.publishedAt = publishedAt; known.updatedAt = updatedAt; known.hash = hash;
       known.lastChangedAt = stamp;
@@ -296,7 +301,7 @@ export function track(previous: TrackedRecord[], gathered: Gathered[], now: Date
   const records = [...byId.values()];
   if (markAbsent) for (const record of records) if (!current.has(record.id)) record.inFeed = false;
   const fresh = records.filter((record) => now.getTime() - Date.parse(record.lastSeenAt) < FORGET_MS);
-  const sortKey = (record: TrackedRecord) => record.publishedAt ?? record.updatedAt ?? record.firstSeenAt;
+  const sortKey = (record: TrackedRecord) => record.publishedAt ?? record.updatedAt ?? record.orderHint ?? record.firstSeenAt;
   return fresh.sort((a, b) => sortKey(b).localeCompare(sortKey(a))).slice(0, MAX_TRACKED_PER_SOURCE);
 }
 
@@ -398,14 +403,14 @@ export const NEWS_LIMITATIONS = [
   "A country is attached to an item only when the item's own title, description or source category names it. Every other item is command-wide.",
 ];
 
-const sortKey = (item: NewsItem) => item.publishedAt ?? item.updatedAt ?? "";
+const sortKey = (item: NewsItem) => item.publishedAt ?? item.updatedAt ?? item.orderHint ?? "";
 const byRecency = (a: NewsItem, b: NewsItem) => sortKey(b).localeCompare(sortKey(a)) || b.firstSeenAt.localeCompare(a.firstSeenAt);
 
 function toItem(record: TrackedRecord, source: CommandNewsSource, command: CommandId, stale: boolean): NewsItem {
   const text = `${record.title} ${record.summary} ${record.categories.join(" ")}`;
   return {
     id: record.id, command, sourceId: source.id, sourceName: source.label, kind: record.kind, title: record.title, url: record.url, summary: record.summary,
-    publishedAt: record.publishedAt, updatedAt: record.updatedAt, firstSeenAt: record.firstSeenAt, lastSeenAt: record.lastSeenAt, lastChangedAt: record.lastChangedAt,
+    publishedAt: record.publishedAt, updatedAt: record.updatedAt, orderHint: record.orderHint ?? null, firstSeenAt: record.firstSeenAt, lastSeenAt: record.lastSeenAt, lastChangedAt: record.lastChangedAt,
     changeCount: record.changes.length, lastChange: record.changes[0] ?? null, baseline: record.baseline, retrievedAt: record.lastSeenAt,
     freshness: stale ? "STALE_CACHE" : "CURRENT_NOTICE", lastKnownData: stale,
     healthTerms: healthTerms(text), policyTerms: policyTerms(text), countries: countryTags(command, { title: record.title, summary: record.summary, categories: record.categories }),
@@ -424,7 +429,7 @@ function merge(into: NewsItem, other: NewsItem): NewsItem {
   const changed = [into, other].filter((item) => item.lastChange).sort((a, b) => b.lastChange!.at.localeCompare(a.lastChange!.at))[0];
   return {
     ...into, kind: moreSpecific(into.kind, other.kind), title: richer.title, summary: richer.summary,
-    publishedAt: into.publishedAt ?? other.publishedAt, updatedAt: [into.updatedAt, other.updatedAt].filter(Boolean).sort().pop() ?? null,
+    publishedAt: into.publishedAt ?? other.publishedAt, orderHint: into.orderHint ?? other.orderHint, updatedAt: [into.updatedAt, other.updatedAt].filter(Boolean).sort().pop() ?? null,
     firstSeenAt: into.firstSeenAt < other.firstSeenAt ? into.firstSeenAt : other.firstSeenAt,
     lastSeenAt: into.lastSeenAt > other.lastSeenAt ? into.lastSeenAt : other.lastSeenAt,
     lastChangedAt: changed?.lastChangedAt ?? null, changeCount: Math.max(into.changeCount, other.changeCount), lastChange: changed?.lastChange ?? null,
@@ -470,7 +475,7 @@ export async function getCommandNews(command: CommandId, deps: NewsDeps, options
   const healthy = reports.filter((report) => report.status === "ok").length;
   const coverage: NewsCoverage = healthy === reports.length ? "all_sources_ok" : usable === 0 ? "no_source_available" : "some_sources_unavailable";
   const limitations = [...NEWS_LIMITATIONS];
-  if (items.some((item) => item.publishedAt === null && item.updatedAt === null)) limitations.push("Some items have no date because the source page did not state one; they are listed after dated items, in the order this monitor first saw them.");
+  if (items.some((item) => item.publishedAt === null && item.updatedAt === null)) limitations.push("Some items have no date because the source page did not state one; they are placed by their position on the official listing page (newest first) and are shown as undated.");
   if (items.some((item) => item.baseline)) limitations.push("“First seen” is when this monitor first read an item. Items that were already on a source when monitoring began are marked as such and are not called new.");
   const byKind: Record<NewsKind, number> = { news: 0, press_release: 0, publication: 0, transcript: 0 };
   for (const item of items) byKind[item.kind]++;
