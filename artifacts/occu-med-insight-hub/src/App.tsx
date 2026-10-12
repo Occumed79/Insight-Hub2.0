@@ -12,7 +12,6 @@ const DataVisualization = React.lazy(() => import("@/pages/data-visualization"))
 const QuantifiableData = React.lazy(() => import("@/pages/quantifiable-data"));
 const GeographicData = React.lazy(() => import("@/pages/geographic-data"));
 const LocationOverlap = React.lazy(() => import("@/pages/location-overlap"));
-const LegacyJobIntelligence = React.lazy(() => import("@/pages/job-intelligence"));
 const HiringIntelligence = React.lazy(() => import("@/pages/hiring-intelligence"));
 const LeadershipMap = React.lazy(() => import("@/pages/leadership-map-experience"));
 const CorporateStructure = React.lazy(() => import("@/pages/corporate-structure"));
@@ -33,7 +32,6 @@ const WarCostsVisualizations = React.lazy(() => import("@/pages/war-costs-visual
 const WarCostsAccountability = React.lazy(() => import("@/pages/war-costs-accountability-experience"));
 const WarCostsSiteEvidence = React.lazy(() => import("@/pages/war-costs-site-evidence-experience"));
 const ReviewerInjuriesMedicalPage = React.lazy(() => import("@/pages/reviewer-injuries-medical"));
-const ReviewerJobIntelligencePage = React.lazy(() => import("@/pages/job-intelligence-experience"));
 const ReviewerAorFactorsPage = React.lazy(() => import("@/pages/reviewer-aor-factors-experience"));
 const ReviewerDrugCheckerPage = React.lazy(() => import("@/pages/reviewer-drug-checker-experience"));
 const ReviewerClinicalCalculatorsPage = React.lazy(() => import("@/pages/reviewer-clinical-calculators-experience"));
@@ -99,7 +97,6 @@ function WarCostsVisualizationsRoute() { return <WarCostsVisualizations />; }
 function WarCostsAccountabilityRoute() { return <WarCostsAccountability />; }
 function WarCostsSiteEvidenceRoute() { return <WarCostsSiteEvidence />; }
 function InjuriesMedicalRoute() { return <ReviewerInjuriesMedicalPage />; }
-function JobIntelligenceRoute() { return <ReviewerJobIntelligencePage />; }
 function AorRoute() { return <ReviewerAorFactorsPage />; }
 function DrugCheckerRoute() { return <ReviewerDrugCheckerPage />; }
 function ClinicalCalculatorsRoute() { return <ReviewerClinicalCalculatorsPage />; }
@@ -135,14 +132,12 @@ function Router() {
         <Route path="/dba-intelligence" component={DbaRoute} />
         <Route path="/fec-filings" component={FecFilingsRoute} />
         <Route path="/injuries-medical-conditions" component={InjuriesMedicalRoute} />
-        <Route path="/job-intelligence" component={JobIntelligenceRoute} />
         <Route path="/aor-factors" component={AorRoute} />
         <Route path="/aor-risk-intelligence" component={AorRoute} />
         <Route path="/drug-checker" component={DrugCheckerRoute} />
         <Route path="/clinical-calculators" component={ClinicalCalculatorsRoute} />
         <Route path="/standards-intelligence" component={StandardsRoute} />
         <Route path="/industry-injury-benchmarks" component={IndustryImpactCalculatorRoute} />
-        <Route path="/occupational-demands" component={JobIntelligenceRoute} />
         <Route path="/onet-master-tool" component={OnetMasterToolRoute} />
         <Route path="/occupational-data-explorer" component={OccupationalDataExplorerRoute} />
         <Route path="/industry-impact-calculator" component={IndustryImpactCalculatorRoute} />
@@ -165,7 +160,6 @@ function Router() {
         <Route path="/quantifiable-data" component={QuantifiableData} />
         <Route path="/hiring-intelligence" component={HiringIntelligence} />
         <Route path="/corporate-structure" component={CorporateStructure} />
-        <Route path="/legacy-job-intelligence" component={LegacyJobIntelligence} />
         <Route path="/employer-workflow" component={EmployerWorkflow} />
         <Route path="/employer-intelligence" component={EmployerIntelligence} />
         <Route path="/entity-resolution" component={EntityResolution} />
