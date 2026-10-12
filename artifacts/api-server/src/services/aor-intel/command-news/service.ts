@@ -320,7 +320,10 @@ export function collectSource(source: CommandNewsSource, deps: NewsDeps, options
   return promise;
 }
 
-const storageKey = (source: CommandNewsSource) => `command-news:v2:${source.id}`;
+// Unit sources previously followed DVIDS's unfiltered, global /rss/news advert.
+// Start them in an isolated namespace so global stories cannot survive as command news
+ // from the earlier incorrect cache; retain existing cache history for all native feeds.
+const storageKey = (source: CommandNewsSource) => `command-news:${source.id.startsWith("dvids-") ? "v3" : "v2"}:${source.id}`;
 
 async function loadStored(source: CommandNewsSource, deps: NewsDeps): Promise<Stored | null> {
   const payload = (await deps.store.get<Stored>(storageKey(source)).catch(() => null))?.payload ?? null;
