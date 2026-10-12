@@ -228,10 +228,15 @@ async function attempt(source: CommandNewsSource, deps: NewsDeps, at: string): P
         out.feeds.push({ url: source.listingUrl, role: "listing", kind: fixedKind, label: null, status: items.length ? "ok" : "no_items", httpStatus: listing.status, itemCount: items.length, error: null, attemptedAt: at });
         if (items.length) { out.methods.push("feed"); out.gathered.push(...items.map((item) => ({ item, kind: fixedKind, feedUrl: source.listingUrl }))); }
       } else {
-        for (const feedUrl of discoverFeedUrls(listing.body, listing.finalUrl)) {
-          const advertised = await readFeed(deps, feedUrl, "listing_advertised", fixedKind, null, at);
-          out.feeds.push(advertised.attempt);
-          if (advertised.attempt.status === "ok") { out.methods.push("discovered_feed"); out.gathered.push(...advertised.items.map((item) => ({ item, kind: fixedKind, feedUrl }))); break; }
+        // DVIDS advertises a site-wide /rss/news feed on unit pages, NOT a filtered unit feed.
+        // Following it would falsely attribute unrelated global DoD news to this combatant command.
+        // DVIDS command-unit sources must parse only the actual unit listing; native command feeds still use discovery.
+        if (!source.id.startsWith("dvids-")) {
+          for (const feedUrl of discoverFeedUrls(listing.body, listing.finalUrl)) {
+            const advertised = await readFeed(deps, feedUrl, "listing_advertised", fixedKind, null, at);
+            out.feeds.push(advertised.attempt);
+            if (advertised.attempt.status === "ok") { out.methods.push("discovered_feed"); out.gathered.push(...advertised.items.map((item) => ({ item, kind: fixedKind, feedUrl }))); break; }
+          }
         }
         if (!out.gathered.length && source.listingFallback) {
           const items = parseListing(listing.body, listing.finalUrl);
