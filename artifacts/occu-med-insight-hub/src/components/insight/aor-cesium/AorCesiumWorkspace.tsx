@@ -14,7 +14,7 @@ import type { GlobeStatus, GlobeView } from "./aor-view";
 import { useMedicalApplicability } from "./use-medical-applicability";
 import { DIMENSIONS, DIMENSION_COLORS, DIMENSION_LABELS, ENVIRONMENT_KEYS, ENVIRONMENT_LABELS, type CountryIntel, type Dimension, type EnvironmentKey, type EvidenceRecord, type SynthesisResponse, type WorldEvent } from "./aor-intel-types";
 
-type CesiumConfig = { configured: boolean; token: string; requiredEnv?: string; error?: string };
+type CesiumConfig = { configured: boolean; token: string; fallbackToken?: string | null; requiredEnv?: string; error?: string };
 type LensResponse = { ok: boolean; classification: string; considerations: Array<{ ruleId: string; classification: string; summary: string; matchedTerms: string[]; countrySignals: string[]; evidenceText: string }> };
 type SearchResults = { locations: DirectoryLocation[]; splitParents: SplitParent[] };
 
@@ -30,6 +30,9 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 
 export default function AorCesiumWorkspace() {
   const [config, setConfig] = useState<CesiumConfig | null>(null);
+  // A single automatic retry is allowed with the second Cesium ion account.
+  // If both tokens fail, preserve the existing 2D-map fallback.
+  const [usingBackupIon, setUsingBackupIon] = useState(false);
   const [index, setIndex] = useState<CountryIndex | null>(null);
   const [boundaryError, setBoundaryError] = useState("");
   const [directory, setDirectory] = useState<DirectoryIndex | null>(null);
@@ -110,11 +113,17 @@ export default function AorCesiumWorkspace() {
     if (config && !config.configured) setMapMode("2d");
   }, [config]);
   useEffect(() => {
-    if (status.state === "error" && status.fatal) {
-      setMapMode("2d");
-      setMapNotice(`The 3D globe could not start (${status.message || "WebGL or Cesium error"}). Showing the 2D map.`);
+    if (status.state !== "error" || !status.fatal) return;
+    if (!usingBackupIon && config?.fallbackToken) {
+      // Fatal Cesium ion imagery/auth/rate-limit failure: remount once with the
+      // separately configured second-account token rather than falling straight to 2D.
+      setUsingBackupIon(true);
+      setStatus({ state: "loading" });
+      return;
     }
-  }, [status]);
+    setMapMode("2d");
+    setMapNotice(`The 3D globe could not start (${status.message || "WebGL or Cesium error"}). Showing the 2D map.`);
+  }, [status, usingBackupIon, config?.fallbackToken]);
 
   const location = view.locationId ? directory?.byId.get(view.locationId) ?? null : null;
   const split = view.splitIso3 ? directory?.splitByIso3.get(view.splitIso3) ?? null : null;
@@ -243,7 +252,8 @@ export default function AorCesiumWorkspace() {
     return typeof limit === "number" && limit > 0 ? limit : null;
   }, [intel, activeLayers]);
 
-  const globeReady = Boolean(config?.configured && config.token);
+  const activeIonToken = (usingBackupIon && config?.fallbackToken) || config?.token || "";
+  const globeReady = Boolean(config?.configured && activeIonToken);
   const use3d = globeReady && mapMode === "3d";
   const crumb = (label: string, onClick?: () => void, current = false) => <button type="button" onClick={onClick} disabled={!onClick || current} className={`rounded-full px-2 py-1 text-[10px] font-bold ${current ? "text-white" : "text-cyan-100/70 hover:text-white"}`}>{label}</button>;
   const commandSummary = (id: CommandId) => directory?.directory.commands.find((entry) => entry.id === id);
@@ -256,7 +266,7 @@ export default function AorCesiumWorkspace() {
       <section className="fixed bottom-0 left-0 right-0 top-[4.5rem] overflow-hidden bg-[#01050a] lg:left-[210px] lg:top-0" aria-label="AOR Factors CesiumJS globe workspace">
         {use3d ? (
           <AorCesiumGlobe
-            token={config!.token}
+            token={activeIonToken}
             index={index}
             directory={directory}
             view={view}
@@ -323,6 +333,7 @@ export default function AorCesiumWorkspace() {
             <p className="mt-1 text-[10px] leading-4 text-slate-400">Set <code className="rounded bg-white/10 px-1">{config.requiredEnv || "CESIUM_ION_ACCESS_TOKEN"}</code> on the API service to enable the CesiumJS globe with Cesium ion terrain and imagery. The same registry, search and requirements run on the 2D map meanwhile.</p>
           </div>
         ) : null}
+          {use3d && usingBackupIon ? <div data-testid="aor-cesium-backup-active" role="status" className="pointer-events-auto w-72 rounded-2xl border border-white/10 bg-black/55 px-3 py-1.5 text-[10px] text-slate-300 backdrop-blur-xl">Using backup Cesium ion token.</div> : null}
           {use3d && status.state === "error" && !status.fatal ? <div className="pointer-events-auto w-72 rounded-2xl border border-amber-300/25 bg-black/65 px-3 py-2 text-[10px] leading-4 text-amber-100/85 backdrop-blur-xl"><AlertTriangle size={11} className="mr-1 inline" />{status.message || "Cesium reported an error."}</div> : null}
           {mapNotice && !use3d && globeReady ? <div data-testid="aor-map-notice" className="pointer-events-auto w-72 rounded-2xl border border-amber-300/25 bg-black/65 px-3 py-2 text-[10px] leading-4 text-amber-100/85 backdrop-blur-xl"><AlertTriangle size={11} className="mr-1 inline" />{mapNotice}</div> : null}
         </div>
@@ -340,7 +351,7 @@ export default function AorCesiumWorkspace() {
               <li className="border-t border-white/[.06] px-3 py-2 text-[8px] leading-4 text-slate-500">Points use real source coordinates. Country shading appears only where a source covers the whole country. Text-only geography is listed in the panel, not drawn. Locations without a boundary are points, never outlines.</li>
             </ul> : null}
           </div>
-          <button type="button" data-testid="aor-map-mode" onClick={() => { setMapNotice(""); setStatus({ state: "loading" }); setMapMode((mode) => (mode === "3d" ? "2d" : "3d")); }} disabled={!globeReady && mapMode === "2d"} title={globeReady ? undefined : "The 3D globe needs a Cesium ion token"} className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/[.09] bg-black/45 px-3 py-1.5 text-[10px] font-bold text-white/80 backdrop-blur-xl disabled:opacity-45">{use3d ? <><MapIcon size={12} />2D map</> : <><Box size={12} />3D globe</>}</button>
+          <button type="button" data-testid="aor-map-mode" onClick={() => { setMapNotice(""); setStatus({ state: "loading" }); if (mapMode === "2d") setUsingBackupIon(false); setMapMode((mode) => (mode === "3d" ? "2d" : "3d")); }} disabled={!globeReady && mapMode === "2d"} title={globeReady ? undefined : "The 3D globe needs a Cesium ion token"} className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/[.09] bg-black/45 px-3 py-1.5 text-[10px] font-bold text-white/80 backdrop-blur-xl disabled:opacity-45">{use3d ? <><MapIcon size={12} />2D map</> : <><Box size={12} />3D globe</>}</button>
         </div>
 
         {hoverName && view.level !== "country" ? <div className="pointer-events-none absolute bottom-5 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/[.09] bg-black/55 px-3 py-1 text-[10px] font-bold text-white/85 backdrop-blur-xl">{hoverName}</div> : null}
