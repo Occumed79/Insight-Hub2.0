@@ -506,7 +506,7 @@ test("monitor: before any fetch every source is not_evaluated; after a refresh i
 // DVIDS publishes command-specific DoD unit news listings, not command-owned RSS/medical directives.
 // Page-content fixture mirrors the verified public shape: image links are excluded and news links
 // carry MM.DD.YYYY dates. Live reachability remains observable through normal per-source monitoring.
-const DVIDS_UNIT_PAGE = `<html><body>
+const DVIDS_UNIT_PAGE = `<html><head><link rel="alternate" type="application/rss+xml" href="/rss/news"/></head><body>
 <section><h2>Recent Images</h2><a href="/image/12345/field-training">Photo of field training</a></section>
 <section><h2>Recent News Stories</h2>
 <div><a href="/news/576212/africom-addresses-security-challenges">AFRICOM addresses contemporary security challenges</a>
@@ -547,6 +547,8 @@ test("DVIDS: its separately monitored listing yields attributable news without i
   assert.equal(result.report.method, "html_listing");
   assert.equal(result.report.itemCount, 2);
   assert.equal(result.report.feedUrl, null);
+  // DVIDS sitewide RSS is unfiltered and must NEVER be ingested as AFRICOM unit news.
+  assert.deepEqual(d.calls, ["https://www.dvidshub.net/unit/AFRICOM"]);
   assert.equal(result.report.listingUrl, "https://www.dvidshub.net/unit/AFRICOM");
   assert.ok(result.records.every((record) => record.kind === "news"));
 });
