@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Sidebar } from "@/components/insight/Sidebar";
 import HologramStage from "./HologramStage";
+import LoadingOrb from "./LoadingOrb";
 import { HEALTH_CONDITIONS } from "./conditions";
 import { anchorZone, type GroupKey, type Zone } from "./anatomy";
-import type { Phase } from "./choreography";
 import {
   deriveCaseSignals,
   deriveConditionSignals,
@@ -80,7 +80,7 @@ export default function HealthIntelligencePage() {
 
   const analyzing = workspace === "injury" && ["resolving", "correlating", "mapping"].includes(lookupState.status);
   const activeGroup = hoverZone?.group ?? selectedGroup;
-  const phase: Phase = analyzing || thinking ? "analyze" : booting ? "calibrate" : activeGroup ? "focus" : "idle";
+  const showLoadingOrb = booting || analyzing || thinking;
 
   // ---- handlers -----------------------------------------------------------------------------
   const switchWorkspace = (next: Workspace) => {
@@ -160,6 +160,7 @@ export default function HealthIntelligencePage() {
     <div className="hi-page" data-page-identity="injuries-medical-conditions" data-workspace="injuries-medical-conditions">
       <Sidebar />
       <main className="hi-main">
+        {showLoadingOrb ? <LoadingOrb /> : null}
         <header className="hi-top">
           <p className="hi-eyebrow"><span>HEALTH INTELLIGENCE</span><span>HOLOGRAPHIC INJURY ANATOMY</span></p>
           <h1 className="hi-title">Injuries &amp; Medical Conditions</h1>
@@ -175,7 +176,6 @@ export default function HealthIntelligencePage() {
 
         <div className="hi-stage-wrap">
           <HologramStage
-            phase={phase}
             mode={signalMode}
             signals={signals}
             activeGroup={activeGroup}
