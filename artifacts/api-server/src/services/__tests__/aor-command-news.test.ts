@@ -77,14 +77,15 @@ const rss = (...items: Array<{ title: string; url: string; date?: string; descri
 
 // ---- Registry --------------------------------------------------------------------------------------------------------------------------
 
-test("registry: all six commands, unique ids, https .mil addresses, and exactly the supplied feed addresses (no feed is invented)", () => {
+test("registry: all six commands, known official .mil plus DoD/DVIDS listings, and only supplied RSS addresses", () => {
   assert.deepEqual([...COMMAND_NEWS_COMMANDS].sort(), ["AFRICOM", "CENTCOM", "EUCOM", "INDOPACOM", "NORTHCOM", "SOUTHCOM"]);
   for (const command of COMMAND_NEWS_COMMANDS) assert.ok(sourcesForCommand(command).length >= 1, command);
   assert.equal(new Set(COMMAND_NEWS_SOURCES.map((entry) => entry.id)).size, COMMAND_NEWS_SOURCES.length);
   for (const entry of COMMAND_NEWS_SOURCES) for (const url of [entry.listingUrl, entry.directoryUrl, ...entry.feedUrls, ...entry.atomUrls, entry.officialSite]) if (url) assert.match(url, entry.id.startsWith("dvids-") ? /^https:\/\/www\.dvidshub\.net\// : /^https:\/\/www\.[a-z]+\.mil\//, entry.id);
 
   for (const [command, host] of [["EUCOM", "www.eucom.mil"], ["AFRICOM", "www.africom.mil"]] as const) {
-    const own = sourcesForCommand(command);
+    // The four command-hosted syndication categories are distinct from the added DoD/DVIDS unit-news fallback.
+    const own = sourcesForCommand(command).filter((entry) => entry.id.startsWith(`${command.toLowerCase()}-`));
     assert.equal(own.length, 4);
     assert.deepEqual(own.map((entry) => entry.kind).sort(), ["news", "press_release", "publication", "transcript"]);
     assert.deepEqual(own.flatMap((entry) => entry.feedUrls).sort(), ["articles", "documents", "press-releases", "transcripts"].map((slug) => `https://${host}/syndication-feed/rss/${slug}`));
