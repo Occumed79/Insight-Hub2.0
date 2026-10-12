@@ -115,7 +115,14 @@ export function AorCesiumGlobe(props: Props) {
           report({ state: "error", fatal: true, message: `Cesium ion imagery did not load${error?.message ? `: ${error.message}` : ""}. The ion token may be invalid or ion unreachable` });
         });
         terrain.errorEvent.addEventListener((error: { message?: string }) => {
-          // With an async terrain request the globe draws nothing until terrain is ready, so a failed request would leave an empty planet.
+          const reason = error?.message || "";
+          // A token rejection / exhausted quota needs the alternate account,
+          // not a terrain-only fallback that keeps using a throttled token.
+          if (/\\b(401|403|429)\\b|rate[\\s-]*limit|quota|too many requests|unauthorized|forbidden|invalid token/i.test(reason)) {
+            report({ state: "error", fatal: true, message: `Cesium ion World Terrain authorization or rate limit failure${reason ? `: ${reason}` : ""}.` });
+            return;
+          }
+          // Other terrain errors keep imagery visible on a smooth ellipsoid.
           // Fall back to the smooth ellipsoid so imagery, boundaries and markers still render.
           if (viewer && !viewer.isDestroyed()) { viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider(); viewer.scene.requestRender(); }
           report({ state: "error", message: `Cesium World Terrain did not load${error?.message ? `: ${error.message}` : ""}. Showing imagery without terrain relief.` });
