@@ -98,6 +98,36 @@ async function runWithCache(adapter: Adapter, ctx: AdapterContext, store: CacheS
   return live;
 }
 
+/** Adapters whose destination-specific output is CDC / WHO public-health guidance. */
+export const PUBLIC_HEALTH_ADAPTER_IDS = ["cdc-travelers-health", "cdc-travel-notices", "who-don"] as const;
+
+/**
+ * Runs only the existing CDC / WHO adapters for one country through the same cache as the country-intel workspace, so freshness,
+ * stale-cache handling and fetch metadata are identical. A slow or failing adapter yields an explicit source_unavailable result.
+ */
+export async function collectPublicHealthSources(iso2: string, deps: IntelDeps, options: { timeoutMs?: number } = {}): Promise<AdapterResult[] | null> {
+  const country = resolveCountry(iso2);
+  if (!country) return null;
+  const now = deps.now ?? (() => new Date());
+  const ctx: AdapterContext = { country, now, internalJson: deps.internalJson, externalJson: deps.externalJson, env: deps.env, probeUrl: deps.probeUrl };
+  const timeoutMs = options.timeoutMs ?? 30_000;
+  return Promise.all(PUBLIC_HEALTH_ADAPTER_IDS.map(async (id) => {
+    const adapter = ADAPTERS.find((entry) => entry.id === id) as Adapter;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const unavailable = (note: string): AdapterResult => ({ sourceId: id, sourceName: id, sourceUrl: "", dimension: "multi", status: "source_unavailable", freshness: null, retrievedAt: now().toISOString(), note, sourceError: note, lastAttemptedFetch: now().toISOString(), records: [] });
+    try {
+      return await Promise.race([
+        runWithCache(adapter, ctx, deps.store),
+        new Promise<AdapterResult>((resolve) => { timer = setTimeout(() => resolve(unavailable(`Timed out after ${timeoutMs} ms.`)), timeoutMs); }),
+      ]);
+    } catch (error) {
+      return unavailable(errorText(error));
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }));
+}
+
 export interface IntelDeps {
   store: CacheStore;
   internalJson: AdapterContext["internalJson"];

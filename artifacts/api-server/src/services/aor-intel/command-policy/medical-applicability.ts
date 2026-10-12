@@ -10,7 +10,7 @@
 // waivers exist, is it effective, and what is missing. Status is exactly one of REQUIRED / RECOMMENDED / CONDITIONAL / NOT_APPLICABLE /
 // UNKNOWN. UNKNOWN is never reported as "not required", and an AOR assignment alone never produces REQUIRED.
 
-import { evaluateTraveler as evaluateHostTraveler, describeCountry } from "../vaccine-rules/engine";
+import { evaluateTraveler as evaluateHostTraveler } from "../vaccine-rules/engine";
 import { VACCINE_RULES } from "../vaccine-rules/rules-data";
 import type { RuleEvaluation as HostEvaluation, TravelerQuery as HostQuery, VaccineRule } from "../vaccine-rules/types";
 import { COMMAND_NAMES, resolveLocation } from "./assignments";
@@ -42,6 +42,8 @@ export const REPORTED_CATEGORIES: readonly RequirementCategory[] = [
   "immunization", "malaria_chemoprophylaxis", "infectious_disease_screening", "medical_screening", "medical_examination", "waiver_disqualifying_condition",
 ];
 
+export type PublicHealthKind = "recommendation" | "entry_requirement_language" | "notice" | "outbreak";
+
 export interface PublicHealthInput {
   id: string;
   topic: string;
@@ -52,6 +54,42 @@ export interface PublicHealthInput {
   publishedAt?: string | null;
   /** What the guidance is conditioned on (for example "travel to a malaria-risk area"). */
   condition?: string | null;
+  kind?: PublicHealthKind;
+  /** The source's own classification of the recommendation ("not_routinely_recommended" is the only one that maps to NOT_APPLICABLE). */
+  recommendationType?: "routine" | "recommended" | "selected_travelers" | "consider" | "not_routinely_recommended" | "review" | null;
+  /** Set when the source text states there is no malaria transmission; maps to NOT_APPLICABLE for the malaria item. */
+  sourceStatesNoRisk?: boolean;
+  /** Provenance of the item: supplied by the caller, or retrieved by an existing live adapter. */
+  provenance?: "caller_supplied" | "live_adapter";
+  adapterSourceId?: string;
+  evidenceRecordId?: string;
+  freshness?: string | null;
+  retrievedAt?: string | null;
+  sourceUpdatedAt?: string | null;
+  lastSuccessfulFetch?: string | null;
+  sourceStatus?: string | null;
+  /** True when the adapter served cached data because the live refresh failed. */
+  lastKnownData?: boolean;
+  evidenceText?: string | null;
+  geographyNote?: string | null;
+}
+
+/** Per-source report for the public-health layer: what each existing live adapter returned and how fresh it is. */
+export interface PublicHealthSourceReport {
+  sourceId: string;
+  sourceName: string;
+  sourceUrl: string;
+  status: string;
+  freshness: string | null;
+  retrievedAt: string | null;
+  lastAttemptedFetch: string | null;
+  lastSuccessfulFetch: string | null;
+  sourceUpdatedAt: string | null;
+  sourceError: string | null;
+  note: string | null;
+  recordCount: number;
+  itemsMapped: number;
+  recordsNotMapped: number;
 }
 
 export interface MedicalApplicabilityQuery {
@@ -78,6 +116,10 @@ export interface MedicalApplicabilityQuery {
   ageYears?: number | null;
   /** CDC / WHO / other public-health guidance for this destination, supplied by the live adapters. */
   publicHealth?: PublicHealthInput[] | null;
+  /** Reports from the live adapters that produced `publicHealth` (absent when no live collection was attempted). */
+  publicHealthSources?: PublicHealthSourceReport[] | null;
+  /** Host-nation rule set override (tests / a verified feed); defaults to the integrated vaccine-rule registry. */
+  hostNationRules?: readonly VaccineRule[];
   now?: Date;
 }
 
@@ -100,6 +142,27 @@ export interface RequirementEffectiveness {
   effectiveFrom: string | null;
   effectiveTo: string | null;
   note: string;
+}
+
+export interface ItemVerification {
+  /** verified_current_source: a destination-government / WHO / embassy / CDC-corroborated reading. unconfirmed_historical: an older compilation that has not been re-read against the authority. */
+  state: "verified_current_source" | "unconfirmed_historical";
+  /** What the historical evidence suggests may be required, stated as a possibility only. */
+  possibleRequirement: string | null;
+  gap: string | null;
+  historicalEvidence: {
+    authority: string;
+    authorityTier: string;
+    sourcePublishedAt: string | null;
+    retrievedAt: string;
+    lastVerifiedAt: string | null;
+    verificationStatus: string;
+    productionVerificationRequired: boolean;
+    supportingSources: Array<{ authority: string; url: string; note: string }>;
+    notes: string[];
+  } | null;
+  /** Live public-health evidence that points the same way. It never establishes the host-nation requirement. */
+  liveCorroboration: Array<{ itemId: string; authority: string; url: string; retrievedAt: string | null; text: string }>;
 }
 
 export interface RequirementItem {
@@ -136,13 +199,17 @@ export interface RequirementItem {
   displacedEvidence: string[];
   /** Set when the geographic assignment is provisional or only a regional mapping. */
   assignmentCaveat: string | null;
+  /** Verification state of the underlying evidence (host-nation layer); null where the layer does not carry one. */
+  verification: ItemVerification | null;
 }
 
 export interface LayerCoverage {
   layer: AuthorityLayer;
-  coverage: "evaluated" | "no_public_policy" | "partial" | "not_supplied" | "not_integrated" | "no_rule_in_source_set" | "not_evaluated";
+  coverage: "evaluated" | "no_public_policy" | "partial" | "not_supplied" | "unavailable" | "not_integrated" | "no_rule_in_source_set" | "not_evaluated";
   note: string;
   items: number;
+  /** Public-health layer only: the live adapters consulted, with status and freshness. */
+  sources?: PublicHealthSourceReport[];
 }
 
 export interface CategorySummary {
@@ -406,6 +473,7 @@ function commandItem(
     },
     displacedEvidence: supersededEvidence,
     assignmentCaveat: caveat,
+    verification: null,
   };
 }
 
@@ -415,26 +483,67 @@ function commandItem(
 
 const HOST_CATEGORY: RequirementCategory = "immunization";
 
-function hostItem(evaluation: HostEvaluation, now: Date): RequirementItem {
+/**
+ * An older global compilation (for example the CDC Yellow Book table of WHO Annex 1) that was copied into the registry and never re-read
+ * against the destination government cannot, by itself, establish a current mandatory entry requirement.
+ */
+export function isUnconfirmedHistoricalRule(rule: VaccineRule): boolean {
+  return rule.verificationStatus === "NOT CURRENTLY VERIFIED" || (rule.verificationStatus === "OLDER GLOBAL BASELINE" && (rule.productionVerificationRequired || rule.lastVerifiedAt === null));
+}
+
+function hostItem(evaluation: HostEvaluation, now: Date, corroboration: ItemVerification["liveCorroboration"] = []): RequirementItem {
   const rule: VaccineRule = evaluation.rule;
-  const notVerified = rule.verificationStatus === "NOT CURRENTLY VERIFIED";
+  const historical = isUnconfirmedHistoricalRule(rule);
+  const removed = evaluation.applicability === "removed";
   let status: RequirementStatus;
-  if (evaluation.applicability === "does_not_apply" || evaluation.applicability === "removed") status = "NOT_APPLICABLE";
+  if (removed) status = "NOT_APPLICABLE";
+  else if (historical) status = "UNKNOWN"; // evidence is preserved below; it is neither a confirmed requirement nor evidence of none
+  else if (evaluation.applicability === "does_not_apply") status = "NOT_APPLICABLE";
   else if (evaluation.applicability === "unknown") status = "UNKNOWN";
-  else if (notVerified) status = "UNKNOWN";
   else if (rule.legalForce === "mandatory") status = "REQUIRED";
   else if (rule.legalForce === "declaration") status = "CONDITIONAL";
   else status = "RECOMMENDED"; // WHO IHR temporary recommendation: addressed to States, not national law
   const reasons = [...evaluation.reasons];
-  if (notVerified && evaluation.applicability === "applies") reasons.push("The rule on file is NOT CURRENTLY VERIFIED against the destination government, so it is not reported as required.");
-  if (rule.verificationStatus === "OLDER GLOBAL BASELINE") reasons.push("Verification status is OLDER GLOBAL BASELINE: the destination government's current rule was not re-verified; confirm before relying on it.");
+  const missing = [...evaluation.missingInputs];
+  let verification: ItemVerification;
+  const historicalEvidence: NonNullable<ItemVerification["historicalEvidence"]> = {
+    authority: rule.sourceAuthority,
+    authorityTier: rule.authorityTier,
+    sourcePublishedAt: rule.sourcePublishedAt,
+    retrievedAt: rule.retrievedAt,
+    lastVerifiedAt: rule.lastVerifiedAt,
+    verificationStatus: rule.verificationStatus,
+    productionVerificationRequired: rule.productionVerificationRequired,
+    supportingSources: rule.supportingSources.map((source) => ({ authority: source.authority, url: source.url, note: source.note })),
+    notes: rule.notes,
+  };
+  if (historical && !removed) {
+    const reaches = evaluation.applicability === "applies";
+    const gap = `${rule.verificationStatus === "NOT CURRENTLY VERIFIED" ? "The rule on file is NOT CURRENTLY VERIFIED" : "The rule on file is an OLDER GLOBAL BASELINE compilation"}${rule.lastVerifiedAt ? "" : " that was never re-read against the destination government"}, and it is flagged for production verification. It cannot independently establish a current mandatory entry requirement.`;
+    verification = {
+      state: "unconfirmed_historical",
+      possibleRequirement: reaches || evaluation.applicability === "unknown" ? `Possible entry requirement (unconfirmed): ${rule.normalizedRule}` : null,
+      gap,
+      historicalEvidence,
+      liveCorroboration: corroboration,
+    };
+    reasons.push(gap, reaches
+      ? "The historical compilation would reach this traveler, so the requirement is possible; it becomes REQUIRED only when a current destination-government (or other verified) source states it."
+      : evaluation.applicability === "does_not_apply"
+        ? "The historical compilation would not reach this traveler as written, but an unverified compilation cannot establish non-applicability either."
+        : "Applicability of the historical compilation could not be determined from the supplied traveler facts.");
+    if (corroboration.length) reasons.push(`Live public-health guidance carries similar entry-requirement language (${corroboration.length} item${corroboration.length === 1 ? "" : "s"}); that is corroboration, not the destination government's rule.`);
+    missing.push(`current destination-government confirmation of the ${rule.vaccine} ${rule.ruleType} requirement (only an unverified historical compilation is on file)`);
+  } else {
+    verification = { state: "verified_current_source", possibleRequirement: null, gap: null, historicalEvidence, liveCorroboration: corroboration };
+  }
   if (rule.legalForce === "declaration") reasons.push("The destination asks travelers to declare or may request proof; entry is not stated to be refused for lacking it.");
   if (rule.legalForce === "who_temporary_recommendation") reasons.push("WHO IHR Emergency Committee temporary recommendation addressed to States — not national law.");
   const validFrom = rule.validFrom;
   const validUntil = rule.validUntil;
-  const withdrawn = evaluation.applicability === "removed" || (validUntil !== null && Date.parse(`${validUntil}T00:00:00Z`) <= now.getTime());
+  const withdrawn = removed || (validUntil !== null && Date.parse(`${validUntil}T00:00:00Z`) <= now.getTime());
   const effective: RequirementEffectiveness = withdrawn
-    ? { status: "withdrawn", effectiveFrom: validFrom, effectiveTo: validUntil, note: evaluation.applicability === "removed" ? "The authority states the requirement no longer applies." : `Valid period ended ${validUntil}.` }
+    ? { status: "withdrawn", effectiveFrom: validFrom, effectiveTo: validUntil, note: removed ? "The authority states the requirement no longer applies." : `Valid period ended ${validUntil}.` }
     : validFrom
       ? { status: Date.parse(`${validFrom}T00:00:00Z`) > now.getTime() ? "not_yet_effective" : "in_effect", effectiveFrom: validFrom, effectiveTo: validUntil, note: `Valid from ${validFrom}.` }
       : { status: "effective_date_not_established", effectiveFrom: null, effectiveTo: validUntil, note: `${rule.sourcePublishedAt ? `Source published ${rule.sourcePublishedAt}; ` : ""}no effective date is stated, so publication is not treated as the effective date. Verification: ${rule.verificationStatus}.` };
@@ -444,7 +553,7 @@ function hostItem(evaluation: HostEvaluation, now: Date): RequirementItem {
     category: HOST_CATEGORY,
     status,
     title: `${rule.vaccine} — ${rule.ruleType} requirement (${rule.legalForce.replace(/_/g, " ")})`,
-    requirement: rule.normalizedRule,
+    requirement: historical && !removed ? verification.possibleRequirement ?? rule.normalizedRule : rule.normalizedRule,
     why: [`${rule.sourceAuthority}: ${rule.normalizedRule}`.slice(0, 600), ...reasons],
     authority: {
       layer: "host_nation", issuer: rule.sourceAuthority, policyId: null, policyTitle: null, sourceSection: null, sourceUrl: rule.sourceUrl,
@@ -463,10 +572,11 @@ function hostItem(evaluation: HostEvaluation, now: Date): RequirementItem {
     },
     exceptions: { exemptDestinations: [], exemptionCondition: null, waiverAuthority: null, policyStatus: rule.legalForce, notes: rule.exemptions },
     effective,
-    missingInputs: evaluation.missingInputs,
+    missingInputs: [...new Set(missing)],
     evidence: { sourceWording: null, sourceProvenance: null, sourceGaps: [], caveats: rule.notes },
     displacedEvidence: [],
     assignmentCaveat: null,
+    verification,
   };
 }
 
@@ -474,27 +584,55 @@ function hostItem(evaluation: HostEvaluation, now: Date): RequirementItem {
 /* Public-health items                                                 */
 /* ------------------------------------------------------------------ */
 
+const KIND_LABEL: Record<PublicHealthKind, string> = {
+  recommendation: "recommendation",
+  entry_requirement_language: "entry-requirement language in public-health guidance (not the destination government's rule)",
+  notice: "travel health notice",
+  outbreak: "outbreak news",
+};
+
+function publicHealthStatus(input: PublicHealthInput): RequirementStatus {
+  // CDC / WHO guidance is advisory by nature; it is never reported as REQUIRED.
+  if (input.sourceStatesNoRisk || input.recommendationType === "not_routinely_recommended") return "NOT_APPLICABLE";
+  if (input.condition || input.recommendationType === "selected_travelers" || input.recommendationType === "consider" || input.recommendationType === "review") return "CONDITIONAL";
+  if (input.kind === "entry_requirement_language" || input.kind === "notice" || input.kind === "outbreak") return "CONDITIONAL";
+  return "RECOMMENDED";
+}
+
 function publicHealthItem(input: PublicHealthInput): RequirementItem {
+  const kind: PublicHealthKind = input.kind ?? "recommendation";
   const category: RequirementCategory = input.category ?? (MALARIA.test(`${input.topic} ${input.recommendation}`) ? "malaria_chemoprophylaxis" : "immunization");
+  const live = input.provenance === "live_adapter";
+  const stale = Boolean(input.lastKnownData) || input.freshness === "STALE_CACHE";
+  const conditions = [input.condition, input.recommendationType === "selected_travelers" ? "the source limits this to selected travelers" : input.recommendationType === "consider" ? "the source says to consider this, depending on the traveler" : input.recommendationType === "review" ? "the source asks for individual review" : null].filter((value): value is string => Boolean(value));
+  const dated = [input.publishedAt ? `published ${input.publishedAt}` : null, input.sourceUpdatedAt ? `source updated ${input.sourceUpdatedAt}` : null, input.retrievedAt ? `retrieved ${input.retrievedAt}` : null].filter(Boolean).join("; ");
   return {
     id: `public_health:${input.id}`,
     layer: "public_health",
     category,
-    // CDC / WHO guidance is a recommendation by nature; it is never reported as a requirement.
-    status: input.condition ? "CONDITIONAL" : "RECOMMENDED",
+    status: publicHealthStatus(input),
     title: input.topic,
     requirement: input.recommendation,
-    why: [`${input.authority} recommendation: ${input.recommendation}`.slice(0, 600), "A public-health recommendation is not a host-nation entry rule and not a combatant-command requirement."],
-    authority: { layer: "public_health", issuer: input.authority, policyId: null, policyTitle: null, sourceSection: null, sourceUrl: input.url, publishedDate: input.publishedAt ?? null, verificationStatus: "SUPPLIED PUBLIC-HEALTH EVIDENCE", citedDodInstructions: [] },
+    why: [
+      `${input.authority} ${KIND_LABEL[kind]}: ${input.recommendation}`.slice(0, 600),
+      "A public-health recommendation is not a host-nation entry rule and not a combatant-command requirement.",
+      ...(stale ? ["Served from the last-known cached copy because the live refresh failed; it is not current."] : []),
+    ],
+    authority: {
+      layer: "public_health", issuer: input.authority, policyId: null, policyTitle: null, sourceSection: null, sourceUrl: input.url, publishedDate: input.publishedAt ?? null,
+      verificationStatus: live ? `LIVE ADAPTER (${input.adapterSourceId ?? "public-health"}): ${input.sourceStatus ?? "ok"}${input.freshness ? `, ${input.freshness}` : ""}` : "SUPPLIED PUBLIC-HEALTH EVIDENCE",
+      citedDodInstructions: [],
+    },
     appliesToContractors: "all_travelers",
     contractualNote: null,
-    trigger: { populations: "travelers to the destination", minimumStay: null, maximumStay: null, component: null, travelScope: null, conditions: input.condition ? [input.condition] : [], thresholdOrRule: null },
+    trigger: { populations: "travelers to the destination", minimumStay: null, maximumStay: null, component: null, travelScope: input.geographyNote ?? null, conditions, thresholdOrRule: null },
     exceptions: { exemptDestinations: [], exemptionCondition: null, waiverAuthority: null, policyStatus: null, notes: [] },
-    effective: { status: "effective_date_not_established", effectiveFrom: null, effectiveTo: null, note: `${input.publishedAt ? `Published ${input.publishedAt}; ` : ""}guidance is current as supplied; no effective date applies to a recommendation.` },
+    effective: { status: "effective_date_not_established", effectiveFrom: null, effectiveTo: null, note: `${dated ? `${dated[0].toUpperCase()}${dated.slice(1)}; ` : ""}no effective date applies to public-health guidance.${stale ? " Last-known data, not current." : ""}` },
     missingInputs: [],
-    evidence: { sourceWording: null, sourceProvenance: null, sourceGaps: [], caveats: [] },
+    evidence: { sourceWording: input.evidenceText ?? null, sourceProvenance: live ? `${input.adapterSourceId ?? "live adapter"}${input.evidenceRecordId ? ` record ${input.evidenceRecordId}` : ""}${input.lastSuccessfulFetch ? `; last successful fetch ${input.lastSuccessfulFetch}` : ""}` : "supplied by caller", sourceGaps: [], caveats: [...(input.geographyNote ? [input.geographyNote] : []), ...(stale ? ["Cached copy; live refresh failed."] : [])] },
     displacedEvidence: [],
     assignmentCaveat: null,
+    verification: null,
   };
 }
 
@@ -619,16 +757,20 @@ export function resolveMedicalApplicability(query: MedicalApplicabilityQuery): M
       destination: iso2, arrivingFrom: query.arrivingFrom ?? null, visitedCountries: query.visitedCountries ?? [], transit: query.transit ?? [],
       ageYears: query.ageYears ?? null, stayDays: query.stayDays ?? null, now,
     };
-    const hostEvaluations = evaluateHostTraveler(hostQuery, VACCINE_RULES).evaluations;
-    const hostItems = hostEvaluations.map((evaluation) => hostItem(evaluation, now));
+    const hostRules = query.hostNationRules ?? VACCINE_RULES;
+    const hostEvaluations = evaluateHostTraveler(hostQuery, hostRules).evaluations;
+    const corroborationFor = (vaccine: string): ItemVerification["liveCorroboration"] =>
+      (query.publicHealth ?? []).filter((input) => input.kind === "entry_requirement_language" && new RegExp(vaccine.replace(/[^a-z0-9 ]/gi, ""), "i").test(`${input.topic} ${input.recommendation}`))
+        .map((input) => ({ itemId: `public_health:${input.id}`, authority: input.authority, url: input.url, retrievedAt: input.retrievedAt ?? null, text: input.recommendation.slice(0, 400) }));
+    const hostItems = hostEvaluations.map((evaluation) => hostItem(evaluation, now, isUnconfirmedHistoricalRule(evaluation.rule) ? corroborationFor(evaluation.rule.vaccine) : []));
     items.push(...hostItems);
-    const answers = describeCountry(iso2, now);
+    const unconfirmed = hostItems.filter((entry) => entry.verification?.state === "unconfirmed_historical").length;
     layers.host_nation = {
       layer: "host_nation",
       coverage: hostItems.length ? "partial" : "no_rule_in_source_set",
       note: hostItems.length
-        ? `${hostItems.length} host-nation rule${hostItems.length === 1 ? "" : "s"} evaluated (${answers.anyVerifiedRequirement}). The configured set covers yellow fever, polio, meningococcal and COVID-19 entry / exit rules only.`
-        : `No host-nation vaccine rule for ${iso2} is in the configured source set (${answers.anyVerifiedRequirement}). That is not evidence that none exists.`,
+        ? `${hostItems.length} host-nation rule${hostItems.length === 1 ? "" : "s"} evaluated${hostItems.length - unconfirmed ? ` (${hostItems.length - unconfirmed} on a current verified source)` : ""}. The configured set covers yellow fever, polio, meningococcal and COVID-19 entry / exit rules only.${unconfirmed ? ` ${unconfirmed} rest${unconfirmed === 1 ? "s" : ""} only on an older, unverified compilation and ${unconfirmed === 1 ? "is" : "are"} reported UNKNOWN with the possible requirement and the verification gap, not REQUIRED.` : ""}`
+        : `No host-nation vaccine rule for ${iso2} is in the configured source set. That is not evidence that none exists.`,
       items: hostItems.length,
     };
   } else {
@@ -637,12 +779,30 @@ export function resolveMedicalApplicability(query: MedicalApplicabilityQuery): M
   limitations.push("Host-nation checks cover the configured vaccine rule set only; other national entry medical requirements and status-of-forces treatment are not modeled.");
 
   /* --- public-health layer ------------------------------------------------------------------- */
-  if (query.publicHealth) {
-    const publicItems = query.publicHealth.map(publicHealthItem);
-    items.push(...publicItems);
+  const reports = query.publicHealthSources ?? null;
+  const publicInputs = query.publicHealth ?? [];
+  const publicItems = publicInputs.map(publicHealthItem);
+  items.push(...publicItems);
+  const usable = (report: PublicHealthSourceReport) => ["ok", "no_current_matching_finding", "stale_cache"].includes(report.status);
+  if (reports) {
+    const ok = reports.filter(usable).length;
+    const describe = (report: PublicHealthSourceReport) =>
+      `${report.sourceName}: ${report.status}${report.freshness ? ` (${report.freshness})` : ""}${report.lastSuccessfulFetch ? `, last successful fetch ${report.lastSuccessfulFetch}` : ""}${report.sourceUpdatedAt ? `, source updated ${report.sourceUpdatedAt}` : ""}${report.sourceError ? ` — ${report.sourceError}` : ""}`;
+    const coverage: LayerCoverage["coverage"] = ok === reports.length ? "evaluated" : ok > 0 || publicItems.length ? "partial" : "unavailable";
+    layers.public_health = {
+      layer: "public_health",
+      coverage,
+      note: `${publicItems.length} CDC / WHO item${publicItems.length === 1 ? "" : "s"} from existing live adapters and caller input; recommendations only. ${reports.map(describe).join(" | ")}.${coverage === "unavailable" ? " No public-health source answered, so malaria risk, travel vaccines and outbreak notices are UNKNOWN." : ""}`,
+      items: publicItems.length,
+      sources: reports,
+    };
+    for (const report of reports.filter((entry) => !usable(entry))) limitations.push(`${report.sourceName} was ${report.status.replace(/_/g, " ")}${report.sourceError ? ` (${report.sourceError})` : ""}; the guidance it provides is UNKNOWN for this assignment, not absent.`);
+    for (const report of reports.filter((entry) => entry.status === "stale_cache")) limitations.push(`${report.sourceName} is served from a cached copy (last successful fetch ${report.lastSuccessfulFetch ?? "unknown"}); it is last-known data, not current.`);
+    if (reports.some((report) => report.status === "no_current_matching_finding")) limitations.push("A public-health source returning no matching finding is not evidence that no guidance, notice or risk exists.");
+  } else if (publicItems.length) {
     layers.public_health = { layer: "public_health", coverage: "evaluated", note: `${publicItems.length} supplied CDC / WHO item${publicItems.length === 1 ? "" : "s"}; recommendations only.`, items: publicItems.length };
   } else {
-    layers.public_health = { layer: "public_health", coverage: "not_supplied", note: "No CDC / WHO guidance was supplied for this destination, so malaria risk, travel vaccines and outbreak notices are UNKNOWN here (the live adapters provide them).", items: 0 };
+    layers.public_health = { layer: "public_health", coverage: "not_supplied", note: iso2 ? "No CDC / WHO guidance was retrieved or supplied for this destination, so malaria risk, travel vaccines and outbreak notices are UNKNOWN here." : "This location has no ISO 3166 country code of its own, so the country-level CDC / WHO adapters were not queried; public-health guidance is UNKNOWN here.", items: 0 };
     limitations.push("CDC / WHO guidance was not supplied; malaria chemoprophylaxis and public-health vaccine recommendations are UNKNOWN until it is.");
   }
 

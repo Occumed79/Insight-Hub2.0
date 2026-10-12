@@ -8,7 +8,9 @@ import { gapSummary } from "../services/aor-intel/command-policy/source-gaps";
 import { describeCommandCountry, evaluateCommandTraveler, policyQualifiers } from "../services/aor-intel/command-policy/engine";
 import { RESEARCH_EVIDENCE, DSCA_SECURITY_COOPERATION } from "../services/aor-intel/command-policy/verified-research";
 import { COMMAND_POLICIES } from "../services/aor-intel/command-policy/policies-data";
-import { resolveMedicalApplicability, type MedicalApplicabilityQuery, type PublicHealthInput } from "../services/aor-intel/command-policy/medical-applicability";
+import type { MedicalApplicabilityQuery, PublicHealthInput } from "../services/aor-intel/command-policy/medical-applicability";
+import { resolveMedicalApplicabilityWithPublicHealth } from "../services/aor-intel/medical-public-health";
+import { liveIntelDeps } from "./aor-country-intel";
 import type { CommandId, CommandQuery, Population, TravelKind } from "../services/aor-intel/command-policy/types";
 
 // Combatant Command medical policy is its own rule class. These routes never read host-nation vaccine rules or CDC/WHO guidance.
@@ -181,11 +183,18 @@ function medicalQueryFrom(source: Record<string, unknown>): MedicalApplicability
     now: new Date(),
   };
 }
-function medicalApplicability(source: Record<string, unknown>, res: Response) {
+async function medicalApplicability(source: Record<string, unknown>, res: Response) {
   res.setHeader("Cache-Control", "no-store");
   const query = medicalQueryFrom(source);
   if (!query.destination) return res.status(400).json({ ok: false, error: "destination must name a country, territory or constituent location" });
-  const result = resolveMedicalApplicability(query);
+  // CDC / WHO guidance is retrieved through the existing live adapters (same cache and provenance as country-intel) unless disabled.
+  const live = !(source.livePublicHealth === false || source.livePublicHealth === "false");
+  let result;
+  try {
+    result = await resolveMedicalApplicabilityWithPublicHealth(query, live ? liveIntelDeps() : null, { livePublicHealth: live });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Medical applicability could not be assembled." });
+  }
   return res.status(result.status === "LOCATION_NOT_FOUND" ? 404 : 200).json({ ok: result.status !== "LOCATION_NOT_FOUND", generatedAt: (query.now as Date).toISOString(), ...result });
 }
 router.get("/aor/medical-applicability", (req: Request, res: Response) => medicalApplicability(req.query as Record<string, unknown>, res));

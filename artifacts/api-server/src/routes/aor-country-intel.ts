@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { buildCountryIntel } from "../services/aor-intel/aggregate";
+import { buildCountryIntel, type IntelDeps } from "../services/aor-intel/aggregate";
 import { createNeonBackedStore } from "../services/aor-intel/cache";
 import { countryBoundaries } from "../services/aor-intel/geo";
 import { synthesizeCountry } from "../services/aor-intel/synthesis";
@@ -43,6 +43,9 @@ async function internalJson(path: string): Promise<unknown> {
     clearTimeout(timer);
   }
 }
+
+/** The same live dependencies the country-intel workspace uses, shared so other AOR routes reuse its adapters, cache and provenance. */
+export const liveIntelDeps = (): IntelDeps => ({ store, internalJson, externalJson: fetchWithTimeout, env: (key) => process.env[key], probeUrl: probeOfficialUrl });
 
 router.get("/aor/cesium-config", (_req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-store");
