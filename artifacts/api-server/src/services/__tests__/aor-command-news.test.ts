@@ -517,7 +517,7 @@ const DVIDS_UNIT_PAGE = `<html><body>
 </body></html>`;
 
 test("DVIDS: all six commands have exact official unit listings, clearly labelled as DoD news rather than native command RSS or medical policy", () => {
-  const units: Record<string, string> = { NORTHCOM: "USNORTHCOM", SOUTHCOM: "SOUTHCOM", EUCOM: "EUCOM", AFRICOM: "AFRICOM", CENTCOM: "CENTCOM", INDOPACOM: "INDOPACOM" };
+  const units: Record<string, string> = { NORTHCOM: "USNORTHCOM", SOUTHCOM: "SOUTHCOM", EUCOM: "EUCOM", AFRICOM: "AFRICOM", CENTCOM: "CENTCOM", INDOPACOM: "PACOM" };
   for (const [command, unit] of Object.entries(units)) {
     const item = source(`dvids-${command.toLowerCase()}-unit-news`);
     assert.equal(item.listingUrl, `https://www.dvidshub.net/unit/${unit}`);
