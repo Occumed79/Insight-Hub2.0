@@ -1,78 +1,120 @@
-import { useMemo, useRef, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
-  BODY_CENTER,
   GROUP_LABEL,
   HOLOGRAM_IMAGE,
   ZONES,
   ZONES_BY_AREA_DESC,
-  zoneInView,
   type GroupKey,
   type Zone,
 } from "./anatomy";
+import LoadingOrb from "./LoadingOrb";
 import { heatColor, indexByGroup, type Signal, type SignalMode } from "./signals";
 import Strands, { STRANDS_DEFAULTS, type StrandsParams } from "./Strands";
 
 const IMG_W = HOLOGRAM_IMAGE.width;
 const IMG_H = HOLOGRAM_IMAGE.height;
+/** Matches the .hs-scan-exit transition. */
+const SCAN_EXIT_MS = 320;
 
 export interface HologramStageProps {
   mode: SignalMode;
-  /** Transient anatomy scan while loading / processing; never persistent. */
+  /** True only while booting or processing a request. The scanner never outlives it. */
   scanning: boolean;
   signals: Signal[];
-  activeGroup: GroupKey | null;
-  activeZoneId: string | null;
+  /** Groups the user is inspecting (hover / selection); strengthens their glow. */
+  focusGroups: GroupKey[];
+  /** Single zone that carries the reticle, when the focus is one region. */
+  reticleZone: Zone | null;
   onHover: (zone: Zone | null) => void;
   onSelect: (zone: Zone) => void;
 }
 
-function describe(signal: Signal | undefined, mode: SignalMode) {
-  if (!signal) return { value: "No signal", note: mode === "idle" ? "Region preview" : "Not indicated in current evidence" };
-  if (mode === "osha") return { value: `${Math.round(signal.score * 100)}%`, note: "of coded body-part cases" };
-  if (mode === "onet") return { value: `${signal.detail.length} refs`, note: "O*NET demand evidence" };
-  return { value: signal.score >= 0.6 ? "Primary" : "Secondary", note: "anatomical association" };
-}
-
-export default function HologramStage({
-  mode, scanning, signals, activeGroup, activeZoneId, onHover, onSelect,
-}: HologramStageProps) {
-  const scanParams = useRef<StrandsParams>({
+/**
+ * The scan is one coordinated sequence driven by the sphere: beams leave the sphere for each
+ * head, then one shared Strands band sweeps both figures head -> feet at the same height. The
+ * band is clipped to the body silhouettes so energy can only ever appear on the anatomy.
+ */
+function BodyScan({ exiting }: { exiting: boolean }) {
+  const params = useRef<StrandsParams>({
     ...STRANDS_DEFAULTS,
     colors: ["#FFE9A8", "#FFB020", "#FFD24A", "#FF8A00"],
-    count: 4,
-    speed: 0.65,
-    amplitude: 0.52,
-    waviness: 1.2,
-    thickness: 0.36,
-    intensity: 0.45,
-    glow: 2.1,
+    count: 6,
+    speed: 0.9,
+    amplitude: 0.45,
+    waviness: 1.4,
+    thickness: 0.5,
+    intensity: 0.8,
+    glow: 2.2,
     taper: 3,
-    scale: 2.5,
+    scale: 2.6,
     saturation: 1.12,
-    opacity: 0.52,
+    opacity: 0.85,
   });
+
+  return (
+    <div
+      className={`hs-scan${exiting ? " is-exiting" : ""}`}
+      data-testid="health-body-scan"
+      data-state={exiting ? "exiting" : "active"}
+      aria-hidden="true"
+    >
+      <svg className="hs-scan-beams" viewBox={`0 0 ${IMG_W} ${IMG_H}`} preserveAspectRatio="none">
+        <path className="hs-scan-beam" pathLength={1} d="M768 60 C 692 26, 572 22, 490 46" />
+        <path className="hs-scan-beam" pathLength={1} d="M768 60 C 844 26, 964 22, 1050 46" />
+        <circle className="hs-scan-node" cx={490} cy={46} r={5} />
+        <circle className="hs-scan-node" cx={1050} cy={46} r={5} />
+      </svg>
+      <div className="hs-scan-clip">
+        <div className="hs-scan-band">
+          <span className="hs-scan-trail" />
+          <div className="hs-scan-strands"><Strands paramsRef={params} maxDpr={1} /></div>
+          <span className="hs-scan-line" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function HologramStage({ mode, scanning, signals, focusGroups, reticleZone, onHover, onSelect }: HologramStageProps) {
   const byGroup = useMemo(() => indexByGroup(signals), [signals]);
   const maxScore = useMemo(() => Math.max(0.0001, ...signals.map((signal) => signal.score)), [signals]);
   const relative = (signal: Signal) => Math.min(1, Math.max(0.38, 0.38 + 0.62 * (signal.score / maxScore)));
 
-  const activeZone = useMemo(
-    () => ZONES.find((zone) => zone.id === activeZoneId) ?? null,
-    [activeZoneId],
-  );
+  // Mount the scanner for exactly as long as a request runs (plus a short fade-out).
+  const [scanMounted, setScanMounted] = useState(scanning);
+  const [scanExiting, setScanExiting] = useState(false);
+  useEffect(() => {
+    if (scanning) {
+      setScanMounted(true);
+      setScanExiting(false);
+      return;
+    }
+    setScanExiting(true);
+    const timer = window.setTimeout(() => {
+      setScanMounted(false);
+      setScanExiting(false);
+    }, SCAN_EXIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [scanning]);
 
   // ---- lit layer: mask + glow blobs ------------------------------------------------------
   const litZones = useMemo(() => {
-    const entries: Array<{ zone: Zone; signal?: Signal; strength: number; color: string; active: boolean }> = [];
+    const entries: Array<{ zone: Zone; strength: number; color: string; active: boolean }> = [];
     for (const zone of ZONES) {
       const signal = byGroup.get(zone.group);
-      const active = zone.group === activeGroup;
-      if (!signal && !active) continue;
-      const strength = signal ? relative(signal) : 0.55;
-      entries.push({ zone, signal, strength: active ? Math.min(1, strength + 0.18) : strength, color: heatColor(signal ? relative(signal) : 0.45), active });
+      if (!signal || zone.group === "wholeBody") continue;
+      const active = focusGroups.includes(zone.group);
+      const strength = relative(signal);
+      entries.push({ zone, strength: active ? Math.min(1, strength + 0.18) : strength, color: heatColor(relative(signal)), active });
+    }
+    // A focused region with no evidence still gets a soft marker (neutral, not an evidence signal).
+    for (const zone of ZONES) {
+      if (byGroup.has(zone.group) || !focusGroups.includes(zone.group) || zone.group === "wholeBody") continue;
+      entries.push({ zone, strength: 0.4, color: "#ffd978", active: true });
     }
     return entries;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [byGroup, activeGroup, maxScore]);
+  }, [byGroup, focusGroups, maxScore]);
 
   const maskImage = useMemo(() => {
     if (!litZones.length) return "linear-gradient(transparent, transparent)";
@@ -88,30 +130,12 @@ export default function HologramStage({
   }, [litZones]);
 
   const aura = byGroup.get("wholeBody");
-
-  // ---- callout for the active region -------------------------------------------------------
-  const callout = useMemo(() => {
-    if (!activeGroup || activeGroup === "wholeBody") return null;
-    const zone = activeZone ?? zoneInView(activeGroup, activeGroup === "lowBack" ? "back" : "front") ?? ZONES.find((z) => z.group === activeGroup);
-    if (!zone) return null;
-    const center = BODY_CENTER[zone.view];
-    const side = zone.cx < center ? -1 : 1;
-    const sx = zone.cx + side * zone.rx * 0.85;
-    const sy = zone.cy - zone.ry * 0.25;
-    const ex = zone.cx + side * (zone.rx + 62);
-    const ey = zone.cy - zone.ry * 0.25 - 34;
-    const lx = ex + side * 52;
-    return { zone, side, sx, sy, ex, ey, lx, signal: byGroup.get(zone.group) };
-  }, [activeGroup, activeZone, byGroup]);
-
-  const label = (zone: Zone) => `${GROUP_LABEL[zone.group]}${byGroup.has(zone.group) ? (mode === "osha" ? " reported case signal" : " signal") : " region"}`;
+  const label = (zone: Zone) =>
+    `${GROUP_LABEL[zone.group]} region${byGroup.has(zone.group) ? ", evidence available" : ""}`;
+  const reticleR = reticleZone ? Math.max(reticleZone.rx, reticleZone.ry) : 0;
 
   return (
-    <div
-      className="hs-stage"
-      data-testid="health-hologram"
-      data-mode={mode}
-    >
+    <div className="hs-stage" data-testid="health-hologram" data-mode={mode} data-scanning={scanMounted ? "true" : "false"}>
       <div className="hs-atmosphere" aria-hidden="true">
         <i className="hs-bloom hs-bloom-a" />
         <i className="hs-bloom hs-bloom-b" />
@@ -155,31 +179,16 @@ export default function HologramStage({
           ))}
         </div>
 
-        {scanning ? (
-          <div className="hs-scan-fields" aria-hidden="true" data-testid="health-body-scan">
-            <div className="hs-scan-field hs-scan-field-front">
-              <div className="hs-scan-pass"><Strands paramsRef={scanParams} maxDpr={1} timeOffset={0} /></div>
-            </div>
-            <div className="hs-scan-field hs-scan-field-back">
-              <div className="hs-scan-pass"><Strands paramsRef={scanParams} maxDpr={1} timeOffset={4} /></div>
-            </div>
-          </div>
-        ) : null}
+        {scanMounted ? <BodyScan exiting={scanExiting} /> : null}
 
         <svg className="hs-overlay" viewBox={`0 0 ${IMG_W} ${IMG_H}`} preserveAspectRatio="none">
-          {callout ? (
-            <g className="hs-reticle" transform={`translate(${callout.zone.cx} ${callout.zone.cy})`} key={callout.zone.id}>
-              <circle className="hs-reticle-ring" r={Math.max(callout.zone.rx, callout.zone.ry) * 1.12} />
-              <circle className="hs-reticle-inner" r={Math.max(callout.zone.rx, callout.zone.ry) * 0.7} />
+          {reticleZone ? (
+            <g className="hs-reticle" transform={`translate(${reticleZone.cx} ${reticleZone.cy})`} key={reticleZone.id}>
+              <circle className="hs-reticle-ring" r={reticleR * 1.12} />
+              <circle className="hs-reticle-inner" r={reticleR * 0.7} />
               {[0, 90, 180, 270].map((angle) => (
-                <line key={angle} className="hs-reticle-tick" x1={0} y1={-Math.max(callout.zone.rx, callout.zone.ry) * 1.12 - 6} x2={0} y2={-Math.max(callout.zone.rx, callout.zone.ry) * 1.12 + 10} transform={`rotate(${angle})`} />
+                <line key={angle} className="hs-reticle-tick" x1={0} y1={-reticleR * 1.12 - 6} x2={0} y2={-reticleR * 1.12 + 10} transform={`rotate(${angle})`} />
               ))}
-            </g>
-          ) : null}
-          {callout ? (
-            <g className="hs-leader" key={`leader-${callout.zone.id}`}>
-              <circle cx={callout.sx} cy={callout.sy} r={3.2} />
-              <polyline points={`${callout.sx},${callout.sy} ${callout.ex},${callout.ey} ${callout.lx},${callout.ey}`} />
             </g>
           ) : null}
           {ZONES_BY_AREA_DESC.map((zone) => (
@@ -192,8 +201,10 @@ export default function HologramStage({
               ry={zone.ry}
               role="button"
               tabIndex={0}
+              data-group={zone.group}
+              data-view={zone.view}
               aria-label={label(zone)}
-              aria-pressed={zone.group === activeGroup}
+              aria-pressed={focusGroups.length === 1 && focusGroups[0] === zone.group}
               onPointerEnter={() => onHover(zone)}
               onPointerLeave={() => onHover(null)}
               onFocus={() => onHover(zone)}
@@ -209,24 +220,7 @@ export default function HologramStage({
           ))}
         </svg>
 
-        {callout ? (() => {
-          const info = describe(callout.signal, mode);
-          const left = ((callout.lx) / IMG_W) * 100;
-          const top = (callout.ey / IMG_H) * 100;
-          return (
-            <div
-              key={`label-${callout.zone.id}`}
-              className={`hs-callout side-${callout.side > 0 ? "right" : "left"}`}
-              style={{ left: `${left}%`, top: `${top}%` }}
-              aria-live="polite"
-            >
-              <span className="hs-callout-name">{GROUP_LABEL[callout.zone.group]}</span>
-              <strong className="hs-callout-value">{info.value}</strong>
-              <span className="hs-callout-note">{info.note}</span>
-              {callout.signal?.detail[0] ? <span className="hs-callout-detail">{callout.signal.detail[0]}</span> : null}
-            </div>
-          );
-        })() : null}
+        {scanMounted ? <LoadingOrb exiting={scanExiting} /> : null}
 
         <span className="hs-cap hs-cap-front" aria-hidden="true">ANTERIOR</span>
         <span className="hs-cap hs-cap-back" aria-hidden="true">POSTERIOR</span>

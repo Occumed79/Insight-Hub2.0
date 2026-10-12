@@ -22,6 +22,7 @@ export type GroupKey =
   | "shoulders"
   | "chest"
   | "gut"
+  | "upperBack"
   | "lowBack"
   | "hips"
   | "arms"
@@ -36,8 +37,9 @@ export const GROUP_LABEL: Record<GroupKey, string> = {
   head: "Brain / head",
   neck: "Neck / cervical spine",
   shoulders: "Shoulders",
-  chest: "Heart, lungs & thoracic",
+  chest: "Chest, heart & lungs",
   gut: "Abdomen / gut",
+  upperBack: "Upper back",
   lowBack: "Lower back",
   hips: "Hips / pelvis",
   arms: "Arms",
@@ -85,7 +87,7 @@ const FRONT_ONLY: Spec[] = [
 ];
 
 const BACK_ONLY: Spec[] = [
-  ["chest", 0, 288, 100, 62, false],
+  ["upperBack", 0, 288, 100, 62, false],
   ["lowBack", 0, 405, 72, 60, false],
   ["hips", 0, 505, 90, 50, false],
 ];
@@ -121,11 +123,11 @@ export function zoneInView(group: GroupKey, view: View): Zone | null {
   return zonesForGroup(group).find((zone) => zone.view === view) ?? null;
 }
 
-/** Zone used to anchor the reticle / callout for a group (anterior preferred, except lower back). */
+/** Zone used to anchor the reticle / callout for a group (anterior preferred, except the back groups). */
 export function anchorZone(group: GroupKey, preferView?: View): Zone | null {
   const zones = zonesForGroup(group);
   if (!zones.length) return null;
-  const view = preferView ?? (group === "lowBack" ? "back" : "front");
+  const view = preferView ?? (group === "lowBack" || group === "upperBack" ? "back" : "front");
   return zones.find((zone) => zone.view === view) ?? zones[0];
 }
 
