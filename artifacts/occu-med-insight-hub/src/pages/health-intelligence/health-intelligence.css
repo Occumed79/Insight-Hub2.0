@@ -221,6 +221,45 @@
 }
 .hs-glow.is-active { opacity: 1; animation-duration: 1.7s; }
 
+
+/* The sphere initiates a short body-scanning pass while a request is active.
+   These scan ribbons are unmounted immediately when processing completes. */
+.hs-scan-fields {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.hs-scan-field {
+  position: absolute;
+  top: 6%;
+  bottom: 10%;
+  width: 35%;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 8%, black 92%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, black 8%, black 92%, transparent);
+}
+.hs-scan-field-front { left: 14%; }
+.hs-scan-field-back { right: 14%; }
+.hs-scan-pass {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 115%;
+  height: 17%;
+  opacity: 0.82;
+  mix-blend-mode: screen;
+  filter: brightness(1.05);
+  transform: translate(-50%, -50%) rotate(-6deg);
+  animation: hs-scan-down 1.65s linear infinite;
+}
+.hs-scan-field-back .hs-scan-pass { animation-delay: -0.18s; }
+@keyframes hs-scan-down {
+  from { top: 3%; }
+  to { top: 107%; }
+}
+
 .hs-overlay {
   position: absolute;
   inset: 0;
@@ -526,6 +565,8 @@
 @keyframes hs-blink { 50% { opacity: 0.25; } }
 
 @media (prefers-reduced-motion: reduce) {
+  .hs-scan-fields { display: none; }
+
   .hi-page *, .hi-page *::before, .hi-page *::after {
     animation: none !important;
     transition: none !important;
