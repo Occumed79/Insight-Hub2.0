@@ -66,7 +66,7 @@ const DVIDS_UNITS: Record<CommandId, string> = {
   EUCOM: "EUCOM",
   AFRICOM: "AFRICOM",
   CENTCOM: "CENTCOM",
-  INDOPACOM: "INDOPACOM",
+  INDOPACOM: "PACOM",
 };
 const DVIDS_UNIT_SOURCES: CommandNewsSource[] = COMMAND_NEWS_COMMANDS.map((command) => ({
   id: `dvids-${command.toLowerCase()}-unit-news`,
