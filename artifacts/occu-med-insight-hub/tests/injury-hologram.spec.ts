@@ -96,3 +96,16 @@ test("Medical Conditions mode maps a condition to anatomical regions without a f
   await expect(page.getByText(/not a diagnosis or fitness-for-duty/i)).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: /signal|region/i }).first()).toBeVisible();
 });
+
+test("Strands animation stays in the top loading sphere and never crosses the anatomical bodies", async ({ page }) => {
+  await page.goto("/injuries-medical-conditions");
+  await expect(page.locator(".hs-rings, .hs-ambient")).toHaveCount(0);
+  await expect(page.locator(".hs-stage canvas")).toHaveCount(0);
+
+  await page.getByPlaceholder("Firefighter, electrician, truck driver…").fill("Firefighter");
+  await page.getByRole("button", { name: /Build injury profile/i }).click();
+  await expect(page.locator(".hi-loading-orb")).toBeVisible();
+  await expect(page.locator(".hs-stage canvas")).toHaveCount(0);
+  await expect(page.locator(".hi-loading-orb")).toHaveCount(0, { timeout: 15000 });
+  await expect(page.locator(".hs-stage canvas")).toHaveCount(0);
+});
