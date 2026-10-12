@@ -412,10 +412,10 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
         <button type="button" onClick={onClose} aria-label="Close country panel" className="rounded-full border border-white/10 p-1.5 text-slate-400 hover:text-white"><X size={13} /></button>
       </header>
       {split ? null : (
-        <nav className="flex gap-1 overflow-x-auto border-b border-white/[.06] px-3 py-2" aria-label="Intelligence categories">
+        <nav className="flex flex-wrap gap-1 border-b border-white/[.06] px-3 py-2" aria-label="Intelligence categories">
           {tabs.map(([id, label]) => {
             const count = id === "summary" || id === "sources" || id === "medical" ? null : byDimension.get(id)?.length ?? 0;
-            return <button key={id} type="button" data-testid={`aor-tab-${id}`} aria-pressed={activeTab === id} onClick={() => setActiveTab(id)} className={`shrink-0 rounded-full border px-2.5 py-1 text-[9px] font-bold transition ${activeTab === id ? "border-cyan-200/25 bg-cyan-200/10 text-white" : "border-white/[.06] text-slate-400 hover:text-white"}`}>{label}{count ? <span className="ml-1 text-slate-500">{count}</span> : null}{id === "medical" && medicalCounts?.REQUIRED ? <span className="ml-1 text-rose-200/80">{medicalCounts.REQUIRED}</span> : null}</button>;
+            return <button key={id} type="button" data-testid={`aor-tab-${id}`} aria-pressed={activeTab === id} onClick={() => setActiveTab(id)} className={`rounded-full border px-2 py-0.5 text-[9px] font-bold transition ${activeTab === id ? "border-cyan-200/25 bg-cyan-200/10 text-white" : "border-white/[.06] text-slate-400 hover:text-white"}`}>{label}{count ? <span className="ml-1 text-slate-500">{count}</span> : null}{id === "medical" && medicalCounts?.REQUIRED ? <span className="ml-1 text-rose-200/80">{medicalCounts.REQUIRED}</span> : null}</button>;
           })}
         </nav>
       )}

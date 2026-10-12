@@ -27,19 +27,43 @@ type Props = {
   onHover: (name: string | null) => void;
 };
 
-const WORLD: Camera = { lon: 10, lat: 12, span: 380 };
+const WORLD: Camera = { lon: 0, lat: 12, span: 380 };
 const X = (lon: number) => lon + 180;
 const Y = (lat: number) => 90 - lat;
 const round = (value: number) => Math.round(value * 100) / 100;
 
-function pathOf(entry: CountryEntry): string {
-  let d = "";
-  for (const polygon of entry.polygons) for (const ring of polygon) {
-    ring.forEach(([lon, lat], i) => { d += `${i ? "L" : "M"}${round(X(lon))} ${round(Y(lat))}`; });
-    d += "Z";
+/** Ring points closer than `tolerance` degrees to the previously kept point are dropped (the last point always stays, so rings still close). */
+function decimate(ring: number[][], tolerance: number): number[][] {
+  if (tolerance <= 0 || ring.length < 8) return ring;
+  const kept: number[][] = [ring[0]];
+  for (let i = 1; i < ring.length - 1; i++) {
+    const last = kept[kept.length - 1];
+    if (Math.abs(ring[i][0] - last[0]) >= tolerance || Math.abs(ring[i][1] - last[1]) >= tolerance) kept.push(ring[i]);
   }
-  return d;
+  kept.push(ring[ring.length - 1]);
+  return kept.length >= 4 ? kept : ring;
 }
+
+type Shape = { full: string; coarse: string; bbox: [number, number, number, number] };
+
+/** Boundary geometry as SVG path data at two levels of detail, plus its bounding box in map units. The full outline is unchanged repository data. */
+function shapeOf(entry: CountryEntry): Shape {
+  let full = "";
+  let coarse = "";
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const write = (ring: number[][]) => ring.map(([lon, lat], i) => `${i ? "L" : "M"}${round(X(lon))} ${round(Y(lat))}`).join("") + "Z";
+  for (const polygon of entry.polygons) for (const ring of polygon) {
+    for (const [lon, lat] of ring) { minX = Math.min(minX, X(lon)); maxX = Math.max(maxX, X(lon)); minY = Math.min(minY, Y(lat)); maxY = Math.max(maxY, Y(lat)); }
+    full += write(ring);
+    coarse += write(decimate(ring, COARSE_TOLERANCE));
+  }
+  return { full, coarse, bbox: [minX, minY, maxX, maxY] };
+}
+
+// Above this camera span (degrees across the screen) the world is drawn from simplified outlines; closer in, the full outlines are used.
+// Software rasterisers redraw every country each animation frame, so drawing only what is on screen at the detail the zoom can show keeps flights smooth.
+const COARSE_TOLERANCE = 0.2;
+const COARSE_ABOVE_SPAN = 90;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -63,7 +87,7 @@ export function AorFlatMap(props: Props) {
     return () => observer.disconnect();
   }, []);
 
-  const paths = useMemo(() => new Map(index.list.map((entry) => [entry.iso2, pathOf(entry)])), [index]);
+  const shapes = useMemo(() => new Map(index.list.map((entry) => [entry.iso2, shapeOf(entry)])), [index]);
   const aspect = size.w / size.h;
 
   // --- camera transitions: World -> command -> location ----------------------------------------
@@ -105,6 +129,10 @@ export function AorFlatMap(props: Props) {
   const spanH = camera.span / aspect;
   const viewBox = `${round(X(camera.lon) - camera.span / 2)} ${round(Y(camera.lat) - spanH / 2)} ${round(camera.span)} ${round(spanH)}`;
   const unit = camera.span / size.w; // user units per screen pixel
+  // Only outlines that intersect the visible area (plus a margin) are drawn.
+  const viewMinX = X(camera.lon) - camera.span / 2 - camera.span * 0.15, viewMaxX = X(camera.lon) + camera.span / 2 + camera.span * 0.15;
+  const viewMinY = Y(camera.lat) - spanH / 2 - spanH * 0.15, viewMaxY = Y(camera.lat) + spanH / 2 + spanH * 0.15;
+  const onScreen = (b: [number, number, number, number]) => b[2] >= viewMinX && b[0] <= viewMaxX && b[3] >= viewMinY && b[1] <= viewMaxY;
 
   const zoom = useCallback((factor: number) => { cancelAnimationFrame(animation.current); setCamera((current) => ({ ...current, span: clamp(current.span * factor, 2, 400) })); }, []);
 
@@ -168,8 +196,11 @@ export function AorFlatMap(props: Props) {
         {[...Array(7)].map((_, i) => <line key={`p${i}`} y1={i * 30} y2={i * 30} x1={0} x2={360} stroke="rgba(160,210,255,.07)" strokeWidth={1} vectorEffect="non-scaling-stroke" />)}
         <g>
           {index.list.map((entry) => {
-            const d = paths.get(entry.iso2);
-            if (!d) return null;
+            const shape = shapes.get(entry.iso2);
+            if (!shape) return null;
+            const isSelectedShape = Boolean(selected?.boundaryIso2 === entry.iso2 || (view.splitIso3 && directory.splitByIso3.get(view.splitIso3)?.boundaryIso2 === entry.iso2));
+            if (!isSelectedShape && !onScreen(shape.bbox)) return null;
+            const d = camera.span > COARSE_ABOVE_SPAN ? shape.coarse : shape.full;
             const style = fillFor(entry.iso2);
             const location = directory.byBoundaryIso2.get(entry.iso2);
             const isSelected = Boolean(location && selected?.id === location.id) || Boolean(view.splitIso3 && directory.splitByIso3.get(view.splitIso3)?.boundaryIso2 === entry.iso2);
@@ -185,7 +216,7 @@ export function AorFlatMap(props: Props) {
           })}
         </g>
         <g pointerEvents="none">
-          {tinted.map(({ iso2, color }) => { const d = paths.get(iso2); return d ? <path key={`${iso2}${color}`} d={d} fill={color} fillOpacity={0.14} stroke="none" /> : null; })}
+          {tinted.map(({ iso2, color }) => { const shape = shapes.get(iso2); return shape && onScreen(shape.bbox) ? <path key={`${iso2}${color}`} d={camera.span > COARSE_ABOVE_SPAN ? shape.coarse : shape.full} fill={color} fillOpacity={0.14} stroke="none" /> : null; })}
         </g>
         <g>
           {visibleMarkers.map((entry) => {

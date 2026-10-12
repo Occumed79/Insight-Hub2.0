@@ -23,6 +23,8 @@ type Props = {
   altitudeLimitMeters: number | null;
   showAorShading: boolean;
   showMarkers: boolean;
+  /** Width of the panel docked on the right; the camera aims past the subject so it sits in the visible map area. */
+  rightInsetPx?: number;
   onPickLocation: (id: string) => void;
   onPickSplit: (iso3: string) => void;
   onPickEvidence: (id: string) => void;
@@ -94,6 +96,9 @@ export function AorCesiumGlobe(props: Props) {
   useEffect(() => {
     let cancelled = false;
     let viewer: Viewer | null = null;
+    // A fatal report is final: later terrain/ready/render events must not overwrite it before the workspace has switched to the 2D map.
+    let failed = false;
+    const report = (next: GlobeStatus) => { if (failed || cancelled) return; if (next.state === "error" && next.fatal) failed = true; propsRef.current.onStatus(next); };
     (async () => {
       try {
         const Cesium = await import("cesium");
@@ -102,14 +107,28 @@ export function AorCesiumGlobe(props: Props) {
         cesiumRef.current = Cesium;
         Cesium.Ion.defaultAccessToken = propsRef.current.token;
 
+        // Imagery and terrain come from Cesium ion. If ion rejects the token or cannot be reached the globe would be an empty void,
+        // so a failed imagery layer is reported as fatal (the workspace then shows the working 2D map and says why).
+        const imageryLayer = Cesium.ImageryLayer.fromProviderAsync(Cesium.createWorldImageryAsync({ style: Cesium.IonWorldImageryStyle.AERIAL_WITH_LABELS }));
+        const terrain = Cesium.Terrain.fromWorldTerrain({ requestVertexNormals: true, requestWaterMask: true });
+        imageryLayer.errorEvent.addEventListener((error: { message?: string }) => {
+          report({ state: "error", fatal: true, message: `Cesium ion imagery did not load${error?.message ? `: ${error.message}` : ""}. The ion token may be invalid or ion unreachable` });
+        });
+        terrain.errorEvent.addEventListener((error: { message?: string }) => {
+          // With an async terrain request the globe draws nothing until terrain is ready, so a failed request would leave an empty planet.
+          // Fall back to the smooth ellipsoid so imagery, boundaries and markers still render.
+          if (viewer && !viewer.isDestroyed()) { viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider(); viewer.scene.requestRender(); }
+          report({ state: "error", message: `Cesium World Terrain did not load${error?.message ? `: ${error.message}` : ""}. Showing imagery without terrain relief.` });
+        });
+
         viewer = new Cesium.Viewer(hostRef.current, {
           animation: false, timeline: false, baseLayerPicker: false, geocoder: false, homeButton: false,
           sceneModePicker: false, navigationHelpButton: false, fullscreenButton: false, infoBox: false,
           selectionIndicator: false, vrButton: false,
           // Render on change instead of every frame: the globe is idle most of the time and the effects below request a frame when they change the scene.
           requestRenderMode: true, maximumRenderTimeChange: Number.POSITIVE_INFINITY,
-          baseLayer: Cesium.ImageryLayer.fromProviderAsync(Cesium.createWorldImageryAsync({ style: Cesium.IonWorldImageryStyle.AERIAL_WITH_LABELS })),
-          terrain: Cesium.Terrain.fromWorldTerrain({ requestVertexNormals: true, requestWaterMask: true }),
+          baseLayer: imageryLayer,
+          terrain,
           skyAtmosphere: new Cesium.SkyAtmosphere(),
         });
         viewerRef.current = viewer;
@@ -200,14 +219,14 @@ export function AorCesiumGlobe(props: Props) {
 
         // Report readiness once the first terrain/imagery frame has rendered.
         const removeListener = viewer.scene.globe.tileLoadProgressEvent.addEventListener((remaining: number) => {
-          if (remaining === 0) { removeListener(); if (!cancelled) propsRef.current.onStatus({ state: "ready" }); }
+          if (remaining === 0) { removeListener(); report({ state: "ready" }); }
         });
         viewer.scene.renderError.addEventListener((_scene: unknown, error: unknown) => {
-          if (!cancelled) propsRef.current.onStatus({ state: "error", message: error instanceof Error ? error.message : "Cesium render error." });
+          report({ state: "error", message: error instanceof Error ? error.message : "Cesium render error." });
         });
-        window.setTimeout(() => { if (!cancelled) propsRef.current.onStatus({ state: "ready" }); }, 12_000);
+        window.setTimeout(() => { report({ state: "ready" }); }, 12_000);
       } catch (error) {
-        if (!cancelled) propsRef.current.onStatus({ state: "error", fatal: true, message: error instanceof Error ? error.message : "Cesium failed to start." });
+        report({ state: "error", fatal: true, message: error instanceof Error ? error.message : "Cesium failed to start." });
       }
     })();
     return () => {
@@ -227,6 +246,17 @@ export function AorCesiumGlobe(props: Props) {
     const { view, index, directory, centerFallback } = props;
     if (!Cesium || !viewer || viewer.isDestroyed()) return;
     viewer.camera.cancelFlight();
+    // Aim east of the subject by half the docked panel's share of the view, so the subject lands in the visible part of the map.
+    const withInset = (sphere: InstanceType<typeof Cesium.BoundingSphere>, range: number) => {
+      const inset = propsRef.current.rightInsetPx ?? 0;
+      const width = viewer.canvas.clientWidth || 1;
+      if (!inset || inset >= width * 0.6) return sphere;
+      const fovy = (viewer.camera.frustum as { fovy?: number }).fovy ?? Math.PI / 3;
+      const halfHorizontal = Math.tan(fovy / 2) * (width / (viewer.canvas.clientHeight || 1));
+      const meters = (inset / width) * range * halfHorizontal;
+      const center = Cesium.Cartographic.fromCartesian(sphere.center);
+      return new Cesium.BoundingSphere(Cesium.Cartesian3.fromRadians(center.longitude + meters / (6_378_137 * Math.max(Math.cos(center.latitude), 0.2)), center.latitude, 0), sphere.radius);
+    };
     if (view.level === "world") {
       viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(WORLD_VIEW.lon, WORLD_VIEW.lat, WORLD_VIEW.height), orientation: { heading: 0, pitch: Cesium.Math.toRadians(-90), roll: 0 }, duration: 2.4 });
       return;
@@ -234,7 +264,7 @@ export function AorCesiumGlobe(props: Props) {
     if (view.level === "aor" && view.aorId) {
       const command = COMMAND_VIEW[view.aorId];
       const sphere = new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(command.center[0], command.center[1], 0), 1);
-      viewer.camera.flyToBoundingSphere(sphere, { duration: 2.6, offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-52), command.range) });
+      viewer.camera.flyToBoundingSphere(withInset(sphere, command.range), { duration: 2.6, offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-52), command.range) });
       return;
     }
     if (view.level === "country") {
@@ -246,14 +276,16 @@ export function AorCesiumGlobe(props: Props) {
         const { west, south, east, north } = entry.focus;
         const sphere = Cesium.BoundingSphere.fromRectangle3D(Cesium.Rectangle.fromDegrees(west, south, east, north));
         // Dive: orbital -> country framing, pitched into an angled terrain view.
-        viewer.camera.flyToBoundingSphere(sphere, { duration: 3.4, offset: new Cesium.HeadingPitchRange(Cesium.Math.toRadians(8), Cesium.Math.toRadians(-38), Math.max(sphere.radius * 2.7, 220_000)) });
+        const range = Math.max(sphere.radius * 2.7, 220_000);
+        viewer.camera.flyToBoundingSphere(withInset(sphere, range), { duration: 3.4, offset: new Cesium.HeadingPitchRange(Cesium.Math.toRadians(8), Cesium.Math.toRadians(-38), range) });
         return;
       }
       // No polygon: aim at the directory's reference point. No boundary is invented for it.
       const point = location?.referencePoint ?? (centerFallback ? { lon: centerFallback[0], lat: centerFallback[1] } : null);
       if (point) {
         const sphere = new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(point.lon, point.lat, 0), 1);
-        viewer.camera.flyToBoundingSphere(sphere, { duration: 3, offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-40), location?.referencePoint ? 420_000 : 90_000) });
+        const range = location?.referencePoint ? 420_000 : 90_000;
+        viewer.camera.flyToBoundingSphere(withInset(sphere, range), { duration: 3, offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-40), range) });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

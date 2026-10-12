@@ -46,6 +46,17 @@ export default function AorCesiumWorkspace() {
   const [showAorShading, setShowAorShading] = useState(true);
   const [showMarkers, setShowMarkers] = useState(true);
   const [layersOpen, setLayersOpen] = useState(false);
+  const layersRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!layersOpen) return;
+    const close = (event: KeyboardEvent | PointerEvent) => {
+      if (event instanceof KeyboardEvent) { if (event.key === "Escape") setLayersOpen(false); return; }
+      if (layersRef.current && !layersRef.current.contains(event.target as Node)) setLayersOpen(false);
+    };
+    window.addEventListener("keydown", close);
+    window.addEventListener("pointerdown", close);
+    return () => { window.removeEventListener("keydown", close); window.removeEventListener("pointerdown", close); };
+  }, [layersOpen]);
   const [activeTab, setActiveTab] = useState<PanelTab>("medical");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [focusEvidence, setFocusEvidence] = useState<{ id: string; nonce: number } | null>(null);
@@ -242,7 +253,7 @@ export default function AorCesiumWorkspace() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#01050a] text-white" data-workspace="aor-factors-cesium" data-map-mode={use3d ? "3d" : "2d"}>
       <Sidebar />
-      <section className="fixed inset-y-0 left-0 right-0 overflow-hidden bg-[#01050a] lg:left-[210px]" aria-label="AOR Factors CesiumJS globe workspace">
+      <section className="fixed bottom-0 left-0 right-0 top-[4.5rem] overflow-hidden bg-[#01050a] lg:left-[210px] lg:top-0" aria-label="AOR Factors CesiumJS globe workspace">
         {use3d ? (
           <AorCesiumGlobe
             token={config!.token}
@@ -257,6 +268,7 @@ export default function AorCesiumWorkspace() {
             altitudeLimitMeters={altitudeLimitMeters}
             showAorShading={showAorShading}
             showMarkers={showMarkers}
+            rightInsetPx={view.level === "world" ? 0 : view.level === "aor" ? 376 : 436}
             onPickLocation={goLocation}
             onPickSplit={goSplit}
             onPickEvidence={pickEvidence}
@@ -281,16 +293,7 @@ export default function AorCesiumWorkspace() {
           />
         ) : null}
 
-        {config && !config.configured ? (
-          <div data-testid="aor-cesium-token-missing" role="status" className="pointer-events-none absolute bottom-16 left-4 z-20 max-w-[min(26rem,calc(100%-2rem))] rounded-2xl border border-amber-300/25 bg-black/65 px-4 py-2.5 text-left backdrop-blur-xl">
-            <p className="text-[11px] font-bold text-amber-100/90"><AlertTriangle className="mr-1 inline text-amber-300" size={12} />3D globe unavailable — Cesium ion token is not configured</p>
-            <p className="mt-1 text-[10px] leading-4 text-slate-400">Set <code className="rounded bg-white/10 px-1">{config.requiredEnv || "CESIUM_ION_ACCESS_TOKEN"}</code> on the API service to enable the CesiumJS globe with Cesium ion terrain and imagery. The same registry, search and requirements run on the 2D map meanwhile.</p>
-          </div>
-        ) : null}
-
         {(!config || (use3d && status.state === "loading")) ? <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center"><div className="text-center"><Loader2 className="mx-auto animate-spin text-cyan-100/55" size={22} /><p className="mt-3 text-[10px] text-slate-400">Loading Cesium terrain and imagery…</p></div></div> : null}
-        {use3d && status.state === "error" && !status.fatal ? <div className="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-full border border-amber-300/25 bg-black/60 px-4 py-2 text-[10px] text-amber-100/80 backdrop-blur-xl"><AlertTriangle size={11} className="mr-1 inline" />{status.message || "Cesium reported an error."}</div> : null}
-        {mapNotice && !use3d && globeReady ? <div data-testid="aor-map-notice" className="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-full border border-amber-300/25 bg-black/60 px-4 py-2 text-[10px] text-amber-100/80 backdrop-blur-xl"><AlertTriangle size={11} className="mr-1 inline" />{mapNotice}</div> : null}
         {boundaryError ? <div className="absolute left-1/2 top-14 z-30 -translate-x-1/2 rounded-full border border-amber-300/25 bg-black/60 px-4 py-2 text-[10px] text-amber-100/80 backdrop-blur-xl">Country boundaries failed to load: {boundaryError}</div> : null}
         {directoryError ? <div data-testid="aor-directory-error" className="absolute left-1/2 top-24 z-30 max-w-[min(34rem,calc(100%-2rem))] -translate-x-1/2 rounded-2xl border border-amber-300/25 bg-black/65 px-4 py-2 text-center text-[10px] leading-4 text-amber-100/85 backdrop-blur-xl"><AlertTriangle size={11} className="mr-1 inline" />The location directory could not be loaded ({directoryError}). Countries can still be opened from the map, but their area of responsibility is not shown because it is not assumed.</div> : null}
 
@@ -305,8 +308,8 @@ export default function AorCesiumWorkspace() {
           <div className="pointer-events-auto flex max-w-full flex-wrap gap-1" data-testid="aor-command-chips">
             {COMMAND_ORDER.filter((id) => directory && !directory.directory.degraded && commandSummary(id)).map((id) => <button key={id} type="button" data-testid={`aor-chip-${id}`} aria-pressed={selectedAorId === id} onClick={() => goAor(id)} title={commandSummary(id) ? `${commandSummary(id)!.total} locations` : undefined} className={`rounded-full border px-2.5 py-1 text-[9px] font-bold backdrop-blur-xl transition ${selectedAorId === id ? "border-white/25 bg-white/[.12] text-white" : "border-white/[.08] bg-black/40 text-slate-300 hover:text-white"}`}><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full" style={{ background: COMMAND_VIEW[id].color }} />{COMMAND_VIEW[id].label.replace("US", "")}</button>)}
           </div>
-          <div className="pointer-events-auto relative w-72">
-            <div className="flex items-center gap-2 rounded-full border border-white/[.09] bg-black/45 px-3 backdrop-blur-xl"><Search size={12} className="text-slate-500" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a country or territory" aria-label="Find a country or territory" className="min-h-8 w-full bg-transparent text-[11px] text-white outline-none placeholder:text-slate-600" /></div>
+          <div className="pointer-events-auto relative z-10 w-72">
+            <div className="flex items-center gap-2 rounded-full border border-white/[.09] bg-black/45 px-3 backdrop-blur-xl transition focus-within:border-cyan-200/60 focus-within:bg-black/60"><Search size={12} className="text-slate-500" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a country or territory" aria-label="Find a country or territory" style={{ outline: "none" }} className="min-h-8 w-full bg-transparent text-[11px] text-white placeholder:text-slate-600" /></div>
             {searchHasResults ? (
               <ul data-testid="aor-search-results" className="absolute left-0 right-0 top-9 max-h-80 overflow-y-auto rounded-2xl border border-white/[.09] bg-[#050d14]/95 backdrop-blur-2xl">
                 {results.splitParents.map((entry) => <li key={entry.iso3}><button type="button" data-testid="aor-search-split" onClick={() => { setQuery(""); goSplit(entry.iso3); }} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[11px] text-white/85 hover:bg-white/[.06]"><span>{entry.name}</span><span className="text-[9px] text-amber-200/80">split across {entry.commands.map((id) => COMMAND_VIEW[id].short).join(" / ")}</span></button></li>)}
@@ -314,10 +317,18 @@ export default function AorCesiumWorkspace() {
               </ul>
             ) : noMatch ? <p className="absolute left-0 right-0 top-9 rounded-2xl border border-white/[.09] bg-[#050d14]/95 px-3 py-2 text-[10px] text-slate-400 backdrop-blur-2xl">No directory location matches “{query.trim()}”.</p> : null}
           </div>
+          {config && !config.configured ? (
+          <div data-testid="aor-cesium-token-missing" role="status" className="pointer-events-auto w-72 rounded-2xl border border-amber-300/25 bg-black/65 px-3 py-2 text-left backdrop-blur-xl">
+            <p className="text-[11px] font-bold text-amber-100/90"><AlertTriangle className="mr-1 inline text-amber-300" size={12} />3D globe unavailable — Cesium ion token is not configured</p>
+            <p className="mt-1 text-[10px] leading-4 text-slate-400">Set <code className="rounded bg-white/10 px-1">{config.requiredEnv || "CESIUM_ION_ACCESS_TOKEN"}</code> on the API service to enable the CesiumJS globe with Cesium ion terrain and imagery. The same registry, search and requirements run on the 2D map meanwhile.</p>
+          </div>
+        ) : null}
+          {use3d && status.state === "error" && !status.fatal ? <div className="pointer-events-auto w-72 rounded-2xl border border-amber-300/25 bg-black/65 px-3 py-2 text-[10px] leading-4 text-amber-100/85 backdrop-blur-xl"><AlertTriangle size={11} className="mr-1 inline" />{status.message || "Cesium reported an error."}</div> : null}
+          {mapNotice && !use3d && globeReady ? <div data-testid="aor-map-notice" className="pointer-events-auto w-72 rounded-2xl border border-amber-300/25 bg-black/65 px-3 py-2 text-[10px] leading-4 text-amber-100/85 backdrop-blur-xl"><AlertTriangle size={11} className="mr-1 inline" />{mapNotice}</div> : null}
         </div>
 
         {/* Compact layer selector and map-mode toggle */}
-        <div className="absolute bottom-5 left-4 z-30 flex items-end gap-2">
+        <div ref={layersRef} className="absolute bottom-5 left-4 z-30 flex items-end gap-2">
           <div>
             <button type="button" onClick={() => setLayersOpen((open) => !open)} aria-expanded={layersOpen} className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/[.09] bg-black/45 px-3 py-1.5 text-[10px] font-bold text-white/80 backdrop-blur-xl"><Layers size={12} />Layers · {activeLayers.size}/{DIMENSIONS.length}</button>
             {layersOpen ? <ul className="pointer-events-auto absolute bottom-9 left-0 w-60 overflow-hidden rounded-2xl border border-white/[.09] bg-[#050d14]/92 backdrop-blur-2xl" aria-label="Map layers">

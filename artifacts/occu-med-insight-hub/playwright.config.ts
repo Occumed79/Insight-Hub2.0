@@ -17,7 +17,11 @@ export default defineConfig({
     baseURL,
     browserName: "chromium",
     // Environments whose Chromium build differs from Playwright's pinned one can point at theirs with PW_CHROMIUM_PATH.
-    launchOptions: process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : {},
+    // Software WebGL (SwiftShader) so the CesiumJS globe can be exercised on machines without a GPU; machines with a GPU are unaffected.
+    launchOptions: {
+      args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"],
+      ...(process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : {}),
+    },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",

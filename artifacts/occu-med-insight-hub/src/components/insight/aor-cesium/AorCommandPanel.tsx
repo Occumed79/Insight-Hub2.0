@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { MapPin, X } from "lucide-react";
+import { AorCommandNews } from "./AorCommandNews";
 import { COMMAND_VIEW, EVIDENCE_CLASS_LABEL, geographicClassLabel, type CommandId, type DirectoryIndex, type DirectoryLocation } from "./aor-directory";
 
 /** Command-level navigation: every location the registry assigns to the command, with how well each assignment is evidenced. */
 export function AorCommandPanel({ command, directory, onPick, onClose }: { command: CommandId; directory: DirectoryIndex; onPick: (id: string) => void; onClose: () => void }) {
   const [filter, setFilter] = useState("");
+  const [tab, setTab] = useState<"locations" | "news">("locations");
   const summary = directory.directory.commands.find((entry) => entry.id === command);
   const view = COMMAND_VIEW[command];
   const members = useMemo(() => directory.directory.locations.filter((entry) => entry.command === command), [directory, command]);
@@ -38,12 +40,19 @@ export function AorCommandPanel({ command, directory, onPick, onClose }: { comma
         </div>
         <button type="button" onClick={onClose} aria-label="Close command panel" className="rounded-full border border-white/10 p-1.5 text-slate-400 hover:text-white"><X size={13} /></button>
       </header>
+      <nav className="flex gap-1 border-b border-white/[.06] px-3 py-2" aria-label="Command panel sections">
+        {([["locations", "Locations"], ["news", "News & publications"]] as const).map(([id, text]) => (
+          <button key={id} type="button" data-testid={`aor-command-tab-${id}`} aria-pressed={tab === id} onClick={() => setTab(id)} className={`rounded-full border px-2.5 py-1 text-[9px] font-bold transition ${tab === id ? "border-cyan-200/25 bg-cyan-200/10 text-white" : "border-white/[.06] text-slate-400 hover:text-white"}`}>{text}</button>
+        ))}
+      </nav>
+      {tab === "news" ? <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2"><AorCommandNews command={command} active /></div> : <>
       <div className="border-b border-white/[.06] px-3 py-2"><input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder={`Filter ${view.short} locations`} aria-label={`Filter ${view.short} locations`} className="min-h-8 w-full rounded-lg border border-white/[.08] bg-black/25 px-3 text-[10px] text-white outline-none placeholder:text-slate-600" /></div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         {sovereign.length ? <section><h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">Sovereign states ({sovereign.length})</h3><ul>{sovereign.map(row)}</ul></section> : null}
         {entities.length ? <section className="mt-3"><h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">Territories, dependencies and other entities ({entities.length})</h3><ul>{entities.map(row)}</ul></section> : null}
         {!shown.length ? <p className="py-3 text-[10px] text-slate-500">No location matches “{filter}”.</p> : null}
       </div>
+      </>}
     </aside>
   );
 }

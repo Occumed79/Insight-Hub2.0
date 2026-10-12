@@ -290,26 +290,75 @@ test("if the directory cannot load, polygons still open but no AOR is shown or a
   await expect(page.getByTestId("aor-intel-panel").getByTestId("aor-panel-title")).toHaveText("Kenya");
 });
 
-test("with a Cesium token the globe mounts, and the person can switch to the functional 2D map and back", async ({ page }) => {
-  await routeAorBackend(page);
+async function routeIonStandIn(page: Page, options: { imagery: "local" | "unreachable" }) {
   await page.route("**/api/aor/cesium-config", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: true, token: "test-token", requiredEnv: "CESIUM_ION_ACCESS_TOKEN" }) }));
   await page.route("**/api/aor/global-watch", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, earthquakes: [], disasters: [] }) }));
-  await page.route(/cesium\.com/, (route) => route.abort());
+  if (options.imagery === "unreachable") { await page.route(/cesium\.com/, (route) => route.abort()); return; }
+  // Stand-in for Cesium ion: world imagery is served from Cesium's own bundled tiles (same origin); world terrain is refused, which the app must survive.
+  // Playwright applies the most recently registered matching route first, so the catch-all goes first.
+  await page.route("https://api.cesium.com/**", (route) => route.fulfill({ status: 500, headers: { "access-control-allow-origin": "*" }, body: "stand-in" }));
+  // Playwright applies the most recently registered matching route first, so the catch-all is registered first.
+  await page.route("https://api.cesium.com/**", (route) => route.fulfill({ status: 500, headers: { "access-control-allow-origin": "*" }, body: "stand-in" }));
+  await page.route("https://api.cesium.com/v1/assets/3/endpoint**", (route) => route.fulfill({
+    status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" },
+    body: JSON.stringify({ type: "IMAGERY", externalType: "URL_TEMPLATE", options: { url: `${new URL(page.url()).origin}/cesium/Assets/Textures/NaturalEarthII/{z}/{x}/{reverseY}.jpg`, maximumLevel: 2 }, attributions: [] }),
+  }));
+}
+
+test("with a configured Cesium token the 3D globe mounts, navigates World → command → country, and switches to the 2D map and back", async ({ page }) => {
+  test.setTimeout(120_000);
+  await routeAorBackend(page);
+  await routeIonStandIn(page, { imagery: "local" });
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/aor-factors");
   await expect(page.getByTestId("aor-cesium-globe")).toBeAttached();
+  await expect(page.locator("canvas")).toHaveCount(1, { timeout: 60_000 });
+  await expect(page.locator("[data-workspace='aor-factors-cesium']")).toHaveAttribute("data-map-mode", "3d");
+  await expect(page.getByTestId("aor-cesium-token-missing")).toHaveCount(0);
+  // command -> country on the globe
+  await page.getByTestId("aor-chip-EUCOM").click();
+  await expect(page.getByTestId("aor-command-panel")).toContainText("66 locations");
+  await search(page, "Germany");
+  await page.getByTestId("aor-search-result").first().click();
+  await expect(page.getByTestId("aor-intel-panel").getByTestId("aor-panel-title")).toHaveText("Germany");
+  await expect(page.getByTestId("aor-tab-medical")).toHaveAttribute("aria-pressed", "true");
+  // Imagery loaded and terrain was refused: the globe stays in 3D (no "could not start" fallback).
+  await page.waitForTimeout(6000);
   await expect(page.locator("[data-workspace='aor-factors-cesium']")).toHaveAttribute("data-map-mode", "3d");
   const toggle = page.getByTestId("aor-map-mode");
   await toggle.click();
   await expect(page.getByTestId("aor-flat-map")).toBeVisible();
   await expect(page.getByTestId("aor-cesium-globe")).toHaveCount(0);
-  await search(page, "Kenya");
-  await page.getByTestId("aor-search-result").first().click();
-  await expect(page.getByTestId("aor-intel-panel").getByTestId("aor-panel-title")).toHaveText("Kenya");
+  await expect(page.getByTestId("aor-intel-panel").getByTestId("aor-panel-title")).toHaveText("Germany");
   await toggle.click();
   await expect(page.getByTestId("aor-cesium-globe")).toBeAttached();
   await expect(page.getByTestId("aor-intel-panel")).toBeVisible();
-  // Cesium ion is unreachable in this test, so failures inside Cesium itself are tolerated; the workspace must raise none of its own.
-  expect(errors.filter((message) => !/cesium|WebGL|worker|ion\.|imagery|terrain|Failed to fetch|NetworkError/i.test(message))).toEqual([]);
+  expect(errors.filter((message) => !/WebGL|worker/i.test(message))).toEqual([]);
+});
+
+test("if Cesium ion rejects the token or cannot be reached, the workspace falls back to the working 2D map and says why", async ({ page }) => {
+  test.setTimeout(90_000);
+  await routeAorBackend(page);
+  await routeIonStandIn(page, { imagery: "unreachable" });
+  await page.goto("/aor-factors");
+  await expect(page.locator("[data-workspace='aor-factors-cesium']")).toHaveAttribute("data-map-mode", "2d", { timeout: 60_000 });
+  await expect(page.getByTestId("aor-map-notice")).toContainText("Cesium ion imagery did not load");
+  await expect(page.getByTestId("aor-flat-map")).toBeVisible();
+  await search(page, "Kenya");
+  await page.getByTestId("aor-search-result").first().click();
+  await expect(page.getByTestId("aor-intel-panel").getByTestId("aor-panel-title")).toHaveText("Kenya");
+});
+
+test("the setup notice never covers the search results, and Escape closes the layers list", async ({ page }) => {
+  await openWorkspace(page);
+  await expect(page.getByTestId("aor-cesium-token-missing")).toBeVisible();
+  await search(page, "Kenya");
+  await expect(page.getByTestId("aor-search-result").first()).toBeVisible();
+  await page.getByTestId("aor-search-result").first().click({ timeout: 5000 }); // fails if the notice intercepts the click
+  await expect(page.getByTestId("aor-intel-panel").getByTestId("aor-panel-title")).toHaveText("Kenya");
+  await page.getByRole("button", { name: /Layers/ }).click();
+  await expect(page.getByLabel("Map layers")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("Map layers")).toHaveCount(0);
 });
