@@ -7,7 +7,7 @@
 //  - "supplied_feed"            a feed address supplied by the project owner from the command's own site. It is registered as given; whether it
 //                               answers is reported by the monitor, never assumed.
 //  - "supplied_listing"         an official page address supplied by the project owner (a listing or an RSS directory page).
-//  - "found_in_official_search" an address returned by a web search of the command's own domain when the registry was written.
+//  - "found_in_official_search" a publicly confirmed command-hosted page OR named DoD/DVIDS unit listing verified during source research.
 //  - "expected_not_yet_confirmed" follows the site's pattern but no response has confirmed it.
 // No feed address is invented. Individual feeds are either supplied (above), discovered from an official RSS directory page or from the
 // <link rel="alternate"> tags a page advertises, or not used at all (the page is then parsed as a monitored listing).
@@ -55,7 +55,35 @@ function syndicated(command: CommandId, host: string, name: string, listingUrls:
   }));
 }
 
+
+// DVIDS is the U.S. DoD public-media distribution service. These are unit-authored
+// news listings, NOT native command RSS feeds, directives, or proof of command policy.
+// Preserve the separately monitored command-hosted RSS/Atom/document sources above.
+// DVIDS unit URLs were individually checked against public command-unit profiles.
+const DVIDS_UNITS: Record<CommandId, string> = {
+  NORTHCOM: "USNORTHCOM",
+  SOUTHCOM: "SOUTHCOM",
+  EUCOM: "EUCOM",
+  AFRICOM: "AFRICOM",
+  CENTCOM: "CENTCOM",
+  INDOPACOM: "INDOPACOM",
+};
+const DVIDS_UNIT_SOURCES: CommandNewsSource[] = COMMAND_NEWS_COMMANDS.map((command) => ({
+  id: `dvids-${command.toLowerCase()}-unit-news`,
+  command,
+  label: `DVIDS / DoD — ${command} unit-published news (not policy directives)`,
+  kind: "news",
+  listingUrl: `https://www.dvidshub.net/unit/${DVIDS_UNITS[command]}`,
+  listingFallback: true,
+  feedUrls: [],
+  atomUrls: [],
+  directoryUrl: null,
+  urlBasis: "found_in_official_search",
+  officialSite: "https://www.dvidshub.net/",
+}));
+
 export const COMMAND_NEWS_SOURCES: CommandNewsSource[] = [
+  ...DVIDS_UNIT_SOURCES,
   ...syndicated("EUCOM", "www.eucom.mil", "USEUCOM", { "press-releases": "https://www.eucom.mil/media-gallery/press-releases" }),
   ...syndicated("AFRICOM", "www.africom.mil", "USAFRICOM", { "press-releases": "https://www.africom.mil/media-gallery/press-releases" }),
   {
