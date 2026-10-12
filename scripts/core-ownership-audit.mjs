@@ -25,8 +25,6 @@ for (const route of [
   "/public-legal-references",
   "/industry-impact-calculator",
   "/industry-injury-benchmarks",
-  "/job-intelligence",
-  "/occupational-demands",
 ]) {
   assert.ok(app.includes(`path=\"${route}\"`), `Hub 2 is missing route ${route}`);
 }
@@ -47,7 +45,6 @@ for (const expected of [
   '{ href: "/federal-agencies", label: "Federal Agencies"',
   '{ href: "/state-agencies", label: "State Agencies"',
   '{ href: "/industry-impact-calculator", label: "Industry Impact Calculator"',
-  '{ href: "/job-intelligence", label: "Job Intelligence"',
 ]) {
   assert.ok(sidebar.includes(expected), `Hub 2 sidebar is missing reviewed destination ${expected}`);
 }
@@ -67,12 +64,12 @@ assert.ok(
   "Legacy Industry Injury Benchmarks URL must resolve to Industry Impact",
 );
 assert.ok(
-  app.includes('<Route path="/occupational-demands" component={JobIntelligenceRoute} />'),
-  "Legacy Occupational Demands URL must resolve to Job Intelligence",
+  !app.includes('component={JobIntelligenceRoute}') && !apiIndex.includes('jobIntelligenceRouter') && !apiIndex.includes('standardsIntelligenceRouter'),
+  "Retired Job Intelligence and case-evaluator API routes must not be resurrected",
 );
 assert.ok(
-  app.includes('function JobIntelligenceRoute()') && app.includes('<ReviewerJobIntelligencePage />'),
-  "Job Intelligence route wrapper must retain the reviewed Job Intelligence page",
+  !sidebar.includes('{ href: "/job-intelligence"'),
+  "Retired Job Intelligence must not appear in navigation",
 );
 
 for (const expected of [
@@ -130,11 +127,11 @@ console.log(
   JSON.stringify({
     event: "core_intelligence_ownership_audit_passed",
     owner: "Insight-Hub2.0",
-    frontendRoutes: 13,
+    frontendRoutes: 11,
     publicCompanyLibrary: "neutral-saved-entities",
     relationshipLabelsPublished: false,
-    visibleSidebarDomains: ["federal", "state", "industry-impact", "job-intelligence"],
-    retainedCompatibilityRoutes: ["entities", "prospects", "clients", "competitors", "fec-filings", "industry-injury-benchmarks", "occupational-demands"],
+    visibleSidebarDomains: ["federal", "state", "industry-impact", "onet-master-tool"],
+    retainedCompatibilityRoutes: ["entities", "prospects", "clients", "competitors", "fec-filings", "industry-injury-benchmarks"],
     routeLoading: "contextual-company-library-wrapper",
   }),
 );
