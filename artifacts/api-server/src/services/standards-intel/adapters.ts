@@ -170,6 +170,10 @@ async function fetchEcfr(source: SourceDefinition, fetchText: FetchText, now: Da
   return { items, httpStatus, errors };
 }
 
+// Archive-style feeds (CDC MMWR lists thousands of items) are limited to the newest entries; older history is not "new" and is not monitored.
+export const MAX_FEED_ITEMS = 150;
+const newestFirst = (items: RawItem[]) => [...items].sort((a, b) => (b.publishedAt ?? b.modifiedAt ?? "").localeCompare(a.publishedAt ?? a.modifiedAt ?? ""));
+
 // ── Dispatcher ──────────────────────────────────────────────────────────────
 
 export interface AdapterResult { items: RawItem[]; httpStatus: number | null; partialErrors: string[] }
@@ -189,7 +193,7 @@ export async function fetchSource(source: SourceDefinition, fetchText: FetchText
     case "rss":
     case "atom": {
       const response = await get(fetchText, source.url);
-      return { items: parseFeedItems(response.body, response.finalUrl || source.url), httpStatus: response.status, partialErrors: [] };
+      return { items: newestFirst(parseFeedItems(response.body, response.finalUrl || source.url)).slice(0, MAX_FEED_ITEMS), httpStatus: response.status, partialErrors: [] };
     }
   }
 }

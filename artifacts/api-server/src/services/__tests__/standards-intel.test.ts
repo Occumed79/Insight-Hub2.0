@@ -582,3 +582,25 @@ test("registry: NIOSH is not registered as its own Federal Register agency (it i
   const c = classify({ title: "NIOSH respirator approval", summary: "", source: sourceOf("fr-cdc") });
   assert.ok(c.categories.includes("occupational_medicine") && c.categories.includes("respiratory"));
 });
+
+test("retries: only unhealthy sources are retried between passes, with exponential backoff capped at 6 hours", async () => {
+  const { minGapFor, dueRetries, FAILED_RETRY_MS, MAX_RETRY_GAP_MS } = await import("../standards-intel/service");
+  const base = blankState(osha, NOW);
+  assert.equal(minGapFor({ ...base, consecutiveFailures: 1 }), FAILED_RETRY_MS);
+  assert.equal(minGapFor({ ...base, consecutiveFailures: 2 }), FAILED_RETRY_MS * 2);
+  assert.equal(minGapFor({ ...base, consecutiveFailures: 12 }), MAX_RETRY_GAP_MS);
+  const d = deps(async (url) => ({ status: 200, body: okFeed, finalUrl: url }));
+  d.sources = [osha, sourceOf("osha-directives"), sourceOf("bls-osh")];
+  const at = (minutesAgo: number) => new Date(NOW.getTime() - minutesAgo * 60_000).toISOString();
+  await d.store.saveSourceState({ ...blankState(osha, NOW), status: "unavailable", consecutiveFailures: 1, lastAttemptAt: at(20) });
+  await d.store.saveSourceState({ ...blankState(sourceOf("osha-directives"), NOW), status: "unavailable", consecutiveFailures: 3, lastAttemptAt: at(20) });
+  await d.store.saveSourceState({ ...blankState(sourceOf("bls-osh"), NOW), status: "active", lastSuccessAt: at(20), lastAttemptAt: at(20) });
+  assert.deepEqual(await dueRetries(d), ["osha-interpretations"]);
+});
+
+test("archive-style feeds are limited to their newest entries", async () => {
+  const items = Array.from({ length: 400 }, (_, i) => rssItem(`Item ${i}`, `https://www.cdc.gov/mmwr/${i}`, new Date(Date.UTC(2020, 0, 1 + i)).toUTCString(), "x")).join("");
+  const result = await fetchSource(sourceOf("bls-osh"), async (url) => ({ status: 200, body: RSS(items), finalUrl: url }), NOW);
+  assert.equal(result.items.length, 150);
+  assert.equal(result.items[0]!.title, "Item 399");
+});

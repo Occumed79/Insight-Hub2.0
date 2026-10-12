@@ -8,6 +8,15 @@ export const SCHEDULE_INTERVAL_MS = 12 * 60 * 60_000; // twice daily
 export const SCHEDULED_MIN_GAP_MS = 6 * 60 * 60_000; // a scheduled pass skips a source fetched within the last 6 h (redeploy-storm protection)
 export const MANUAL_COOLDOWN_MS = 5 * 60_000; // a source is never fetched more than once per 5 min, however often a refresh is requested
 export const FAILED_RETRY_MS = 15 * 60_000;
+export const MAX_RETRY_GAP_MS = 6 * 60 * 60_000;
+export const DEGRADED_RECHECK_MS = 60 * 60_000;
+
+/** How long a source must rest before the scheduler tries it again: exponential backoff for failures (15 min doubling to 6 h), 1 h for a partly degraded source, 6 h otherwise. */
+export function minGapFor(state: SourceState): number {
+  if (state.consecutiveFailures > 0) return Math.min(FAILED_RETRY_MS * 2 ** (state.consecutiveFailures - 1), MAX_RETRY_GAP_MS);
+  if (state.status === "degraded") return DEGRADED_RECHECK_MS;
+  return SCHEDULED_MIN_GAP_MS;
+}
 const LEASE = "standards-intel-refresh";
 const LEASE_TTL_MS = 8 * 60_000; // renewed after every source, so a pass of any length keeps its lease while a dead instance's lease lapses within minutes
 export const SOURCE_TIMEOUT_MS = 90_000;
@@ -101,8 +110,7 @@ async function refreshSource(deps: ServiceDeps, source: SourceDefinition, opts: 
   }
   if (state.lastAttemptAt) {
     const age = now.getTime() - Date.parse(state.lastAttemptAt);
-    const failedLast = state.consecutiveFailures > 0;
-    const gap = opts.trigger === "manual" ? MANUAL_COOLDOWN_MS : failedLast ? FAILED_RETRY_MS : SCHEDULED_MIN_GAP_MS;
+    const gap = opts.trigger === "manual" ? MANUAL_COOLDOWN_MS : minGapFor(state);
     if (age < gap) {
       return { ...base, outcome: "skipped", reason: `Fetched ${Math.round(age / 1000)} s ago; the minimum interval is ${Math.round(gap / 60_000)} min.`, durationMs: 0 };
     }
@@ -217,7 +225,7 @@ export async function ingestionStatus(deps: ServiceDeps) {
   const sources = await describeSources(deps);
   const now = nowOf(deps);
   const runs = await deps.store.listRuns(30);
-  const lastScheduled = runs.find((run) => run.trigger !== "manual" && run.finishedAt) ?? null;
+  const lastScheduled = runs.find((run) => run.trigger !== "manual" && run.scope === "all" && run.finishedAt) ?? null;
   const ingestible = sources.filter((source) => source.ingestible);
   const byStatus = (status: SourceStatus) => sources.filter((source) => source.status === status).length;
   return {
@@ -231,15 +239,34 @@ export async function ingestionStatus(deps: ServiceDeps) {
   };
 }
 
+/** Ingestible sources that failed (or are degraded) and have rested long enough to be tried again. Healthy sources wait for the twice-daily pass. */
+export async function dueRetries(deps: ServiceDeps): Promise<string[]> {
+  const now = nowOf(deps).getTime();
+  const states = new Map((await deps.store.listSourceStates()).map((state) => [state.sourceId, state]));
+  return registry(deps).filter(isIngestible).filter((source) => {
+    const state = states.get(source.id);
+    if (!state || !state.lastAttemptAt) return false;
+    const unhealthy = state.consecutiveFailures > 0 || state.status === "degraded";
+    return unhealthy && now - Date.parse(state.lastAttemptAt) >= minGapFor(state);
+  }).map((source) => source.id);
+}
+
 // ── Scheduler ───────────────────────────────────────────────────────────────
 
 export function startStandardsScheduler(deps: ServiceDeps, options: { checkEveryMs?: number; firstDelayMs?: number } = {}): () => void {
   const tick = async (startup: boolean) => {
     try {
       const runs = await deps.store.listRuns(30);
-      const last = runs.find((run) => run.trigger !== "manual" && run.finishedAt);
+      const last = runs.find((run) => run.trigger !== "manual" && run.scope === "all" && run.finishedAt);
       const due = !last || nowOf(deps).getTime() - Date.parse(last.finishedAt!) >= SCHEDULE_INTERVAL_MS - 5 * 60_000;
-      if (!due) return;
+      if (!due) {
+        // Between the twice-daily passes, only unhealthy sources are retried, with growing rest periods.
+        const retry = await dueRetries(deps);
+        if (!retry.length) return;
+        const retried = await startRefresh(deps, { trigger: "scheduled", sourceIds: retry });
+        if (retried.accepted) await retried.done;
+        return;
+      }
       const started = await startRefresh(deps, { trigger: startup && !last ? "startup" : "scheduled" });
       if (started.accepted) await started.done;
     } catch (error) {

@@ -40,3 +40,6 @@ A source is `active` only after a successful fetch **and** parse. Failures are r
 * One refresh at a time across instances (database lease). A scheduled pass skips sources fetched in the last 6 h; any pass skips sources fetched in the last 5 min (15 min after a failure). One retry for transient errors. At most 4 hosts in parallel, one request at a time per host.
 * Tables (created on first use): `si_sources`, `si_documents`, `si_document_versions`, `si_change_events`, `si_ingestion_runs`, `si_leases`.
 * Classification is evidence-based (matched terms are stored with each document) and multi-category; `applicabilityNote` states that legal applicability to a specific employer or worker is not determined.
+
+## Retries
+Between the twice-daily passes the scheduler (checked every 15 min) retries only unhealthy sources: 15 min after the first failure, doubling per consecutive failure up to 6 h; a partly degraded source is re-read hourly. Archive-style feeds are limited to their 150 newest entries.
