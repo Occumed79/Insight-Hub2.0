@@ -118,7 +118,7 @@ export function AorCesiumGlobe(props: Props) {
           const reason = error?.message || "";
           // A token rejection / exhausted quota needs the alternate account,
           // not a terrain-only fallback that keeps using a throttled token.
-          if (/\\b(401|403|429)\\b|rate[\\s-]*limit|quota|too many requests|unauthorized|forbidden|invalid token/i.test(reason)) {
+          if (/\b(401|403|429)\b|rate[\s-]*limit|quota|too many requests|unauthorized|forbidden|invalid token/i.test(reason)) {
             report({ state: "error", fatal: true, message: `Cesium ion World Terrain authorization or rate limit failure${reason ? `: ${reason}` : ""}.` });
             return;
           }
