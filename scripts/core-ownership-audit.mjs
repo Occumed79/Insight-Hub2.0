@@ -71,6 +71,14 @@ assert.ok(
   !sidebar.includes('{ href: "/job-intelligence"'),
   "Retired Job Intelligence must not appear in navigation",
 );
+assert.ok(
+  !app.includes('path="/clinical-calculators"') && !app.includes('ReviewerClinicalCalculatorsPage'),
+  "Retired Clinical Calculators route and component must not be reintroduced",
+);
+assert.ok(
+  !sidebar.includes('{ href: "/clinical-calculators"'),
+  "Retired Clinical Calculators must not reappear in navigation",
+);
 
 for (const expected of [
   "getSavedGeographicEntities",
