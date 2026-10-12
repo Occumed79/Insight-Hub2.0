@@ -426,6 +426,7 @@ export function AorCesiumGlobe(props: Props) {
     }
     if (view.level !== "country" && activeLayers.has("disasters")) {
       for (const event of worldEvents) {
+        if (points.entities.getById(`world:${event.id}`)) continue;
         points.entities.add({
           id: `world:${event.id}`,
           position: Cesium.Cartesian3.fromDegrees(event.lon, event.lat),

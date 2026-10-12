@@ -90,13 +90,20 @@ export default function AorCesiumWorkspace() {
     getJson<AorDirectory & { ok?: boolean }>("/api/aor/directory")
       .then((payload) => { if (!active) return; if (!Array.isArray(payload.locations)) throw new Error("The location directory response was empty."); setDirectory(buildDirectoryIndex(payload)); })
       .catch((error) => { if (active) setDirectoryError(errorText(error)); });
-    getJson<{ earthquakes?: Array<{ id: string; title?: string; magnitude?: number; latitude?: number; longitude?: number; place?: string; url?: string }>; disasters?: Array<{ id?: string; title?: string; eventType?: string; alertLevel?: string; latitude?: number; longitude?: number; url?: string }> }>("/api/aor/global-watch")
+    getJson<{ earthquakes?: Array<{ id: string; title?: string; magnitude?: number; latitude?: number; longitude?: number; place?: string; url?: string }>; disasters?: Array<{ id?: string; eventId?: string; title?: string; name?: string; eventType?: string; alertLevel?: string; latitude?: number; longitude?: number; url?: string; sourceUrl?: string }> }>("/api/aor/global-watch")
       .then((payload) => {
         if (!active) return;
         const events: WorldEvent[] = [];
         for (const quake of payload.earthquakes ?? []) if (Number.isFinite(quake.latitude) && Number.isFinite(quake.longitude)) events.push({ id: `eq-${quake.id}`, kind: "earthquake", title: quake.title || "Earthquake", lon: quake.longitude as number, lat: quake.latitude as number, detail: quake.place || "", url: quake.url || "" });
-        for (const disaster of payload.disasters ?? []) if (Number.isFinite(disaster.latitude) && Number.isFinite(disaster.longitude)) events.push({ id: `gd-${disaster.id || disaster.title}`, kind: "disaster", title: disaster.title || "GDACS event", lon: disaster.longitude as number, lat: disaster.latitude as number, detail: disaster.alertLevel || "", url: disaster.url || "" });
-        setWorldEvents(events);
+        // /api/aor/global-watch returns GDACS rows as { eventType, eventId, name, sourceUrl } (not id/title/url).
+        (payload.disasters ?? []).forEach((disaster, position) => {
+          if (!Number.isFinite(disaster.latitude) || !Number.isFinite(disaster.longitude)) return;
+          const key = disaster.eventId || disaster.id || disaster.name || disaster.title || `row${position}`;
+          events.push({ id: `gd-${disaster.eventType || "event"}-${key}`, kind: "disaster", title: disaster.name || disaster.title || "GDACS event", lon: disaster.longitude as number, lat: disaster.latitude as number, detail: disaster.alertLevel || "", url: disaster.sourceUrl || disaster.url || "" });
+        });
+        // Cesium throws on duplicate entity ids; a repeated feed row must never take the whole view down.
+        const seenIds = new Set<string>();
+        setWorldEvents(events.filter((event) => (seenIds.has(event.id) ? false : (seenIds.add(event.id), true))));
       })
       .catch(() => { /* world watch is optional context; absence is shown by the empty layer */ });
     return () => { active = false; };
