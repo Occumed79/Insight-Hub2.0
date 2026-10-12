@@ -152,20 +152,9 @@ Preserve the documented identity of active tools; do not revive retired implemen
   - `/api/reviewer-tools/pubchem?name=...`
 - Rebuild rule: this remains a source-backed medication evidence/regimen workspace. Do not reduce it to a generic drug encyclopedia or convert source signals into invented clinical judgments.
 
-## 8. Clinical Calculators
+## Retired — Clinical Calculators
 
-- Route: `/clinical-calculators`
-- Sidebar label: `Clinical Calculators`
-- Identity key: `clinical-calculators`
-- Original route component: `src/pages/reviewer-clinical-calculators-experience.tsx`
-- Preserved implementation: `src/pages/reviewer-clinical-calculators.tsx`
-- Core product identity:
-  - focused clinical equation/calculator library
-  - calculator families include risk/prevention, body/renal, cardiac/ECG, respiratory, and other occupationally useful clinical instruments represented by the existing library
-  - preserves each published equation's required inputs, result, interpretation, source, and limitations
-  - existing examples include PREVENT-ASCVD, Seizure Recurrence, recurrent-stroke Essen score, and STOP-Bang
-  - results must remain equation/screening outputs, not diagnoses or automatic fitness decisions
-- Rebuild rule: this remains a source-explicit calculator workbench. Do not turn it into a generic medical form or obscure the published formula/source boundary.
+The former `/clinical-calculators` route, navigation entry, UI, and standalone clinical equation library were removed on 2026-10-12 at the user's direction. The page was already on rebuild hold and had no dedicated API router or database tables. Do not restore it during later redesigns or confuse it with the **separate** retained `/occupational-calculators` workspace.
 
 ## Retired — Job Intelligence
 
@@ -178,14 +167,13 @@ The current visible route implementations intentionally render only:
 - an empty workspace body
 - hidden route/workspace identity attributes
 
-No cards, legacy page information, metrics, forms, tables, diagrams, charts, feeds, or other page content should be visible on these **seven routes** until their rebuilds are deliberately started:
+No cards, legacy page information, metrics, forms, tables, diagrams, charts, feeds, or other page content should be visible on these **six routes** until their rebuilds are deliberately started:
 
 1. `/drug-checker`
-2. `/clinical-calculators`
-3. `/standards-intelligence`
-4. `/sec-filings`
-5. `/leadership-map`
-6. `/industry-impact-calculator`
-7. `/occupational-calculators`
+2. `/standards-intelligence`
+3. `/sec-filings`
+4. `/leadership-map`
+5. `/industry-impact-calculator`
+6. `/occupational-calculators`
 
 The preserved implementation files above are intentionally left in the repository so behavior, terminology, formulas, source boundaries, data contracts, and page identity remain available during reconstruction.
