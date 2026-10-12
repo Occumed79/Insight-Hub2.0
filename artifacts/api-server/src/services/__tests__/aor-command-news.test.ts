@@ -81,7 +81,7 @@ test("registry: all six commands, unique ids, https .mil addresses, and exactly 
   assert.deepEqual([...COMMAND_NEWS_COMMANDS].sort(), ["AFRICOM", "CENTCOM", "EUCOM", "INDOPACOM", "NORTHCOM", "SOUTHCOM"]);
   for (const command of COMMAND_NEWS_COMMANDS) assert.ok(sourcesForCommand(command).length >= 1, command);
   assert.equal(new Set(COMMAND_NEWS_SOURCES.map((entry) => entry.id)).size, COMMAND_NEWS_SOURCES.length);
-  for (const entry of COMMAND_NEWS_SOURCES) for (const url of [entry.listingUrl, entry.directoryUrl, ...entry.feedUrls, ...entry.atomUrls, entry.officialSite]) if (url) assert.match(url, /^https:\/\/www\.[a-z]+\.mil\//, entry.id);
+  for (const entry of COMMAND_NEWS_SOURCES) for (const url of [entry.listingUrl, entry.directoryUrl, ...entry.feedUrls, ...entry.atomUrls, entry.officialSite]) if (url) assert.match(url, entry.id.startsWith("dvids-") ? /^https:\/\/www\.dvidshub\.net\// : /^https:\/\/www\.[a-z]+\.mil\//, entry.id);
 
   for (const [command, host] of [["EUCOM", "www.eucom.mil"], ["AFRICOM", "www.africom.mil"]] as const) {
     const own = sourcesForCommand(command);
@@ -499,4 +499,53 @@ test("monitor: before any fetch every source is not_evaluated; after a refresh i
   assert.equal(eucom.feedsOk, 1);
   assert.ok(eucom.feedsFailed >= 6);
   assert.equal(after.commands.find((entry) => entry.command === "CENTCOM")!.unavailable, 2);
+});
+
+
+// DVIDS publishes command-specific DoD unit news listings, not command-owned RSS/medical directives.
+// Page-content fixture mirrors the verified public shape: image links are excluded and news links
+// carry MM.DD.YYYY dates. Live reachability remains observable through normal per-source monitoring.
+const DVIDS_UNIT_PAGE = `<html><body>
+<section><h2>Recent Images</h2><a href="/image/12345/field-training">Photo of field training</a></section>
+<section><h2>Recent News Stories</h2>
+<div><a href="/news/576212/africom-addresses-security-challenges">AFRICOM addresses contemporary security challenges</a>
+<p>10.01.2026 | Story by public affairs</p></div>
+<div><a href="/news/576100/africom-partner-medical-readiness">AFRICOM partner medical readiness exercise</a>
+<p>09.21.2026 | Courtesy Story</p></div>
+<a href="/unit/AFRICOM?type=news">More AFRICOM News</a></section>
+</body></html>`;
+
+test("DVIDS: all six commands have exact official unit listings, clearly labelled as DoD news rather than native command RSS or medical policy", () => {
+  const units: Record<string, string> = { NORTHCOM: "USNORTHCOM", SOUTHCOM: "SOUTHCOM", EUCOM: "EUCOM", AFRICOM: "AFRICOM", CENTCOM: "CENTCOM", INDOPACOM: "INDOPACOM" };
+  for (const [command, unit] of Object.entries(units)) {
+    const item = source(`dvids-${command.toLowerCase()}-unit-news`);
+    assert.equal(item.listingUrl, `https://www.dvidshub.net/unit/${unit}`);
+    assert.equal(item.command, command);
+    assert.equal(item.kind, "news");
+    assert.equal(item.listingFallback, true);
+    assert.equal(item.feedUrls.length, 0);
+    assert.match(item.label, /DoD.+not policy directives/);
+  }
+});
+
+test("DVIDS: dates in MM.DD.YYYY are preserved, and unit news excludes photo and navigation links", () => {
+  assert.equal(nearbyDate("<p>10.01.2026 | Story by PAO</p>"), "2026-10-01T12:00:00.000Z");
+  const articles = parseListing(DVIDS_UNIT_PAGE, "https://www.dvidshub.net/unit/AFRICOM");
+  assert.deepEqual(articles.map((item) => item.url), [
+    "https://www.dvidshub.net/news/576212/africom-addresses-security-challenges",
+    "https://www.dvidshub.net/news/576100/africom-partner-medical-readiness",
+  ]);
+  assert.deepEqual(articles.map((item) => item.publishedAt), ["2026-10-01T12:00:00.000Z", "2026-09-21T12:00:00.000Z"]);
+});
+
+test("DVIDS: its separately monitored listing yields attributable news without inventing an RSS feed or command directive", async () => {
+  const item = source("dvids-africom-unit-news");
+  const d = deps({ "https://www.dvidshub.net/unit/AFRICOM": { body: DVIDS_UNIT_PAGE } });
+  const result = await collectSource(item, d);
+  assert.equal(result.report.status, "ok");
+  assert.equal(result.report.method, "html_listing");
+  assert.equal(result.report.itemCount, 2);
+  assert.equal(result.report.feedUrl, null);
+  assert.equal(result.report.listingUrl, "https://www.dvidshub.net/unit/AFRICOM");
+  assert.ok(result.records.every((record) => record.kind === "news"));
 });
