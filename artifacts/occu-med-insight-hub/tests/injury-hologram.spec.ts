@@ -97,15 +97,29 @@ test("Medical Conditions mode maps a condition to anatomical regions without a f
   await expect(page.getByRole("button", { name: /signal|region/i }).first()).toBeVisible();
 });
 
-test("Strands animation stays in the top loading sphere and never crosses the anatomical bodies", async ({ page }) => {
+test("the top sphere scans the bodies only while booting or processing a search", async ({ page }) => {
   await page.goto("/injuries-medical-conditions");
   await expect(page.locator(".hs-rings, .hs-ambient")).toHaveCount(0);
-  await expect(page.locator(".hs-stage canvas")).toHaveCount(0);
 
   await page.getByPlaceholder("Firefighter, electrician, truck driver…").fill("Firefighter");
   await page.getByRole("button", { name: /Build injury profile/i }).click();
   await expect(page.locator(".hi-loading-orb")).toBeVisible();
-  await expect(page.locator(".hs-stage canvas")).toHaveCount(0);
+  await expect(page.getByTestId("health-body-scan")).toBeVisible();
+  await expect(page.locator(".hs-scan-field")).toHaveCount(2);
+
   await expect(page.locator(".hi-loading-orb")).toHaveCount(0, { timeout: 15000 });
+  await expect(page.getByTestId("health-body-scan")).toHaveCount(0);
   await expect(page.locator(".hs-stage canvas")).toHaveCount(0);
+});
+
+test("the condition request also triggers a temporary scan, never an idle scanner", async ({ page }) => {
+  await page.goto("/injuries-medical-conditions");
+  await expect(page.locator(".hi-loading-orb")).toHaveCount(0, { timeout: 10000 });
+  await expect(page.getByTestId("health-body-scan")).toHaveCount(0);
+
+  await page.getByRole("tab", { name: "Medical Conditions" }).click();
+  await page.getByPlaceholder(/Search diabetes/i).fill("diabetes");
+  await page.getByRole("button", { name: /Map condition/i }).click();
+  await expect(page.getByTestId("health-body-scan")).toBeVisible();
+  await expect(page.getByTestId("health-body-scan")).toHaveCount(0, { timeout: 15000 });
 });
