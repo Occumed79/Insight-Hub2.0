@@ -11,6 +11,7 @@ import { COMMAND_POLICIES } from "../services/aor-intel/command-policy/policies-
 import type { MedicalApplicabilityQuery, PublicHealthInput } from "../services/aor-intel/command-policy/medical-applicability";
 import { resolveMedicalApplicabilityWithPublicHealth } from "../services/aor-intel/medical-public-health";
 import { liveIntelDeps } from "./aor-country-intel";
+import { buildAorDirectory, searchAorDirectory } from "../services/aor-intel/directory";
 import type { CommandId, CommandQuery, Population, TravelKind } from "../services/aor-intel/command-policy/types";
 
 // Combatant Command medical policy is its own rule class. These routes never read host-nation vaccine rules or CDC/WHO guidance.
@@ -97,6 +98,15 @@ router.get("/aor/command-policy", (req: Request, res: Response) => {
     })),
     notice: "'unknown' means an input was missing. A rule that is not triggered is not evidence that the command has no requirement; SOURCE_GAP fields were not extracted from the source.",
   });
+});
+
+// The workspace's location directory: all registry locations (command, class, evidence class, polygon availability, reference point),
+// the split ISO parents, and polygons that carry no record. `?q=` searches names, aliases, ISO codes and split parents.
+router.get("/aor/directory", (req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const q = String(req.query.q ?? "").trim().slice(0, 120);
+  if (q) return res.json({ ok: true, query: q, ...searchAorDirectory(q, Math.min(Number(req.query.limit) || 12, 50)) });
+  return res.json({ ok: true, generatedAt: new Date().toISOString(), ...buildAorDirectory() });
 });
 
 router.get("/aor/command-policy/registry", (_req: Request, res: Response) => {

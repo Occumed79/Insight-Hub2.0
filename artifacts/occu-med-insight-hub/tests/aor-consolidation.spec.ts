@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { routeAorBackend } from "./helpers/aor-backend";
 
 // AOR Factors is a CesiumJS + Cesium ion workspace. These tests cover the page shell and the
 // intelligence panel with mocked API responses; the sandbox/CI has no Cesium ion access, so
@@ -53,6 +54,7 @@ const kenyaSynthesis = {
 test("AOR Factors page is the Cesium workspace and names the missing ion token variable", async ({ page }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
+  await routeAorBackend(page);
   await page.route("**/api/aor/cesium-config", (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ configured: false, token: "", requiredEnv: "CESIUM_ION_ACCESS_TOKEN" }) }));
   await page.route("**/api/aor/boundaries", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(kenyaBoundaries) }));
   await page.route("**/api/aor/global-watch", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, earthquakes: [], disasters: [] }) }));
@@ -61,14 +63,19 @@ test("AOR Factors page is the Cesium workspace and names the missing ion token v
 
   await expect(page.locator("[data-workspace='aor-factors-cesium']")).toBeVisible();
   await expect(page.getByTestId("aor-cesium-token-missing")).toContainText("CESIUM_ION_ACCESS_TOKEN");
-  // The map engine is not silently replaced.
+  // The 3D engine is not silently replaced: the notice says why, and the 2D map runs on the same registry.
+  await expect(page.getByTestId("aor-cesium-token-missing")).toContainText("3D globe unavailable");
+  await expect(page.getByTestId("aor-flat-map")).toBeVisible();
   await expect(page.locator(".aor-map-tiler-host")).toHaveCount(0);
   await expect(page.getByTestId("aor-glass-sidebar")).toHaveCount(0);
   expect(pageErrors).toEqual([]);
 });
 
 test("Selecting a country shows evidence-linked What Matters Now with recommendations and entry requirements kept apart", async ({ page }) => {
-  await page.route("**/api/aor/cesium-config", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: true, token: "test-token", requiredEnv: "CESIUM_ION_ACCESS_TOKEN" }) }));
+  await routeAorBackend(page);
+  // These tests exercise the panel, so they run on the 2D map (no token): the panel and registry are the same on both engines, and
+  // software-WebGL rendering of the 3D globe is covered by aor-complete.spec.ts.
+  await page.route("**/api/aor/cesium-config", (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ configured: false, token: "", requiredEnv: "CESIUM_ION_ACCESS_TOKEN" }) }));
   await page.route("**/api/aor/boundaries", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(kenyaBoundaries) }));
   await page.route("**/api/aor/global-watch", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, earthquakes: [], disasters: [] }) }));
   await page.route("**/api/aor/country-intel/synthesis?iso2=KE", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(kenyaSynthesis) }));
@@ -77,16 +84,20 @@ test("Selecting a country shows evidence-linked What Matters Now with recommenda
   await page.route(/cesium\.com/, (route) => route.abort());
 
   await page.goto("/aor-factors");
-  await expect(page.getByTestId("aor-cesium-globe")).toBeAttached();
+  await expect(page.getByTestId("aor-flat-map")).toBeVisible();
 
-  await page.getByLabel("Find a country").fill("Ken");
+  await page.getByLabel("Find a country or territory").fill("Ken");
   await page.getByRole("button", { name: /Kenya/ }).click();
 
   const panel = page.getByTestId("aor-intel-panel");
   await expect(panel).toBeVisible();
+  // Health & Medical Requirements is the first tab the inspector opens on.
+  await expect(panel.getByTestId("aor-tab-medical")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("aor-medical-requirements")).toBeVisible();
+  await panel.getByTestId("aor-tab-summary").click();
   await expect(page.getByTestId("aor-what-matters-now")).toContainText("Yellow fever");
 
-  await panel.getByRole("button", { name: /Health/ }).first().click();
+  await panel.getByTestId("aor-tab-health_vaccines").click();
   const cards = page.getByTestId("aor-evidence-card");
   await expect(cards).toHaveCount(3);
   await expect(cards.filter({ hasText: "Yellow Fever vaccine" })).toContainText(/recommend/i);
@@ -96,7 +107,10 @@ test("Selecting a country shows evidence-linked What Matters Now with recommenda
 });
 
 test("AI briefing cites evidence; Yellow Book, WUENIC and environment factors appear in the panel", async ({ page }) => {
-  await page.route("**/api/aor/cesium-config", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ configured: true, token: "test-token", requiredEnv: "CESIUM_ION_ACCESS_TOKEN" }) }));
+  await routeAorBackend(page);
+  // These tests exercise the panel, so they run on the 2D map (no token): the panel and registry are the same on both engines, and
+  // software-WebGL rendering of the 3D globe is covered by aor-complete.spec.ts.
+  await page.route("**/api/aor/cesium-config", (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ configured: false, token: "", requiredEnv: "CESIUM_ION_ACCESS_TOKEN" }) }));
   await page.route("**/api/aor/boundaries", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(kenyaBoundaries) }));
   await page.route("**/api/aor/global-watch", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, earthquakes: [], disasters: [] }) }));
   await page.route("**/api/aor/country-intel/synthesis?iso2=KE", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(kenyaSynthesis) }));
@@ -106,9 +120,10 @@ test("AI briefing cites evidence; Yellow Book, WUENIC and environment factors ap
   await page.route(/cesium\.com/, (route) => route.abort());
 
   await page.goto("/aor-factors");
-  await page.getByLabel("Find a country").fill("Ken");
+  await page.getByLabel("Find a country or territory").fill("Ken");
   await page.getByRole("button", { name: /Kenya/ }).click();
 
+  await page.getByTestId("aor-tab-summary").click();
   const briefing = page.getByTestId("aor-ai-briefing");
   await expect(briefing).toContainText("yellow fever vaccination as a recommendation");
   await expect(briefing).toContainText("1 unsupported statement discarded");
@@ -116,7 +131,7 @@ test("AI briefing cites evidence; Yellow Book, WUENIC and environment factors ap
   await expect(page.locator("#evidence-e-yf-rec")).toBeVisible();
 
   const panel = page.getByTestId("aor-intel-panel");
-  await panel.getByRole("button", { name: /Health/ }).first().click();
+  await panel.getByTestId("aor-tab-health_vaccines").click();
   await expect(page.getByTestId("aor-yellow-book-card")).toContainText("Yellow Book reference — Yellow Fever");
   await expect(panel).toContainText("Childhood immunization coverage");
   await expect(panel).toContainText("MCV1 coverage 85%");

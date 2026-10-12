@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import type { CustomDataSource, Viewer } from "cesium";
-import { COMMANDS, type CommandId } from "@/components/insight/aor-command-registry";
+import { COMMAND_VIEW, type DirectoryIndex } from "./aor-directory";
 import { findCountryAt, type CountryEntry, type CountryIndex, type Polygon } from "./aor-geo";
 import { DIMENSION_COLORS, type Dimension, type EvidenceRecord, type WorldEvent } from "./aor-intel-types";
+import type { GlobeStatus, GlobeView } from "./aor-view";
 
 type CesiumModule = typeof import("cesium");
 
-export type GlobeView = { level: "world" | "aor" | "country"; aorId: CommandId | null; iso2: string | null; nonce: number };
-export type GlobeStatus = { state: "loading" | "ready" | "error"; message?: string };
+export type { GlobeStatus, GlobeView } from "./aor-view";
 
 type Props = {
   token: string;
   index: CountryIndex | null;
+  directory: DirectoryIndex | null;
   view: GlobeView;
   evidence: EvidenceRecord[];
   activeLayers: ReadonlySet<Dimension>;
@@ -20,14 +21,15 @@ type Props = {
   centerFallback: [number, number] | null;
   /** Elevation above which the CDC malaria text states no transmission; drawn as a terrain tint only when present. */
   altitudeLimitMeters: number | null;
-  onPickCountry: (iso2: string) => void;
+  showAorShading: boolean;
+  showMarkers: boolean;
+  onPickLocation: (id: string) => void;
+  onPickSplit: (iso3: string) => void;
   onPickEvidence: (id: string) => void;
   onHoverCountry: (name: string | null) => void;
   onStatus: (status: GlobeStatus) => void;
 };
 
-// Camera range (metres) used when framing each combatant command.
-const AOR_RANGE: Record<CommandId, number> = { northcom: 9_500_000, southcom: 8_500_000, eucom: 4_800_000, africom: 8_200_000, centcom: 4_600_000, indopacom: 11_500_000 };
 const WORLD_VIEW = { lon: 12, lat: 18, height: 22_000_000 };
 
 function ringPositions(Cesium: CesiumModule, ring: number[][]) {
@@ -82,6 +84,7 @@ export function AorCesiumGlobe(props: Props) {
   const viewerRef = useRef<Viewer | null>(null);
   const overlayRef = useRef<CustomDataSource | null>(null);
   const pointsRef = useRef<CustomDataSource | null>(null);
+  const membersRef = useRef<CustomDataSource | null>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
   // Bumped once the viewer and its data sources exist so overlay effects re-run.
@@ -103,6 +106,8 @@ export function AorCesiumGlobe(props: Props) {
           animation: false, timeline: false, baseLayerPicker: false, geocoder: false, homeButton: false,
           sceneModePicker: false, navigationHelpButton: false, fullscreenButton: false, infoBox: false,
           selectionIndicator: false, vrButton: false,
+          // Render on change instead of every frame: the globe is idle most of the time and the effects below request a frame when they change the scene.
+          requestRenderMode: true, maximumRenderTimeChange: Number.POSITIVE_INFINITY,
           baseLayer: Cesium.ImageryLayer.fromProviderAsync(Cesium.createWorldImageryAsync({ style: Cesium.IonWorldImageryStyle.AERIAL_WITH_LABELS })),
           terrain: Cesium.Terrain.fromWorldTerrain({ requestVertexNormals: true, requestWaterMask: true }),
           skyAtmosphere: new Cesium.SkyAtmosphere(),
@@ -112,6 +117,10 @@ export function AorCesiumGlobe(props: Props) {
         scene.globe.depthTestAgainstTerrain = true;
         scene.globe.showGroundAtmosphere = true;
         scene.backgroundColor = Cesium.Color.fromCssColorString("#01050a");
+        // Cesium-native image quality only: device-resolution rendering, finer terrain/imagery tiles and edge smoothing.
+        viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, 2);
+        scene.globe.maximumScreenSpaceError = 1.6;
+        scene.postProcessStages.fxaa.enabled = true;
         viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
         camera.setView({ destination: Cesium.Cartesian3.fromDegrees(WORLD_VIEW.lon, WORLD_VIEW.lat, WORLD_VIEW.height) });
 
@@ -128,9 +137,12 @@ export function AorCesiumGlobe(props: Props) {
           cluster.billboard.disableDepthTestDistance = Number.POSITIVE_INFINITY;
           cluster.billboard.image = clusterIcon(entities.length);
         });
+        const members = new Cesium.CustomDataSource("aor-members");
         await viewer.dataSources.add(overlay);
+        await viewer.dataSources.add(members);
         await viewer.dataSources.add(points);
         overlayRef.current = overlay;
+        membersRef.current = members;
         pointsRef.current = points;
         if (!cancelled) setRevision((value) => value + 1);
 
@@ -142,6 +154,15 @@ export function AorCesiumGlobe(props: Props) {
           if (!cartesian) return null;
           const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
           return { lon: Cesium.Math.toDegrees(cartographic.longitude), lat: Cesium.Math.toDegrees(cartographic.latitude) };
+        };
+        const pickIso2 = (iso2: string) => {
+          const directory = propsRef.current.directory;
+          const location = directory?.byBoundaryIso2.get(iso2);
+          if (location) { propsRef.current.onPickLocation(location.id); return; }
+          const split = directory?.splitByBoundaryIso2.get(iso2);
+          if (split) { propsRef.current.onPickSplit(split.iso3); return; }
+          // Directory unavailable: fall back to the polygon's own ISO code so the country can still be opened.
+          if (!directory) propsRef.current.onPickLocation(propsRef.current.index?.byIso2.get(iso2)?.iso3 ?? iso2);
         };
         handler.setInputAction((click: { position: { x: number; y: number } }) => {
           if (!viewer) return;
@@ -155,11 +176,13 @@ export function AorCesiumGlobe(props: Props) {
           }
           const evidenceId = id?.properties?.evidenceId?.getValue?.();
           if (typeof evidenceId === "string") { propsRef.current.onPickEvidence(evidenceId); return; }
+          const memberId = id?.properties?.locationId?.getValue?.();
+          if (typeof memberId === "string") { propsRef.current.onPickLocation(memberId); return; }
           const index = propsRef.current.index;
           const ground = groundPoint(click.position);
           if (!index || !ground) return;
           const hit = findCountryAt(index, ground.lon, ground.lat);
-          if (hit) propsRef.current.onPickCountry(hit.iso2);
+          if (hit) pickIso2(hit.iso2);
         }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
         let lastMove = 0;
@@ -171,7 +194,8 @@ export function AorCesiumGlobe(props: Props) {
           const ground = groundPoint(move.endPosition);
           const hit = index && ground ? findCountryAt(index, ground.lon, ground.lat) : null;
           viewer.scene.canvas.style.cursor = hit ? "pointer" : "";
-          propsRef.current.onHoverCountry(hit?.name ?? null);
+          const directory = propsRef.current.directory;
+          propsRef.current.onHoverCountry(hit ? directory?.byBoundaryIso2.get(hit.iso2)?.name ?? directory?.splitByBoundaryIso2.get(hit.iso2)?.name ?? hit.name : null);
         }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
         // Report readiness once the first terrain/imagery frame has rendered.
@@ -183,7 +207,7 @@ export function AorCesiumGlobe(props: Props) {
         });
         window.setTimeout(() => { if (!cancelled) propsRef.current.onStatus({ state: "ready" }); }, 12_000);
       } catch (error) {
-        if (!cancelled) propsRef.current.onStatus({ state: "error", message: error instanceof Error ? error.message : "Cesium failed to start." });
+        if (!cancelled) propsRef.current.onStatus({ state: "error", fatal: true, message: error instanceof Error ? error.message : "Cesium failed to start." });
       }
     })();
     return () => {
@@ -191,15 +215,16 @@ export function AorCesiumGlobe(props: Props) {
       viewerRef.current = null;
       overlayRef.current = null;
       pointsRef.current = null;
+      membersRef.current = null;
       if (viewer && !viewer.isDestroyed()) viewer.destroy();
     };
   }, [props.token]);
 
-  // --- camera: World -> AOR -> Country (angled terrain view) -------------------------------
+  // --- camera: World -> AOR -> Country / territory (angled terrain view) -------------------------
   useEffect(() => {
     const Cesium = cesiumRef.current;
     const viewer = viewerRef.current;
-    const { view, index, centerFallback } = props;
+    const { view, index, directory, centerFallback } = props;
     if (!Cesium || !viewer || viewer.isDestroyed()) return;
     viewer.camera.cancelFlight();
     if (view.level === "world") {
@@ -207,26 +232,32 @@ export function AorCesiumGlobe(props: Props) {
       return;
     }
     if (view.level === "aor" && view.aorId) {
-      const command = COMMANDS.find((item) => item.id === view.aorId);
-      if (!command) return;
+      const command = COMMAND_VIEW[view.aorId];
       const sphere = new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(command.center[0], command.center[1], 0), 1);
-      viewer.camera.flyToBoundingSphere(sphere, { duration: 2.6, offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-52), AOR_RANGE[command.id]) });
+      viewer.camera.flyToBoundingSphere(sphere, { duration: 2.6, offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-52), command.range) });
       return;
     }
-    if (view.level === "country" && view.iso2) {
-      const entry = index?.byIso2.get(view.iso2);
+    if (view.level === "country") {
+      const location = view.locationId ? directory?.byId.get(view.locationId) ?? null : null;
+      const split = view.splitIso3 ? directory?.splitByIso3.get(view.splitIso3) ?? null : null;
+      const boundaryIso2 = location?.boundaryIso2 ?? split?.boundaryIso2 ?? (!directory && view.locationId ? index?.list.find((item) => item.iso3 === view.locationId)?.iso2 : null) ?? null;
+      const entry = boundaryIso2 ? index?.byIso2.get(boundaryIso2) : null;
       if (entry) {
         const { west, south, east, north } = entry.focus;
         const sphere = Cesium.BoundingSphere.fromRectangle3D(Cesium.Rectangle.fromDegrees(west, south, east, north));
         // Dive: orbital -> country framing, pitched into an angled terrain view.
         viewer.camera.flyToBoundingSphere(sphere, { duration: 3.4, offset: new Cesium.HeadingPitchRange(Cesium.Math.toRadians(8), Cesium.Math.toRadians(-38), Math.max(sphere.radius * 2.7, 220_000)) });
-      } else if (centerFallback) {
-        const sphere = new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(centerFallback[0], centerFallback[1], 0), 1);
-        viewer.camera.flyToBoundingSphere(sphere, { duration: 3, offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-40), 90_000) });
+        return;
+      }
+      // No polygon: aim at the directory's reference point. No boundary is invented for it.
+      const point = location?.referencePoint ?? (centerFallback ? { lon: centerFallback[0], lat: centerFallback[1] } : null);
+      if (point) {
+        const sphere = new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(point.lon, point.lat, 0), 1);
+        viewer.camera.flyToBoundingSphere(sphere, { duration: 3, offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-40), location?.referencePoint ? 420_000 : 90_000) });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.view.nonce, props.index]);
+  }, [props.view.nonce, props.index, props.directory, revision]);
 
   // --- malaria elevation limit: tint terrain above the elevation the source text states -------------
   useEffect(() => {
@@ -234,7 +265,7 @@ export function AorCesiumGlobe(props: Props) {
     const viewer = viewerRef.current;
     if (!Cesium || !viewer || viewer.isDestroyed()) return;
     const limit = props.altitudeLimitMeters;
-    if (!limit) { viewer.scene.globe.material = undefined as never; return; }
+    if (!limit) { viewer.scene.globe.material = undefined as never; viewer.scene.requestRender(); return; }
     viewer.scene.globe.material = Cesium.createElevationBandMaterial({
       scene: viewer.scene,
       layers: [{
@@ -246,7 +277,8 @@ export function AorCesiumGlobe(props: Props) {
         extendUpwards: true,
       }],
     });
-    return () => { if (!viewer.isDestroyed()) viewer.scene.globe.material = undefined as never; };
+    viewer.scene.requestRender();
+    return () => { if (!viewer.isDestroyed()) { viewer.scene.globe.material = undefined as never; viewer.scene.requestRender(); } };
   }, [props.altitudeLimitMeters, revision]);
 
   // --- terrain-level dive to one piece of evidence ----------------------------------------------
@@ -263,29 +295,66 @@ export function AorCesiumGlobe(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.focusEvidence?.nonce]);
 
-  // --- AOR boundary overlay ------------------------------------------------------------------------
+  // --- AOR boundary overlay: every located polygon is shaded by the registry's command, never by a frontend list --------------------
   useEffect(() => {
     const Cesium = cesiumRef.current;
     const overlay = overlayRef.current;
-    const { index, view } = props;
+    const { index, view, directory, showAorShading } = props;
     if (!Cesium || !overlay || !index) return;
     overlay.entities.removeAll();
-    const command = COMMANDS.find((item) => item.id === view.aorId);
-    if (!command || view.level === "world") return;
-    const members = new Set<string>(command.countries);
-    for (const iso2 of members) {
-      const entry = index.byIso2.get(iso2);
-      if (!entry) continue;
-      const selected = view.iso2 === iso2;
-      if (view.level === "aor") addCountryFill(Cesium, overlay, entry, command.color, 0.1, "aor-fill");
-      addCountryOutline(Cesium, overlay, entry, command.color, selected ? 0.95 : view.level === "aor" ? 0.7 : 0.28, selected ? 3 : 1.4, "aor-line");
+    if (!directory || !showAorShading) return;
+    const selectedLocation = view.locationId ? directory.byId.get(view.locationId) ?? null : null;
+    const selectedIso2 = selectedLocation?.boundaryIso2 ?? (view.splitIso3 ? directory.splitByIso3.get(view.splitIso3)?.boundaryIso2 ?? null : null);
+    for (const location of directory.directory.locations) {
+      if (!location.boundaryIso2 || !location.command) continue;
+      const entry = index.byIso2.get(location.boundaryIso2);
+      if (!entry || entry.iso2 === "AQ") continue; // the south-polar ring is not a valid ground polygon; Antarctica is shown as a marker
+      const color = COMMAND_VIEW[location.command].color;
+      const inAor = location.command === view.aorId;
+      const selected = selectedIso2 === entry.iso2;
+      if (view.level === "world") addCountryFill(Cesium, overlay, entry, color, 0.16, "aor-fill");
+      else if (view.level === "aor") {
+        addCountryFill(Cesium, overlay, entry, color, inAor ? 0.24 : 0.04, "aor-fill");
+        if (inAor) addCountryOutline(Cesium, overlay, entry, color, 0.7, 1.4, "aor-line");
+      } else if (inAor) addCountryOutline(Cesium, overlay, entry, color, selected ? 0.95 : 0.28, selected ? 3 : 1.4, "aor-line");
     }
-    if (view.iso2) {
-      const entry = index.byIso2.get(view.iso2);
+    // A split ISO entity (United States, French Southern Territories) belongs to more than one command: outline only, neutral.
+    for (const split of directory.directory.splitParents) {
+      const entry = split.boundaryIso2 ? index.byIso2.get(split.boundaryIso2) : null;
+      if (entry) addCountryOutline(Cesium, overlay, entry, "#cbd5e1", 0.55, 1.2, "split-line");
+    }
+    if (selectedIso2) {
+      const entry = index.byIso2.get(selectedIso2);
       if (entry) addCountryOutline(Cesium, overlay, entry, "#e8ffff", 0.98, 3.2, "sel-line");
     }
+    viewerRef.current?.scene.requestRender();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.view.aorId, props.view.level, props.view.iso2, props.index, props.token, revision]);
+  }, [props.view.aorId, props.view.level, props.view.locationId, props.view.splitIso3, props.index, props.directory, props.showAorShading, props.token, revision]);
+
+  // --- directory markers: locations with no polygon are points at their reference coordinate (no boundary is drawn) --------------
+  useEffect(() => {
+    const Cesium = cesiumRef.current;
+    const members = membersRef.current;
+    const { directory, view, showMarkers } = props;
+    if (!Cesium || !members) return;
+    members.entities.removeAll();
+    if (!directory || !showMarkers) { viewerRef.current?.scene.requestRender(); return; }
+    for (const location of directory.directory.locations) {
+      if ((location.boundaryIso2 && location.boundaryIso2 !== "AQ") || !location.referencePoint) continue;
+      const selected = location.id === view.locationId;
+      if (view.level !== "world" && !selected && location.command !== view.aorId) continue;
+      const color = Cesium.Color.fromCssColorString(location.command ? COMMAND_VIEW[location.command].color : "#94a3b8");
+      members.entities.add({
+        id: `member:${location.id}`,
+        name: location.name,
+        position: Cesium.Cartesian3.fromDegrees(location.referencePoint.lon, location.referencePoint.lat),
+        properties: { locationId: location.id },
+        point: { pixelSize: selected ? 14 : 8, color: color.withAlpha(0.92), outlineColor: Cesium.Color.WHITE.withAlpha(selected ? 1 : 0.7), outlineWidth: selected ? 2.5 : 1.2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+        label: selected || view.level === "aor" ? { text: location.name, font: "600 12px sans-serif", fillColor: Cesium.Color.fromCssColorString("#e8fbff"), outlineColor: Cesium.Color.fromCssColorString("#020a12"), outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -12), disableDepthTestDistance: Number.POSITIVE_INFINITY, scale: 0.9, translucencyByDistance: new Cesium.NearFarScalar(1.5e6, 1, 2.2e7, 0.0) } : undefined,
+      });
+    }
+    viewerRef.current?.scene.requestRender();
+  }, [props.directory, props.view.level, props.view.aorId, props.view.locationId, props.showMarkers, props.token, revision]);
 
   // --- evidence layers: country shading only where the source supports country geometry; points at real coordinates ---
   useEffect(() => {
@@ -329,6 +398,7 @@ export function AorCesiumGlobe(props: Props) {
     const range = points.clustering.pixelRange;
     points.clustering.pixelRange = 0;
     points.clustering.pixelRange = range;
+    viewerRef.current?.scene.requestRender();
   }, [props.evidence, props.activeLayers, props.worldEvents, props.view.level, props.index, props.token, revision]);
 
   return <div ref={hostRef} data-testid="aor-cesium-globe" className="aor-cesium-host absolute inset-0 z-0 isolate" aria-label="Interactive CesiumJS globe for AOR Factors" />;

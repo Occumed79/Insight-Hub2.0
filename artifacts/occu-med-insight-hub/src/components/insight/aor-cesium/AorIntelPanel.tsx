@@ -1,5 +1,9 @@
 import { useMemo, type ReactNode } from "react";
 import { AlertTriangle, ArrowUpRight, ChevronRight, Crosshair, Loader2, X } from "lucide-react";
+import { AorMedicalRequirements } from "./AorMedicalRequirements";
+import { COMMAND_VIEW, EVIDENCE_CLASS_LABEL, geographicClassLabel, type DirectoryIndex, type DirectoryLocation, type SplitParent } from "./aor-directory";
+import type { MedicalInputs } from "./aor-medical-types";
+import type { MedicalState } from "./use-medical-applicability";
 import {
   DIMENSIONS, DIMENSION_COLORS, DIMENSION_LABELS, ENVIRONMENT_KEYS, ENVIRONMENT_LABELS, FRESHNESS_LABELS, STATUS_LABELS,
   type CountryIntel, type Dimension, type EnvironmentKey, type EvidenceRecord, type Freshness, type Observation, type SourceStatus, type SynthesisResponse,
@@ -202,27 +206,36 @@ function YellowBookCard({ record, evidenceById, onSelectEvidence }: { record: Ev
   );
 }
 
+export type PanelTab = "medical" | "summary" | Dimension | "sources";
+
 type Props = {
   intel: CountryIntel | null;
   loading: boolean;
   error: string;
-  countryName: string;
-  aorLabel: string | null;
-  hasPolygon: boolean;
-  activeTab: Dimension | "summary" | "sources";
-  setActiveTab: (tab: Dimension | "summary" | "sources") => void;
+  /** Set when the per-country intelligence engines cannot be assembled for this directory location (no ISO country mapping). */
+  intelUnavailable: string | null;
+  location: DirectoryLocation | null;
+  split: SplitParent | null;
+  directory: DirectoryIndex | null;
+  displayName: string;
+  activeTab: PanelTab;
+  setActiveTab: (tab: PanelTab) => void;
   highlightedId: string | null;
   onFocusEvidence: (record: EvidenceRecord) => void;
   onSelectEvidence: (id: string) => void;
+  onPickLocation: (id: string) => void;
   onClose: () => void;
   lens: ReactNode;
   synthesis: SynthesisResponse | null;
   synthesisLoading: boolean;
   environment: Record<EnvironmentKey, boolean>;
   onToggleEnvironment: (key: EnvironmentKey) => void;
+  medicalInputs: MedicalInputs;
+  setMedicalInputs: (updater: (current: MedicalInputs) => MedicalInputs) => void;
+  medical: MedicalState;
 };
 
-export function AorIntelPanel({ intel, loading, error, countryName, aorLabel, hasPolygon, activeTab, setActiveTab, highlightedId, onFocusEvidence, onSelectEvidence, onClose, lens, synthesis, synthesisLoading, environment, onToggleEnvironment }: Props) {
+export function AorIntelPanel({ intel, loading, error, intelUnavailable, location, split, directory, displayName, activeTab, setActiveTab, highlightedId, onFocusEvidence, onSelectEvidence, onPickLocation, onClose, lens, synthesis, synthesisLoading, environment, onToggleEnvironment, medicalInputs, setMedicalInputs, medical }: Props) {
   const byDimension = useMemo(() => {
     const map = new Map<Dimension, EvidenceRecord[]>();
     for (const record of intel?.evidence ?? []) map.set(record.dimension, [...(map.get(record.dimension) ?? []), record]);
@@ -246,7 +259,11 @@ export function AorIntelPanel({ intel, loading, error, countryName, aorLabel, ha
   );
 
   const body = () => {
-    if (loading) return <p className="flex items-center gap-2 py-6 text-[10px] text-slate-400"><Loader2 size={12} className="animate-spin" />Retrieving sources for {countryName}…</p>;
+    if (activeTab === "medical" || split) {
+      return <AorMedicalRequirements location={location} split={split} directory={directory} inputs={medicalInputs} setInputs={setMedicalInputs} state={medical} onPickLocation={onPickLocation} />;
+    }
+    if (intelUnavailable) return <p data-testid="aor-intel-unavailable" className="py-4 text-[10px] leading-5 text-slate-300"><AlertTriangle size={11} className="mr-1 inline text-amber-300" />{intelUnavailable} Nothing is shown here in its place: Health &amp; Medical Requirements for this location is still calculated from the command policy and host-nation rules.</p>;
+    if (loading) return <p className="flex items-center gap-2 py-6 text-[10px] text-slate-400"><Loader2 size={12} className="animate-spin" />Retrieving sources for {displayName}…</p>;
     if (error) return <p className="py-4 text-[10px] leading-4 text-amber-100/70"><AlertTriangle size={11} className="mr-1 inline" />{error}</p>;
     if (!intel) return null;
     if (activeTab === "summary") {
@@ -365,24 +382,45 @@ export function AorIntelPanel({ intel, loading, error, countryName, aorLabel, ha
     return <div>{empty}{sorted.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</div>;
   };
 
+  const parent = location?.parentId ? directory?.byId.get(location.parentId) ?? null : null;
+  const children = location ? directory?.childrenOf.get(location.id) ?? [] : [];
+  const medicalCounts = medical.result?.byStatus;
+  const tabs: Array<[PanelTab, string]> = [["medical", "Health & Medical Requirements"], ["summary", "What matters now"], ...DIMENSIONS.map((d) => [d, DIMENSION_LABELS[d]] as [PanelTab, string]), ["sources", "Sources"]];
+
   return (
-    <aside data-testid="aor-intel-panel" className="pointer-events-auto absolute bottom-4 right-4 top-4 z-30 flex w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[22px] border border-white/[.09] bg-[#050d14]/82 text-white shadow-[0_18px_60px_rgba(0,0,0,.5)] backdrop-blur-2xl">
+    <aside data-testid="aor-intel-panel" className="pointer-events-auto absolute bottom-4 right-4 top-4 z-30 flex w-[min(420px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[22px] border border-white/[.09] bg-[#050d14]/82 text-white shadow-[0_18px_60px_rgba(0,0,0,.5)] backdrop-blur-2xl">
       <header className="flex items-start justify-between gap-3 border-b border-white/[.07] px-4 py-3">
-        <div>
-          <p className="text-[8px] font-black uppercase tracking-[.16em] text-cyan-100/45">{aorLabel ?? "Country"}</p>
-          <h2 className="text-[15px] font-bold leading-5">{countryName}</h2>
-          {!hasPolygon ? <p className="mt-0.5 text-[9px] text-amber-200/70">No 50m boundary polygon exists for this territory; camera uses its reference point.</p> : null}
+        <div className="min-w-0">
+          <p className="text-[8px] font-black uppercase tracking-[.16em] text-cyan-100/45">{location?.command ? COMMAND_VIEW[location.command].label : split ? "Split ISO entity" : "Location"}</p>
+          <h2 data-testid="aor-panel-title" className="text-[15px] font-bold leading-5">{displayName}</h2>
+          {location ? (
+            <div className="mt-1 flex flex-wrap gap-1">
+              <Chip>{geographicClassLabel(location)}</Chip>
+              {location.evidenceClass ? <Chip tone="border-cyan-300/25 text-cyan-100">{EVIDENCE_CLASS_LABEL[location.evidenceClass]}</Chip> : null}
+              {location.provisional ? <Chip tone="border-amber-300/45 text-amber-100">Provisional</Chip> : null}
+              {location.administering ? <Chip>Administered by {location.administering}</Chip> : null}
+            </div>
+          ) : null}
+          {location && !location.boundaryIso2 ? <p data-testid="aor-no-polygon-note" className="mt-1 text-[9px] leading-4 text-amber-200/70">No boundary polygon exists in the repository for this location, so none is drawn. It is shown as a reference point{location.referencePoint?.note ? ` (${location.referencePoint.note})` : ""}.</p> : null}
+          {parent || children.length ? (
+            <p className="mt-1 text-[9px] leading-4 text-slate-400">
+              {parent ? <>Part of <button type="button" onClick={() => onPickLocation(parent.id)} className="font-bold text-cyan-100/75 hover:text-cyan-50">{parent.name}</button>. </> : null}
+              {children.length ? <>Contains {children.map((child, i) => <span key={child.id}>{i ? ", " : ""}<button type="button" onClick={() => onPickLocation(child.id)} className="font-bold text-cyan-100/75 hover:text-cyan-50">{child.name}</button></span>)}.</> : null}
+            </p>
+          ) : null}
         </div>
         <button type="button" onClick={onClose} aria-label="Close country panel" className="rounded-full border border-white/10 p-1.5 text-slate-400 hover:text-white"><X size={13} /></button>
       </header>
-      <nav className="flex gap-1 overflow-x-auto border-b border-white/[.06] px-3 py-2" aria-label="Intelligence categories">
-        {([["summary", "What matters now"], ...DIMENSIONS.map((d) => [d, DIMENSION_LABELS[d]]), ["sources", "Sources"]] as Array<[Dimension | "summary" | "sources", string]>).map(([id, label]) => {
-          const count = id === "summary" || id === "sources" ? null : byDimension.get(id)?.length ?? 0;
-          return <button key={id} type="button" aria-pressed={activeTab === id} onClick={() => setActiveTab(id)} className={`shrink-0 rounded-full border px-2.5 py-1 text-[9px] font-bold transition ${activeTab === id ? "border-cyan-200/25 bg-cyan-200/10 text-white" : "border-white/[.06] text-slate-400 hover:text-white"}`}>{label}{count ? <span className="ml-1 text-slate-500">{count}</span> : null}</button>;
-        })}
-      </nav>
+      {split ? null : (
+        <nav className="flex gap-1 overflow-x-auto border-b border-white/[.06] px-3 py-2" aria-label="Intelligence categories">
+          {tabs.map(([id, label]) => {
+            const count = id === "summary" || id === "sources" || id === "medical" ? null : byDimension.get(id)?.length ?? 0;
+            return <button key={id} type="button" data-testid={`aor-tab-${id}`} aria-pressed={activeTab === id} onClick={() => setActiveTab(id)} className={`shrink-0 rounded-full border px-2.5 py-1 text-[9px] font-bold transition ${activeTab === id ? "border-cyan-200/25 bg-cyan-200/10 text-white" : "border-white/[.06] text-slate-400 hover:text-white"}`}>{label}{count ? <span className="ml-1 text-slate-500">{count}</span> : null}{id === "medical" && medicalCounts?.REQUIRED ? <span className="ml-1 text-rose-200/80">{medicalCounts.REQUIRED}</span> : null}</button>;
+          })}
+        </nav>
+      )}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{body()}</div>
-      {intel ? <footer className="border-t border-white/[.06] px-4 py-2 text-[8px] text-slate-600">Generated {formatDate(intel.generatedAt)} · evidence is retrieved server-side and cached; each record shows its own retrieval date.</footer> : null}
+      {intel && !split ? <footer className="border-t border-white/[.06] px-4 py-2 text-[8px] text-slate-600">Generated {formatDate(intel.generatedAt)} · evidence is retrieved server-side and cached; each record shows its own retrieval date.</footer> : null}
     </aside>
   );
 }

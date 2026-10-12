@@ -1,19 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Globe2, Layers, Loader2, Search } from "lucide-react";
+import { AlertTriangle, Box, Globe2, Layers, Loader2, Map as MapIcon, Search } from "lucide-react";
 import { Sidebar } from "@/components/insight/Sidebar";
-import { COMMANDS, COMMAND_BY_COUNTRY, type CommandId } from "@/components/insight/aor-command-registry";
-import { AorCesiumGlobe, type GlobeStatus, type GlobeView } from "./AorCesiumGlobe";
-import { AorIntelPanel } from "./AorIntelPanel";
-import { indexBoundaries, searchCountries, type CountryIndex } from "./aor-geo";
+import { AorCesiumGlobe } from "./AorCesiumGlobe";
+import { AorCommandPanel } from "./AorCommandPanel";
+import { AorFlatMap } from "./AorFlatMap";
+import { AorIntelPanel, type PanelTab } from "./AorIntelPanel";
+import {
+  buildDirectoryIndex, COMMAND_ORDER, COMMAND_VIEW, degradedDirectory, searchLocal, type AorDirectory, type CommandId, type DirectoryIndex, type DirectoryLocation, type SplitParent,
+} from "./aor-directory";
+import { indexBoundaries, type CountryIndex } from "./aor-geo";
+import { EMPTY_MEDICAL_INPUTS, type MedicalInputs } from "./aor-medical-types";
+import type { GlobeStatus, GlobeView } from "./aor-view";
+import { useMedicalApplicability } from "./use-medical-applicability";
 import { DIMENSIONS, DIMENSION_COLORS, DIMENSION_LABELS, ENVIRONMENT_KEYS, ENVIRONMENT_LABELS, type CountryIntel, type Dimension, type EnvironmentKey, type EvidenceRecord, type SynthesisResponse, type WorldEvent } from "./aor-intel-types";
 
 type CesiumConfig = { configured: boolean; token: string; requiredEnv?: string; error?: string };
 type LensResponse = { ok: boolean; classification: string; considerations: Array<{ ruleId: string; classification: string; summary: string; matchedTerms: string[]; countrySignals: string[]; evidenceText: string }> };
+type SearchResults = { locations: DirectoryLocation[]; splitParents: SplitParent[] };
 
 async function getJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok && !(payload as { configured?: boolean }).configured === false) throw new Error((payload as { error?: string }).error || `Request failed (${response.status}).`);
+  // The Cesium config route answers 503 with a usable body ({ configured: false }); every other non-2xx response is an error.
+  if (!response.ok && !("configured" in (payload as object))) throw new Error((payload as { error?: string }).error || `Request failed (${response.status}).`);
   return payload as T;
 }
 
@@ -23,24 +32,34 @@ export default function AorCesiumWorkspace() {
   const [config, setConfig] = useState<CesiumConfig | null>(null);
   const [index, setIndex] = useState<CountryIndex | null>(null);
   const [boundaryError, setBoundaryError] = useState("");
+  const [directory, setDirectory] = useState<DirectoryIndex | null>(null);
+  const [directoryError, setDirectoryError] = useState("");
   const [status, setStatus] = useState<GlobeStatus>({ state: "loading" });
-  const [view, setView] = useState<GlobeView>({ level: "world", aorId: null, iso2: null, nonce: 0 });
+  const [mapMode, setMapMode] = useState<"3d" | "2d">("3d");
+  const [mapNotice, setMapNotice] = useState("");
+  const [view, setView] = useState<GlobeView>({ level: "world", aorId: null, locationId: null, splitIso3: null, nonce: 0 });
   const [intel, setIntel] = useState<CountryIntel | null>(null);
   const [intelLoading, setIntelLoading] = useState(false);
   const [intelError, setIntelError] = useState("");
+  const [intelUnavailable, setIntelUnavailable] = useState<string | null>(null);
   const [activeLayers, setActiveLayers] = useState<Set<Dimension>>(new Set(DIMENSIONS));
+  const [showAorShading, setShowAorShading] = useState(true);
+  const [showMarkers, setShowMarkers] = useState(true);
   const [layersOpen, setLayersOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<Dimension | "summary" | "sources">("summary");
+  const [activeTab, setActiveTab] = useState<PanelTab>("medical");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [focusEvidence, setFocusEvidence] = useState<{ id: string; nonce: number } | null>(null);
   const [worldEvents, setWorldEvents] = useState<WorldEvent[]>([]);
   const [hoverName, setHoverName] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResults>({ locations: [], splitParents: [] });
   const [panelOpen, setPanelOpen] = useState(false);
   const requestRef = useRef(0);
   const [synthesis, setSynthesis] = useState<SynthesisResponse | null>(null);
   const [synthesisLoading, setSynthesisLoading] = useState(false);
   const [environment, setEnvironment] = useState<Record<EnvironmentKey, boolean>>({ heat: false, cold: false, altitude: false, poorAir: false, fatigue: false, ppe: false, night: false });
+  const [medicalInputs, setMedicalInputsState] = useState<MedicalInputs>(EMPTY_MEDICAL_INPUTS);
+  const setMedicalInputs = useCallback((updater: (current: MedicalInputs) => MedicalInputs) => setMedicalInputsState(updater), []);
 
   // Lens (retained from the earlier AOR build): transient medical-condition x deployment-context evaluation.
   const [condition, setCondition] = useState("");
@@ -54,6 +73,9 @@ export default function AorCesiumWorkspace() {
     let active = true;
     getJson<CesiumConfig>("/api/aor/cesium-config").then((payload) => { if (active) setConfig(payload); }).catch((error) => { if (active) setConfig({ configured: false, token: "", error: errorText(error) }); });
     getJson<{ features: never[] }>("/api/aor/boundaries").then((payload) => { if (active) setIndex(indexBoundaries(payload as never)); }).catch((error) => { if (active) setBoundaryError(errorText(error)); });
+    getJson<AorDirectory & { ok?: boolean }>("/api/aor/directory")
+      .then((payload) => { if (!active) return; if (!Array.isArray(payload.locations)) throw new Error("The location directory response was empty."); setDirectory(buildDirectoryIndex(payload)); })
+      .catch((error) => { if (active) setDirectoryError(errorText(error)); });
     getJson<{ earthquakes?: Array<{ id: string; title?: string; magnitude?: number; latitude?: number; longitude?: number; place?: string; url?: string }>; disasters?: Array<{ id?: string; title?: string; eventType?: string; alertLevel?: string; latitude?: number; longitude?: number; url?: string }> }>("/api/aor/global-watch")
       .then((payload) => {
         if (!active) return;
@@ -66,43 +88,80 @@ export default function AorCesiumWorkspace() {
     return () => { active = false; };
   }, []);
 
-  const selectedEntry = view.iso2 ? index?.byIso2.get(view.iso2) ?? null : null;
-  const selectedAor = COMMANDS.find((item) => item.id === view.aorId) ?? null;
+  // If the backend directory is unavailable the polygons still work, but no AOR is shown or invented.
+  useEffect(() => {
+    if (directory || !directoryError || !index) return;
+    setDirectory(buildDirectoryIndex(degradedDirectory(index)));
+  }, [directory, directoryError, index]);
+
+  // Without a Cesium ion token the 3D globe cannot run; the 2D map is used and the reason stays visible.
+  useEffect(() => {
+    if (config && !config.configured) setMapMode("2d");
+  }, [config]);
+  useEffect(() => {
+    if (status.state === "error" && status.fatal) {
+      setMapMode("2d");
+      setMapNotice(`The 3D globe could not start (${status.message || "WebGL or Cesium error"}). Showing the 2D map.`);
+    }
+  }, [status]);
+
+  const location = view.locationId ? directory?.byId.get(view.locationId) ?? null : null;
+  const split = view.splitIso3 ? directory?.splitByIso3.get(view.splitIso3) ?? null : null;
+  const selectedAorId: CommandId | null = view.aorId;
+  const displayName = split?.name || location?.name || intel?.country.name || view.locationId || "";
+  const intelIso2 = location?.countryIntelIso2 ?? null;
+
+  const medical = useMedicalApplicability(location ? location.id : null, location ? location.iso3 ?? location.id : null, medicalInputs);
+
+  const resetSelection = useCallback(() => {
+    requestRef.current += 1;
+    setIntel(null); setIntelError(""); setIntelLoading(false); setIntelUnavailable(null); setHighlightedId(null); setLens(null); setLensError(""); setSynthesis(null); setSynthesisLoading(false);
+  }, []);
 
   const goWorld = useCallback(() => {
-    requestRef.current += 1;
-    setView((current) => ({ level: "world", aorId: null, iso2: null, nonce: current.nonce + 1 }));
-    setIntel(null); setIntelError(""); setIntelLoading(false); setPanelOpen(false); setHighlightedId(null); setLens(null); setSynthesis(null); setSynthesisLoading(false);
-  }, []);
+    resetSelection(); setPanelOpen(false);
+    setView((current) => ({ level: "world", aorId: null, locationId: null, splitIso3: null, nonce: current.nonce + 1 }));
+  }, [resetSelection]);
 
   const goAor = useCallback((aorId: CommandId) => {
-    requestRef.current += 1;
-    setView((current) => ({ level: "aor", aorId, iso2: null, nonce: current.nonce + 1 }));
-    setIntel(null); setIntelError(""); setIntelLoading(false); setPanelOpen(false); setHighlightedId(null); setLens(null); setSynthesis(null); setSynthesisLoading(false);
-  }, []);
+    resetSelection(); setPanelOpen(false);
+    setView((current) => ({ level: "aor", aorId, locationId: null, splitIso3: null, nonce: current.nonce + 1 }));
+  }, [resetSelection]);
 
-  const goCountry = useCallback((iso2: string) => {
-    const code = iso2.toUpperCase();
-    const request = (requestRef.current += 1);
-    const mapped = COMMAND_BY_COUNTRY.get(code)?.id ?? null;
-    setView((current) => ({ level: "country", aorId: mapped ?? current.aorId, iso2: code, nonce: current.nonce + 1 }));
-    setPanelOpen(true); setActiveTab("summary"); setHighlightedId(null); setLens(null); setLensError("");
-    setIntel(null); setIntelError(""); setIntelLoading(true); setSynthesis(null); setSynthesisLoading(false);
-    getJson<CountryIntel>(`/api/aor/country-intel?iso2=${encodeURIComponent(code)}`)
+  const goSplit = useCallback((iso3: string) => {
+    resetSelection();
+    setPanelOpen(true); setActiveTab("medical");
+    setView((current) => ({ level: "country", aorId: current.aorId, locationId: null, splitIso3: iso3, nonce: current.nonce + 1 }));
+  }, [resetSelection]);
+
+  const goLocation = useCallback((id: string) => {
+    const target = directory?.byId.get(id);
+    if (!target) return;
+    resetSelection();
+    const request = requestRef.current;
+    setPanelOpen(true); setActiveTab("medical");
+    setView((current) => ({ level: "country", aorId: target.command ?? current.aorId, locationId: target.id, splitIso3: null, nonce: current.nonce + 1 }));
+    const iso2 = target.countryIntelIso2;
+    if (!iso2) {
+      setIntelUnavailable(`The per-country intelligence engines (CDC, WHO, State Department, GDACS, USGS, CrisisWatch, malaria, environment) are keyed to country profiles and boundary polygons, and none exists for ${target.name}. Those layers are not evaluated for it, and nothing is substituted.`);
+      return;
+    }
+    setIntelLoading(true);
+    getJson<CountryIntel>(`/api/aor/country-intel?iso2=${encodeURIComponent(iso2)}`)
       .then((payload) => {
         if (requestRef.current !== request) return;
         setIntel(payload);
         if (payload.whatMattersNow.llmSynthesis !== "available") return;
         // The AI briefing is requested only after the evidence is on screen and is validated server-side.
         setSynthesisLoading(true);
-        getJson<SynthesisResponse>(`/api/aor/country-intel/synthesis?iso2=${encodeURIComponent(code)}`)
+        getJson<SynthesisResponse>(`/api/aor/country-intel/synthesis?iso2=${encodeURIComponent(iso2)}`)
           .then((briefing) => { if (requestRef.current === request) setSynthesis(briefing); })
           .catch(() => { /* the deterministic summary stays; briefing is optional */ })
           .finally(() => { if (requestRef.current === request) setSynthesisLoading(false); });
       })
       .catch((error) => { if (requestRef.current === request) setIntelError(errorText(error)); })
       .finally(() => { if (requestRef.current === request) setIntelLoading(false); });
-  }, []);
+  }, [directory, resetSelection]);
 
   const selectEvidence = useCallback((id: string) => {
     const record = intel?.evidence.find((item) => item.id === id);
@@ -118,16 +177,32 @@ export default function AorCesiumWorkspace() {
 
   const pickEvidence = useCallback((id: string) => { selectEvidence(id); setFocusEvidence((current) => ({ id, nonce: (current?.nonce ?? 0) + 1 })); }, [selectEvidence]);
 
-  const matches = useMemo(() => (index ? searchCountries(index, query) : []), [index, query]);
+  // Search: the server resolves names, aliases, ISO codes and split ISO entities against the 285-location registry; the local index is the offline fallback.
+  useEffect(() => {
+    const text = query.trim();
+    if (!text) { setResults({ locations: [], splitParents: [] }); return; }
+    let active = true;
+    const timer = window.setTimeout(() => {
+      getJson<SearchResults & { ok?: boolean }>(`/api/aor/directory?q=${encodeURIComponent(text)}&limit=10`)
+        .then((payload) => {
+          if (!active || !directory) return;
+          // Keep only ids the loaded directory knows, so every result is selectable.
+          setResults({ locations: (payload.locations ?? []).filter((entry) => directory.byId.has(entry.id)).map((entry) => directory.byId.get(entry.id)!), splitParents: (payload.splitParents ?? []).filter((entry) => directory.splitByIso3.has(entry.iso3)).map((entry) => directory.splitByIso3.get(entry.iso3)!) });
+        })
+        .catch(() => { if (active && directory) setResults(searchLocal(directory, text)); });
+    }, 120);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [query, directory]);
+
   const toggleLayer = (dimension: Dimension) => setActiveLayers((current) => { const next = new Set(current); if (next.has(dimension)) next.delete(dimension); else next.add(dimension); return next; });
   const layerCounts = useMemo(() => { const counts = new Map<Dimension, number>(); for (const record of intel?.evidence ?? []) counts.set(record.dimension, (counts.get(record.dimension) ?? 0) + 1); return counts; }, [intel]);
 
   async function runLens() {
     const context = [workContext.trim(), ...ENVIRONMENT_KEYS.filter((key) => environment[key]).map((key) => ENVIRONMENT_LABELS[key])].filter(Boolean).join("; ");
-    if (!view.iso2 || (!condition.trim() && !medication.trim() && !context)) return;
+    if (!intelIso2 || (!condition.trim() && !medication.trim() && !context)) return;
     setLensLoading(true); setLensError("");
     try {
-      const response = await fetch("/api/aor/country-condition-lens", { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ iso2: view.iso2, condition: condition.trim(), medication: medication.trim(), workContext: context }) });
+      const response = await fetch("/api/aor/country-condition-lens", { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ iso2: intelIso2, condition: condition.trim(), medication: medication.trim(), workContext: context }) });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error || `Request failed (${response.status}).`);
       setLens(payload as LensResponse);
@@ -135,7 +210,7 @@ export default function AorCesiumWorkspace() {
     finally { setLensLoading(false); }
   }
 
-  const lensBlock = view.iso2 ? (
+  const lensBlock = intelIso2 ? (
     <details className="mt-3 border-t border-white/[.06] pt-3">
       <summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.12em] text-slate-500">Medical condition × deployment context (transient, not stored)</summary>
       {ENVIRONMENT_KEYS.some((key) => environment[key]) ? <p className="mt-1.5 text-[9px] leading-4 text-slate-400">Environment factors included: {ENVIRONMENT_KEYS.filter((key) => environment[key]).map((key) => ENVIRONMENT_LABELS[key]).join(", ")}</p> : null}
@@ -158,16 +233,21 @@ export default function AorCesiumWorkspace() {
   }, [intel, activeLayers]);
 
   const globeReady = Boolean(config?.configured && config.token);
+  const use3d = globeReady && mapMode === "3d";
   const crumb = (label: string, onClick?: () => void, current = false) => <button type="button" onClick={onClick} disabled={!onClick || current} className={`rounded-full px-2 py-1 text-[10px] font-bold ${current ? "text-white" : "text-cyan-100/70 hover:text-white"}`}>{label}</button>;
+  const commandSummary = (id: CommandId) => directory?.directory.commands.find((entry) => entry.id === id);
+  const searchHasResults = results.locations.length > 0 || results.splitParents.length > 0;
+  const noMatch = query.trim().length > 1 && !searchHasResults;
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#01050a] text-white" data-workspace="aor-factors-cesium">
+    <main className="min-h-screen overflow-hidden bg-[#01050a] text-white" data-workspace="aor-factors-cesium" data-map-mode={use3d ? "3d" : "2d"}>
       <Sidebar />
       <section className="fixed inset-y-0 left-0 right-0 overflow-hidden bg-[#01050a] lg:left-[210px]" aria-label="AOR Factors CesiumJS globe workspace">
-        {globeReady ? (
+        {use3d ? (
           <AorCesiumGlobe
             token={config!.token}
             index={index}
+            directory={directory}
             view={view}
             evidence={intel?.evidence ?? []}
             activeLayers={activeLayers}
@@ -175,75 +255,113 @@ export default function AorCesiumWorkspace() {
             focusEvidence={focusEvidence}
             centerFallback={intel?.country.center ?? null}
             altitudeLimitMeters={altitudeLimitMeters}
-            onPickCountry={goCountry}
+            showAorShading={showAorShading}
+            showMarkers={showMarkers}
+            onPickLocation={goLocation}
+            onPickSplit={goSplit}
             onPickEvidence={pickEvidence}
             onHoverCountry={setHoverName}
             onStatus={setStatus}
           />
+        ) : index && directory ? (
+          <AorFlatMap
+            index={index}
+            directory={directory}
+            view={view}
+            evidence={intel?.evidence ?? []}
+            activeLayers={activeLayers}
+            worldEvents={worldEvents}
+            showAorShading={showAorShading}
+            showMarkers={showMarkers}
+            rightInsetPx={view.level === "world" ? 0 : view.level === "aor" ? 376 : 436}
+            onPickLocation={goLocation}
+            onPickSplit={goSplit}
+            onPickEvidence={pickEvidence}
+            onHover={setHoverName}
+          />
         ) : null}
 
         {config && !config.configured ? (
-          <div data-testid="aor-cesium-token-missing" className="absolute inset-0 z-20 grid place-items-center bg-[#01050a] px-6 text-center">
-            <div className="max-w-md">
-              <AlertTriangle className="mx-auto text-amber-300" size={22} />
-              <h2 className="mt-3 text-sm font-bold">Cesium ion token is not configured</h2>
-              <p className="mt-2 text-[11px] leading-5 text-slate-400">AOR Factors runs on CesiumJS with Cesium ion terrain and imagery. Set <code className="rounded bg-white/10 px-1">{config.requiredEnv || "CESIUM_ION_ACCESS_TOKEN"}</code> on the API service and redeploy. The map engine is intentionally not replaced when the token is missing.</p>
-            </div>
+          <div data-testid="aor-cesium-token-missing" role="status" className="pointer-events-none absolute bottom-16 left-4 z-20 max-w-[min(26rem,calc(100%-2rem))] rounded-2xl border border-amber-300/25 bg-black/65 px-4 py-2.5 text-left backdrop-blur-xl">
+            <p className="text-[11px] font-bold text-amber-100/90"><AlertTriangle className="mr-1 inline text-amber-300" size={12} />3D globe unavailable — Cesium ion token is not configured</p>
+            <p className="mt-1 text-[10px] leading-4 text-slate-400">Set <code className="rounded bg-white/10 px-1">{config.requiredEnv || "CESIUM_ION_ACCESS_TOKEN"}</code> on the API service to enable the CesiumJS globe with Cesium ion terrain and imagery. The same registry, search and requirements run on the 2D map meanwhile.</p>
           </div>
         ) : null}
 
-        {(!config || (globeReady && status.state === "loading")) ? <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center"><div className="text-center"><Loader2 className="mx-auto animate-spin text-cyan-100/55" size={22} /><p className="mt-3 text-[10px] text-slate-400">Loading Cesium terrain and imagery…</p></div></div> : null}
-        {status.state === "error" ? <div className="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-full border border-amber-300/25 bg-black/60 px-4 py-2 text-[10px] text-amber-100/80 backdrop-blur-xl"><AlertTriangle size={11} className="mr-1 inline" />{status.message || "Cesium reported an error."}</div> : null}
+        {(!config || (use3d && status.state === "loading")) ? <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center"><div className="text-center"><Loader2 className="mx-auto animate-spin text-cyan-100/55" size={22} /><p className="mt-3 text-[10px] text-slate-400">Loading Cesium terrain and imagery…</p></div></div> : null}
+        {use3d && status.state === "error" && !status.fatal ? <div className="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-full border border-amber-300/25 bg-black/60 px-4 py-2 text-[10px] text-amber-100/80 backdrop-blur-xl"><AlertTriangle size={11} className="mr-1 inline" />{status.message || "Cesium reported an error."}</div> : null}
+        {mapNotice && !use3d && globeReady ? <div data-testid="aor-map-notice" className="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-full border border-amber-300/25 bg-black/60 px-4 py-2 text-[10px] text-amber-100/80 backdrop-blur-xl"><AlertTriangle size={11} className="mr-1 inline" />{mapNotice}</div> : null}
         {boundaryError ? <div className="absolute left-1/2 top-14 z-30 -translate-x-1/2 rounded-full border border-amber-300/25 bg-black/60 px-4 py-2 text-[10px] text-amber-100/80 backdrop-blur-xl">Country boundaries failed to load: {boundaryError}</div> : null}
+        {directoryError ? <div data-testid="aor-directory-error" className="absolute left-1/2 top-24 z-30 max-w-[min(34rem,calc(100%-2rem))] -translate-x-1/2 rounded-2xl border border-amber-300/25 bg-black/65 px-4 py-2 text-center text-[10px] leading-4 text-amber-100/85 backdrop-blur-xl"><AlertTriangle size={11} className="mr-1 inline" />The location directory could not be loaded ({directoryError}). Countries can still be opened from the map, but their area of responsibility is not shown because it is not assumed.</div> : null}
 
-        {/* Restrained floating controls: scope breadcrumb, AOR chips, country search */}
+        {/* Restrained floating controls: scope breadcrumb, AOR chips, location search */}
         <div className="pointer-events-none absolute left-4 top-4 z-30 flex max-w-[calc(100%-2rem)] flex-col gap-2">
           <nav aria-label="Scope" className="pointer-events-auto flex w-fit items-center gap-0.5 rounded-full border border-white/[.09] bg-black/45 px-1.5 py-1 backdrop-blur-xl">
             <Globe2 size={12} className="ml-1.5 text-cyan-100/60" />
             {crumb("World", view.level === "world" ? undefined : goWorld, view.level === "world")}
-            {selectedAor ? <><span className="text-slate-600">›</span>{crumb(selectedAor.label, view.level === "country" ? () => goAor(selectedAor.id) : undefined, view.level === "aor")}</> : null}
-            {selectedEntry || view.iso2 ? <><span className="text-slate-600">›</span>{crumb(intel?.country.name || selectedEntry?.name || view.iso2 || "", undefined, true)}</> : null}
+            {selectedAorId ? <><span className="text-slate-600">›</span>{crumb(COMMAND_VIEW[selectedAorId].label, view.level === "country" ? () => goAor(selectedAorId) : undefined, view.level === "aor")}</> : null}
+            {location || split || view.locationId ? <><span className="text-slate-600">›</span>{crumb(displayName, undefined, true)}</> : null}
           </nav>
-          <div className="pointer-events-auto flex max-w-full flex-wrap gap-1">
-            {COMMANDS.map((command) => <button key={command.id} type="button" aria-pressed={view.aorId === command.id} onClick={() => goAor(command.id)} className={`rounded-full border px-2.5 py-1 text-[9px] font-bold backdrop-blur-xl transition ${view.aorId === command.id ? "border-white/25 bg-white/[.12] text-white" : "border-white/[.08] bg-black/40 text-slate-300 hover:text-white"}`}><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full" style={{ background: command.color }} />{command.label.replace("US", "")}</button>)}
+          <div className="pointer-events-auto flex max-w-full flex-wrap gap-1" data-testid="aor-command-chips">
+            {COMMAND_ORDER.filter((id) => directory && !directory.directory.degraded && commandSummary(id)).map((id) => <button key={id} type="button" data-testid={`aor-chip-${id}`} aria-pressed={selectedAorId === id} onClick={() => goAor(id)} title={commandSummary(id) ? `${commandSummary(id)!.total} locations` : undefined} className={`rounded-full border px-2.5 py-1 text-[9px] font-bold backdrop-blur-xl transition ${selectedAorId === id ? "border-white/25 bg-white/[.12] text-white" : "border-white/[.08] bg-black/40 text-slate-300 hover:text-white"}`}><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full" style={{ background: COMMAND_VIEW[id].color }} />{COMMAND_VIEW[id].label.replace("US", "")}</button>)}
           </div>
-          <div className="pointer-events-auto relative w-64">
-            <div className="flex items-center gap-2 rounded-full border border-white/[.09] bg-black/45 px-3 backdrop-blur-xl"><Search size={12} className="text-slate-500" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a country" aria-label="Find a country" className="min-h-8 w-full bg-transparent text-[11px] text-white outline-none placeholder:text-slate-600" /></div>
-            {matches.length ? <ul className="absolute left-0 right-0 top-9 overflow-hidden rounded-2xl border border-white/[.09] bg-[#050d14]/95 backdrop-blur-2xl">{matches.map((entry) => <li key={entry.iso2}><button type="button" onClick={() => { setQuery(""); goCountry(entry.iso2); }} className="flex w-full items-center justify-between px-3 py-2 text-left text-[11px] text-white/85 hover:bg-white/[.06]"><span>{entry.name}</span><span className="text-[9px] text-slate-500">{COMMAND_BY_COUNTRY.get(entry.iso2)?.label.replace("US", "") ?? entry.iso2}</span></button></li>)}</ul> : null}
+          <div className="pointer-events-auto relative w-72">
+            <div className="flex items-center gap-2 rounded-full border border-white/[.09] bg-black/45 px-3 backdrop-blur-xl"><Search size={12} className="text-slate-500" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a country or territory" aria-label="Find a country or territory" className="min-h-8 w-full bg-transparent text-[11px] text-white outline-none placeholder:text-slate-600" /></div>
+            {searchHasResults ? (
+              <ul data-testid="aor-search-results" className="absolute left-0 right-0 top-9 max-h-80 overflow-y-auto rounded-2xl border border-white/[.09] bg-[#050d14]/95 backdrop-blur-2xl">
+                {results.splitParents.map((entry) => <li key={entry.iso3}><button type="button" data-testid="aor-search-split" onClick={() => { setQuery(""); goSplit(entry.iso3); }} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[11px] text-white/85 hover:bg-white/[.06]"><span>{entry.name}</span><span className="text-[9px] text-amber-200/80">split across {entry.commands.map((id) => COMMAND_VIEW[id].short).join(" / ")}</span></button></li>)}
+                {results.locations.map((entry) => <li key={entry.id}><button type="button" data-testid="aor-search-result" data-location-id={entry.id} onClick={() => { setQuery(""); goLocation(entry.id); }} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[11px] text-white/85 hover:bg-white/[.06]"><span className="min-w-0"><span className="block truncate">{entry.name}</span>{entry.entityType === "entity" ? <span className="block truncate text-[8px] text-slate-500">{entry.categoryLabel}{entry.parentName ? ` · ${entry.parentName}` : ""}{!entry.boundaryIso2 ? " · point only" : ""}</span> : null}</span><span className="shrink-0 text-[9px] text-slate-500">{entry.command ? COMMAND_VIEW[entry.command].short : entry.iso2}</span></button></li>)}
+              </ul>
+            ) : noMatch ? <p className="absolute left-0 right-0 top-9 rounded-2xl border border-white/[.09] bg-[#050d14]/95 px-3 py-2 text-[10px] text-slate-400 backdrop-blur-2xl">No directory location matches “{query.trim()}”.</p> : null}
           </div>
         </div>
 
-        {/* Compact layer selector */}
-        <div className="absolute bottom-5 left-4 z-30">
-          <button type="button" onClick={() => setLayersOpen((open) => !open)} aria-expanded={layersOpen} className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/[.09] bg-black/45 px-3 py-1.5 text-[10px] font-bold text-white/80 backdrop-blur-xl"><Layers size={12} />Layers · {activeLayers.size}/{DIMENSIONS.length}</button>
-          {layersOpen ? <ul className="pointer-events-auto mt-2 w-56 overflow-hidden rounded-2xl border border-white/[.09] bg-[#050d14]/92 backdrop-blur-2xl" aria-label="Map layers">
-            {DIMENSIONS.map((dimension) => <li key={dimension}><button type="button" aria-pressed={activeLayers.has(dimension)} onClick={() => toggleLayer(dimension)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[10px] text-white/85 hover:bg-white/[.05]"><span className="h-2 w-2 rounded-full" style={{ background: activeLayers.has(dimension) ? DIMENSION_COLORS[dimension] : "transparent", border: `1px solid ${DIMENSION_COLORS[dimension]}` }} /><span className="flex-1">{DIMENSION_LABELS[dimension]}</span>{layerCounts.get(dimension) ? <span className="text-[9px] text-slate-500">{layerCounts.get(dimension)}</span> : null}</button></li>)}
-            <li className="border-t border-white/[.06] px-3 py-2 text-[8px] leading-4 text-slate-500">Points use real source coordinates. Country shading appears only where a source covers the whole country. Text-only geography is listed in the panel, not drawn.</li>
-          </ul> : null}
+        {/* Compact layer selector and map-mode toggle */}
+        <div className="absolute bottom-5 left-4 z-30 flex items-end gap-2">
+          <div>
+            <button type="button" onClick={() => setLayersOpen((open) => !open)} aria-expanded={layersOpen} className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/[.09] bg-black/45 px-3 py-1.5 text-[10px] font-bold text-white/80 backdrop-blur-xl"><Layers size={12} />Layers · {activeLayers.size}/{DIMENSIONS.length}</button>
+            {layersOpen ? <ul className="pointer-events-auto absolute bottom-9 left-0 w-60 overflow-hidden rounded-2xl border border-white/[.09] bg-[#050d14]/92 backdrop-blur-2xl" aria-label="Map layers">
+              <li className="px-3 pb-1 pt-2 text-[8px] font-black uppercase tracking-[.14em] text-slate-500">Registry overlays</li>
+              <li><button type="button" data-testid="aor-toggle-shading" aria-pressed={showAorShading} onClick={() => setShowAorShading((value) => !value)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[10px] text-white/85 hover:bg-white/[.05]"><span className="h-2 w-2 rounded-full border border-cyan-200" style={{ background: showAorShading ? "#67e8f9" : "transparent" }} /><span className="flex-1">AOR shading by command</span></button></li>
+              <li><button type="button" data-testid="aor-toggle-markers" aria-pressed={showMarkers} onClick={() => setShowMarkers((value) => !value)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[10px] text-white/85 hover:bg-white/[.05]"><span className="h-2 w-2 rounded-full border border-cyan-200" style={{ background: showMarkers ? "#67e8f9" : "transparent" }} /><span className="flex-1">Markers for locations without a boundary</span>{directory ? <span className="text-[9px] text-slate-500">{directory.directory.withoutPolygonCount}</span> : null}</button></li>
+              <li className="px-3 pb-1 pt-2 text-[8px] font-black uppercase tracking-[.14em] text-slate-500">Intelligence layers</li>
+              {DIMENSIONS.map((dimension) => <li key={dimension}><button type="button" aria-pressed={activeLayers.has(dimension)} onClick={() => toggleLayer(dimension)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[10px] text-white/85 hover:bg-white/[.05]"><span className="h-2 w-2 rounded-full" style={{ background: activeLayers.has(dimension) ? DIMENSION_COLORS[dimension] : "transparent", border: `1px solid ${DIMENSION_COLORS[dimension]}` }} /><span className="flex-1">{DIMENSION_LABELS[dimension]}</span>{layerCounts.get(dimension) ? <span className="text-[9px] text-slate-500">{layerCounts.get(dimension)}</span> : null}</button></li>)}
+              <li className="border-t border-white/[.06] px-3 py-2 text-[8px] leading-4 text-slate-500">Points use real source coordinates. Country shading appears only where a source covers the whole country. Text-only geography is listed in the panel, not drawn. Locations without a boundary are points, never outlines.</li>
+            </ul> : null}
+          </div>
+          <button type="button" data-testid="aor-map-mode" onClick={() => { setMapNotice(""); setStatus({ state: "loading" }); setMapMode((mode) => (mode === "3d" ? "2d" : "3d")); }} disabled={!globeReady && mapMode === "2d"} title={globeReady ? undefined : "The 3D globe needs a Cesium ion token"} className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/[.09] bg-black/45 px-3 py-1.5 text-[10px] font-bold text-white/80 backdrop-blur-xl disabled:opacity-45">{use3d ? <><MapIcon size={12} />2D map</> : <><Box size={12} />3D globe</>}</button>
         </div>
 
         {hoverName && view.level !== "country" ? <div className="pointer-events-none absolute bottom-5 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/[.09] bg-black/55 px-3 py-1 text-[10px] font-bold text-white/85 backdrop-blur-xl">{hoverName}</div> : null}
         {view.level === "world" && worldEvents.length && activeLayers.has("disasters") ? <div className="pointer-events-none absolute bottom-5 right-4 z-20 rounded-full border border-white/[.08] bg-black/40 px-3 py-1 text-[9px] text-slate-400 backdrop-blur-xl">{worldEvents.length} recent global events (USGS M5.5+ and GDACS) at source coordinates</div> : null}
+
+        {view.level === "aor" && selectedAorId && directory && !panelOpen ? <AorCommandPanel command={selectedAorId} directory={directory} onPick={goLocation} onClose={goWorld} /> : null}
 
         {panelOpen ? (
           <AorIntelPanel
             intel={intel}
             loading={intelLoading}
             error={intelError}
-            countryName={intel?.country.name || selectedEntry?.name || view.iso2 || ""}
-            aorLabel={selectedAor?.label ?? null}
-            hasPolygon={Boolean(selectedEntry)}
+            intelUnavailable={intelUnavailable}
+            location={location}
+            split={split}
+            directory={directory}
+            displayName={displayName}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             highlightedId={highlightedId}
             onFocusEvidence={focusRecord}
             onSelectEvidence={selectEvidence}
+            onPickLocation={goLocation}
             onClose={() => setPanelOpen(false)}
             lens={lensBlock}
             synthesis={synthesis}
             synthesisLoading={synthesisLoading}
             environment={environment}
             onToggleEnvironment={(key) => setEnvironment((current) => ({ ...current, [key]: !current[key] }))}
+            medicalInputs={medicalInputs}
+            setMedicalInputs={setMedicalInputs}
+            medical={medical}
           />
         ) : null}
       </section>

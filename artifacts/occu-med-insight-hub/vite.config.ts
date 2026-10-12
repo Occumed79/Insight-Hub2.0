@@ -35,9 +35,12 @@ export default defineConfig({
     react(),
     tailwindcss(),
     viteStaticCopy({
+      // CESIUM_BASE_URL is /cesium, so Workers, ThirdParty, Assets and Widgets must sit directly under /cesium. vite-plugin-static-copy keeps
+      // the source path by default (…/cesium/node_modules/cesium/Build/Cesium/Workers), which made every worker and asset request 404.
       targets: ["Workers", "ThirdParty", "Assets", "Widgets"].map((directory) => ({
         src: `node_modules/cesium/Build/Cesium/${directory}`,
         dest: "cesium",
+        rename: { stripBase: 4 },
       })),
     }),
     // Replit-specific plugins — dev only
