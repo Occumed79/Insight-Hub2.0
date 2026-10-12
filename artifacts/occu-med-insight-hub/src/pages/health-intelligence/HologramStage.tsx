@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, useRef, type CSSProperties } from "react";
 import {
   BODY_CENTER,
   GROUP_LABEL,
@@ -10,12 +10,15 @@ import {
   type Zone,
 } from "./anatomy";
 import { heatColor, indexByGroup, type Signal, type SignalMode } from "./signals";
+import Strands, { STRANDS_DEFAULTS, type StrandsParams } from "./Strands";
 
 const IMG_W = HOLOGRAM_IMAGE.width;
 const IMG_H = HOLOGRAM_IMAGE.height;
 
 export interface HologramStageProps {
   mode: SignalMode;
+  /** Transient anatomy scan while loading / processing; never persistent. */
+  scanning: boolean;
   signals: Signal[];
   activeGroup: GroupKey | null;
   activeZoneId: string | null;
@@ -31,8 +34,23 @@ function describe(signal: Signal | undefined, mode: SignalMode) {
 }
 
 export default function HologramStage({
-  mode, signals, activeGroup, activeZoneId, onHover, onSelect,
+  mode, scanning, signals, activeGroup, activeZoneId, onHover, onSelect,
 }: HologramStageProps) {
+  const scanParams = useRef<StrandsParams>({
+    ...STRANDS_DEFAULTS,
+    colors: ["#FFE9A8", "#FFB020", "#FFD24A", "#FF8A00"],
+    count: 4,
+    speed: 0.65,
+    amplitude: 0.52,
+    waviness: 1.2,
+    thickness: 0.36,
+    intensity: 0.45,
+    glow: 2.1,
+    taper: 3,
+    scale: 2.5,
+    saturation: 1.12,
+    opacity: 0.52,
+  });
   const byGroup = useMemo(() => indexByGroup(signals), [signals]);
   const maxScore = useMemo(() => Math.max(0.0001, ...signals.map((signal) => signal.score)), [signals]);
   const relative = (signal: Signal) => Math.min(1, Math.max(0.38, 0.38 + 0.62 * (signal.score / maxScore)));
@@ -136,6 +154,17 @@ export default function HologramStage({
             />
           ))}
         </div>
+
+        {scanning ? (
+          <div className="hs-scan-fields" aria-hidden="true" data-testid="health-body-scan">
+            <div className="hs-scan-field hs-scan-field-front">
+              <div className="hs-scan-pass"><Strands paramsRef={scanParams} maxDpr={1} timeOffset={0} /></div>
+            </div>
+            <div className="hs-scan-field hs-scan-field-back">
+              <div className="hs-scan-pass"><Strands paramsRef={scanParams} maxDpr={1} timeOffset={4} /></div>
+            </div>
+          </div>
+        ) : null}
 
         <svg className="hs-overlay" viewBox={`0 0 ${IMG_W} ${IMG_H}`} preserveAspectRatio="none">
           {callout ? (
