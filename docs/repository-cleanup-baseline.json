@@ -43,13 +43,11 @@
     "artifacts/occu-med-insight-hub/src/pages/reviewer-injury-hologram.tsx",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-injury-hologram.css",
     "artifacts/occu-med-insight-hub/src/pages/HologramPointCloud.tsx",
-    "artifacts/occu-med-insight-hub/src/pages/reviewer-job-intelligence.tsx",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-drug-checker.tsx",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-clinical-calculators.tsx",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-aor-factors-live.tsx",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-aor-factors-v2.tsx",
     "artifacts/occu-med-insight-hub/src/pages/reviewer-aor-factors-v3.tsx",
-    "artifacts/occu-med-insight-hub/src/pages/reviewer-standards-intelligence.tsx",
     "artifacts/occu-med-insight-hub/src/pages/federal-awards-v2.tsx",
     "artifacts/occu-med-insight-hub/src/pages/legal-injury-intelligence-v2.tsx",
     "artifacts/occu-med-insight-hub/src/pages/state-agencies-v2.tsx",
@@ -64,7 +62,6 @@
     "artifacts/api-server/src/routes/aor-respiratory-surveillance.ts",
     "artifacts/api-server/src/routes/aor-immunization.ts",
     "artifacts/api-server/src/routes/aor-fungal-burden.ts",
-    "artifacts/api-server/src/routes/standards-intelligence.ts",
     "artifacts/occu-med-insight-hub/tests/occupational-intelligence.spec.ts",
     "artifacts/occu-med-insight-hub/tests/clinical-calculators.spec.ts",
     "artifacts/occu-med-insight-hub/tests/aor-consolidation.spec.ts",
@@ -107,6 +104,9 @@
     "^app/page\\.tsx$",
     "^artifacts/mockup-sandbox/",
     "^attached_assets/Pasted-.*\\.txt$",
-    "^artifacts/occu-med-insight-hub/src/(index|visual-restore|logo-override|map-polish|cinematic-system)\\.css$"
+    "^artifacts/occu-med-insight-hub/src/(index|visual-restore|logo-override|map-polish|cinematic-system)\\.css$",
+    "^artifacts/api-server/src/routes/(job-intelligence|standards-intelligence)\\\\.ts$",
+    "^artifacts/api-server/src/services/jobIntelligenceService\\\\.ts$",
+    "^artifacts/occu-med-insight-hub/src/pages/(job-intelligence[^/]*|reviewer-job-intelligence|reviewer-standards-intelligence)\\\\.(tsx|css)$"
   ]
 }
