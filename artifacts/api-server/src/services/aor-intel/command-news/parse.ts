@@ -180,6 +180,8 @@ const MONTHS = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|j
 const MONTH_FIRST = new RegExp(`\\b(${MONTHS})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})\\b`, "i");
 const DAY_FIRST = new RegExp(`\\b(\\d{1,2})\\s+(${MONTHS})\\.?,?\\s+(\\d{4})\\b`, "i");
 const NUMERIC = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/;
+// DoD/DVIDS unit listings use MM.DD.YYYY (e.g. 10.01.2026).
+const DOTTED = /\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/;
 const ISO_DAY = /\b(\d{4})-(\d{2})-(\d{2})\b/;
 
 /** A date a listing page states next to an item: a <time datetime>, "Oct. 10, 2026", "10 Oct 2026", "10/10/2026" or "2026-10-10", found between this link and the next article link. */
@@ -196,6 +198,8 @@ export function nearbyDate(segment: string): string | null {
   if (match) { const iso = at(`${match[1]}-${match[2]}-${match[3]}`); if (iso) return iso; }
   match = text.match(NUMERIC);
   if (match && Number(match[1]) <= 12 && Number(match[2]) <= 31) { const iso = at(`${match[3]}-${match[1].padStart(2, "0")}-${match[2].padStart(2, "0")}`); if (iso) return iso; }
+  match = text.match(DOTTED);
+  if (match && Number(match[1]) >= 1 && Number(match[1]) <= 12 && Number(match[2]) >= 1 && Number(match[2]) <= 31) { const iso = at(`${match[3]}-${match[1].padStart(2, "0")}-${match[2].padStart(2, "0")}`); if (iso) return iso; }
   return null;
 }
 
