@@ -2,7 +2,6 @@ import {
   Activity,
   BarChart3,
   BookOpenCheck,
-  BriefcaseBusiness,
   Calculator,
   CircleDollarSign,
   Database,
@@ -30,7 +29,6 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/", label: "Home", icon: Home },
       { href: "/injuries-medical-conditions", label: "Injuries & Medical Conditions", icon: Activity },
-      { href: "/job-intelligence", label: "Job Intelligence", icon: BriefcaseBusiness },
       { href: "/aor-factors", label: "AOR Factors", icon: ShieldAlert },
       { href: "/drug-checker", label: "Drug Checker", icon: Pill },
       { href: "/clinical-calculators", label: "Clinical Calculators", icon: Calculator },
@@ -73,7 +71,6 @@ function isActivePath(itemHref: string, currentPath: string) {
   if (currentPath === itemHref) return true;
   if (itemHref === "/aor-factors" && currentPath === "/aor-risk-intelligence") return true;
   if (itemHref === "/industry-impact-calculator" && currentPath === "/industry-injury-benchmarks") return true;
-  if (itemHref === "/job-intelligence" && currentPath === "/occupational-demands") return true;
   if (itemHref === "/war-costs-intelligence" && isWarCostsPath(currentPath)) return true;
   return false;
 }
