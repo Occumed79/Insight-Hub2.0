@@ -1,6 +1,4 @@
-import { useEffect, useMemo, useRef, type CSSProperties } from "react";
-import Strands, { STRANDS_DEFAULTS, type StrandsParams } from "./Strands";
-import { Choreographer, type FocusPoint, type Phase } from "./choreography";
+import { useMemo, type CSSProperties } from "react";
 import {
   BODY_CENTER,
   GROUP_LABEL,
@@ -9,7 +7,6 @@ import {
   ZONES_BY_AREA_DESC,
   zoneInView,
   type GroupKey,
-  type View,
   type Zone,
 } from "./anatomy";
 import { heatColor, indexByGroup, type Signal, type SignalMode } from "./signals";
@@ -17,16 +14,7 @@ import { heatColor, indexByGroup, type Signal, type SignalMode } from "./signals
 const IMG_W = HOLOGRAM_IMAGE.width;
 const IMG_H = HOLOGRAM_IMAGE.height;
 
-const GOLD_A = ["#FFC940", "#FF8A00", "#FFE9A8", "#FF6A1F"];
-const GOLD_B = ["#FFE9A8", "#FFB020", "#FF7A00", "#FFD24A"];
-const GOLD_AMBIENT = ["#FFB020", "#FF7A00", "#FFE9A8"];
-
-function makeParams(colors: string[], overrides: Partial<StrandsParams> = {}): StrandsParams {
-  return { ...STRANDS_DEFAULTS, colors, taper: 3, saturation: 1.35, ...overrides };
-}
-
 export interface HologramStageProps {
-  phase: Phase;
   mode: SignalMode;
   signals: Signal[];
   activeGroup: GroupKey | null;
@@ -34,9 +22,6 @@ export interface HologramStageProps {
   onHover: (zone: Zone | null) => void;
   onSelect: (zone: Zone) => void;
 }
-
-/** Image-space point -> percent of the stage. */
-const toStage = (x: number, y: number) => ({ x: (x / IMG_W) * 100, y: (y / IMG_H) * 100 });
 
 function describe(signal: Signal | undefined, mode: SignalMode) {
   if (!signal) return { value: "No signal", note: mode === "idle" ? "Region preview" : "Not indicated in current evidence" };
@@ -46,18 +31,8 @@ function describe(signal: Signal | undefined, mode: SignalMode) {
 }
 
 export default function HologramStage({
-  phase, mode, signals, activeGroup, activeZoneId, onHover, onSelect,
+  mode, signals, activeGroup, activeZoneId, onHover, onSelect,
 }: HologramStageProps) {
-  const stageRef = useRef<HTMLDivElement | null>(null);
-  const ring0El = useRef<HTMLDivElement | null>(null);
-  const ring1El = useRef<HTMLDivElement | null>(null);
-  const params0 = useRef<StrandsParams>(makeParams(GOLD_A, { count: 5, scale: 2.6 }));
-  const params1 = useRef<StrandsParams>(makeParams(GOLD_B, { count: 5, scale: 2.6 }));
-  const paramsAmbient = useRef<StrandsParams>(
-    makeParams(GOLD_AMBIENT, { count: 3, speed: 0.12, amplitude: 1.5, intensity: 0.4, glow: 2, opacity: 0.28, scale: 2.2, thickness: 0.8 }),
-  );
-  const choreo = useRef<Choreographer | null>(null);
-
   const byGroup = useMemo(() => indexByGroup(signals), [signals]);
   const maxScore = useMemo(() => Math.max(0.0001, ...signals.map((signal) => signal.score)), [signals]);
   const relative = (signal: Signal) => Math.min(1, Math.max(0.38, 0.38 + 0.62 * (signal.score / maxScore)));
@@ -66,51 +41,6 @@ export default function HologramStage({
     () => ZONES.find((zone) => zone.id === activeZoneId) ?? null,
     [activeZoneId],
   );
-
-  /** Focus point for each ring: the hovered zone in its own view, the group's counterpart in the other. */
-  const focus = useMemo<[FocusPoint | null, FocusPoint | null]>(() => {
-    if (!activeGroup || activeGroup === "wholeBody") return [null, null];
-    const pick = (v: View): FocusPoint | null => {
-      const zone = activeZone && activeZone.view === v ? activeZone : zoneInView(activeGroup, v);
-      if (!zone) return null;
-      const p = toStage(zone.cx, zone.cy);
-      return { x: p.x, y: p.y, size: Math.max(9, ((Math.max(zone.rx, zone.ry) * 2.7) / IMG_W) * 100) };
-    };
-    return [pick("front"), pick("back")];
-  }, [activeGroup, activeZone]);
-
-  const bodyX = useMemo<[number, number]>(
-    () => [toStage(BODY_CENTER.front, 0).x, toStage(BODY_CENTER.back, 0).x],
-    [],
-  );
-
-  // One controller for the lifetime of the stage.
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const controller = new Choreographer(
-      [{ el: ring0El.current, params: params0 }, { el: ring1El.current, params: params1 }],
-      { el: null, params: paramsAmbient },
-      { phase: "calibrate", bodyX: [32, 68], focus: [null, null] },
-      reduce,
-    );
-    const measure = () => controller.setStageSize(stage.clientWidth, stage.clientHeight);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(stage);
-    choreo.current = controller;
-    controller.start();
-    return () => {
-      observer.disconnect();
-      controller.stop();
-      choreo.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    choreo.current?.setInput({ phase, bodyX, focus });
-  }, [phase, bodyX, focus]);
 
   // ---- lit layer: mask + glow blobs ------------------------------------------------------
   const litZones = useMemo(() => {
@@ -160,10 +90,8 @@ export default function HologramStage({
 
   return (
     <div
-      ref={stageRef}
       className="hs-stage"
       data-testid="health-hologram"
-      data-phase={phase}
       data-mode={mode}
     >
       <div className="hs-atmosphere" aria-hidden="true">
@@ -171,10 +99,6 @@ export default function HologramStage({
         <i className="hs-bloom hs-bloom-b" />
         <i className="hs-floor" />
         <i className="hs-dust"><b /></i>
-      </div>
-
-      <div className="hs-ambient" aria-hidden="true">
-        <Strands paramsRef={paramsAmbient} maxDpr={1} timeOffset={11} />
       </div>
 
       <div className="hs-inner">
@@ -277,15 +201,6 @@ export default function HologramStage({
 
         <span className="hs-cap hs-cap-front" aria-hidden="true">ANTERIOR</span>
         <span className="hs-cap hs-cap-back" aria-hidden="true">POSTERIOR</span>
-      </div>
-
-      <div className="hs-rings" aria-hidden="true">
-        <div ref={ring0El} className="hs-ring">
-          <Strands paramsRef={params0} timeOffset={0} />
-        </div>
-        <div ref={ring1El} className="hs-ring">
-          <Strands paramsRef={params1} timeOffset={7} />
-        </div>
       </div>
 
       <div className="hs-vignette" aria-hidden="true" />
