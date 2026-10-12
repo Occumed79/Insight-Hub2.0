@@ -110,7 +110,7 @@ async function getRegistry(): Promise<GovernedSource[]> {
       authority: "U.S. Department of Labor — O*NET",
       category: "occupation",
       mode: "live-api",
-      workspaces: ["Job Intelligence", "Exposure Matrix", "Employer Intelligence"],
+      workspaces: ["O*NET Master Tool", "Exposure Matrix", "Employer Intelligence"],
       configured: isOnetConfigured(),
       enabled: true,
       state: sourceState(isOnetConfigured(), true),
