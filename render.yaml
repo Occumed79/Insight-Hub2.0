@@ -52,6 +52,9 @@ services:
       # Cesium ion access token (public ion token with World Terrain + imagery). Served to the AOR Factors CesiumJS globe by /api/aor/cesium-config.
       - key: CESIUM_ION_ACCESS_TOKEN
         sync: false
+      # Optional second-account Cesium ion token; automatic one-time fallback on ion failure.
+      - key: CESIUM_ION_ACCESS_TOKEN_2
+        sync: false
       # Public browser token embedded by Vite at build time for the Mapbox basemap.
       - key: VITE_MAPBOX_ACCESS_TOKEN
         sync: false
