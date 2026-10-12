@@ -2,9 +2,9 @@
 
 Date: 2026-09-21
 
-These workspaces are intentionally blank in the UI while they are being rebuilt.
+This manifest tracks remaining blank rebuild-hold workspaces and records superseded workspaces removed or completed since 2026-09-21.
 
-The routes, navigation labels, underlying source implementations, data contracts, and product purpose are preserved. The blank shell must not be treated as a new product definition. When rebuilding, use the identities below as binding constraints so the pages do not drift into unrelated tools.
+Preserve the documented identity of active tools; do not revive retired implementations. A blank shell must not be treated as a new product definition. When rebuilding, use the identities below as binding constraints so the pages do not drift into unrelated tools.
 
 ## 1. Injuries & Medical Conditions
 
@@ -26,25 +26,19 @@ The routes, navigation labels, underlying source implementations, data contracts
   - `/api/occupational-discovery/osha-occupation-profile`
 - Rebuild rule: this remains an occupation-linked injury/medical evidence workspace. Do not turn it into a generic anatomy viewer, a generic medical encyclopedia, or an automatic clearance engine.
 
-## 2. Standards Intelligence
+## 2. Standards Intelligence — regulatory changes monitor (awaiting implementation)
 
 - Route: `/standards-intelligence`
 - Sidebar label: `Standards Intelligence`
 - Identity key: `standards-intelligence`
-- Original route component: `src/pages/reviewer-standards-experience.tsx`
-- Preserved implementation: `src/pages/reviewer-standards-intelligence.tsx`
-- Core product identity:
-  - standards/evidence reader for occupational, deployment, transportation, emergency-response, and medical-surveillance requirements
-  - source registry with selectable standards and source provenance
-  - case evaluator that accepts occupation/context, condition, medication, measurements, and program/exposure triggers
-  - distinguish automated-medical, trigger-based, and reference-only coverage
-  - matched findings must retain source/citation/action context
-  - standards remain controlling references; the UI must not invent requirements
-- Important live data / APIs:
-  - `GET /api/standards/catalog`
-  - `POST /api/standards/evaluate`
-- Known source families represented in the existing implementation include CENTCOM MOD 18, FMCSA, transportation/FAA references, NFPA/emergency-response material, and OSHA surveillance standards.
-- Rebuild rule: this remains a standards intelligence and case-evaluation workspace, not a generic document library and not a replacement for controlling source text.
+- Route component: `src/pages/reviewer-standards-experience.tsx` (blank rebuild hold)
+- **Product purpose:** detect and surface changes to regulatory and occupational-health standards and guidance across professions, industries, states and federal agencies.
+- Monitor official authoritative publications and amendments. Organize findings by issuing body, jurisdiction, specialty, effective date and practical impact.
+- Track proposed, final, revised, superseded and withdrawn rules, medical guidance and occupational-health recommendations.
+- Preserve source links, publication/verification timestamps and update history; explicitly distinguish issued changes from speculation and commentary.
+- Initial public sources can include Federal Register and agency RSS/news/official publications; gated sources require a verified access plan. There is no requirement for a single universal API key.
+- **Retired and deleted:** old `/api/standards/catalog`, `/api/standards/evaluate` case evaluator and `reviewer-standards-intelligence.tsx` page. They must not be restored.
+- A new monitoring API and UI must be designed separately for the actual update-tracking purpose; no old clinical case-evaluator code should be reused.
 
 ## 3. Organizational Chart
 
@@ -173,28 +167,9 @@ The routes, navigation labels, underlying source implementations, data contracts
   - results must remain equation/screening outputs, not diagnoses or automatic fitness decisions
 - Rebuild rule: this remains a source-explicit calculator workbench. Do not turn it into a generic medical form or obscure the published formula/source boundary.
 
-## 9. Job Intelligence
+## Retired — Job Intelligence
 
-- Route: `/job-intelligence`
-- Sidebar label: `Job Intelligence`
-- Identity key: `job-intelligence`
-- Original route component: `src/pages/job-intelligence-experience.tsx`
-- Preserved implementation: `src/pages/job-intelligence-v2.tsx`
-- Core product identity:
-  - resolve the actual occupation through O*NET
-  - preserve a saved employer/job profile library
-  - inspect source evidence across tasks, work context, abilities, work activities, and detailed work activities
-  - allow relevance keywords to re-rank evidence without altering source values
-  - build employer-specific duties and essential functions with reviewer-controlled essentiality, frequency, domains, postures, exposures, PPE, lifting detail, driving, heights, emergency response, shift work, heavy equipment, firearms, and notes
-  - support occupation-to-occupation comparison without turning signal counts into medical or job-risk scores
-  - preserve employer-specific judgments as reviewer decisions rather than O*NET conclusions
-- Important live data / APIs:
-  - `/api/job-intelligence/profiles`
-  - `/api/job-intelligence/profiles/:id`
-  - `/api/occupational-discovery/onet/profile`
-  - `/api/occupational-discovery/onet/profile-by-code`
-- Rebuild rule: this remains an O*NET-backed occupation/evidence/essential-functions workbench. Do not turn it into a generic job-description page or an automated medical conclusion engine.
-
+The duplicate Job Intelligence tab, legacy pages, profile APIs, and job-intelligence database service were removed on 2026-10-12. Do not restore them in a workspace rebuild. Official O*NET browsing remains under the `/onet-master-tool` route; shared O*NET APIs still serve independent active tools. Historical database rows were not dropped.
 
 ## UI hold state
 
@@ -203,16 +178,14 @@ The current visible route implementations intentionally render only:
 - an empty workspace body
 - hidden route/workspace identity attributes
 
-No cards, legacy page information, metrics, forms, tables, diagrams, charts, feeds, or other page content should be visible on these **nine routes** until their rebuilds are deliberately started:
+No cards, legacy page information, metrics, forms, tables, diagrams, charts, feeds, or other page content should be visible on these **seven routes** until their rebuilds are deliberately started:
 
-1. `/injuries-medical-conditions`
-2. `/job-intelligence`
-3. `/drug-checker`
-4. `/clinical-calculators`
-5. `/standards-intelligence`
-6. `/sec-filings`
-7. `/leadership-map`
-8. `/industry-impact-calculator`
-9. `/occupational-calculators`
+1. `/drug-checker`
+2. `/clinical-calculators`
+3. `/standards-intelligence`
+4. `/sec-filings`
+5. `/leadership-map`
+6. `/industry-impact-calculator`
+7. `/occupational-calculators`
 
 The preserved implementation files above are intentionally left in the repository so behavior, terminology, formulas, source boundaries, data contracts, and page identity remain available during reconstruction.
