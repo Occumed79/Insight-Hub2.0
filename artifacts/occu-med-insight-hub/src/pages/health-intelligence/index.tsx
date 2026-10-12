@@ -177,6 +177,7 @@ export default function HealthIntelligencePage() {
         <div className="hi-stage-wrap">
           <HologramStage
             mode={signalMode}
+            scanning={showLoadingOrb}
             signals={signals}
             activeGroup={activeGroup}
             activeZoneId={hoverZone?.id ?? null}
