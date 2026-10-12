@@ -1,3 +1,5 @@
+> Update 2026-10-12: Clinical Calculators workspace removed. Do not revive its route, component or standalone equations; Occupational Calculators is a different retained tool.
+
 > Update 2026-10-12: Job Intelligence legacy code/API routes deleted; Standards Intelligence old case evaluator/API deleted; current Standards tab is reserved for regulatory/guideline **change monitoring**, not employee case evaluation. This earlier audit otherwise records its 2026-09-07 state.
 
 # Insight Hub 2.0 second-pass workspace audit
@@ -11,7 +13,6 @@ Reviewed: 2026-09-07. This file records production route ownership, visible depe
 | Injuries & Medical Conditions | `reviewer-injuries-medical` | Anatomy-first body-region navigator and evidence workbench | None at route boundary | API-backed cases; transient selection | `injury-hologram.spec.ts` |
 | AOR Factors | `reviewer-aor-factors-live` | Map-first command/country operating picture | None at route boundary | Current entity context only | `aor-consolidation.spec.ts` |
 | Drug Checker | `reviewer-drug-checker` | Medication/regimen scientific workspace | None at route boundary | Temporary form state | `reviewed-intelligence.spec.ts` |
-| Clinical Calculators | `reviewer-clinical-calculators` | Focused instrument selector and calculation surfaces | None at route boundary | Temporary inputs | `clinical-calculators.spec.ts` |
 | Standards Intelligence | `reviewer-standards-experience` | Regulatory changes monitor pending rebuild (old case evaluator removed) | Rebuild hold | No monitoring backend yet | Pending |
 | Federal Agencies | `federal-agencies-v2` | Agency-profile evidence workstation | None at route boundary | Source API | `ui-hardening.spec.ts` |
 | State Agencies | `state-agencies-v2` | State map and jurisdiction evidence | None at route boundary | Source API | `state-map.spec.ts` |
@@ -39,7 +40,7 @@ The route-level `CinematicToolPage` and `CinematicDirectPage` abstractions were 
 
 ### KEEP — current product
 
-`/`, `/entities`, `/clients`, `/competitors`, `/federal-agencies`, `/state-agencies`, `/sec-filings`, `/leadership-map`, `/dba-intelligence`, `/fec-filings`, `/injuries-medical-conditions`, `/aor-factors`, `/drug-checker`, `/clinical-calculators`, `/standards-intelligence`, `/onet-master-tool`, `/occupational-data-explorer`, `/industry-impact-calculator`, `/occupational-calculators`, `/war-costs-intelligence`, `/war-costs-map`, `/war-costs-tools`, `/war-costs-special-tools`, `/war-costs-visualizations`, `/war-costs-accountability`, `/war-costs-site-evidence`, `/federal-awards`, `/public-legal-references`, and `/geographic-footprint`.
+`/`, `/entities`, `/clients`, `/competitors`, `/federal-agencies`, `/state-agencies`, `/sec-filings`, `/leadership-map`, `/dba-intelligence`, `/fec-filings`, `/injuries-medical-conditions`, `/aor-factors`, `/drug-checker`, `/standards-intelligence`, `/onet-master-tool`, `/occupational-data-explorer`, `/industry-impact-calculator`, `/occupational-calculators`, `/war-costs-intelligence`, `/war-costs-map`, `/war-costs-tools`, `/war-costs-special-tools`, `/war-costs-visualizations`, `/war-costs-accountability`, `/war-costs-site-evidence`, `/federal-awards`, `/public-legal-references`, and `/geographic-footprint`.
 
 ### INTERNAL — supporting capability intentionally outside primary navigation
 
