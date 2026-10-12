@@ -105,8 +105,8 @@
     "^artifacts/mockup-sandbox/",
     "^attached_assets/Pasted-.*\\.txt$",
     "^artifacts/occu-med-insight-hub/src/(index|visual-restore|logo-override|map-polish|cinematic-system)\\.css$",
-    "^artifacts/api-server/src/routes/(job-intelligence|standards-intelligence)\\\\.ts$",
-    "^artifacts/api-server/src/services/jobIntelligenceService\\\\.ts$",
-    "^artifacts/occu-med-insight-hub/src/pages/(job-intelligence[^/]*|reviewer-job-intelligence|reviewer-standards-intelligence)\\\\.(tsx|css)$"
+    "^artifacts/api-server/src/routes/(job-intelligence|standards-intelligence)\\.ts$",
+    "^artifacts/api-server/src/services/jobIntelligenceService\\.ts$",
+    "^artifacts/occu-med-insight-hub/src/pages/(job-intelligence[^/]*|reviewer-job-intelligence|reviewer-standards-intelligence)\\.(tsx|css)$"
   ]
 }
