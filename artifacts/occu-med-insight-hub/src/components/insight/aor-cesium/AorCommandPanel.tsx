@@ -45,7 +45,7 @@ export function AorCommandPanel({ command, directory, onPick, onClose }: { comma
           <button key={id} type="button" data-testid={`aor-command-tab-${id}`} aria-pressed={tab === id} onClick={() => setTab(id)} className={`rounded-full border px-2.5 py-1 text-[9px] font-bold transition ${tab === id ? "border-cyan-200/25 bg-cyan-200/10 text-white" : "border-white/[.06] text-slate-400 hover:text-white"}`}>{text}</button>
         ))}
       </nav>
-      {tab === "news" ? <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2"><AorCommandNews command={command} active /></div> : <>
+      {tab === "news" ? <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2"><AorCommandNews key={command} command={command} active /></div> : <>
       <div className="border-b border-white/[.06] px-3 py-2"><input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder={`Filter ${view.short} locations`} aria-label={`Filter ${view.short} locations`} className="min-h-8 w-full rounded-lg border border-white/[.08] bg-black/25 px-3 text-[10px] text-white outline-none placeholder:text-slate-600" /></div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         {sovereign.length ? <section><h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">Sovereign states ({sovereign.length})</h3><ul>{sovereign.map(row)}</ul></section> : null}

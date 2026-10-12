@@ -21,6 +21,11 @@ async function fetchText(url: string): Promise<FetchedText> {
     });
     const body = (await response.text()).slice(0, MAX_BYTES);
     return { status: response.status, body, finalUrl: response.url || url };
+  } catch (error) {
+    // undici reports every network failure as "fetch failed"; the cause (ECONNRESET, ENOTFOUND, a TLS error, a timeout) is what a reader needs.
+    const cause = (error as { cause?: { code?: string; message?: string } })?.cause;
+    const reason = controller.signal.aborted ? "timed out after 20 s" : cause?.code ?? cause?.message ?? (error instanceof Error ? error.message : String(error));
+    throw new Error(reason);
   } finally {
     clearTimeout(timer);
   }
@@ -60,9 +65,15 @@ export function startCommandNewsMonitor(intervalMs = 30 * 60_000): () => void {
   const run = async () => {
     try {
       const monitor = await getNewsMonitor(newsDeps(), { refresh: true });
+      // One structured line per source and feed, every run, so the live result of each official address is in the service log whether it worked or not.
+      for (const source of monitor.sources) {
+        logger.info({
+          command: source.command, source: source.sourceId, status: source.status, method: "method" in source ? source.method : null, items: "itemCount" in source ? source.itemCount : 0, error: "sourceError" in source ? source.sourceError : null,
+          feeds: source.feeds.map((feed) => ({ url: feed.url, role: feed.role, status: feed.status, http: feed.httpStatus, items: feed.itemCount, error: feed.error })),
+        }, "AOR command-news source");
+      }
       const bad = monitor.sources.filter((source) => source.status === "source_unavailable" || source.status === "stale_cache");
-      if (bad.length) logger.warn({ sources: bad.map((source) => ({ id: source.sourceId, status: source.status, error: "sourceError" in source ? source.sourceError : null })) }, "AOR command-news sources unavailable");
-      else logger.info({ sources: monitor.sources.length }, "AOR command-news sources refreshed");
+      logger.info({ sources: monitor.sources.length, unavailable: bad.length, commands: monitor.commands }, "AOR command-news monitor run complete");
     } catch (error) {
       logger.warn({ err: error instanceof Error ? error.message : String(error) }, "AOR command-news monitor run failed");
     }

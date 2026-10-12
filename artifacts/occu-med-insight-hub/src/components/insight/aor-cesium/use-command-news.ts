@@ -4,6 +4,17 @@ import type { CommandNewsResponse } from "./aor-news-types";
 
 export type CommandNewsState = { state: "loading" } | { state: "ready"; data: CommandNewsResponse } | { state: "error"; message: string };
 
+/** Fills optional fields so a response from an older or partial server cannot break the view. */
+function normalize(data: CommandNewsResponse): CommandNewsResponse {
+  const items = data.items.map((item) => ({ ...item, countries: item.countries ?? [], healthTerms: item.healthTerms ?? [], policyTerms: item.policyTerms ?? [], sources: item.sources ?? [], firstSeenAt: item.firstSeenAt ?? item.retrievedAt, changeCount: item.changeCount ?? 0, lastChangedAt: item.lastChangedAt ?? null, lastChange: item.lastChange ?? null, updatedAt: item.updatedAt ?? null, baseline: item.baseline ?? true }));
+  const byKind = { news: 0, press_release: 0, publication: 0, transcript: 0 };
+  for (const item of items) byKind[item.kind] = (byKind[item.kind] ?? 0) + 1;
+  return {
+    ...data, items, sources: data.sources.map((source) => ({ ...source, feeds: source.feeds ?? [] })), limitations: data.limitations ?? [],
+    counts: data.counts ?? { total: items.length, byKind, duplicatesMerged: 0, health: items.filter((item) => item.healthTerms.length).length, countrySpecific: items.filter((item) => item.countries.length).length },
+  };
+}
+
 /** Loads one command's official news on demand (only when the News tab is opened). */
 export function useCommandNews(command: CommandId, enabled: boolean) {
   const [result, setResult] = useState<CommandNewsState>({ state: "loading" });
@@ -19,7 +30,8 @@ export function useCommandNews(command: CommandId, enabled: boolean) {
       if (!type.includes("json")) throw new Error(`The news service returned an unexpected response (HTTP ${response.status}).`);
       const body = await response.json();
       if (!response.ok || !body?.ok) throw new Error(String(body?.error ?? `The news service returned HTTP ${response.status}.`));
-      if (id === request.current) setResult({ state: "ready", data: body as CommandNewsResponse });
+      if (!Array.isArray(body.items) || !Array.isArray(body.sources)) throw new Error("The news service returned data in an unexpected shape.");
+      if (id === request.current) setResult({ state: "ready", data: normalize(body as CommandNewsResponse) });
     } catch (error) {
       if (id === request.current) setResult({ state: "error", message: error instanceof Error ? error.message : "The news service could not be reached." });
     } finally {
