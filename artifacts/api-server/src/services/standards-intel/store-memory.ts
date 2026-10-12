@@ -98,5 +98,6 @@ export function createMemoryStandardsStore(): StandardsStore & { documents: Map<
       leases.set(name, { holder, until: now.getTime() + ttlMs }); return true;
     },
     async releaseLease(name, holder) { if (leases.get(name)?.holder === holder) leases.delete(name); },
+    async clearLease(name) { leases.delete(name); },
   };
 }

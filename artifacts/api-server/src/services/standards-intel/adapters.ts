@@ -78,8 +78,10 @@ function frStatus(result: FrResult): DocStatus {
 }
 
 export function parseFederalRegister(body: string): RawItem[] {
-  let json: { results?: FrResult[] };
+  let json: { results?: FrResult[]; count?: number };
   try { json = JSON.parse(body); } catch { throw new SourceError("The response is not valid JSON."); }
+  // The API omits "results" entirely when a query matches nothing ({"count":0,...}); that is a valid, empty answer.
+  if (json && json.count === 0 && !Array.isArray(json.results)) return [];
   if (!json || !Array.isArray(json.results)) throw new SourceError("The Federal Register response has no results array.");
   const items: RawItem[] = [];
   for (const result of json.results) {
@@ -149,9 +151,18 @@ async function fetchEcfr(source: SourceDefinition, fetchText: FetchText, now: Da
       const base = `${source.url}/title-${part.title}.json?part=${part.part}`;
       let response = await fetchText(`${base}&issue_date[gte]=${since}`);
       if (response.status === 400 || response.status === 422) response = await fetchText(base);
-      const ok = await get(async () => response, "");
+      let ok = await get(async () => response, "");
       httpStatus = ok.status;
-      items.push(parseEcfrVersions(ok.body, part));
+      let parsed: RawItem;
+      try {
+        parsed = parseEcfrVersions(ok.body, part);
+      } catch (error) {
+        // A part with no amendments inside the date window is not an error: read its full history instead.
+        if (!(error instanceof SourceError) || !/no amendment dates/.test(error.message)) throw error;
+        ok = await get(fetchText, base);
+        parsed = parseEcfrVersions(ok.body, part);
+      }
+      items.push(parsed);
     } catch (error) {
       errors.push(`${part.title} CFR ${part.part}: ${error instanceof Error ? error.message : String(error)}`);
     }

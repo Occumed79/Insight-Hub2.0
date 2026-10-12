@@ -135,6 +135,7 @@ export function createPgStandardsStore(poolProvider?: () => Promise<Pool>): Stan
       return (r.rowCount ?? 0) > 0;
     },
     async releaseLease(name, holder) { await q(`DELETE FROM si_leases WHERE name = $1 AND holder = $2`, [name, holder]); },
+    async clearLease(name) { await q(`DELETE FROM si_leases WHERE name = $1`, [name]); },
   };
   return store;
 }

@@ -187,4 +187,6 @@ export interface StandardsStore {
   lastFinishedRun(): Promise<RunRecord | null>;
   acquireLease(name: string, holder: string, ttlMs: number, now?: Date): Promise<boolean>;
   releaseLease(name: string, holder: string): Promise<void>;
+  /** Removes a lease whatever its holder. Used once at process start so a lease left by an instance that was replaced mid-run cannot stall refreshes. */
+  clearLease(name: string): Promise<void>;
 }

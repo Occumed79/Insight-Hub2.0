@@ -9,13 +9,16 @@ export const SCHEDULED_MIN_GAP_MS = 6 * 60 * 60_000; // a scheduled pass skips a
 export const MANUAL_COOLDOWN_MS = 5 * 60_000; // a source is never fetched more than once per 5 min, however often a refresh is requested
 export const FAILED_RETRY_MS = 15 * 60_000;
 const LEASE = "standards-intel-refresh";
-const LEASE_TTL_MS = 25 * 60_000;
+const LEASE_TTL_MS = 8 * 60_000; // renewed after every source, so a pass of any length keeps its lease while a dead instance's lease lapses within minutes
+export const SOURCE_TIMEOUT_MS = 90_000;
 const HOST_DELAY_MS = 300;
 
 export interface ServiceDeps {
   store: StandardsStore;
   fetchText: FetchText;
   sources?: SourceDefinition[];
+  /** Hard ceiling for everything done for one source (fetch, retry, parse, persist). */
+  sourceTimeoutMs?: number;
   now?: () => Date;
   sleep?: (ms: number) => Promise<void>;
   log?: (fields: Record<string, unknown>, message: string) => void;
@@ -78,6 +81,12 @@ async function withRetry<T>(deps: ServiceDeps, run: () => Promise<T>): Promise<T
   throw lastError;
 }
 
+function withDeadline<T>(work: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const deadline = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new SourceError(`${what} did not finish within ${Math.round(ms / 1000)} s.`, null, false)), ms); });
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+}
+
 export interface RefreshOptions { trigger: RunRecord["trigger"]; sourceIds?: string[]; agency?: string; force?: boolean }
 
 async function refreshSource(deps: ServiceDeps, source: SourceDefinition, opts: RefreshOptions): Promise<RunSourceResult> {
@@ -99,7 +108,7 @@ async function refreshSource(deps: ServiceDeps, source: SourceDefinition, opts: 
     }
   }
   try {
-    const result = await withRetry(deps, () => fetchSource(source, deps.fetchText, now));
+    const result = await withDeadline(withRetry(deps, () => fetchSource(source, deps.fetchText, now)), deps.sourceTimeoutMs ?? SOURCE_TIMEOUT_MS, `Fetching ${source.id}`);
     const stats = await ingestItems(deps.store, { source, now, baseline: !state.baselineAt }, result.items);
     await deps.store.saveSourceState(applySuccess(state, result.items, result.partialErrors, now));
     return { ...base, outcome: "ok", reason: result.partialErrors.length ? result.partialErrors.join(" | ") : null, items: stats.items, created: stats.created, revised: stats.revised, events: stats.events, filteredOut: stats.filteredOut, httpStatus: result.httpStatus, durationMs: Date.now() - started };
@@ -135,6 +144,10 @@ export async function startRefresh(deps: ServiceDeps, opts: RefreshOptions): Pro
     const running = (await deps.store.listRuns(5)).find((run) => run.status === "running");
     return { accepted: false, reason: "A refresh is already running; no second pass was started.", runningRunId: running?.runId ?? null };
   }
+  // A run left in "running" by an instance that was replaced or crashed can never finish; record that honestly.
+  for (const stale of (await deps.store.listRuns(10)).filter((entry) => entry.status === "running")) {
+    await deps.store.finishRun({ ...stale, status: "failed", finishedAt: nowOf(deps).toISOString() }).catch(() => undefined);
+  }
   const selected = selectSources(deps, opts);
   const run: RunRecord = {
     runId: `run_${randomUUID().slice(0, 12)}`, trigger: opts.trigger, scope: opts.sourceIds?.length ? `sources:${opts.sourceIds.join(",")}` : opts.agency ? `agency:${opts.agency}` : "all",
@@ -152,6 +165,8 @@ export async function startRefresh(deps: ServiceDeps, opts: RefreshOptions): Pro
           for (const source of group) {
             const result = await refreshSource(deps, source, opts).catch((error): RunSourceResult => ({ sourceId: source.id, outcome: "failed", reason: error instanceof Error ? error.message : String(error), items: 0, created: 0, revised: 0, events: 0, filteredOut: 0, durationMs: 0, httpStatus: null }));
             run.results.push(result);
+            await deps.store.finishRun({ ...run, totals: totalsOf(run.results) }).catch(() => undefined); // progress is persisted so a running pass can be inspected
+            await deps.store.acquireLease(LEASE, holder, LEASE_TTL_MS, nowOf(deps)).catch(() => false); // heartbeat
             deps.log?.({ source: source.id, outcome: result.outcome, items: result.items, created: result.created, events: result.events, http: result.httpStatus, error: result.outcome === "failed" ? result.reason : null }, "Standards Intelligence source");
             if (result.outcome === "ok" || result.outcome === "failed") await sleepOf(deps)(HOST_DELAY_MS);
           }
@@ -231,6 +246,8 @@ export function startStandardsScheduler(deps: ServiceDeps, options: { checkEvery
       deps.log?.({ error: error instanceof Error ? error.message : String(error) }, "Standards Intelligence scheduler tick failed");
     }
   };
+  // Once per process start: drop a lease left by a replaced instance. Passes are idempotent, so an overlapping deploy at worst repeats work.
+  void deps.store.ensure().then(() => deps.store.clearLease(LEASE)).catch(() => undefined);
   const first = setTimeout(() => void tick(true), options.firstDelayMs ?? 45_000);
   const interval = setInterval(() => void tick(false), options.checkEveryMs ?? 15 * 60_000);
   first.unref?.(); interval.unref?.();

@@ -529,3 +529,56 @@ test("endpoints: every documented route answers with real data from the store, f
     server.close();
   }
 });
+
+// ---- Regressions found against the live endpoints ------------------------------------------------------------------------------------
+
+test("Federal Register: a query that matches nothing ({\"count\":0} with no results key) is an empty, valid answer", () => {
+  assert.deepEqual(parseFederalRegister(JSON.stringify({ count: 0, description: "No documents", total_pages: 0 })), []);
+  assert.throws(() => parseFederalRegister(JSON.stringify({ count: 3 })), /no results/);
+});
+
+test("eCFR: a part with no amendments inside the date window is read again without the window instead of failing", async () => {
+  const calls: string[] = [];
+  const history = JSON.stringify({ content_versions: [{ amendment_date: "2023-12-01", issue_date: "2023-12-03" }] });
+  const fetchText: FetchText = async (url) => { calls.push(url); return { status: 200, body: url.includes("issue_date") ? JSON.stringify({ content_versions: [] }) : history, finalUrl: url }; };
+  const one = { ...ecfr, ecfr: [{ title: 29, part: 1904, label: "OSHA Recording and Reporting" }] };
+  const result = await fetchSource(one, fetchText, NOW);
+  assert.equal(result.items[0]!.versionKey, "2023-12-01");
+  assert.equal(result.partialErrors.length, 0);
+  assert.equal(calls.length, 2);
+});
+
+test("a source that never answers is cut off at its deadline and reported, and the other sources still complete", async () => {
+  const d = deps(async (url) => (url.includes("interpretations") ? new Promise<never>(() => undefined) : { status: 200, body: okFeed, finalUrl: url }));
+  d.sources = [osha, sourceOf("osha-directives")];
+  d.sourceTimeoutMs = 40;
+  const started = await startRefresh(d, { trigger: "manual" });
+  const run = await (started as { done: Promise<import("../standards-intel/types").RunRecord> }).done;
+  const stuck = run.results.find((r) => r.sourceId === "osha-interpretations")!;
+  assert.equal(stuck.outcome, "failed");
+  assert.match(stuck.reason ?? "", /did not finish within/);
+  assert.equal(run.results.find((r) => r.sourceId === "osha-directives")!.outcome, "ok");
+  assert.equal(run.status, "completed_with_errors");
+});
+
+test("a run left 'running' by a replaced instance is closed as failed and a stale lease is cleared at start-up", async () => {
+  const d = deps(async (url) => ({ status: 200, body: okFeed, finalUrl: url }));
+  d.sources = [osha];
+  await d.store.startRun({ runId: "run_dead", trigger: "scheduled", scope: "all", startedAt: "2026-10-12T10:00:00Z", finishedAt: null, status: "running", results: [], totals: { sources: 0, ok: 0, failed: 0, skipped: 0, created: 0, revised: 0, events: 0 } });
+  await d.store.acquireLease("standards-intel-refresh", "dead-instance", 60_000, NOW);
+  assert.equal((await startRefresh(d, { trigger: "manual" })).accepted, false);
+  await d.store.clearLease("standards-intel-refresh");
+  const started = await startRefresh(d, { trigger: "manual" });
+  assert.ok(started.accepted);
+  await (started as { done: Promise<unknown> }).done;
+  const dead = await d.store.getRun("run_dead");
+  assert.equal(dead!.status, "failed");
+  assert.ok(dead!.finishedAt);
+});
+
+test("registry: NIOSH is not registered as its own Federal Register agency (it is not one) and no unconfirmed blog feed is fetched", () => {
+  assert.ok(!STANDARDS_SOURCES.some((s) => s.id === "fr-niosh"));
+  assert.equal(sourceOf("niosh-publications").url, null);
+  const c = classify({ title: "NIOSH respirator approval", summary: "", source: sourceOf("fr-cdc") });
+  assert.ok(c.categories.includes("occupational_medicine") && c.categories.includes("respiratory"));
+});

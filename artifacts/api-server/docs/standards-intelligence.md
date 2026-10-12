@@ -20,11 +20,11 @@ Base path: `/api/standards-intel` (self-description at `GET /api/standards-intel
 | POST | `/refresh` | Manual refresh. Body `{ sourceIds?: string[], agency?: string, wait?: boolean }`. `200` with the run, `202` if still running after 40 s (poll `/runs/:id`), `409` if a refresh is already running |
 
 ## Source methods (priority order)
-1. Official RSS/Atom (OSHA, BLS, GovInfo, UK legislation/HSE, FDA, CDC/NIOSH, WHO).
+1. Official RSS/Atom (OSHA, BLS, GovInfo, UK legislation/HSE, FDA, CDC MMWR, WHO).
 2. Official keyless APIs: Federal Register API (structured type, effective date, RIN, correction link) and the eCFR versioner (issuer-supplied amendment dates).
 3. No scraping and no keys are used. No source requires a key.
 
-Sources with no confirmed machine-readable endpoint (EU-OSHA, EUR-Lex, ILO, IARC, Cal/OSHA, NFPA, ANSI, ISO) are registered as `pending_verification`, fetch nothing, and say why.
+Sources with no confirmed machine-readable endpoint (NIOSH publications, EU-OSHA, EUR-Lex, ILO, IARC, Cal/OSHA, NFPA, ANSI, ISO) are registered as `pending_verification`, fetch nothing, and say why.
 A source is `active` only after a successful fetch **and** parse. Failures are recorded, never hidden: `degraded` (worked before, failing now), `unavailable` (never verified, or 3+ consecutive failures). Recovery is automatic.
 
 ## Change detection

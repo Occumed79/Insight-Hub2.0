@@ -9,18 +9,36 @@ import type { DocFilter, StandardsDocument } from "../services/standards-intel/t
 
 
 const MAX_BYTES = 3_000_000;
+const REQUEST_MS = 20_000;
+
+/** Reads at most MAX_BYTES, then stops. The deadline covers connect, headers AND body, so a stalled or endless response cannot hold a refresh. */
 const fetchText: FetchText = async (url) => {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20_000);
-  try {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const hardStop = new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error(`timed out after ${REQUEST_MS / 1000} s`)); }, REQUEST_MS); });
+  const request = (async () => {
     const response = await fetch(url, {
       redirect: "follow", signal: controller.signal,
       headers: { Accept: "application/rss+xml, application/atom+xml, application/json, application/xml;q=0.9, */*;q=0.5", "User-Agent": "Occu-Med-Insight-Hub/2.0 Standards Intelligence (official-source monitor)" },
     });
-    return { status: response.status, body: (await response.text()).slice(0, MAX_BYTES), finalUrl: response.url || url };
+    const reader = response.body?.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (reader) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      chunks.push(value); size += value.length;
+      if (size >= MAX_BYTES) { await reader.cancel().catch(() => undefined); break; }
+    }
+    return { status: response.status, body: Buffer.concat(chunks).toString("utf8").slice(0, MAX_BYTES), finalUrl: response.url || url };
+  })();
+  try {
+    return await Promise.race([request, hardStop]);
   } catch (error) {
+    request.catch(() => undefined);
+    if (error instanceof Error && /timed out/.test(error.message)) throw error;
     const cause = (error as { cause?: { code?: string; message?: string } })?.cause;
-    throw new Error(controller.signal.aborted ? "timed out after 20 s" : cause?.code ?? cause?.message ?? (error instanceof Error ? error.message : String(error)));
+    throw new Error(cause?.code ?? cause?.message ?? (error instanceof Error ? error.message : String(error)));
   } finally {
     clearTimeout(timer);
   }
