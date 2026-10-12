@@ -84,6 +84,7 @@ export async function ingestItems(store: StandardsStore, ctx: IngestContext, ite
     existing.externalKey = existing.externalKey ?? item.externalKey;
     if (ref.fingerprint === fingerprint) {
       fillMissing(existing, item);
+      if (isPrimary) reclassify(existing, item, source, classification);
       if (isPrimary && item.modifiedAt && item.modifiedAt !== existing.modifiedDate) existing.modifiedDate = item.modifiedAt;
       await store.saveDocument(existing);
       stats.unchanged += 1;
@@ -93,6 +94,21 @@ export async function ingestItems(store: StandardsStore, ctx: IngestContext, ite
     // ── The issuer's own observation of this document has changed ──
     const before = ref.snapshot;
     const changedFields = (["title", "summary", "status", "effectiveDate", "versionKey"] as const).filter((field) => norm(String(before[field] ?? "")) !== norm(String(snapshot[field] ?? "")));
+    // "informational" means the status was not known. Learning the issuer's structured status is refinement, not a regulatory event.
+    if (changedFields.length === 1 && changedFields[0] === "status" && before.status === "informational") {
+      ref.fingerprint = fingerprint; ref.snapshot = snapshot;
+      if (isPrimary) {
+        if (!existing.supersededBy && existing.status !== "withdrawn") existing.status = status;
+        existing.fingerprint = fingerprint;
+        fillMissing(existing, item);
+        reclassify(existing, item, source, classification);
+        await store.saveDocument(existing);
+        await relate(store, existing, item, source, now, true, record);
+        await store.saveDocument(existing);
+      } else await store.saveDocument(existing);
+      stats.unchanged += 1;
+      continue;
+    }
     const discriminator = fingerprint;
     let kind: EventKind;
     let verified: boolean;
@@ -128,6 +144,14 @@ export async function ingestItems(store: StandardsStore, ctx: IngestContext, ite
     await record(makeEvent(existing, source, now, kind, verified, label, explanation, discriminator, { changedFields, before: { ...before }, after: { ...snapshot } }));
   }
   return stats;
+}
+
+/** Categories are derived from the document's own text, so they follow the current rules without raising a change. */
+function reclassify(doc: StandardsDocument, item: RawItem, source: SourceDefinition, classification: ReturnType<typeof classify>) {
+  doc.categories = classification.categories; doc.industries = classification.industries; doc.topic = classification.topic; doc.evidence = classification.evidence;
+  doc.occupationalMedicineRelevance = relevanceStatement(classification);
+  doc.confidence = { ...doc.confidence, classification: classification.classificationConfidence };
+  doc.docClass = docClassFor(source, item.docType, `${item.title} ${item.summary}`);
 }
 
 function fillMissing(doc: StandardsDocument, item: RawItem) {

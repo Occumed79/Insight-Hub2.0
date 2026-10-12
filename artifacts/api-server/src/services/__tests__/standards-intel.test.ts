@@ -604,3 +604,39 @@ test("archive-style feeds are limited to their newest entries", async () => {
   assert.equal(result.items.length, 150);
   assert.equal(result.items[0]!.title, "Item 399");
 });
+
+test("Federal Register display-name types (\"Proposed Rule\", \"Rule\", \"Notice\") map to the same statuses as the API's filter codes", () => {
+  const body = JSON.stringify({ results: [
+    { document_number: "2026-1", title: "A", type: "Proposed Rule", html_url: "https://www.federalregister.gov/documents/2026/10/01/2026-1/a", publication_date: "2026-10-01" },
+    { document_number: "2026-2", title: "B", type: "Rule", html_url: "https://www.federalregister.gov/documents/2026/10/01/2026-2/b", publication_date: "2026-10-01" },
+    { document_number: "2026-3", title: "C", type: "Notice", html_url: "https://www.federalregister.gov/documents/2026/10/01/2026-3/c", publication_date: "2026-10-01" },
+  ] });
+  const items = parseFederalRegister(body);
+  assert.deepEqual(items.map((i) => [i.docType, i.statusHint]), [["PRORULE", "proposed"], ["RULE", "final"], ["NOTICE", "informational"]]);
+});
+
+test("learning a structured status for a document previously held as 'informational' is a silent refinement: no event, no new version, relationships and class corrected", async () => {
+  const { ingest, events, store } = await engine();
+  const [proposed, final] = frItems();
+  const asUnknown = (i: RawItem): RawItem => ({ ...i, statusHint: null, docType: null, title: i.title.replace(/; (Proposed|Final) Rule/, "") });
+  await ingest(frOsha, [asUnknown(proposed!), asUnknown(final!)], days(-3), true);
+  assert.equal((await store.findDocument({ externalKey: "fr:2026-29999" }))!.docClass, "announcement");
+  const stats = await ingest(frOsha, [{ ...asUnknown(proposed!), statusHint: "proposed", docType: "PRORULE" }, { ...asUnknown(final!), statusHint: "final", docType: "RULE" }], NOW, false);
+  assert.equal(stats.revised, 0);
+  assert.equal((await events()).length, 0);
+  const f = (await store.findDocument({ externalKey: "fr:2026-29999" }))!;
+  const p = (await store.findDocument({ externalKey: "fr:2026-20111" }))!;
+  assert.equal(f.status, "final"); assert.equal(f.docClass, "binding_regulation"); assert.equal(f.version, 1);
+  assert.equal(p.status, "superseded"); assert.equal(p.supersededBy, f.docId);
+});
+
+test("categories follow the current rules without raising a change, and 'medical monitoring' alone is not occupational medicine", async () => {
+  assert.deepEqual(classify({ title: "Medical Monitoring Project, United States, 2017-2023", summary: "HIV", source: sourceOf("cdc-mmwr") }).categories.filter((c) => c === "occupational_medicine"), []);
+  const { ingest, events, store } = await engine();
+  await ingest(osha, [item()], NOW, true);
+  const doc = (await store.queryDocuments({ limit: 1, offset: 0 })).documents[0]!;
+  doc.categories = ["drug_safety"]; await store.saveDocument(doc);
+  await ingest(osha, [item()], days(1), false);
+  assert.ok((await store.getDocument(doc.docId))!.categories.includes("respiratory"));
+  assert.equal((await events()).length, 0);
+});

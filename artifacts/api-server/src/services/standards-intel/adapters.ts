@@ -68,12 +68,23 @@ interface FrResult {
   regulation_id_numbers?: string[]; docket_ids?: string[]; cfr_references?: Array<{ title?: number | string; part?: number | string }>; correction_of?: string | null; excerpts?: string | null; agencies?: Array<{ name?: string }>;
 }
 
+/** The API answers with display names ("Proposed Rule", "Rule", "Notice") while its filters use codes (PRORULE, RULE, NOTICE). Both are accepted. */
+export function frTypeCode(type: string | undefined | null): string | null {
+  if (!type) return null;
+  const value = type.trim();
+  if (/^pro-?rule$|^proposed rule$/i.test(value)) return "PRORULE";
+  if (/^rule$/i.test(value)) return "RULE";
+  if (/^notice$/i.test(value)) return "NOTICE";
+  return value.toUpperCase();
+}
+
 function frStatus(result: FrResult): DocStatus {
   const label = `${result.title ?? ""} ${result.action ?? ""}`;
   if (result.correction_of || /\bcorrect(?:ion|ions|ing)\b/i.test(label)) return "corrected";
   if (/\bwithdraw(?:al|n)\b/i.test(label)) return "withdrawn";
-  if (result.type === "PRORULE") return "proposed";
-  if (result.type === "RULE") return "final";
+  const type = frTypeCode(result.type);
+  if (type === "PRORULE") return "proposed";
+  if (type === "RULE") return "final";
   return "informational";
 }
 
@@ -91,7 +102,7 @@ export function parseFederalRegister(body: string): RawItem[] {
       externalKey: `fr:${result.document_number}`, title: stripMarkup(result.title), url: result.html_url,
       summary: stripMarkup(result.abstract ?? result.excerpts ?? "").slice(0, 600),
       publishedAt: dateOnly(result.publication_date), effectiveAt: dateOnly(result.effective_on), modifiedAt: null,
-      docType: result.type ?? null, action: result.action ? stripMarkup(result.action).slice(0, 200) : null,
+      docType: frTypeCode(result.type), action: result.action ? stripMarkup(result.action).slice(0, 200) : null,
       categories: (result.agencies ?? []).map((agency) => agency.name).filter((name): name is string => !!name),
       cfrRefs: (result.cfr_references ?? []).filter((ref) => ref.title && ref.part).map((ref) => `${ref.title} CFR ${ref.part}`),
       rins: result.regulation_id_numbers ?? [], dockets: result.docket_ids ?? [], correctionOf: correction ? `fr:${correction}` : null,
