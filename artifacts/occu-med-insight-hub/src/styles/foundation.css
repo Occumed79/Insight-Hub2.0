@@ -43,6 +43,43 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/*
+ * Semantic text styles, after Apple's text styles (SwiftUI Font.largeTitle ... .caption2; HIG Typography).
+ * Use these instead of fixed pixel sizes. They are in rem, so they scale with the reader's browser text-size
+ * setting, which is the web's equivalent of Dynamic Type. Sizes are tuned for dense desktop panels; the
+ * hierarchy (Large Title > Title 1-3 > Headline > Body > Callout > Footnote > Caption) is Apple's.
+ *   text-large-title  28  page titles            text-body      14  primary reading text
+ *   text-title-1      22  inspector titles       text-callout   13  secondary text, controls
+ *   text-title-2      18  section titles         text-footnote  12  metadata, sources
+ *   text-title-3      16  group titles           text-caption   11  labels under figures
+ *   text-headline     15  semibold emphasis
+ */
+@theme {
+  --text-large-title: 1.75rem;
+  --text-large-title--line-height: 2.125rem;
+  --text-large-title--letter-spacing: -0.02em;
+  --text-large-title--font-weight: 700;
+  --text-title-1: 1.375rem;
+  --text-title-1--line-height: 1.75rem;
+  --text-title-1--letter-spacing: -0.015em;
+  --text-title-2: 1.125rem;
+  --text-title-2--line-height: 1.5rem;
+  --text-title-2--letter-spacing: -0.01em;
+  --text-title-3: 1rem;
+  --text-title-3--line-height: 1.375rem;
+  --text-headline: 0.9375rem;
+  --text-headline--line-height: 1.25rem;
+  --text-headline--font-weight: 600;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.3125rem;
+  --text-callout: 0.8125rem;
+  --text-callout--line-height: 1.25rem;
+  --text-footnote: 0.75rem;
+  --text-footnote--line-height: 1rem;
+  --text-caption: 0.6875rem;
+  --text-caption--line-height: 0.875rem;
+}
+
 :root,
 .dark {
   --background: 216 42% 3%;

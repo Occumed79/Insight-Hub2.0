@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { intelligenceJson } from "@/lib/intelligence-request";
 import { medicalQueryString, type MedicalApplicability, type MedicalInputs } from "./aor-medical-types";
 
-export type MedicalState = { result: MedicalApplicability | null; loading: boolean; error: string; revision: number };
+/** `retry` re-runs the request for the current destination and inputs (used by the error state). */
+export type MedicalState = { result: MedicalApplicability | null; loading: boolean; error: string; revision: number; retry?: () => void };
 
 /**
  * Calls GET /api/aor/medical-applicability for the selected destination and recalculates whenever an input changes.
@@ -13,6 +14,8 @@ export function useMedicalApplicability(destination: string | null, destinationI
   const [state, setState] = useState<MedicalState>({ result: null, loading: false, error: "", revision: 0 });
   const sequence = useRef(0);
   const lastDestination = useRef<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((value) => value + 1), []);
   const query = destination ? medicalQueryString(destination, inputs, destinationIso3) : "";
 
   useEffect(() => {
@@ -38,7 +41,7 @@ export function useMedicalApplicability(destination: string | null, destinationI
       }
     }, changedDestination ? 0 : debounceMs);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [destination, query, debounceMs]);
+  }, [destination, query, debounceMs, attempt]);
 
-  return state;
+  return { ...state, retry };
 }

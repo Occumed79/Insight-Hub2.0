@@ -184,7 +184,9 @@ export function AorFlatMap(props: Props) {
     return [...set].map(([key, color]) => ({ iso2: key.split(":")[1], color }));
   }, [evidence, activeLayers]);
 
-  const markerRadius = clamp(5 * unit, 0.25, 3);
+  // Markers and labels keep a constant on-screen size. The old 0.25-degree floor made them balloon to 100+ px when zoomed into small islands.
+  const markerRadius = Math.min(5 * unit, 3);
+  const labelSize = 13 * unit;
   const noPolygon = directory.directory.locations.filter((entry) => !entry.boundaryIso2 && entry.referencePoint);
   const visibleMarkers = !showMarkers ? [] : view.level === "world" ? noPolygon : noPolygon.filter((entry) => entry.command === aor || entry.id === selected?.id);
 
@@ -228,7 +230,7 @@ export function AorFlatMap(props: Props) {
                 className="cursor-pointer outline-none" onClick={() => props.onPickLocation(entry.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); props.onPickLocation(entry.id); } }}
                 onMouseEnter={() => props.onHover(`${entry.name} (reference point)`)} onMouseLeave={() => props.onHover(null)}>
                 <circle cx={round(X(point.lon))} cy={round(Y(point.lat))} r={markerRadius * (isSelected ? 1.7 : 1)} fill={color} fillOpacity={0.9} stroke={isSelected ? "#ffffff" : "rgba(255,255,255,.75)"} strokeWidth={isSelected ? 2 : 1} vectorEffect="non-scaling-stroke" />
-                {isSelected || camera.span < 40 ? <text x={round(X(point.lon) + markerRadius * 2)} y={round(Y(point.lat) + markerRadius * 0.8)} fontSize={markerRadius * 3.2} fill="#e8fbff" stroke="rgba(2,10,18,.9)" strokeWidth={markerRadius * 0.7} paintOrder="stroke" pointerEvents="none">{entry.name}</text> : null}
+                {isSelected || camera.span < 40 ? <text x={X(point.lon) + markerRadius * 2.2} y={Y(point.lat) + labelSize * 0.35} fontSize={labelSize} fontWeight={600} fill="#e8fbff" stroke="rgba(2,10,18,.9)" strokeWidth={labelSize * 0.25} paintOrder="stroke" pointerEvents="none">{entry.name}</text> : null}
               </g>
             );
           })}
@@ -239,10 +241,10 @@ export function AorFlatMap(props: Props) {
           {view.level !== "country" && activeLayers.has("disasters") ? worldEvents.map((event) => <circle key={event.id} cx={round(X(event.lon))} cy={round(Y(event.lat))} r={markerRadius * 0.7} fill={DIMENSION_COLORS.disasters} fillOpacity={0.85} stroke="rgba(255,255,255,.7)" strokeWidth={1} vectorEffect="non-scaling-stroke" pointerEvents="none" />) : null}
         </g>
       </svg>
-      <div className="absolute bottom-16 left-4 z-10 flex flex-col overflow-hidden rounded-xl border border-white/[.09] bg-black/45 backdrop-blur-xl">
-        <button type="button" aria-label="Zoom in" onClick={() => zoom(1 / 1.6)} className="grid h-8 w-8 place-items-center text-white/80 hover:bg-white/10"><Plus size={13} /></button>
-        <button type="button" aria-label="Zoom out" onClick={() => zoom(1.6)} className="grid h-8 w-8 place-items-center border-t border-white/[.06] text-white/80 hover:bg-white/10"><Minus size={13} /></button>
-        <button type="button" aria-label="Reset to world view" onClick={() => setCamera({ ...WORLD, span: Math.max(WORLD.span, 190 * aspect) })} className="grid h-8 w-8 place-items-center border-t border-white/[.06] text-white/80 hover:bg-white/10"><RotateCcw size={12} /></button>
+      <div className="lg-glass absolute bottom-[76px] left-4 z-10 flex flex-col gap-0.5 rounded-full p-1" role="group" aria-label="Zoom">
+        <button type="button" aria-label="Zoom in" onClick={() => zoom(1 / 1.6)} className="lg-press grid h-9 w-9 place-items-center rounded-full text-slate-200 hover:bg-white/[.08]"><Plus size={16} /></button>
+        <button type="button" aria-label="Zoom out" onClick={() => zoom(1.6)} className="lg-press grid h-9 w-9 place-items-center rounded-full text-slate-200 hover:bg-white/[.08]"><Minus size={16} /></button>
+        <button type="button" aria-label="Reset to world view" onClick={() => setCamera({ ...WORLD, span: Math.max(WORLD.span, 190 * aspect) })} className="lg-press grid h-9 w-9 place-items-center rounded-full text-slate-200 hover:bg-white/[.08]"><RotateCcw size={15} /></button>
       </div>
     </div>
   );

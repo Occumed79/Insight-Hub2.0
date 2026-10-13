@@ -1,6 +1,5 @@
 import FederalAwards from "./federal-awards-v2";
 import "./federal-awards-experience.css";
-import "../styles/glass-recovery.css";
 
 export default function FederalAwardsExperience() {
   return (

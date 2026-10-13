@@ -34,11 +34,11 @@ function safeUrl(value: string) {
 
 export function FreshnessBadge({ freshness }: { freshness: Freshness | null }) {
   if (!freshness) return null;
-  return <span className={`rounded-full border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[.08em] ${FRESHNESS_TONE[freshness]}`}>{FRESHNESS_LABELS[freshness]}</span>;
+  return <span className={`rounded-full border px-1.5 py-0.5 text-caption font-semibold ${FRESHNESS_TONE[freshness]}`}>{FRESHNESS_LABELS[freshness]}</span>;
 }
 
 function Chip({ children, tone = "border-white/10 text-slate-300" }: { children: ReactNode; tone?: string }) {
-  return <span className={`rounded-full border px-1.5 py-0.5 text-[8px] font-bold ${tone}`}>{children}</span>;
+  return <span className={`rounded-full border px-1.5 py-0.5 text-caption font-bold ${tone}`}>{children}</span>;
 }
 
 const pretty = (value: string) => value.replace(/_/g, " ");
@@ -77,14 +77,14 @@ function RuleDetails({ record }: { record: EvidenceRecord }) {
   return (
     <div className="mt-1.5">
       <details open={false}>
-        <summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.12em] text-cyan-100/55">Rule conditions, authority and freshness</summary>
-        <dl className="mt-1 rounded-lg border border-white/[.06] bg-white/[.02] px-2">
-          {extra.conditions.map((condition) => <div key={condition.label} className="grid grid-cols-[96px_1fr] gap-2 border-b border-white/[.04] py-1 text-[9px] leading-4 last:border-b-0"><dt className="text-[8px] font-black uppercase tracking-[.08em] text-slate-500">{condition.label}</dt><dd className="break-words text-slate-200">{condition.value}</dd></div>)}
+        <summary className="cursor-pointer text-caption font-semibold text-cyan-100/55">Rule conditions, authority and freshness</summary>
+        <dl className="mt-1 rounded-[10px] border border-white/[.06] bg-white/[.02] px-2">
+          {extra.conditions.map((condition) => <div key={condition.label} className="grid grid-cols-[96px_1fr] gap-2 border-b border-white/[.04] py-1 text-footnote leading-4 last:border-b-0"><dt className="text-caption font-semibold text-slate-500">{condition.label}</dt><dd className="break-words text-slate-200">{condition.value}</dd></div>)}
         </dl>
-        {extra.alsoStatedBy?.length ? <div className="mt-1.5 text-[9px] leading-4 text-slate-400"><b className="text-slate-300">Also stated, not shown as current:</b>{extra.alsoStatedBy.map((other) => <p key={other.sourceUrl + other.statement} className="mt-0.5">{other.authority} ({other.verificationStatus}{other.publishedAt ? `, ${other.publishedAt.slice(0, 10)}` : ""}): {other.statement}</p>)}</div> : null}
-        {extra.supportingSources?.length ? <ul className="mt-1.5 space-y-0.5 text-[9px] leading-4 text-slate-500">{extra.supportingSources.map((source) => { const href = safeUrl(source.url); return <li key={source.url}>{href ? <a href={href} target="_blank" rel="noreferrer" className="font-bold text-cyan-100/65 hover:text-cyan-50">{source.authority}</a> : source.authority} — {source.note}</li>; })}</ul> : null}
+        {extra.alsoStatedBy?.length ? <div className="mt-1.5 text-footnote leading-4 text-slate-400"><b className="text-slate-300">Also stated, not shown as current:</b>{extra.alsoStatedBy.map((other) => <p key={other.sourceUrl + other.statement} className="mt-0.5">{other.authority} ({other.verificationStatus}{other.publishedAt ? `, ${other.publishedAt.slice(0, 10)}` : ""}): {other.statement}</p>)}</div> : null}
+        {extra.supportingSources?.length ? <ul className="mt-1.5 space-y-0.5 text-footnote leading-4 text-slate-500">{extra.supportingSources.map((source) => { const href = safeUrl(source.url); return <li key={source.url}>{href ? <a href={href} target="_blank" rel="noreferrer" className="font-bold text-cyan-100/65 hover:text-cyan-50">{source.authority}</a> : source.authority} — {source.note}</li>; })}</ul> : null}
       </details>
-      {extra.productionVerificationRequired ? <p className="mt-1 text-[8px] leading-3 text-amber-100/60">Re-read the source page before operational use; rules change without notice.</p> : null}
+      {extra.productionVerificationRequired ? <p className="mt-1 text-caption leading-3 text-amber-100/60">Re-read the source page before operational use; rules change without notice.</p> : null}
     </div>
   );
 }
@@ -122,13 +122,13 @@ function CommandRuleDetails({ record }: { record: EvidenceRecord }) {
   return (
     <div className="mt-1.5">
       <details>
-        <summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.12em] text-pink-100/60">Command rule detail</summary>
-        <dl className="mt-1 rounded-lg border border-white/[.06] bg-white/[.02] px-2">
-          {shown.map(([label, value]) => <div key={label} className="grid grid-cols-[96px_1fr] gap-2 border-b border-white/[.04] py-1 text-[9px] leading-4 last:border-b-0"><dt className="text-[8px] font-black uppercase tracking-[.08em] text-slate-500">{label}</dt><dd className="text-slate-300">{value}</dd></div>)}
+        <summary className="cursor-pointer text-caption font-semibold text-pink-100/60">Command rule detail</summary>
+        <dl className="mt-1 rounded-[10px] border border-white/[.06] bg-white/[.02] px-2">
+          {shown.map(([label, value]) => <div key={label} className="grid grid-cols-[96px_1fr] gap-2 border-b border-white/[.04] py-1 text-footnote leading-4 last:border-b-0"><dt className="text-caption font-semibold text-slate-500">{label}</dt><dd className="text-slate-300">{value}</dd></div>)}
         </dl>
       </details>
-      {rule.sourceGaps.length ? <p className="mt-1 text-[8px] leading-3 text-amber-100/70"><b>SOURCE_GAP</b> — in the source document, not extracted: {rule.sourceGaps.join("; ")}.</p> : null}
-      {rule.caveats.map((caveat) => <p key={caveat} className="mt-1 text-[8px] leading-3 text-amber-100/60">{caveat}</p>)}
+      {rule.sourceGaps.length ? <p className="mt-1 text-caption leading-3 text-amber-100/70"><b>SOURCE_GAP</b> — in the source document, not extracted: {rule.sourceGaps.join("; ")}.</p> : null}
+      {rule.caveats.map((caveat) => <p key={caveat} className="mt-1 text-caption leading-3 text-amber-100/60">{caveat}</p>)}
     </div>
   );
 }
@@ -150,13 +150,13 @@ function EvidenceCard({ record, highlighted, onFocus }: { record: EvidenceRecord
         {(record.extra?.commandRule as CommandRuleView | undefined)?.status ? <Chip>{pretty((record.extra?.commandRule as CommandRuleView).status as string)}</Chip> : null}
         {record.severity ? <Chip>{record.severity}</Chip> : null}
       </div>
-      <h4 className="mt-1.5 text-[11px] font-bold leading-4 text-white/90">{record.title}</h4>
-      {record.summary ? <p className="mt-1 text-[10px] leading-4 text-slate-300">{record.summary}</p> : null}
-      {record.geographyNote ? <p className="mt-1 text-[9px] leading-4 text-slate-500">Geography ({pretty(record.geographyLevel)}): {record.geographyNote}</p> : <p className="mt-1 text-[9px] text-slate-500">Geography: {pretty(record.geographyLevel)}</p>}
+      <h4 className="mt-1.5 text-body font-bold leading-4 text-white/90">{record.title}</h4>
+      {record.summary ? <p className="mt-1 text-callout leading-4 text-slate-300">{record.summary}</p> : null}
+      {record.geographyNote ? <p className="mt-1 text-footnote leading-4 text-slate-500">Geography ({pretty(record.geographyLevel)}): {record.geographyNote}</p> : <p className="mt-1 text-footnote text-slate-500">Geography: {pretty(record.geographyLevel)}</p>}
       <RuleDetails record={record} />
       <CommandRuleDetails record={record} />
-      {record.evidence ? <details className="mt-1"><summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.12em] text-cyan-100/45">Source evidence</summary><p className="mt-1 whitespace-pre-wrap text-[9px] leading-4 text-slate-400">{record.evidence}</p></details> : null}
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[8px] text-slate-500">
+      {record.evidence ? <details className="mt-1"><summary className="cursor-pointer text-caption font-semibold text-cyan-100/45">Source evidence</summary><p className="mt-1 whitespace-pre-wrap text-footnote leading-4 text-slate-400">{record.evidence}</p></details> : null}
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-slate-500">
         {url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-bold text-cyan-100/70 hover:text-cyan-50">{record.sourceName}<ArrowUpRight size={9} /></a> : <span className="font-bold text-slate-400">{record.sourceName}</span>}
         {record.publishedAt ? <span>Published {formatDate(record.publishedAt)}</span> : null}
         {record.updatedAt && record.updatedAt !== record.publishedAt ? <span>Updated {formatDate(record.updatedAt)}</span> : null}
@@ -169,10 +169,10 @@ function EvidenceCard({ record, highlighted, onFocus }: { record: EvidenceRecord
 
 function MalariaModel({ record }: { record: EvidenceRecord }) {
   const model = (record.extra?.malaria ?? {}) as { riskScope?: string; areasMentioned?: string | null; places?: Array<{ name: string; kind: string; risk: "risk" | "no_risk"; seasonality: string | null; elevationLimitMeters: number | null }>; seasonality?: string | null; altitudeNote?: string | null; altitudeLimitMeters?: number | null; altitudeScope?: string | null; altitudeScopeNote?: string | null; preventionDrugs?: string[]; preventionStatement?: string | null };
-  const row = (label: string, value: ReactNode) => <div className="grid grid-cols-[92px_1fr] gap-2 border-b border-white/[.05] py-1.5 text-[10px] leading-4"><dt className="text-[8px] font-black uppercase tracking-[.1em] text-slate-500">{label}</dt><dd className="text-slate-200">{value}</dd></div>;
+  const row = (label: string, value: ReactNode) => <div className="grid grid-cols-[92px_1fr] gap-2 border-b border-white/[.05] py-1.5 text-callout leading-4"><dt className="text-caption font-semibold text-slate-500">{label}</dt><dd className="text-slate-200">{value}</dd></div>;
   const stated = (value?: string | null) => value || <span className="text-slate-500">Not stated in the retrieved source text</span>;
   return (
-    <dl className="mb-2 rounded-xl border border-amber-200/10 bg-amber-200/[.03] px-3 py-1">
+    <dl className="mb-2 rounded-[12px] border border-amber-200/10 bg-amber-200/[.03] px-3 py-1">
       {row("Risk scope", pretty(model.riskScope || "unspecified"))}
       {row("Risk areas", model.riskScope === "parts_of_country" ? <>{stated(model.areasMentioned)}<span className="mt-1 block text-slate-500">Named areas are quoted from the source text; no authoritative admin-level geometry is connected, so they are not drawn.</span></> : model.riskScope === "country_wide" ? "Country-wide, per source text" : model.riskScope === "none_stated" ? "No transmission stated by source" : stated(null))}
       {model.places?.length ? row("Named places", <><ul className="space-y-1">{model.places.map((place) => <li key={place.name + place.risk}><b className="text-white/85">{place.name}</b> <span className="text-slate-500">({pretty(place.kind)})</span> — {place.risk === "no_risk" ? <span className="text-emerald-200/80">source states no risk</span> : <span className="text-amber-100/90">risk named</span>}{place.seasonality ? <span className="text-slate-400">; {place.seasonality}</span> : null}{place.elevationLimitMeters ? <span className="text-slate-400">; elevation limit {place.elevationLimitMeters.toLocaleString()} m stated for this place</span> : null}</li>)}</ul><span className="mt-1 block text-slate-500">Listed from the CDC sentences, not drawn: no authoritative sub-national boundary is connected, and an outline would overstate what the text says.</span></>) : null}
@@ -193,15 +193,15 @@ function YellowBookCard({ record, evidenceById, onSelectEvidence }: { record: Ev
   return (
     <article id={`evidence-${record.id}`} data-testid="aor-yellow-book-card" className="border-b border-white/[.06] py-2.5 last:border-b-0">
       <div className="flex flex-wrap items-center gap-1.5"><Chip tone="border-slate-300/25 text-slate-300">Reference</Chip><FreshnessBadge freshness={record.freshness} /></div>
-      <h4 className="mt-1 text-[11px] font-bold text-white/90">{record.title}</h4>
-      <p className="mt-0.5 text-[10px] leading-4 text-slate-400">{record.summary}</p>
-      {links.length ? <div className="mt-1 flex flex-wrap gap-1"><span className="text-[8px] text-slate-500">Linked to:</span>{links.slice(0, 5).map((link) => <button key={link.evidenceId} type="button" onClick={() => onSelectEvidence(link.evidenceId)} className="rounded-full border border-cyan-200/15 px-1.5 py-0.5 text-[8px] font-bold text-cyan-100/70 hover:bg-cyan-200/10">{evidenceById.get(link.evidenceId)?.title.slice(0, 34)}</button>)}</div> : null}
+      <h4 className="mt-1 text-body font-bold text-white/90">{record.title}</h4>
+      <p className="mt-0.5 text-callout leading-4 text-slate-400">{record.summary}</p>
+      {links.length ? <div className="mt-1 flex flex-wrap gap-1"><span className="text-caption text-slate-500">Linked to:</span>{links.slice(0, 5).map((link) => <button key={link.evidenceId} type="button" onClick={() => onSelectEvidence(link.evidenceId)} className="rounded-full border border-cyan-200/15 px-1.5 py-0.5 text-caption font-bold text-cyan-100/70 hover:bg-cyan-200/10">{evidenceById.get(link.evidenceId)?.title.slice(0, 34)}</button>)}</div> : null}
       {rules.length || assets.length || extra.keyNotes?.length ? <details className="mt-1.5">
-        <summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.1em] text-slate-500">Chapter rules and source tables (pp. {extra.pages?.[0]}–{extra.pages?.[1]})</summary>
-        {rules.length ? <ul className="mt-1 list-disc space-y-1 pl-4 text-[9px] leading-4 text-slate-300">{rules.map((rule) => <li key={rule}>{rule}</li>)}</ul> : null}
-        {assets.length ? <ul className="mt-1.5 space-y-1 text-[9px] leading-4 text-slate-400">{assets.map((asset) => <li key={`${asset.type}-${asset.id}`}><b className="text-slate-300">{asset.title}</b> (p. {asset.page}) — {asset.excerpt}</li>)}</ul> : null}
+        <summary className="cursor-pointer text-caption font-semibold text-slate-500">Chapter rules and source tables (pp. {extra.pages?.[0]}–{extra.pages?.[1]})</summary>
+        {rules.length ? <ul className="mt-1 list-disc space-y-1 pl-4 text-footnote leading-4 text-slate-300">{rules.map((rule) => <li key={rule}>{rule}</li>)}</ul> : null}
+        {assets.length ? <ul className="mt-1.5 space-y-1 text-footnote leading-4 text-slate-400">{assets.map((asset) => <li key={`${asset.type}-${asset.id}`}><b className="text-slate-300">{asset.title}</b> (p. {asset.page}) — {asset.excerpt}</li>)}</ul> : null}
       </details> : null}
-      <p className="mt-1 text-[8px] leading-3 text-slate-500">{record.geographyNote}</p>
+      <p className="mt-1 text-caption leading-3 text-slate-500">{record.geographyNote}</p>
     </article>
   );
 }
@@ -248,13 +248,13 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
     <li key={observation.id} className="border-b border-white/[.06] py-2.5 last:border-b-0">
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: DIMENSION_COLORS[observation.dimension] }} />
-        <span className="text-[8px] font-black uppercase tracking-[.1em] text-slate-500">{DIMENSION_LABELS[observation.dimension]}</span>
+        <span className="text-caption font-semibold text-slate-500">{DIMENSION_LABELS[observation.dimension]}</span>
         <Chip tone={observation.kind === "gap" ? "border-rose-300/30 text-rose-200" : observation.kind === "caveat" ? "border-amber-300/25 text-amber-200" : "border-emerald-300/25 text-emerald-200"}>{observation.kind}</Chip>
         <FreshnessBadge freshness={observation.freshness} />
       </div>
-      <p className="mt-1 text-[11px] font-bold leading-4 text-white/90">{observation.headline}</p>
-      <p className="mt-0.5 text-[10px] leading-4 text-slate-400">{observation.detail}</p>
-      {observation.evidenceIds.length ? <div className="mt-1 flex flex-wrap gap-1">{observation.evidenceIds.slice(0, 6).map((id, i) => <button key={id} type="button" onClick={() => onSelectEvidence(id)} className="inline-flex items-center gap-0.5 rounded-full border border-cyan-200/15 px-1.5 py-0.5 text-[8px] font-bold text-cyan-100/70 hover:bg-cyan-200/10">Evidence {i + 1}<ChevronRight size={8} /></button>)}</div> : null}
+      <p className="mt-1 text-body font-bold leading-4 text-white/90">{observation.headline}</p>
+      <p className="mt-0.5 text-callout leading-4 text-slate-400">{observation.detail}</p>
+      {observation.evidenceIds.length ? <div className="mt-1 flex flex-wrap gap-1">{observation.evidenceIds.slice(0, 6).map((id, i) => <button key={id} type="button" onClick={() => onSelectEvidence(id)} className="inline-flex items-center gap-0.5 rounded-full border border-cyan-200/15 px-1.5 py-0.5 text-caption font-bold text-cyan-100/70 hover:bg-cyan-200/10">Evidence {i + 1}<ChevronRight size={8} /></button>)}</div> : null}
     </li>
   );
 
@@ -262,45 +262,45 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
     if (activeTab === "medical" || split) {
       return <AorMedicalRequirements location={location} split={split} directory={directory} inputs={medicalInputs} setInputs={setMedicalInputs} state={medical} onPickLocation={onPickLocation} />;
     }
-    if (intelUnavailable) return <p data-testid="aor-intel-unavailable" className="py-4 text-[10px] leading-5 text-slate-300"><AlertTriangle size={11} className="mr-1 inline text-amber-300" />{intelUnavailable} Nothing is shown here in its place: Health &amp; Medical Requirements for this location is still calculated from the command policy and host-nation rules.</p>;
-    if (loading) return <p className="flex items-center gap-2 py-6 text-[10px] text-slate-400"><Loader2 size={12} className="animate-spin" />Retrieving sources for {displayName}…</p>;
-    if (error) return <p className="py-4 text-[10px] leading-4 text-amber-100/70"><AlertTriangle size={11} className="mr-1 inline" />{error}</p>;
+    if (intelUnavailable) return <p data-testid="aor-intel-unavailable" className="py-4 text-callout leading-5 text-slate-300"><AlertTriangle size={11} className="mr-1 inline text-amber-300" />{intelUnavailable} Nothing is shown here in its place: Health &amp; Medical Requirements for this location is still calculated from the command policy and host-nation rules.</p>;
+    if (loading) return <p className="flex items-center gap-2 py-6 text-callout text-slate-400"><Loader2 size={12} className="animate-spin" />Retrieving sources for {displayName}…</p>;
+    if (error) return <p className="py-4 text-callout leading-4 text-amber-100/70"><AlertTriangle size={11} className="mr-1 inline" />{error}</p>;
     if (!intel) return null;
     if (activeTab === "summary") {
       return <div>
-        <p data-testid="aor-what-matters-now" className="rounded-xl border border-cyan-200/10 bg-cyan-200/[.04] px-3 py-2 text-[11px] leading-5 text-white/90">{intel.whatMattersNow.summary}</p>
-        {synthesisLoading ? <p className="mt-2 flex items-center gap-2 text-[9px] text-slate-500"><Loader2 size={10} className="animate-spin" />Preparing evidence-checked AI briefing…</p> : null}
-        {synthesis?.status === "applied" ? <section data-testid="aor-ai-briefing" className="mt-2 rounded-xl border border-violet-200/12 bg-violet-200/[.035] px-3 py-2">
-          <h3 className="text-[8px] font-black uppercase tracking-[.12em] text-violet-200/80">AI briefing — every line cites evidence</h3>
+        <p data-testid="aor-what-matters-now" className="rounded-[12px] border border-cyan-200/10 bg-cyan-200/[.04] px-3 py-2 text-body leading-5 text-white/90">{intel.whatMattersNow.summary}</p>
+        {synthesisLoading ? <p className="mt-2 flex items-center gap-2 text-footnote text-slate-500"><Loader2 size={10} className="animate-spin" />Preparing evidence-checked AI briefing…</p> : null}
+        {synthesis?.status === "applied" ? <section data-testid="aor-ai-briefing" className="mt-2 rounded-[12px] border border-violet-200/12 bg-violet-200/[.035] px-3 py-2">
+          <h3 className="text-caption font-semibold text-violet-200/80">AI briefing — every line cites evidence</h3>
           <ol className="mt-1.5 space-y-2">{synthesis.statements.map((statement, index) => (
-            <li key={index} className="text-[10px] leading-4 text-slate-200">{statement.text}
-              <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">{statement.evidenceIds.filter((id) => evidenceById.has(id)).slice(0, 4).map((id, i) => <button key={id} type="button" onClick={() => onSelectEvidence(id)} title={evidenceById.get(id)?.title} className="rounded-full border border-violet-200/20 px-1.5 text-[8px] font-bold text-violet-100/80 hover:bg-violet-200/10">[{i + 1}]</button>)}</span>
+            <li key={index} className="text-callout leading-4 text-slate-200">{statement.text}
+              <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">{statement.evidenceIds.filter((id) => evidenceById.has(id)).slice(0, 4).map((id, i) => <button key={id} type="button" onClick={() => onSelectEvidence(id)} title={evidenceById.get(id)?.title} className="rounded-full border border-violet-200/20 px-1.5 text-caption font-bold text-violet-100/80 hover:bg-violet-200/10">[{i + 1}]</button>)}</span>
             </li>
           ))}</ol>
-          <p className="mt-1.5 text-[8px] leading-3 text-slate-500">{synthesis.note}</p>
-        </section> : synthesis && synthesis.status !== "not_configured" ? <p className="mt-2 text-[9px] leading-4 text-slate-500">AI briefing not shown: {synthesis.note}</p> : null}
-        <p className="mt-1 text-[8px] leading-4 text-slate-500">Assembled by {intel.whatMattersNow.method.replace(/-/g, " ")} from the evidence below. Language-model synthesis is {intel.whatMattersNow.llmSynthesis.replace(/_/g, " ")}. No composite risk score is calculated.</p>
+          <p className="mt-1.5 text-caption leading-3 text-slate-500">{synthesis.note}</p>
+        </section> : synthesis && synthesis.status !== "not_configured" ? <p className="mt-2 text-footnote leading-4 text-slate-500">AI briefing not shown: {synthesis.note}</p> : null}
+        <p className="mt-1 text-caption leading-4 text-slate-500">Assembled by {intel.whatMattersNow.method.replace(/-/g, " ")} from the evidence below. Language-model synthesis is {intel.whatMattersNow.llmSynthesis.replace(/_/g, " ")}. No composite risk score is calculated.</p>
         <ul className="mt-2">{intel.whatMattersNow.observations.map(observationCard)}</ul>
-        {intel.limitations.length ? <details className="mt-3"><summary className="cursor-pointer text-[8px] font-black uppercase tracking-[.12em] text-slate-500">How to read this</summary><ul className="mt-1 list-disc space-y-1 pl-4 text-[9px] leading-4 text-slate-500">{intel.limitations.map((item) => <li key={item}>{item}</li>)}</ul></details> : null}
+        {intel.limitations.length ? <details className="mt-3"><summary className="cursor-pointer text-caption font-semibold text-slate-500">How to read this</summary><ul className="mt-1 list-disc space-y-1 pl-4 text-footnote leading-4 text-slate-500">{intel.limitations.map((item) => <li key={item}>{item}</li>)}</ul></details> : null}
         {lens}
       </div>;
     }
     if (activeTab === "sources") {
       return <ul>{intel.sources.map((source) => (
-        <li key={source.sourceId} className="border-b border-white/[.06] py-2.5 text-[10px] last:border-b-0">
-          <div className="flex items-center justify-between gap-2"><span className="font-bold text-white/85">{source.sourceName}</span><span className={`text-[9px] font-bold ${STATUS_TONE[source.status]}`}>{STATUS_LABELS[source.status]}</span></div>
+        <li key={source.sourceId} className="border-b border-white/[.06] py-2.5 text-callout last:border-b-0">
+          <div className="flex items-center justify-between gap-2"><span className="font-bold text-white/85">{source.sourceName}</span><span className={`text-footnote font-bold ${STATUS_TONE[source.status]}`}>{STATUS_LABELS[source.status]}</span></div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5"><FreshnessBadge freshness={source.freshness} />{source.recordCount ? <Chip>{source.recordCount} record{source.recordCount === 1 ? "" : "s"}</Chip> : null}</div>
-          {source.note ? <p className="mt-1 text-[9px] leading-4 text-slate-500">{source.note}</p> : null}
-          {source.lastAttemptedFetch || source.lastSuccessfulFetch || source.sourceUpdatedAt ? <p className="mt-1 text-[8px] leading-3 text-slate-600">{source.lastAttemptedFetch ? `Last attempt ${formatDate(source.lastAttemptedFetch)}` : ""}{source.lastSuccessfulFetch ? ` · last success ${formatDate(source.lastSuccessfulFetch)}` : source.lastAttemptedFetch ? " · never fetched successfully" : ""}{source.sourceUpdatedAt ? ` · source dated ${formatDate(source.sourceUpdatedAt)}` : ""}{source.sourceError && source.status !== "ok" ? ` · error: ${source.sourceError}` : ""}{source.status === "stale_cache" ? " · showing last-known data" : ""}</p> : null}
+          {source.note ? <p className="mt-1 text-footnote leading-4 text-slate-500">{source.note}</p> : null}
+          {source.lastAttemptedFetch || source.lastSuccessfulFetch || source.sourceUpdatedAt ? <p className="mt-1 text-caption leading-3 text-slate-600">{source.lastAttemptedFetch ? `Last attempt ${formatDate(source.lastAttemptedFetch)}` : ""}{source.lastSuccessfulFetch ? ` · last success ${formatDate(source.lastSuccessfulFetch)}` : source.lastAttemptedFetch ? " · never fetched successfully" : ""}{source.sourceUpdatedAt ? ` · source dated ${formatDate(source.sourceUpdatedAt)}` : ""}{source.sourceError && source.status !== "ok" ? ` · error: ${source.sourceError}` : ""}{source.status === "stale_cache" ? " · showing last-known data" : ""}</p> : null}
         </li>
       ))}</ul>;
     }
     const records = byDimension.get(activeTab) ?? [];
     const statuses = intel.sources.filter((source) => source.dimension === activeTab || (source.dimension === "multi" && (activeTab === "health_vaccines" || activeTab === "malaria")));
-    const empty = !records.length ? <div className="py-3 text-[10px] leading-4 text-slate-400"><p>No evidence records for {DIMENSION_LABELS[activeTab].toLowerCase()}. This is not proof of absence — source status:</p><ul className="mt-2 space-y-1">{statuses.map((source) => <li key={source.sourceId} className="text-[9px]"><b className="text-white/70">{source.sourceName}</b> — <span className={STATUS_TONE[source.status]}>{STATUS_LABELS[source.status]}</span>{source.note ? <span className="text-slate-500"> · {source.note}</span> : null}</li>)}</ul></div> : null;
+    const empty = !records.length ? <div className="py-3 text-callout leading-4 text-slate-400"><p>No evidence records for {DIMENSION_LABELS[activeTab].toLowerCase()}. This is not proof of absence — source status:</p><ul className="mt-2 space-y-1">{statuses.map((source) => <li key={source.sourceId} className="text-footnote"><b className="text-white/70">{source.sourceName}</b> — <span className={STATUS_TONE[source.status]}>{STATUS_LABELS[source.status]}</span>{source.note ? <span className="text-slate-500"> · {source.note}</span> : null}</li>)}</ul></div> : null;
 
     if (activeTab === "health_vaccines") {
-      const group = (title: string, items: EvidenceRecord[], note?: string) => items.length ? <section className="mb-3"><h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">{title}</h3>{note ? <p className="mb-1 text-[9px] leading-4 text-slate-500">{note}</p> : null}{items.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</section> : null;
+      const group = (title: string, items: EvidenceRecord[], note?: string) => items.length ? <section className="mb-3"><h3 className="text-footnote font-semibold text-slate-400">{title}</h3>{note ? <p className="mb-1 text-footnote leading-4 text-slate-500">{note}</p> : null}{items.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</section> : null;
       const entry = intel.sources.find((s) => s.sourceId === "destination-entry-requirements");
       const isRule = (r: EvidenceRecord) => Boolean(r.extra?.vaccineRule);
       const ruleRecords = records.filter((r) => (r.category === "entry_requirement" || r.category === "exit_requirement") && isRule(r));
@@ -318,17 +318,17 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
         {group("Source disagreements — preserved", conflicts, "The newer, higher-authority statement is shown above; the older statement is kept here so the change is visible.")}
         {group("Entry-requirement wording in the CDC destination text — corroboration only", cdcText, "Quoted from the CDC page for this country. CDC is a medical authority; the destination government controls the legal rule.")}
         {group("Rule coverage and sources to check", coverage)}
-        {coverage.map((record) => { const links = (record.extra?.sourcesToCheck ?? []) as Array<{ authority: string; check: string; url: string }>; return links.length ? <ul key={record.id} className="mb-3 space-y-1 text-[9px] leading-4 text-slate-400">{links.map((link) => { const href = safeUrl(link.url); return <li key={link.url}>{href ? <a href={href} target="_blank" rel="noreferrer" className="font-bold text-cyan-100/65 hover:text-cyan-50">{link.authority}</a> : link.authority} — {link.check}</li>; })}</ul> : null; })}
+        {coverage.map((record) => { const links = (record.extra?.sourcesToCheck ?? []) as Array<{ authority: string; check: string; url: string }>; return links.length ? <ul key={record.id} className="mb-3 space-y-1 text-footnote leading-4 text-slate-400">{links.map((link) => { const href = safeUrl(link.url); return <li key={link.url}>{href ? <a href={href} target="_blank" rel="noreferrer" className="font-bold text-cyan-100/65 hover:text-cyan-50">{link.authority}</a> : link.authority} — {link.check}</li>; })}</ul> : null; })}
         {group("Official rule pages — reachability and change check", sourceChecks, "Last-known details are labelled when a page could not be reached.")}
-        {entry && entry.status !== "ok" && !ruleRecords.length && !coverage.length ? <p className="mb-3 rounded-lg border border-amber-300/15 bg-amber-300/[.04] px-3 py-2 text-[10px] leading-4 text-amber-100/80">{entry.note || "Entry requirements were not evaluated."}</p> : null}
+        {entry && entry.status !== "ok" && !ruleRecords.length && !coverage.length ? <p className="mb-3 rounded-[10px] border border-amber-300/15 bg-amber-300/[.04] px-3 py-2 text-callout leading-4 text-amber-100/80">{entry.note || "Entry requirements were not evaluated."}</p> : null}
         {group("Destination disease risks (CDC)", records.filter((r) => r.category === "destination_disease_risk"))}
         {group("Childhood immunization coverage (WHO/UNICEF WUENIC)", records.filter((r) => r.category === "immunization_coverage"), "Annual national programme estimates for the resident population — not a traveler recommendation and not current conditions.")}
-        {yellowBook.length ? <section className="mb-3"><h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">CDC Yellow Book reference</h3><p className="mb-1 text-[9px] leading-4 text-slate-500">Clinical and operational chapters for diseases named above. Reference context, not current country guidance.</p>{yellowBook.map((record) => <YellowBookCard key={record.id} record={record} evidenceById={evidenceById} onSelectEvidence={onSelectEvidence} />)}</section> : null}
+        {yellowBook.length ? <section className="mb-3"><h3 className="text-footnote font-semibold text-slate-400">CDC Yellow Book reference</h3><p className="mb-1 text-footnote leading-4 text-slate-500">Clinical and operational chapters for diseases named above. Reference context, not current country guidance.</p>{yellowBook.map((record) => <YellowBookCard key={record.id} record={record} evidenceById={evidenceById} onSelectEvidence={onSelectEvidence} />)}</section> : null}
         {group("Other health guidance", records.filter((r) => !["routine_vaccine", "travel_vaccine", "entry_requirement", "exit_requirement", "ihr_temporary_recommendation", "entry_rule_conflict", "entry_requirement_coverage", "rule_source_check", "destination_disease_risk", "immunization_coverage", "yellow_book_reference"].includes(r.category)))}
       </div>;
     }
     if (activeTab === "command_policy") {
-      const group = (title: string, items: EvidenceRecord[], note?: string) => items.length ? <section className="mb-3"><h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">{title}</h3>{note ? <p className="mb-1 text-[9px] leading-4 text-slate-500">{note}</p> : null}{items.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</section> : null;
+      const group = (title: string, items: EvidenceRecord[], note?: string) => items.length ? <section className="mb-3"><h3 className="text-footnote font-semibold text-slate-400">{title}</h3>{note ? <p className="mb-1 text-footnote leading-4 text-slate-500">{note}</p> : null}{items.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</section> : null;
       const ruleRecords = records.filter((r) => r.category === "command_rule");
       const domainOf = (r: EvidenceRecord) => String((r.extra?.commandRule as CommandRuleView | undefined)?.domain ?? "");
       const waiver = ruleRecords.filter((r) => domainOf(r) === "waiver");
@@ -339,7 +339,7 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
       const grouped = new Set([...waiver, ...supplements, ...conditions, ...pcs, ...clearance].map((r) => r.id));
       const core = ruleRecords.filter((r) => !grouped.has(r.id));
       return <div>{empty}
-        <p className="mb-3 rounded-lg border border-pink-300/15 bg-pink-300/[.04] px-3 py-2 text-[10px] leading-4 text-pink-50/80">U.S. Combatant Command deployment policy for DoD-affiliated travelers. It is a separate rule class from host-nation entry law and from CDC/WHO recommendations; none of the three replaces another.</p>
+        <p className="mb-3 rounded-[10px] border border-pink-300/15 bg-pink-300/[.04] px-3 py-2 text-callout leading-4 text-pink-50/80">U.S. Combatant Command deployment policy for DoD-affiliated travelers. It is a separate rule class from host-nation entry law and from CDC/WHO recommendations; none of the three replaces another.</p>
         {group("Area of responsibility", records.filter((r) => r.category === "command_assignment"), "Built from public DoD and command material; the Unified Command Plan itself is classified. Superseded assignments are kept as history.")}
         {group("Command medical policy", records.filter((r) => r.category === "command_policy"))}
         {group("Superseded policy — history only", records.filter((r) => r.category === "command_policy_superseded"), "Kept so the change is visible; no superseded rule text is shown.")}
@@ -370,10 +370,10 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
       const active = ENVIRONMENT_KEYS.filter((key) => environment[key]);
       return <div>
         <section className="mb-3" aria-label="Deployment environment factors">
-          <h3 className="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">Deployment environment</h3>
-          <p className="mb-1.5 text-[9px] leading-4 text-slate-500">Select factors that apply to the assignment. They are shown against the evidence below and carried into the condition × deployment review.</p>
-          <div className="grid grid-cols-2 gap-1.5">{ENVIRONMENT_KEYS.map((key) => <button key={key} type="button" aria-pressed={environment[key]} onClick={() => onToggleEnvironment(key)} className={`min-h-9 rounded-[11px] border px-2 text-left text-[9px] font-bold transition ${environment[key] ? "border-amber-100/20 bg-amber-200/[.08] text-amber-50" : "border-white/[.06] bg-white/[.02] text-slate-400 hover:bg-white/[.045]"}`}>{ENVIRONMENT_LABELS[key]}</button>)}</div>
-          {active.length ? <ul className="mt-2 space-y-1.5">{active.map((key) => { const info = related(key); return <li key={key} className="rounded-lg border border-white/[.06] px-2.5 py-1.5 text-[9px] leading-4 text-slate-300"><b className="text-white/85">{ENVIRONMENT_LABELS[key]}</b> — {info.text}{info.ids.map((id) => <button key={id} type="button" onClick={() => onSelectEvidence(id)} className="ml-1 rounded-full border border-cyan-200/15 px-1.5 text-[8px] font-bold text-cyan-100/70 hover:bg-cyan-200/10">evidence</button>)}</li>; })}</ul> : null}
+          <h3 className="text-footnote font-semibold text-slate-400">Deployment environment</h3>
+          <p className="mb-1.5 text-footnote leading-4 text-slate-500">Select factors that apply to the assignment. They are shown against the evidence below and carried into the condition × deployment review.</p>
+          <div className="grid grid-cols-2 gap-1.5">{ENVIRONMENT_KEYS.map((key) => <button key={key} type="button" aria-pressed={environment[key]} onClick={() => onToggleEnvironment(key)} className={`min-h-9 rounded-[10px] border px-2 text-left text-footnote font-bold transition ${environment[key] ? "border-amber-100/20 bg-amber-200/[.08] text-amber-50" : "border-white/[.06] bg-white/[.02] text-slate-400 hover:bg-white/[.045]"}`}>{ENVIRONMENT_LABELS[key]}</button>)}</div>
+          {active.length ? <ul className="mt-2 space-y-1.5">{active.map((key) => { const info = related(key); return <li key={key} className="rounded-[10px] border border-white/[.06] px-2.5 py-1.5 text-footnote leading-4 text-slate-300"><b className="text-white/85">{ENVIRONMENT_LABELS[key]}</b> — {info.text}{info.ids.map((id) => <button key={id} type="button" onClick={() => onSelectEvidence(id)} className="ml-1 rounded-full border border-cyan-200/15 px-1.5 text-caption font-bold text-cyan-100/70 hover:bg-cyan-200/10">evidence</button>)}</li>; })}</ul> : null}
         </section>
         {empty}{sortedEnv.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}
       </div>;
@@ -385,42 +385,44 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
   const parent = location?.parentId ? directory?.byId.get(location.parentId) ?? null : null;
   const children = location ? directory?.childrenOf.get(location.id) ?? [] : [];
   const medicalCounts = medical.result?.byStatus;
-  const tabs: Array<[PanelTab, string]> = [["medical", "Health & Medical Requirements"], ["summary", "What matters now"], ...DIMENSIONS.map((d) => [d, DIMENSION_LABELS[d]] as [PanelTab, string]), ["sources", "Sources"]];
+  const tabs: Array<[PanelTab, string]> = [["medical", "Medical requirements"], ["summary", "Briefing"], ...DIMENSIONS.map((d) => [d, DIMENSION_LABELS[d]] as [PanelTab, string]), ["sources", "Sources"]];
+  // One readable line instead of a pile of chips. How the AOR was assigned (evidence class) lives in the requirements panel's "About this result".
+  const facts = location ? [geographicClassLabel(location), location.administering ? `Administered by ${location.administering}` : null].filter(Boolean).join(" · ") : "";
 
   return (
-    <aside data-testid="aor-intel-panel" className="pointer-events-auto absolute bottom-4 right-4 top-4 z-30 flex w-[min(420px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[22px] border border-white/[.09] bg-[#050d14]/82 text-white shadow-[0_18px_60px_rgba(0,0,0,.5)] backdrop-blur-2xl">
-      <header className="flex items-start justify-between gap-3 border-b border-white/[.07] px-4 py-3">
+    <aside data-testid="aor-intel-panel" className="lg-glass-panel pointer-events-auto absolute bottom-4 right-4 top-4 z-30 flex w-[min(520px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[28px] text-white">
+      <header className="flex items-start justify-between gap-3 px-5 pb-2 pt-5">
         <div className="min-w-0">
-          <p className="text-[8px] font-black uppercase tracking-[.16em] text-cyan-100/45">{location?.command ? COMMAND_VIEW[location.command].label : split ? "Split ISO entity" : "Location"}</p>
-          <h2 data-testid="aor-panel-title" className="text-[15px] font-bold leading-5">{displayName}</h2>
+          <p className="text-footnote font-semibold text-slate-400">{location?.command ? COMMAND_VIEW[location.command].label : split ? "Split ISO entity" : "Location"}</p>
+          <h2 data-testid="aor-panel-title" className="mt-0.5 text-title-1 font-semibold leading-7 tracking-[-.01em]">{displayName}</h2>
           {location ? (
-            <div className="mt-1 flex flex-wrap gap-1">
-              <Chip>{geographicClassLabel(location)}</Chip>
-              {location.evidenceClass ? <Chip tone="border-cyan-300/25 text-cyan-100">{EVIDENCE_CLASS_LABEL[location.evidenceClass]}</Chip> : null}
-              {location.provisional ? <Chip tone="border-amber-300/45 text-amber-100">Provisional</Chip> : null}
-              {location.administering ? <Chip>Administered by {location.administering}</Chip> : null}
-            </div>
+            <p className="mt-1 text-callout leading-5 text-slate-300">
+              {facts}
+              {location.provisional ? <span className="ml-2 rounded-full border border-amber-300/45 px-2 py-px text-caption font-semibold text-amber-100">Provisional AOR</span> : null}
+            </p>
           ) : null}
-          {location && !location.boundaryIso2 ? <p data-testid="aor-no-polygon-note" className="mt-1 text-[9px] leading-4 text-amber-200/70">No boundary polygon exists in the repository for this location, so none is drawn. It is shown as a reference point{location.referencePoint?.note ? ` (${location.referencePoint.note})` : ""}.</p> : null}
+          {location && !location.boundaryIso2 ? <p data-testid="aor-no-polygon-note" className="mt-0.5 text-footnote leading-4 text-slate-500">No boundary data, so none is drawn; shown as a point{location.referencePoint?.note ? ` (${location.referencePoint.note})` : ""}.</p> : null}
           {parent || children.length ? (
-            <p className="mt-1 text-[9px] leading-4 text-slate-400">
+            <p className="mt-1 text-footnote leading-4 text-slate-400">
               {parent ? <>Part of <button type="button" onClick={() => onPickLocation(parent.id)} className="font-bold text-cyan-100/75 hover:text-cyan-50">{parent.name}</button>. </> : null}
               {children.length ? <>Contains {children.map((child, i) => <span key={child.id}>{i ? ", " : ""}<button type="button" onClick={() => onPickLocation(child.id)} className="font-bold text-cyan-100/75 hover:text-cyan-50">{child.name}</button></span>)}.</> : null}
             </p>
           ) : null}
         </div>
-        <button type="button" onClick={onClose} aria-label="Close country panel" className="rounded-full border border-white/10 p-1.5 text-slate-400 hover:text-white"><X size={13} /></button>
+        <button type="button" onClick={onClose} aria-label="Close country panel" className="lg-press grid h-8 w-8 place-items-center rounded-full bg-white/[.08] text-slate-300 hover:bg-white/[.14] hover:text-white"><X size={16} /></button>
       </header>
       {split ? null : (
-        <nav className="flex flex-wrap gap-1 border-b border-white/[.06] px-3 py-2" aria-label="Intelligence categories">
+        // One scrolling row of underlined tabs instead of three wrapped rows of pills.
+        <nav className="flex gap-1 overflow-x-auto px-4 pb-1 pr-10 [mask-image:linear-gradient(to_right,black_calc(100%-48px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Intelligence categories">
           {tabs.map(([id, label]) => {
             const count = id === "summary" || id === "sources" || id === "medical" ? null : byDimension.get(id)?.length ?? 0;
-            return <button key={id} type="button" data-testid={`aor-tab-${id}`} aria-pressed={activeTab === id} onClick={() => setActiveTab(id)} className={`rounded-full border px-2 py-0.5 text-[9px] font-bold transition ${activeTab === id ? "border-cyan-200/25 bg-cyan-200/10 text-white" : "border-white/[.06] text-slate-400 hover:text-white"}`}>{label}{count ? <span className="ml-1 text-slate-500">{count}</span> : null}{id === "medical" && medicalCounts?.REQUIRED ? <span className="ml-1 text-rose-200/80">{medicalCounts.REQUIRED}</span> : null}</button>;
+            const active = activeTab === id;
+            return <button key={id} type="button" data-testid={`aor-tab-${id}`} aria-pressed={active} onClick={() => setActiveTab(id)} className={`lg-press shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-callout font-semibold ${active ? "lg-lens" : "text-slate-400 hover:bg-white/[.06] hover:text-slate-200"}`}>{label}{count ? <span className="ml-1.5 text-footnote font-normal tabular-nums text-slate-500">{count}</span> : null}{id === "medical" && medicalCounts?.REQUIRED ? <span className="ml-1.5 rounded-full bg-rose-400/20 px-1.5 text-caption text-rose-100">{medicalCounts.REQUIRED}</span> : null}</button>;
           })}
         </nav>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{body()}</div>
-      {intel && !split ? <footer className="border-t border-white/[.06] px-4 py-2 text-[8px] text-slate-600">Generated {formatDate(intel.generatedAt)} · evidence is retrieved server-side and cached; each record shows its own retrieval date.</footer> : null}
+      <div className="lg-scroll-edge min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-5">{body()}</div>
+      {intel && !split ? <footer className="px-5 pb-3 pt-1 text-caption text-slate-500">Generated {formatDate(intel.generatedAt)} · evidence is retrieved server-side and cached; each record shows its own retrieval date.</footer> : null}
     </aside>
   );
 }
