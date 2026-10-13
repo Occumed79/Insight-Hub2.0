@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AlertTriangle, ArrowUpRight, BadgeCheck, ChevronDown, CircleHelp, GitFork, Loader2, MinusCircle, RotateCw, ShieldAlert } from "lucide-react";
 import { COMMAND_VIEW, EVIDENCE_CLASS_LABEL, type DirectoryIndex, type DirectoryLocation, type SplitParent } from "./aor-directory";
 import {
@@ -165,8 +165,15 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
   const [filter, setFilter] = useState<RequirementStatus | null>(null);
   const [refineOpen, setRefineOpen] = useState(false);
   const refineRef = useRef<HTMLElement>(null);
+  const [refineScrollRequest, setRefineScrollRequest] = useState(0);
   // "Add details" opens the refine section and brings it into view (it sits below the requirement cards).
-  const openRefine = () => { setRefineOpen(true); window.requestAnimationFrame(() => refineRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" })); };
+  const openRefine = () => { setRefineOpen(true); setRefineScrollRequest((request) => request + 1); };
+  useEffect(() => {
+    if (!refineScrollRequest || !refineOpen) return;
+    // Wait until React has mounted the inputs. Scrolling the collapsed section
+    // in an animation frame can clamp to its old height before the commit.
+    refineRef.current?.scrollIntoView({ behavior: "instant", block: "start" });
+  }, [refineScrollRequest, refineOpen]);
   const update = <K extends keyof MedicalInputs>(key: K, value: MedicalInputs[K]) => setInputs((current) => ({ ...current, [key]: value }));
   const result = state.result;
   const command = location?.command ?? null;
