@@ -6,6 +6,15 @@ const DESTINATION_STALE_TTL = 24 * 60 * 60_000;
 const NOTICE_CACHE_TTL = 30 * 60_000;
 const cache = new Map<string, { expiresAt: number; value: string }>();
 const destinationCache = new Map<string, { expiresAt: number; staleUntil: number; raw: string; sourceUrl: string; slug: string }>();
+// Each entry is a whole CDC HTML page. These maps previously never evicted anything, so every destination ever viewed stayed in
+// memory for the life of the process; on a 512 MB instance that contributed to "JavaScript heap out of memory" crashes.
+const MAX_PAGE_CACHE = 8;
+const MAX_DESTINATIONS = 40;
+function remember<V>(map: Map<string, V>, key: string, value: V, max: number) {
+  map.delete(key); // re-insert so Map order tracks recency
+  map.set(key, value);
+  while (map.size > max) map.delete(map.keys().next().value as string);
+}
 
 const COUNTRY_SLUG_ALIASES: Record<string, string[]> = {
   "united states": ["United-States"],
@@ -184,7 +193,8 @@ async function fetchText(url: string, timeoutMs = 18_000, ttl = CACHE_TTL) {
       throw error;
     }
     const value = await response.text();
-    cache.set(url, { expiresAt: Date.now() + ttl, value });
+    // ttl 0 means the caller keeps its own copy (destination pages): storing it here too only leaked a duplicate.
+    if (ttl > 0) remember(cache, url, { expiresAt: Date.now() + ttl, value }, MAX_PAGE_CACHE);
     return value;
   } finally {
     clearTimeout(timer);
@@ -214,7 +224,7 @@ async function fetchDestination(country: string) {
         const raw = await fetchText(sourceUrl, 18_000, 0);
         validateDestinationPage(raw);
         const cached = { raw, sourceUrl, slug, expiresAt: Date.now() + CACHE_TTL, staleUntil: Date.now() + CACHE_TTL + DESTINATION_STALE_TTL };
-        destinationCache.set(key, cached);
+        remember(destinationCache, key, cached, MAX_DESTINATIONS);
         return { ...cached, cacheState: "refreshed" as const };
       } catch (error) {
         lastError = error;
