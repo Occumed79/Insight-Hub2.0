@@ -121,6 +121,7 @@ export default function FederalAgencyDataLights({
     let time = 0;
 
         app.on("update", (dt) => {
+          if (!app) return;
           try {
             time += dt;
       positions.length = 0;

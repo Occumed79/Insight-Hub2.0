@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Box, Globe2, Layers, Loader2, Map as MapIcon, Search } from "lucide-react";
+import { intelligenceJson as getJson } from "@/lib/intelligence-request";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { AorCesiumGlobe } from "./AorCesiumGlobe";
 import { AorCommandPanel } from "./AorCommandPanel";
@@ -17,14 +18,6 @@ import { DIMENSIONS, DIMENSION_COLORS, DIMENSION_LABELS, ENVIRONMENT_KEYS, ENVIR
 type CesiumConfig = { configured: boolean; token: string; fallbackToken?: string | null; requiredEnv?: string; error?: string };
 type LensResponse = { ok: boolean; classification: string; considerations: Array<{ ruleId: string; classification: string; summary: string; matchedTerms: string[]; countrySignals: string[]; evidenceText: string }> };
 type SearchResults = { locations: DirectoryLocation[]; splitParents: SplitParent[] };
-
-async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
-  const payload = await response.json().catch(() => ({}));
-  // The Cesium config route answers 503 with a usable body ({ configured: false }); every other non-2xx response is an error.
-  if (!response.ok && !("configured" in (payload as object))) throw new Error((payload as { error?: string }).error || `Request failed (${response.status}).`);
-  return payload as T;
-}
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : "Request failed.");
 
@@ -69,6 +62,8 @@ export default function AorCesiumWorkspace() {
   const [results, setResults] = useState<SearchResults>({ locations: [], splitParents: [] });
   const [panelOpen, setPanelOpen] = useState(false);
   const requestRef = useRef(0);
+  const selectionRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => { requestRef.current += 1; selectionRequest.current?.abort(); }, []);
   const [synthesis, setSynthesis] = useState<SynthesisResponse | null>(null);
   const [synthesisLoading, setSynthesisLoading] = useState(false);
   const [environment, setEnvironment] = useState<Record<EnvironmentKey, boolean>>({ heat: false, cold: false, altitude: false, poorAir: false, fatigue: false, ppe: false, night: false });
@@ -85,12 +80,14 @@ export default function AorCesiumWorkspace() {
 
   useEffect(() => {
     let active = true;
-    getJson<CesiumConfig>("/api/aor/cesium-config").then((payload) => { if (active) setConfig(payload); }).catch((error) => { if (active) setConfig({ configured: false, token: "", error: errorText(error) }); });
-    getJson<{ features: never[] }>("/api/aor/boundaries").then((payload) => { if (active) setIndex(indexBoundaries(payload as never)); }).catch((error) => { if (active) setBoundaryError(errorText(error)); });
-    getJson<AorDirectory & { ok?: boolean }>("/api/aor/directory")
+    const controller = new AbortController();
+    const options = { signal: controller.signal };
+    getJson<CesiumConfig>("/api/aor/cesium-config", options).then((payload) => { if (active) setConfig(payload); }).catch((error) => { if (active) setConfig({ configured: false, token: "", error: errorText(error) }); });
+    getJson<{ features: never[] }>("/api/aor/boundaries", options).then((payload) => { if (active) setIndex(indexBoundaries(payload as never)); }).catch((error) => { if (active) setBoundaryError(errorText(error)); });
+    getJson<AorDirectory & { ok?: boolean }>("/api/aor/directory", options)
       .then((payload) => { if (!active) return; if (!Array.isArray(payload.locations)) throw new Error("The location directory response was empty."); setDirectory(buildDirectoryIndex(payload)); })
       .catch((error) => { if (active) setDirectoryError(errorText(error)); });
-    getJson<{ earthquakes?: Array<{ id: string; title?: string; magnitude?: number; latitude?: number; longitude?: number; place?: string; url?: string }>; disasters?: Array<{ id?: string; eventId?: string; title?: string; name?: string; eventType?: string; alertLevel?: string; latitude?: number; longitude?: number; url?: string; sourceUrl?: string }> }>("/api/aor/global-watch")
+    getJson<{ earthquakes?: Array<{ id: string; title?: string; magnitude?: number; latitude?: number; longitude?: number; place?: string; url?: string }>; disasters?: Array<{ id?: string; eventId?: string; title?: string; name?: string; eventType?: string; alertLevel?: string; latitude?: number; longitude?: number; url?: string; sourceUrl?: string }> }>("/api/aor/global-watch", options)
       .then((payload) => {
         if (!active) return;
         const events: WorldEvent[] = [];
@@ -106,7 +103,7 @@ export default function AorCesiumWorkspace() {
         setWorldEvents(events.filter((event) => (seenIds.has(event.id) ? false : (seenIds.add(event.id), true))));
       })
       .catch(() => { /* world watch is optional context; absence is shown by the empty layer */ });
-    return () => { active = false; };
+    return () => { active = false; controller.abort(); };
   }, []);
 
   // If the backend directory is unavailable the polygons still work, but no AOR is shown or invented.
@@ -121,7 +118,7 @@ export default function AorCesiumWorkspace() {
   }, [config]);
   useEffect(() => {
     if (status.state !== "error" || !status.fatal) return;
-    if (!usingBackupIon && config?.fallbackToken) {
+    if (status.retryable && !usingBackupIon && config?.fallbackToken) {
       // Fatal Cesium ion imagery/auth/rate-limit failure: remount once with the
       // separately configured second-account token rather than falling straight to 2D.
       setUsingBackupIon(true);
@@ -142,6 +139,8 @@ export default function AorCesiumWorkspace() {
 
   const resetSelection = useCallback(() => {
     requestRef.current += 1;
+    selectionRequest.current?.abort();
+    setLensLoading(false); setFocusEvidence(null);
     setIntel(null); setIntelError(""); setIntelLoading(false); setIntelUnavailable(null); setHighlightedId(null); setLens(null); setLensError(""); setSynthesis(null); setSynthesisLoading(false);
   }, []);
 
@@ -166,6 +165,8 @@ export default function AorCesiumWorkspace() {
     if (!target) return;
     resetSelection();
     const request = requestRef.current;
+    const controller = new AbortController();
+    selectionRequest.current = controller;
     setPanelOpen(true); setActiveTab("medical");
     setView((current) => ({ level: "country", aorId: target.command ?? current.aorId, locationId: target.id, splitIso3: null, nonce: current.nonce + 1 }));
     const iso2 = target.countryIntelIso2;
@@ -174,14 +175,14 @@ export default function AorCesiumWorkspace() {
       return;
     }
     setIntelLoading(true);
-    getJson<CountryIntel>(`/api/aor/country-intel?iso2=${encodeURIComponent(iso2)}`)
+    getJson<CountryIntel>(`/api/aor/country-intel?iso2=${encodeURIComponent(iso2)}`, { signal: controller.signal })
       .then((payload) => {
         if (requestRef.current !== request) return;
         setIntel(payload);
         if (payload.whatMattersNow.llmSynthesis !== "available") return;
         // The AI briefing is requested only after the evidence is on screen and is validated server-side.
         setSynthesisLoading(true);
-        getJson<SynthesisResponse>(`/api/aor/country-intel/synthesis?iso2=${encodeURIComponent(iso2)}`)
+        getJson<SynthesisResponse>(`/api/aor/country-intel/synthesis?iso2=${encodeURIComponent(iso2)}`, { signal: controller.signal })
           .then((briefing) => { if (requestRef.current === request) setSynthesis(briefing); })
           .catch(() => { /* the deterministic summary stays; briefing is optional */ })
           .finally(() => { if (requestRef.current === request) setSynthesisLoading(false); });
@@ -209,8 +210,10 @@ export default function AorCesiumWorkspace() {
     const text = query.trim();
     if (!text) { setResults({ locations: [], splitParents: [] }); return; }
     let active = true;
+    const controller = new AbortController();
+    if (directory) setResults(searchLocal(directory, text));
     const timer = window.setTimeout(() => {
-      getJson<SearchResults & { ok?: boolean }>(`/api/aor/directory?q=${encodeURIComponent(text)}&limit=10`)
+      getJson<SearchResults & { ok?: boolean }>(`/api/aor/directory?q=${encodeURIComponent(text)}&limit=10`, { signal: controller.signal })
         .then((payload) => {
           if (!active || !directory) return;
           // Keep only ids the loaded directory knows, so every result is selectable.
@@ -218,7 +221,7 @@ export default function AorCesiumWorkspace() {
         })
         .catch(() => { if (active && directory) setResults(searchLocal(directory, text)); });
     }, 120);
-    return () => { active = false; window.clearTimeout(timer); };
+    return () => { active = false; controller.abort(); window.clearTimeout(timer); };
   }, [query, directory]);
 
   const toggleLayer = (dimension: Dimension) => setActiveLayers((current) => { const next = new Set(current); if (next.has(dimension)) next.delete(dimension); else next.add(dimension); return next; });
@@ -227,14 +230,17 @@ export default function AorCesiumWorkspace() {
   async function runLens() {
     const context = [workContext.trim(), ...ENVIRONMENT_KEYS.filter((key) => environment[key]).map((key) => ENVIRONMENT_LABELS[key])].filter(Boolean).join("; ");
     if (!intelIso2 || (!condition.trim() && !medication.trim() && !context)) return;
+    const request = requestRef.current;
     setLensLoading(true); setLensError("");
     try {
-      const response = await fetch("/api/aor/country-condition-lens", { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ iso2: intelIso2, condition: condition.trim(), medication: medication.trim(), workContext: context }) });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || `Request failed (${response.status}).`);
-      setLens(payload as LensResponse);
-    } catch (error) { setLens(null); setLensError(errorText(error)); }
-    finally { setLensLoading(false); }
+      const payload = await getJson<LensResponse>("/api/aor/country-condition-lens", {
+        method: "POST", signal: selectionRequest.current?.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ iso2: intelIso2, condition: condition.trim(), medication: medication.trim(), workContext: context }),
+      });
+      if (requestRef.current === request) setLens(payload);
+    } catch (error) { if (requestRef.current === request) { setLens(null); setLensError(errorText(error)); } }
+    finally { if (requestRef.current === request) setLensLoading(false); }
   }
 
   const lensBlock = intelIso2 ? (

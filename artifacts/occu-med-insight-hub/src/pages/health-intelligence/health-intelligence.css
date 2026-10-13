@@ -453,6 +453,7 @@
   position: absolute;
   inset: 0;
   opacity: 0.95;
+  background: repeating-linear-gradient(170deg, transparent 0 8px, rgba(255, 216, 122, .75) 9px 10px, transparent 12px 20px);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 38%, #000 62%, transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0%, #000 38%, #000 62%, transparent 100%);
 }
@@ -500,6 +501,13 @@
   pointer-events: none;
 }
 .hi-loading-orb-field { position: absolute; inset: 0; overflow: hidden; border-radius: 50%; }
+.hi-loading-orb-field i {
+  position: absolute; inset: 12%; border: 1px solid #ffd24a; border-radius: 50%;
+  box-shadow: 0 0 8px #ffb020; animation: hs-orb-ring 2s linear infinite;
+}
+.hi-loading-orb-field i:nth-child(2) { inset: 20%; animation-delay: -.7s; }
+.hi-loading-orb-field i:nth-child(3) { inset: 28%; animation-delay: -1.4s; }
+@keyframes hs-orb-ring { from { transform: rotate(0deg) rotateY(55deg); } to { transform: rotate(360deg) rotateY(55deg); } }
 
 /* ---------------------------------------------------------------- interaction overlay */
 .hs-overlay {

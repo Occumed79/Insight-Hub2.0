@@ -70,7 +70,7 @@ export default function HealthIntelligencePage() {
   const thinkingTimer = useRef<number | undefined>(undefined);
 
   const [occupation, setOccupation] = useState("");
-  const { state: lookupState, lookup } = useOccupationLookup();
+  const { state: lookupState, lookup, reset } = useOccupationLookup();
 
   const [conditionQuery, setConditionQuery] = useState("");
   const [conditionId, setConditionId] = useState<string | null>(null);
@@ -129,6 +129,9 @@ export default function HealthIntelligencePage() {
   // ---- handlers -----------------------------------------------------------------------------
   const switchWorkspace = (next: Workspace) => {
     if (next === workspace) return;
+    if (workspace === "injury") reset();
+    window.clearTimeout(thinkingTimer.current);
+    setThinking(false);
     setWorkspace(next);
     setSelected(null);
     setHover(null);

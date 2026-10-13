@@ -9,4 +9,4 @@ export type GlobeView = {
   splitIso3: string | null;
   nonce: number;
 };
-export type GlobeStatus = { state: "loading" | "ready" | "error"; message?: string; fatal?: boolean };
+export type GlobeStatus = { state: "loading" | "ready" | "error"; message?: string; fatal?: boolean; retryable?: boolean };
