@@ -184,7 +184,9 @@ export function AorFlatMap(props: Props) {
     return [...set].map(([key, color]) => ({ iso2: key.split(":")[1], color }));
   }, [evidence, activeLayers]);
 
-  const markerRadius = clamp(5 * unit, 0.25, 3);
+  // Markers and labels keep a constant on-screen size. The old 0.25-degree floor made them balloon to 100+ px when zoomed into small islands.
+  const markerRadius = Math.min(5 * unit, 3);
+  const labelSize = 13 * unit;
   const noPolygon = directory.directory.locations.filter((entry) => !entry.boundaryIso2 && entry.referencePoint);
   const visibleMarkers = !showMarkers ? [] : view.level === "world" ? noPolygon : noPolygon.filter((entry) => entry.command === aor || entry.id === selected?.id);
 
@@ -228,7 +230,7 @@ export function AorFlatMap(props: Props) {
                 className="cursor-pointer outline-none" onClick={() => props.onPickLocation(entry.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); props.onPickLocation(entry.id); } }}
                 onMouseEnter={() => props.onHover(`${entry.name} (reference point)`)} onMouseLeave={() => props.onHover(null)}>
                 <circle cx={round(X(point.lon))} cy={round(Y(point.lat))} r={markerRadius * (isSelected ? 1.7 : 1)} fill={color} fillOpacity={0.9} stroke={isSelected ? "#ffffff" : "rgba(255,255,255,.75)"} strokeWidth={isSelected ? 2 : 1} vectorEffect="non-scaling-stroke" />
-                {isSelected || camera.span < 40 ? <text x={round(X(point.lon) + markerRadius * 2)} y={round(Y(point.lat) + markerRadius * 0.8)} fontSize={markerRadius * 3.2} fill="#e8fbff" stroke="rgba(2,10,18,.9)" strokeWidth={markerRadius * 0.7} paintOrder="stroke" pointerEvents="none">{entry.name}</text> : null}
+                {isSelected || camera.span < 40 ? <text x={X(point.lon) + markerRadius * 2.2} y={Y(point.lat) + labelSize * 0.35} fontSize={labelSize} fontWeight={600} fill="#e8fbff" stroke="rgba(2,10,18,.9)" strokeWidth={labelSize * 0.25} paintOrder="stroke" pointerEvents="none">{entry.name}</text> : null}
               </g>
             );
           })}

@@ -36,13 +36,13 @@ test("2D map shades every polygon by the registry's command, and every command c
   await expect(page.getByTestId("aor-command-chips").getByRole("button")).toHaveCount(6);
 });
 
-test("opens on Health & Medical Requirements and never implies medical clearance", async ({ page }) => {
+test("opens on Medical requirements and never implies medical clearance", async ({ page }) => {
   await openWorkspace(page);
   await search(page, "Kenya");
   await page.getByTestId("aor-search-result").first().click();
   const panel = page.getByTestId("aor-intel-panel");
   await expect(panel.getByTestId("aor-panel-title")).toHaveText("Kenya");
-  await expect(panel.getByTestId("aor-tab-medical")).toHaveText(/Health & Medical Requirements/);
+  await expect(panel.getByTestId("aor-tab-medical")).toHaveText(/Medical requirements/);
   await expect(panel.getByTestId("aor-tab-medical")).toHaveAttribute("aria-pressed", "true");
   await expect(panel.getByTestId("aor-tab-summary")).toHaveAttribute("aria-pressed", "false");
   await expect(panel.getByTestId("aor-medical-disclaimer")).toContainText("not a medical clearance");
@@ -62,6 +62,8 @@ test("changing a detail recalculates the requirements immediately (duration, per
   await expect(panel.getByTestId("aor-panel-title")).toHaveText("South Korea");
   await expect(panel).toContainText("USINDOPACOM");
 
+  // Assignment details are optional and sit behind "Refine for this assignment", below the results.
+  await page.getByTestId("aor-refine-toggle").click();
   await page.getByTestId("aor-input-population").selectOption("us_military");
   await page.getByTestId("aor-input-travel").selectOption("official_tdy_deployment");
   await page.getByTestId("aor-input-origin").fill("USA");
@@ -104,6 +106,7 @@ test("REQUIRED, RECOMMENDED, CONDITIONAL, NOT_APPLICABLE and UNKNOWN are present
   });
   await search(page, "South Korea");
   await page.getByTestId("aor-search-result").first().click();
+  await page.getByTestId("aor-refine-toggle").click();
   await page.getByTestId("aor-input-population").selectOption("dod_contractor");
   await page.getByTestId("aor-input-caaf-caaf").click();
   await page.getByTestId("aor-input-sow-yes").click();
@@ -130,7 +133,7 @@ test("REQUIRED, RECOMMENDED, CONDITIONAL, NOT_APPLICABLE and UNKNOWN are present
   await expect(required).toContainText(/Published/);
   await expect(required).toContainText(/Effective/);
   await expect(required.getByRole("link").first()).toHaveAttribute("href", /^https:\/\//);
-  await required.getByText("Triggering conditions, exceptions and evidence").click();
+  await required.getByText("Show details").click();
   await expect(required).toContainText(/Applies to|Minimum stay|Threshold/);
 
   // The CDC recommendation stays a recommendation, in the public-health layer, with its citation.
@@ -141,7 +144,7 @@ test("REQUIRED, RECOMMENDED, CONDITIONAL, NOT_APPLICABLE and UNKNOWN are present
 
   // UNKNOWN items say what is missing instead of reading as "not required".
   const unknown = page.getByTestId("aor-group-UNKNOWN").getByTestId("aor-requirement-card").first();
-  await expect(unknown).toContainText("Missing to decide this");
+  await expect(unknown).toContainText("To decide this, add");
 
   // Filter chips isolate one status.
   await page.getByTestId("aor-filter-NOT_APPLICABLE").click();

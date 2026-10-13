@@ -144,7 +144,7 @@ test("AI briefing cites evidence; Yellow Book, WUENIC and environment factors ap
   await panel.getByRole("button", { name: "Night / circadian disruption", exact: true }).click();
   await expect(panel).toContainText("no country data source");
 
-  await panel.getByRole("button", { name: "What matters now" }).click();
+  await panel.getByTestId("aor-tab-summary").click();
   await panel.getByText("Medical condition × deployment context").click();
   await panel.getByPlaceholder("Condition").fill("asthma");
   await panel.getByRole("button", { name: "Evaluate considerations" }).click();
