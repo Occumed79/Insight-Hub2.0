@@ -266,6 +266,27 @@ test("layer controls: AOR shading and point markers switch off and on", async ({
   await expect(toggles).toHaveCount(before - 1);
 });
 
+test("a failed requirements request shows an actionable error, and Retry recalculates without inventing results", async ({ page }) => {
+  await openWorkspace(page);
+  // Routes registered later take precedence: the first medical request fails like a cold or restarting server; later ones reach the real engine.
+  let failures = 0;
+  await page.route("**/api/aor/medical-applicability**", async (route) => {
+    if (failures === 0) { failures += 1; await route.fulfill({ status: 503, contentType: "text/html", body: "Service Unavailable" }); return; }
+    await route.fallback();
+  });
+  await search(page, "Kenya");
+  await page.getByTestId("aor-search-result").first().click();
+  const error = page.getByTestId("aor-medical-error");
+  await expect(error).toBeVisible();
+  await expect(page.getByTestId("aor-medical-result")).toHaveCount(0); // no requirements are shown or assumed
+  await error.getByTestId("aor-medical-retry").click();
+  await expect(page.getByTestId("aor-medical-result")).toBeVisible();
+  await expect(page.getByTestId("aor-medical-error")).toHaveCount(0);
+  // "Add details" opens and reveals the collapsed assignment inputs.
+  await page.getByTestId("aor-missing-information").getByRole("button", { name: "Add details" }).click();
+  await expect(page.getByTestId("aor-input-population")).toBeInViewport();
+});
+
 test("a location the intelligence engines cannot cover still gets medical requirements, and says what is not evaluated", async ({ page }) => {
   await openWorkspace(page);
   await search(page, "Ceuta");

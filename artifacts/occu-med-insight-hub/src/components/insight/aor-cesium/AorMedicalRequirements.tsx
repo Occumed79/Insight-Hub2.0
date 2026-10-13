@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { AlertTriangle, ArrowUpRight, BadgeCheck, ChevronDown, CircleHelp, GitFork, Loader2, MinusCircle, RotateCw, ShieldAlert } from "lucide-react";
 import { COMMAND_VIEW, EVIDENCE_CLASS_LABEL, type DirectoryIndex, type DirectoryLocation, type SplitParent } from "./aor-directory";
 import {
@@ -164,6 +164,9 @@ const SECTION_HEADING = "text-callout font-semibold text-slate-300";
 export function AorMedicalRequirements({ location, split, directory, inputs, setInputs, state, onPickLocation }: Props) {
   const [filter, setFilter] = useState<RequirementStatus | null>(null);
   const [refineOpen, setRefineOpen] = useState(false);
+  const refineRef = useRef<HTMLElement>(null);
+  // "Add details" opens the refine section and brings it into view (it sits below the requirement cards).
+  const openRefine = () => { setRefineOpen(true); window.requestAnimationFrame(() => refineRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" })); };
   const update = <K extends keyof MedicalInputs>(key: K, value: MedicalInputs[K]) => setInputs((current) => ({ ...current, [key]: value }));
   const result = state.result;
   const command = location?.command ?? null;
@@ -223,7 +226,8 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
         {state.error ? (
           <div data-testid="aor-medical-error" className="lg-section rounded-[12px] px-4 py-3.5">
             <p className="flex items-center gap-2 text-body font-semibold text-white"><AlertTriangle size={15} className="text-amber-300" />Requirements could not be loaded</p>
-            <p className="mt-1 text-callout leading-5 text-slate-300">{state.error} Close and reopen this location to retry.</p>
+            <p className="mt-1 text-callout leading-5 text-slate-300">{state.error}</p>
+            {state.retry ? <button type="button" data-testid="aor-medical-retry" onClick={state.retry} disabled={state.loading} className="lg-press mt-3 rounded-full bg-white/[.1] px-3.5 py-1.5 text-callout font-semibold text-white hover:bg-white/[.16] disabled:opacity-50">{state.loading ? "Retrying…" : "Retry"}</button> : null}
           </div>
         ) : null}
       </div>
@@ -253,7 +257,7 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
             <section data-testid="aor-missing-information" aria-label="Missing information" className="lg-section rounded-[12px] px-4 py-3.5">
               <p className="flex items-center gap-2 text-body font-semibold text-white"><span className="h-2 w-2 rounded-full bg-violet-300" />Add assignment details to sharpen this result</p>
               <p className="mt-1 text-callout leading-5 text-slate-300">{[...new Set(result.missingInformation.map((entry) => entry.input.replace(/\s*\(.*$/, "").trim()))].join(" · ")}</p>
-              <button type="button" onClick={() => setRefineOpen(true)} className="lg-press mt-3 rounded-full bg-white/[.1] px-3.5 py-1.5 text-callout font-semibold text-white hover:bg-white/[.16]">Add details</button>
+              <button type="button" onClick={openRefine} className="lg-press mt-3 rounded-full bg-white/[.1] px-3.5 py-1.5 text-callout font-semibold text-white hover:bg-white/[.16]">Add details</button>
             </section>
           ) : null}
 
@@ -271,7 +275,7 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
       ) : null}
 
       {/* 2. Refine — optional, out of the way until wanted. */}
-      <section aria-label="Assignment details" className="lg-section rounded-[12px]">
+      <section ref={refineRef} aria-label="Assignment details" className="lg-section scroll-mt-4 rounded-[12px]">
         <button type="button" data-testid="aor-refine-toggle" aria-expanded={refineOpen} onClick={() => setRefineOpen((open) => !open)} className="flex w-full items-center justify-between px-4 py-3 text-left">
           <span>
             <span className="block text-body font-semibold text-white">Refine for this assignment</span>
