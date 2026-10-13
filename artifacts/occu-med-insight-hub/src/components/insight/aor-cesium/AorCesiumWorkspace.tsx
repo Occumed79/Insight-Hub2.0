@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Box, Globe2, Layers, Loader2, Map as MapIcon, Search } from "lucide-react";
+import { AlertTriangle, Globe2, Layers, Loader2, Search } from "lucide-react";
 import { intelligenceJson as getJson } from "@/lib/intelligence-request";
 import { Sidebar } from "@/components/insight/Sidebar";
-import { AorCesiumGlobe } from "./AorCesiumGlobe";
 import { AorCommandPanel } from "./AorCommandPanel";
 import { AorFlatMap } from "./AorFlatMap";
 import { AorIntelPanel, type PanelTab } from "./AorIntelPanel";
@@ -11,29 +10,21 @@ import {
 } from "./aor-directory";
 import { indexBoundaries, type CountryIndex } from "./aor-geo";
 import { EMPTY_MEDICAL_INPUTS, type MedicalInputs } from "./aor-medical-types";
-import type { GlobeStatus, GlobeView } from "./aor-view";
+import type { MapView } from "./aor-view";
 import { useMedicalApplicability } from "./use-medical-applicability";
 import { DIMENSIONS, DIMENSION_COLORS, DIMENSION_LABELS, ENVIRONMENT_KEYS, ENVIRONMENT_LABELS, type CountryIntel, type Dimension, type EnvironmentKey, type EvidenceRecord, type SynthesisResponse, type WorldEvent } from "./aor-intel-types";
 
-type CesiumConfig = { configured: boolean; token: string; fallbackToken?: string | null; requiredEnv?: string; error?: string };
 type LensResponse = { ok: boolean; classification: string; considerations: Array<{ ruleId: string; classification: string; summary: string; matchedTerms: string[]; countrySignals: string[]; evidenceText: string }> };
 type SearchResults = { locations: DirectoryLocation[]; splitParents: SplitParent[] };
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : "Request failed.");
 
 export default function AorCesiumWorkspace() {
-  const [config, setConfig] = useState<CesiumConfig | null>(null);
-  // A single automatic retry is allowed with the second Cesium ion account.
-  // If both tokens fail, preserve the existing 2D-map fallback.
-  const [usingBackupIon, setUsingBackupIon] = useState(false);
   const [index, setIndex] = useState<CountryIndex | null>(null);
   const [boundaryError, setBoundaryError] = useState("");
   const [directory, setDirectory] = useState<DirectoryIndex | null>(null);
   const [directoryError, setDirectoryError] = useState("");
-  const [status, setStatus] = useState<GlobeStatus>({ state: "loading" });
-  const [mapMode, setMapMode] = useState<"3d" | "2d">("3d");
-  const [mapNotice, setMapNotice] = useState("");
-  const [view, setView] = useState<GlobeView>({ level: "world", aorId: null, locationId: null, splitIso3: null, nonce: 0 });
+  const [view, setView] = useState<MapView>({ level: "world", aorId: null, locationId: null, splitIso3: null, nonce: 0 });
   const [intel, setIntel] = useState<CountryIntel | null>(null);
   const [intelLoading, setIntelLoading] = useState(false);
   const [intelError, setIntelError] = useState("");
@@ -82,7 +73,6 @@ export default function AorCesiumWorkspace() {
     let active = true;
     const controller = new AbortController();
     const options = { signal: controller.signal };
-    getJson<CesiumConfig>("/api/aor/cesium-config", options).then((payload) => { if (active) setConfig(payload); }).catch((error) => { if (active) setConfig({ configured: false, token: "", error: errorText(error) }); });
     getJson<{ features: never[] }>("/api/aor/boundaries", options).then((payload) => { if (active) setIndex(indexBoundaries(payload as never)); }).catch((error) => { if (active) setBoundaryError(errorText(error)); });
     getJson<AorDirectory & { ok?: boolean }>("/api/aor/directory", options)
       .then((payload) => { if (!active) return; if (!Array.isArray(payload.locations)) throw new Error("The location directory response was empty."); setDirectory(buildDirectoryIndex(payload)); })
@@ -98,7 +88,7 @@ export default function AorCesiumWorkspace() {
           const key = disaster.eventId || disaster.id || disaster.name || disaster.title || `row${position}`;
           events.push({ id: `gd-${disaster.eventType || "event"}-${key}`, kind: "disaster", title: disaster.name || disaster.title || "GDACS event", lon: disaster.longitude as number, lat: disaster.latitude as number, detail: disaster.alertLevel || "", url: disaster.sourceUrl || disaster.url || "" });
         });
-        // Cesium throws on duplicate entity ids; a repeated feed row must never take the whole view down.
+        // Keep repeated source rows from creating duplicate map markers.
         const seenIds = new Set<string>();
         setWorldEvents(events.filter((event) => (seenIds.has(event.id) ? false : (seenIds.add(event.id), true))));
       })
@@ -111,23 +101,6 @@ export default function AorCesiumWorkspace() {
     if (directory || !directoryError || !index) return;
     setDirectory(buildDirectoryIndex(degradedDirectory(index)));
   }, [directory, directoryError, index]);
-
-  // Without a Cesium ion token the 3D globe cannot run; the 2D map is used and the reason stays visible.
-  useEffect(() => {
-    if (config && !config.configured) setMapMode("2d");
-  }, [config]);
-  useEffect(() => {
-    if (status.state !== "error" || !status.fatal) return;
-    if (status.retryable && !usingBackupIon && config?.fallbackToken) {
-      // Fatal Cesium ion imagery/auth/rate-limit failure: remount once with the
-      // separately configured second-account token rather than falling straight to 2D.
-      setUsingBackupIon(true);
-      setStatus({ state: "loading" });
-      return;
-    }
-    setMapMode("2d");
-    setMapNotice(`The 3D globe could not start (${status.message || "WebGL or Cesium error"}). Showing the 2D map.`);
-  }, [status, usingBackupIon, config?.fallbackToken]);
 
   const location = view.locationId ? directory?.byId.get(view.locationId) ?? null : null;
   const split = view.splitIso3 ? directory?.splitByIso3.get(view.splitIso3) ?? null : null;
@@ -258,47 +231,16 @@ export default function AorCesiumWorkspace() {
     </details>
   ) : null;
 
-  const altitudeLimitMeters = useMemo(() => {
-    if (!activeLayers.has("malaria")) return null;
-    const record = intel?.evidence.find((item) => item.dimension === "malaria" && item.category === "malaria");
-    const limit = ((record?.extra?.malaria ?? {}) as { altitudeLimitMeters?: number | null }).altitudeLimitMeters;
-    return typeof limit === "number" && limit > 0 ? limit : null;
-  }, [intel, activeLayers]);
-
-  const activeIonToken = (usingBackupIon && config?.fallbackToken) || config?.token || "";
-  const globeReady = Boolean(config?.configured && activeIonToken);
-  const use3d = globeReady && mapMode === "3d";
   const crumb = (label: string, onClick?: () => void, current = false) => <button type="button" onClick={onClick} disabled={!onClick || current} className={`lg-press rounded-full px-2.5 py-1 text-callout font-semibold ${current ? "text-white" : "text-slate-300 hover:text-white"}`}>{label}</button>;
   const commandSummary = (id: CommandId) => directory?.directory.commands.find((entry) => entry.id === id);
   const searchHasResults = results.locations.length > 0 || results.splitParents.length > 0;
   const noMatch = query.trim().length > 1 && !searchHasResults;
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#01050a] text-white" data-workspace="aor-factors-cesium" data-map-mode={use3d ? "3d" : "2d"}>
+    <main className="min-h-screen overflow-hidden bg-[#01050a] text-white" data-workspace="aor-factors-map" data-map-mode="2d">
       <Sidebar />
-      <section className="fixed bottom-0 left-0 right-0 top-[4.5rem] overflow-hidden bg-[#01050a] lg:left-[210px] lg:top-0" aria-label="AOR Factors CesiumJS globe workspace">
-        {use3d ? (
-          <AorCesiumGlobe
-            token={activeIonToken}
-            index={index}
-            directory={directory}
-            view={view}
-            evidence={intel?.evidence ?? []}
-            activeLayers={activeLayers}
-            worldEvents={worldEvents}
-            focusEvidence={focusEvidence}
-            centerFallback={intel?.country.center ?? null}
-            altitudeLimitMeters={altitudeLimitMeters}
-            showAorShading={showAorShading}
-            showMarkers={showMarkers}
-            rightInsetPx={view.level === "world" ? 0 : view.level === "aor" ? 376 : 436}
-            onPickLocation={goLocation}
-            onPickSplit={goSplit}
-            onPickEvidence={pickEvidence}
-            onHoverCountry={setHoverName}
-            onStatus={setStatus}
-          />
-        ) : index && directory ? (
+      <section className="fixed bottom-0 left-0 right-0 top-[4.5rem] overflow-hidden bg-[#01050a] lg:left-[210px] lg:top-0" aria-label="AOR Factors two-dimensional map workspace">
+        {index && directory ? (
           <AorFlatMap
             index={index}
             directory={directory}
@@ -306,9 +248,10 @@ export default function AorCesiumWorkspace() {
             evidence={intel?.evidence ?? []}
             activeLayers={activeLayers}
             worldEvents={worldEvents}
+            focusEvidence={focusEvidence}
             showAorShading={showAorShading}
             showMarkers={showMarkers}
-            rightInsetPx={view.level === "world" ? 0 : view.level === "aor" ? 376 : 436}
+            rightInsetPx={panelOpen ? 536 : view.level === "aor" ? 376 : 0}
             onPickLocation={goLocation}
             onPickSplit={goSplit}
             onPickEvidence={pickEvidence}
@@ -316,7 +259,7 @@ export default function AorCesiumWorkspace() {
           />
         ) : null}
 
-        {(!config || (use3d && status.state === "loading")) ? <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center"><div className="text-center"><Loader2 className="mx-auto animate-spin text-cyan-100/55" size={22} /><p className="mt-3 text-callout text-slate-400">Loading Cesium terrain and imagery…</p></div></div> : null}
+        {(!index || !directory) && !boundaryError && !directoryError ? <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center"><div className="text-center"><Loader2 className="mx-auto animate-spin text-cyan-100/55" size={22} /><p className="mt-3 text-callout text-slate-400">Loading map boundaries and locations…</p></div></div> : null}
         {boundaryError ? <div className="lg-glass absolute left-1/2 top-14 z-30 -translate-x-1/2 rounded-full px-4 py-2 text-callout text-amber-100">Country boundaries failed to load: {boundaryError}</div> : null}
         {directoryError ? <div data-testid="aor-directory-error" className="lg-glass absolute left-1/2 top-24 z-30 max-w-[min(34rem,calc(100%-2rem))] -translate-x-1/2 rounded-[20px] px-4 py-2.5 text-center text-callout leading-5 text-amber-100"><AlertTriangle size={11} className="mr-1 inline" />The location directory could not be loaded ({directoryError}). Countries can still be opened from the map, but their area of responsibility is not shown because it is not assumed.</div> : null}
 
@@ -340,18 +283,9 @@ export default function AorCesiumWorkspace() {
               </ul>
             ) : noMatch ? <p className="lg-glass-panel absolute left-0 right-0 top-12 rounded-[20px] px-4 py-3 text-callout text-slate-300">No directory location matches “{query.trim()}”.</p> : null}
           </div>
-          {config && !config.configured ? (
-          <div data-testid="aor-cesium-token-missing" role="status" className="lg-glass pointer-events-auto relative w-80 rounded-[20px] px-4 py-3 text-left">
-            <p className="flex items-center gap-1.5 text-body font-semibold text-white"><AlertTriangle className="shrink-0 text-amber-300" size={15} />3D globe unavailable: no Cesium ion token</p>
-            <p className="mt-1 text-callout leading-5 text-slate-300">Set <code className="rounded bg-white/10 px-1">{config.requiredEnv || "CESIUM_ION_ACCESS_TOKEN"}</code> on the API service to enable the CesiumJS globe with Cesium ion terrain and imagery. The same registry, search and requirements run on the 2D map meanwhile.</p>
-          </div>
-        ) : null}
-          {use3d && usingBackupIon ? <div data-testid="aor-cesium-backup-active" role="status" className="lg-glass pointer-events-auto relative w-80 rounded-full px-4 py-2 text-callout text-slate-200">Using backup Cesium ion token.</div> : null}
-          {use3d && status.state === "error" && !status.fatal ? <div className="lg-glass pointer-events-auto relative w-80 rounded-[20px] px-4 py-2.5 text-callout leading-5 text-amber-100"><AlertTriangle size={11} className="mr-1 inline" />{status.message || "Cesium reported an error."}</div> : null}
-          {mapNotice && !use3d && globeReady ? <div data-testid="aor-map-notice" className="lg-glass pointer-events-auto relative w-80 rounded-[20px] px-4 py-2.5 text-callout leading-5 text-amber-100"><AlertTriangle size={11} className="mr-1 inline" />{mapNotice}</div> : null}
         </div>
 
-        {/* Compact layer selector and map-mode toggle */}
+        {/* Compact layer selector */}
         <div ref={layersRef} className="absolute bottom-5 left-4 z-30">
           {layersOpen ? <ul className="lg-glass-panel absolute bottom-12 left-0 w-72 overflow-hidden rounded-[20px] p-1.5" aria-label="Map layers">
               <li className="px-3 pb-1 pt-2 text-footnote font-semibold text-slate-400">Registry Overlays</li>
@@ -363,9 +297,7 @@ export default function AorCesiumWorkspace() {
             </ul> : null}
           <div className="lg-glass pointer-events-auto relative flex items-center gap-0.5 rounded-full p-1" role="group" aria-label="Map controls">
             <button type="button" onClick={() => setLayersOpen((open) => !open)} aria-expanded={layersOpen} className={`lg-press inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-callout font-semibold ${layersOpen ? "lg-lens" : "text-slate-200 hover:bg-white/[.06]"}`}><Layers size={15} />Layers · {activeLayers.size}/{DIMENSIONS.length}</button>
-            
-            <span aria-hidden className="mx-0.5 h-5 w-px bg-white/15" />
-            <button type="button" data-testid="aor-map-mode" onClick={() => { setMapNotice(""); setStatus({ state: "loading" }); if (mapMode === "2d") setUsingBackupIon(false); setMapMode((mode) => (mode === "3d" ? "2d" : "3d")); }} disabled={!globeReady && mapMode === "2d"} title={globeReady ? undefined : "The 3D globe needs a Cesium ion token"} className="lg-press inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-callout font-semibold text-slate-200 hover:bg-white/[.06] disabled:opacity-45 disabled:hover:bg-transparent">{use3d ? <><MapIcon size={15} />2D map</> : <><Box size={15} />3D globe</>}</button>
+
           </div>
         </div>
 

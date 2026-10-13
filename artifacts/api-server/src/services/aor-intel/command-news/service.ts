@@ -359,7 +359,8 @@ async function collectSourceNow(source: CommandNewsSource, deps: NewsDeps, optio
   if (found.gathered.length) {
     const records = track(previousRecords, found.gathered, now, !everSucceeded, failed.length === 0);
     const used = METHOD_ORDER.find((method) => found.methods.includes(method)) ?? null;
-    const firstFeed = found.feeds.find((feed) => feed.status === "ok" && feed.role !== "directory" && feed.role !== "listing") ?? found.feeds.find((feed) => feed.status === "ok") ?? null;
+    const firstFeed = found.feeds.find((feed) => feed.status === "ok" && feed.role !== "directory" && feed.role !== "listing")
+      ?? (used === "feed" ? found.feeds.find((feed) => feed.status === "ok" && feed.role === "listing") : null);
     const unreadable = failed.length;
     const totalFeeds = found.feeds.filter((feed) => feed.role !== "directory").length;
     stored = {

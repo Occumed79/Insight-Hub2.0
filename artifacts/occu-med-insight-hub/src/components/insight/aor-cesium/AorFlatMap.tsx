@@ -2,21 +2,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, RotateCcw } from "lucide-react";
 import { COMMAND_VIEW, type DirectoryIndex } from "./aor-directory";
 import type { CountryEntry, CountryIndex } from "./aor-geo";
-import type { GlobeView } from "./aor-view";
+import type { MapView } from "./aor-view";
 import { DIMENSION_COLORS, type Dimension, type EvidenceRecord, type WorldEvent } from "./aor-intel-types";
 
-// Two-dimensional AOR map. It renders the same repository boundary polygons the globe uses (equirectangular, no invented geometry) and
-// the same directory markers for locations that have no polygon. It is the fallback when Cesium ion / WebGL is unavailable and an
-// explicit alternative the person can choose.
+// Two-dimensional AOR map using repository boundary polygons and registry reference points.
 
 type Camera = { lon: number; lat: number; span: number };
 type Props = {
   index: CountryIndex;
   directory: DirectoryIndex;
-  view: GlobeView;
+  view: MapView;
   evidence: EvidenceRecord[];
   activeLayers: ReadonlySet<Dimension>;
   worldEvents: WorldEvent[];
+  focusEvidence: { id: string; nonce: number } | null;
   showAorShading: boolean;
   showMarkers: boolean;
   /** Width of the panel docked on the right; the camera target is shifted so the subject sits in the visible area. */
@@ -89,11 +88,16 @@ export function AorFlatMap(props: Props) {
 
   const shapes = useMemo(() => new Map(index.list.map((entry) => [entry.iso2, shapeOf(entry)])), [index]);
   const aspect = size.w / size.h;
+  const focused = props.focusEvidence ? evidence.find((record) => record.id === props.focusEvidence!.id) : null;
 
   // --- camera transitions: World -> command -> location ----------------------------------------
   const target = useMemo<Camera>(() => {
     // Shift the camera centre right-of-subject by half the docked panel so the subject is centred in the visible map area.
     const inset = (camera: Camera): Camera => ({ ...camera, lon: camera.lon + (camera.span * rightInset) / (2 * size.w) });
+    if (focused?.geometry.type === "Point") {
+      const [lon, lat] = focused.geometry.coordinates;
+      return inset({ lon, lat, span: 14 });
+    }
     if (view.level === "world") return { ...WORLD, span: Math.max(WORLD.span, 190 * aspect) };
     if (view.level === "aor" && view.aorId) {
       const command = COMMAND_VIEW[view.aorId];
@@ -107,7 +111,7 @@ export function AorFlatMap(props: Props) {
     }
     if (location?.referencePoint) return inset({ lon: location.referencePoint.lon, lat: location.referencePoint.lat, span: 14 });
     return cameraRef.current;
-  }, [view.level, view.aorId, view.locationId, view.splitIso3, view.nonce, aspect, directory, index, rightInset, size.w]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view.level, view.aorId, view.locationId, view.splitIso3, view.nonce, aspect, directory, index, rightInset, size.w, props.focusEvidence, focused]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     cancelAnimationFrame(animation.current);
@@ -138,7 +142,7 @@ export function AorFlatMap(props: Props) {
 
   const onWheel = (event: React.WheelEvent) => { zoom(event.deltaY > 0 ? 1.18 : 1 / 1.18); };
   const onPointerDown = (event: React.PointerEvent) => {
-    (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
+    if (event.button !== 0 || (event.target as Element).closest("button")) return;
     cancelAnimationFrame(animation.current);
     drag.current = { x: event.clientX, y: event.clientY, lon: cameraRef.current.lon, lat: cameraRef.current.lat, moved: false };
   };
@@ -147,11 +151,20 @@ export function AorFlatMap(props: Props) {
     if (!state) return;
     const dx = event.clientX - state.x;
     const dy = event.clientY - state.y;
-    if (Math.abs(dx) + Math.abs(dy) > 4) state.moved = true;
+    if (!state.moved && Math.abs(dx) + Math.abs(dy) > 4) {
+      state.moved = true;
+      // Capture only a drag. Capturing on pointer-down retargets ordinary clicks
+      // to the map container and swallows country and zoom-button clicks.
+      (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
+    }
     if (!state.moved) return;
     setCamera((current) => ({ ...current, lon: clamp(state.lon - dx * unit, -180, 180), lat: clamp(state.lat + dy * unit, -85, 85) }));
   };
-  const onPointerUp = () => { window.setTimeout(() => { drag.current = null; }, 0); };
+  const onPointerUp = (event: React.PointerEvent) => {
+    const host = event.currentTarget as Element;
+    if (host.hasPointerCapture?.(event.pointerId)) host.releasePointerCapture(event.pointerId);
+    window.setTimeout(() => { drag.current = null; }, 0);
+  };
 
   const pick = (iso2: string) => {
     if (drag.current?.moved) return;

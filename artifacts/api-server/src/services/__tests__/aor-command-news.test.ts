@@ -497,7 +497,11 @@ test("getCommandNews merges a command's sources newest-first (undated last), rep
   const response = await getCommandNews("INDOPACOM", d);
   assert.equal(response.coverage, "some_sources_unavailable");
   assert.deepEqual(response.items.map((item) => item.title), ["Readout three", "Readout one", "Readout two with no date"]);
-  assert.deepEqual(response.sources.map((entry) => entry.status).sort(), ["ok", "source_unavailable"]);
+  assert.deepEqual(response.sources.map((entry) => [entry.sourceId, entry.status]).sort(), [
+    ["dvids-indopacom-unit-news", "source_unavailable"],
+    ["indopacom-news", "source_unavailable"],
+    ["indopacom-press-releases", "ok"],
+  ]);
   assert.ok(response.limitations.some((text) => /never change a REQUIRED/.test(text)));
   assert.ok(response.limitations.some((text) => /no date/.test(text)));
 });
@@ -534,10 +538,10 @@ test("monitor: before any fetch every source is not_evaluated; after a refresh i
   const after = await getNewsMonitor(deps({ [`${EU}/syndication-feed/rss/press-releases`]: { body: RSS_20 }, [`${EU}/syndication-feed/rss/articles`]: { status: 403 } }, undefined, store), { refresh: true });
   const eucom = after.commands.find((entry) => entry.command === "EUCOM")!;
   assert.equal(eucom.ok, 1);
-  assert.equal(eucom.unavailable, 3);
+  assert.equal(eucom.unavailable, 4); // four native categories plus the separately monitored DVIDS listing
   assert.equal(eucom.feedsOk, 1);
   assert.ok(eucom.feedsFailed >= 6);
-  assert.equal(after.commands.find((entry) => entry.command === "CENTCOM")!.unavailable, 2);
+  assert.equal(after.commands.find((entry) => entry.command === "CENTCOM")!.unavailable, 3);
 });
 
 

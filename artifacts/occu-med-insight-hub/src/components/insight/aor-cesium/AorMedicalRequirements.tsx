@@ -207,9 +207,9 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
   const visible = (result?.requirements ?? []).filter((item) => !filter || item.status === filter);
   const grouped = TILE_ORDER.map((status) => [status, visible.filter((item) => item.status === status)] as const).filter(([, items]) => items.length);
   const evaluated = result && result.status === "EVALUATED";
-  // When every caveated item carries the same caveat (e.g. a regionally inferred AOR), say it once above the list instead of on every card.
-  const caveats = [...new Set((result?.requirements ?? []).map((item) => item.assignmentCaveat).filter((text): text is string => Boolean(text)))];
-  const sharedCaveat = caveats.length === 1 ? caveats[0] : null;
+  // Share a caveat only when it applies to every item currently displayed.
+  const candidateCaveat = visible[0]?.assignmentCaveat;
+  const sharedCaveat = candidateCaveat && visible.every((item) => item.assignmentCaveat === candidateCaveat) ? candidateCaveat : null;
 
   return (
     <div data-testid="aor-medical-requirements" aria-busy={state.loading} className="space-y-5">

@@ -36,44 +36,19 @@ async function installIndustryFixture(page: Page) {
   });
 }
 
-function metric(page: Page, label: string) {
-  return page.getByText(label, { exact: true }).locator("..").locator("..");
-}
-
 test.beforeEach(async ({ page }) => {
   await installIndustryFixture(page);
 });
 
-test("Industry Impact recalculates workforce-scaled cases, lost days, and cost outputs", async ({ page }) => {
-  await page.goto("/industry-impact-calculator");
-  await expect(page.getByRole("heading", { name: "Industry Impact Calculator", exact: true })).toBeVisible();
-
-  await page.getByLabel("Workforce size (headcount or FTE)").fill("100");
-  await page.getByLabel("Annual hours per worker").fill("2000");
-  await page.getByLabel("Observed employer TRIR").fill("4");
-  await page.getByLabel("Target TRIR").fill("2");
-  await page.getByLabel("Lost workdays per recordable").fill("5");
-  await page.getByLabel("Base cost per recordable").fill("10000");
-
-  await expect(metric(page, "Affected workers / recordables").getByText("4", { exact: true })).toBeVisible();
-  await expect(metric(page, "Current lost workdays").getByText("20", { exact: true })).toBeVisible();
-  await expect(metric(page, "Base annual savings").getByText("$20,000", { exact: true })).toBeVisible();
-
-  await page.getByLabel("Workforce size (headcount or FTE)").fill("200");
-
-  await expect(metric(page, "Affected workers / recordables").getByText("8", { exact: true })).toBeVisible();
-  await expect(metric(page, "Current lost workdays").getByText("40", { exact: true })).toBeVisible();
-  await expect(metric(page, "Base annual savings").getByText("$40,000", { exact: true })).toBeVisible();
-});
-
-test("Industry Impact preserves workforce basis and provenance labels", async ({ page }) => {
-  await page.goto("/industry-impact-calculator");
-
-  await page.getByLabel("Workforce size (headcount or FTE)").fill("250");
-  await page.getByLabel("Workforce basis").selectOption("fte");
-  await page.getByLabel("Workforce source").selectOption("estimated");
-
-  await expect(metric(page, "Baseline provenance").getByText("Estimated baseline", { exact: true })).toBeVisible();
-  await expect(metric(page, "Baseline provenance")).toContainText("250 FTE");
-  await expect(page.getByLabel("Annual hours per FTE")).toBeVisible();
-});
+for (const route of ["/industry-impact-calculator", "/industry-injury-benchmarks"]) {
+  test(`Industry Impact rebuild hold preserves its identity at ${route}`, async ({ page }) => {
+    const requests: string[] = [];
+    page.on("request", (request) => { if (/\/api\/(bls|occupational-discovery)\//.test(request.url())) requests.push(request.url()); });
+    await page.goto(route);
+    const workspace = page.locator('[data-rebuild-hold="true"][data-workspace="industry-impact"][data-page-identity="industry-impact"]');
+    await expect(workspace).toBeVisible();
+    await expect(workspace.locator("main")).toHaveAttribute("aria-hidden", "true");
+    await expect(workspace.locator("main")).toBeEmpty();
+    expect(requests).toEqual([]);
+  });
+}
