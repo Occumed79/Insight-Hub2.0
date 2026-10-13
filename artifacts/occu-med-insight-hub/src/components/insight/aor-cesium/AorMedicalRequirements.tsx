@@ -68,7 +68,7 @@ function RequirementCard({ item, hideCaveat = false }: { item: RequirementItem; 
   const exemptions = item.exceptions;
   const verification = item.verification;
   return (
-    <article data-testid="aor-requirement-card" data-status={item.status} data-layer={item.layer} data-requirement-id={item.id} id={`req-${item.id.replace(/[^a-z0-9_-]/gi, "_")}`} className={`group/card rounded-xl border border-white/[.07] border-l-[3px] bg-white/[.025] px-4 py-3 ${STATUS_STYLE[item.status].card}`}>
+    <article data-testid="aor-requirement-card" data-status={item.status} data-layer={item.layer} data-requirement-id={item.id} id={`req-${item.id.replace(/[^a-z0-9_-]/gi, "_")}`} className={`group/card lg-section rounded-xl border-l-[3px] px-4 py-3.5 ${STATUS_STYLE[item.status].card}`}>
       <div className="flex items-start justify-between gap-3">
         <h4 className="text-[15px] font-semibold leading-5 text-white">{item.title}</h4>
         <span className="shrink-0 pt-0.5 text-[12px] text-slate-500">{LAYER_LABEL[item.layer]}</span>
@@ -89,7 +89,7 @@ function RequirementCard({ item, hideCaveat = false }: { item: RequirementItem; 
       <details className="group mt-2">
         <summary className="cursor-pointer list-none text-[12px] font-medium text-slate-400 hover:text-slate-200"><span className="group-open:hidden">Show details</span><span className="hidden group-open:inline">Hide details</span></summary>
         {item.why.length ? <ul className="mt-2 list-disc space-y-1 pl-4 text-[13px] leading-5 text-slate-400">{item.why.map((reason, index) => <li key={index}>{reason}</li>)}</ul> : null}
-        <dl className="mt-2 rounded-lg bg-black/20 px-3">
+        <dl className="mt-2 rounded-lg bg-white/[.03] px-3">
           <Row label="Category">{CATEGORY_LABEL[item.category]}</Row>
           <Row label="Authority">{item.authority.issuer}{item.authority.policyId ? ` · ${item.authority.policyId}` : ""}{item.authority.sourceSection ? ` · ${item.authority.sourceSection}` : ""}</Row>
           <Row label="Source">{url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-cyan-200/90 hover:text-cyan-100">{item.authority.policyTitle || "Open source"}<ArrowUpRight size={12} /></a> : item.authority.policyTitle || "Source link not available"}</Row>
@@ -125,8 +125,8 @@ function RequirementCard({ item, hideCaveat = false }: { item: RequirementItem; 
   );
 }
 
-const selectClass = "h-9 w-full rounded-lg border border-white/[.1] bg-black/30 px-2.5 text-[13px] text-white outline-none focus:border-cyan-300/50";
-const inputClass = "h-9 w-full rounded-lg border border-white/[.1] bg-black/30 px-3 text-[13px] text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/50";
+const selectClass = "h-10 w-full rounded-[10px] bg-white/[.07] px-3 text-[13px] text-white outline-none ring-cyan-300/50 focus:ring-2";
+const inputClass = "h-10 w-full rounded-[10px] bg-white/[.07] px-3 text-[13px] text-white outline-none ring-cyan-300/50 placeholder:text-slate-500 focus:ring-2";
 
 function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return <label className="block"><span className="mb-1 block text-[12px] font-medium text-slate-400">{label}</span>{children}{hint ? <span className="mt-1 block text-[11px] leading-4 text-slate-500">{hint}</span> : null}</label>;
@@ -136,9 +136,9 @@ function TriField({ label, value, onChange, testId }: { label: string; value: Tr
   return (
     <div role="group" aria-label={label}>
       <span className="mb-1 block text-[12px] font-medium text-slate-400">{label}</span>
-      <div className="inline-flex rounded-lg border border-white/[.1] p-0.5">
+      <div className="inline-flex rounded-full bg-white/[.07] p-0.5">
         {([["", "Not set"], ["yes", "Yes"], ["no", "No"]] as Array<[Tri, string]>).map(([option, text]) => (
-          <button key={option || "unset"} type="button" data-testid={`${testId}-${option || "unset"}`} aria-pressed={value === option} onClick={() => onChange(option)} className={`h-7 rounded-md px-3 text-[12px] font-medium transition ${value === option ? "bg-white/[.12] text-white" : "text-slate-400 hover:text-white"}`}>{text}</button>
+          <button key={option || "unset"} type="button" data-testid={`${testId}-${option || "unset"}`} aria-pressed={value === option} onClick={() => onChange(option)} className={`lg-press h-7 rounded-full px-3.5 text-[12px] font-medium ${value === option ? "lg-lens" : "text-slate-400 hover:text-white"}`}>{text}</button>
         ))}
       </div>
     </div>
@@ -159,7 +159,7 @@ type Props = {
 const TILE_ORDER: RequirementStatus[] = ["REQUIRED", "CONDITIONAL", "RECOMMENDED", "UNKNOWN", "NOT_APPLICABLE"];
 const TILE_NUMBER: Record<RequirementStatus, string> = { REQUIRED: "text-rose-200", CONDITIONAL: "text-amber-200", RECOMMENDED: "text-emerald-200", UNKNOWN: "text-violet-200", NOT_APPLICABLE: "text-slate-300" };
 const TILE_LABEL: Record<RequirementStatus, string> = { REQUIRED: "Required", CONDITIONAL: "Conditional", RECOMMENDED: "Recommended", UNKNOWN: "Unknown", NOT_APPLICABLE: "N/A" };
-const SECTION_HEADING = "text-[12px] font-semibold uppercase tracking-[.1em] text-slate-400";
+const SECTION_HEADING = "text-[13px] font-semibold text-slate-300";
 
 export function AorMedicalRequirements({ location, split, directory, inputs, setInputs, state, onPickLocation }: Props) {
   const [filter, setFilter] = useState<RequirementStatus | null>(null);
@@ -186,12 +186,12 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
           <p className="mt-1 text-[14px] leading-6 text-slate-300">{split.message}</p>
         </div>
         <div>
-          <p className={SECTION_HEADING}>Choose a location</p>
+          <p className={SECTION_HEADING}>Choose a Location</p>
           <ul className="mt-2 space-y-1.5">
             {split.constituentIds.map((id) => {
               const entry = directory?.byId.get(id);
               if (!entry) return null;
-              return <li key={id}><button type="button" onClick={() => onPickLocation(id)} className="flex w-full items-center justify-between rounded-lg border border-white/[.08] px-3 py-2.5 text-left text-[14px] text-white/90 hover:bg-white/[.05]"><span>{entry.name}</span><span className="text-[12px] text-slate-500">{entry.command ? COMMAND_VIEW[entry.command].short : ""}</span></button></li>;
+              return <li key={id}><button type="button" onClick={() => onPickLocation(id)} className="lg-section lg-press flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-[14px] text-white/90 hover:bg-white/[.06]"><span>{entry.name}</span><span className="text-[12px] text-slate-500">{entry.command ? COMMAND_VIEW[entry.command].short : ""}</span></button></li>;
             })}
           </ul>
         </div>
@@ -215,15 +215,15 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
         {state.loading && !evaluated ? (
           <div data-testid="aor-medical-loading" className="space-y-3">
             <p className="flex items-center gap-2 text-[14px] text-slate-300"><Loader2 size={16} className="animate-spin" />Calculating requirements for {location.name}…</p>
-            <div className="grid grid-cols-[1fr_1fr_1.25fr_1fr_.75fr] gap-1.5">{TILE_ORDER.map((status) => <div key={status} className="h-[68px] animate-pulse rounded-xl bg-white/[.04]" />)}</div>
-            <div className="h-24 animate-pulse rounded-xl bg-white/[.03]" />
+            <div className="grid grid-cols-[1fr_1fr_1.25fr_1fr_.75fr] gap-1.5">{TILE_ORDER.map((status) => <div key={status} className="lg-section h-[68px] animate-pulse rounded-xl" />)}</div>
+            <div className="lg-section h-24 animate-pulse rounded-xl" />
           </div>
         ) : null}
         {state.loading && evaluated ? <p data-testid="aor-medical-loading" className="mb-2 flex items-center gap-2 text-[12px] text-slate-400"><Loader2 size={13} className="animate-spin" />Updating…</p> : null}
         {state.error ? (
-          <div data-testid="aor-medical-error" className="rounded-xl border border-amber-300/25 bg-amber-300/[.06] px-4 py-3">
-            <p className="flex items-center gap-2 text-[14px] font-medium text-amber-50"><AlertTriangle size={15} />Requirements could not be loaded</p>
-            <p className="mt-1 text-[13px] leading-5 text-amber-100/75">{state.error} Close and reopen this location to retry.</p>
+          <div data-testid="aor-medical-error" className="lg-section rounded-xl px-4 py-3.5">
+            <p className="flex items-center gap-2 text-[14px] font-semibold text-white"><AlertTriangle size={15} className="text-amber-300" />Requirements could not be loaded</p>
+            <p className="mt-1 text-[13px] leading-5 text-slate-300">{state.error} Close and reopen this location to retry.</p>
           </div>
         ) : null}
       </div>
@@ -239,7 +239,7 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
                 const active = filter === status;
                 return (
                   <button key={status} type="button" data-testid={`aor-filter-${status}`} aria-pressed={active} title={`${STATUS_STYLE[status].label}: ${STATUS_STYLE[status].meaning}`} aria-label={`${count} ${STATUS_STYLE[status].label}`} onClick={() => setFilter((current) => (current === status ? null : status))} disabled={!count}
-                    className={`rounded-xl border px-2 py-2.5 text-left transition disabled:cursor-default disabled:opacity-40 ${active ? "border-white/40 bg-white/[.08]" : "border-white/[.07] bg-white/[.025] hover:bg-white/[.05]"}`}>
+                    className={`lg-press rounded-xl px-2 py-2.5 text-left disabled:cursor-default disabled:opacity-40 ${active ? "lg-lens" : "lg-section hover:bg-white/[.06]"}`}>
                     <span data-testid={`aor-count-${status}`} className={`block text-[24px] font-semibold leading-7 tabular-nums ${TILE_NUMBER[status]}`}>{count}</span>
                     <span className="mt-0.5 block truncate whitespace-nowrap text-[11px] font-medium leading-4 tracking-[-.01em] text-slate-400">{TILE_LABEL[status]}</span>
                   </button>
@@ -250,10 +250,10 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
           </section>
 
           {result.missingInformation.length ? (
-            <section data-testid="aor-missing-information" aria-label="Missing information" className="rounded-xl border border-violet-300/20 bg-violet-300/[.05] px-4 py-3">
-              <p className="text-[14px] font-medium text-violet-50">Add assignment details to sharpen this result</p>
-              <p className="mt-1 text-[13px] leading-5 text-violet-100/75">{[...new Set(result.missingInformation.map((entry) => entry.input.replace(/\s*\(.*$/, "").trim()))].join(" · ")}</p>
-              <button type="button" onClick={() => setRefineOpen(true)} className="mt-2 text-[13px] font-semibold text-violet-100 hover:text-white">Add details →</button>
+            <section data-testid="aor-missing-information" aria-label="Missing information" className="lg-section rounded-xl px-4 py-3.5">
+              <p className="flex items-center gap-2 text-[14px] font-semibold text-white"><span className="h-2 w-2 rounded-full bg-violet-300" />Add assignment details to sharpen this result</p>
+              <p className="mt-1 text-[13px] leading-5 text-slate-300">{[...new Set(result.missingInformation.map((entry) => entry.input.replace(/\s*\(.*$/, "").trim()))].join(" · ")}</p>
+              <button type="button" onClick={() => setRefineOpen(true)} className="lg-press mt-3 rounded-full bg-white/[.1] px-3.5 py-1.5 text-[13px] font-semibold text-white hover:bg-white/[.16]">Add details</button>
             </section>
           ) : null}
 
@@ -271,7 +271,7 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
       ) : null}
 
       {/* 2. Refine — optional, out of the way until wanted. */}
-      <section aria-label="Assignment details" className="rounded-xl border border-white/[.07]">
+      <section aria-label="Assignment details" className="lg-section rounded-xl">
         <button type="button" data-testid="aor-refine-toggle" aria-expanded={refineOpen} onClick={() => setRefineOpen((open) => !open)} className="flex w-full items-center justify-between px-4 py-3 text-left">
           <span>
             <span className="block text-[14px] font-semibold text-white">Refine for this assignment</span>
@@ -285,7 +285,7 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
               <div className="col-span-2"><Field label="Personnel type"><select data-testid="aor-input-population" value={inputs.population} onChange={(event) => update("population", event.target.value)} className={selectClass}><option value="">Not set</option>{POPULATION_OPTIONS.map(([id, text]) => <option key={id} value={id}>{text}</option>)}</select></Field></div>
               {inputs.population === "dod_civilian" ? <div className="col-span-2"><Field label="Civilian category"><select data-testid="aor-input-civilian" value={inputs.civilianCategory} onChange={(event) => update("civilianCategory", event.target.value)} className={selectClass}><option value="">Not set</option>{CIVILIAN_CATEGORY_OPTIONS.map(([id, text]) => <option key={id} value={id}>{text}</option>)}</select></Field></div> : null}
               {inputs.population === "dod_contractor" ? <>
-                <div className="col-span-2" role="group" aria-label="Contractor status"><span className="mb-1 block text-[12px] font-medium text-slate-400">Contractor status</span><div className="inline-flex rounded-lg border border-white/[.1] p-0.5">{([["", "Not set"], ["caaf", "CAAF"], ["non_caaf", "Non-CAAF"]] as Array<[MedicalInputs["contractorAuthorization"], string]>).map(([id, text]) => <button key={id || "unset"} type="button" data-testid={`aor-input-caaf-${id || "unset"}`} aria-pressed={inputs.contractorAuthorization === id} onClick={() => update("contractorAuthorization", id)} className={`h-7 rounded-md px-3 text-[12px] font-medium transition ${inputs.contractorAuthorization === id ? "bg-white/[.12] text-white" : "text-slate-400 hover:text-white"}`}>{text}</button>)}</div></div>
+                <div className="col-span-2" role="group" aria-label="Contractor status"><span className="mb-1 block text-[12px] font-medium text-slate-400">Contractor status</span><div className="inline-flex rounded-full bg-white/[.07] p-0.5">{([["", "Not set"], ["caaf", "CAAF"], ["non_caaf", "Non-CAAF"]] as Array<[MedicalInputs["contractorAuthorization"], string]>).map(([id, text]) => <button key={id || "unset"} type="button" data-testid={`aor-input-caaf-${id || "unset"}`} aria-pressed={inputs.contractorAuthorization === id} onClick={() => update("contractorAuthorization", id)} className={`lg-press h-7 rounded-full px-3.5 text-[12px] font-medium ${inputs.contractorAuthorization === id ? "lg-lens" : "text-slate-400 hover:text-white"}`}>{text}</button>)}</div></div>
                 <div className="col-span-2"><TriField testId="aor-input-sow" label="Contract / SOW incorporates the command requirement" value={inputs.contractRequirementsApply} onChange={(value) => update("contractRequirementsApply", value)} /></div>
               </> : null}
               <Field label="Travel type"><select data-testid="aor-input-travel" value={inputs.travelKind} onChange={(event) => update("travelKind", event.target.value)} className={selectClass}><option value="">Not set</option>{TRAVEL_KIND_OPTIONS.map(([id, text]) => <option key={id} value={id}>{text}</option>)}</select></Field>
@@ -308,11 +308,11 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
       </section>
 
       {/* 3. Background — how the result was reached. */}
-      <details className="group rounded-xl border border-white/[.07]">
+      <details className="group lg-section rounded-xl">
         <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-[14px] font-semibold text-white">About this result<ChevronDown size={18} className="text-slate-400 transition group-open:rotate-180" /></summary>
         <div className="space-y-4 border-t border-white/[.07] px-4 pb-4 pt-3 text-[13px] leading-5 text-slate-300">
           <div aria-label="Assignment of this location">
-            <p className={SECTION_HEADING}>Area of responsibility</p>
+            <p className={SECTION_HEADING}>Area of Responsibility</p>
             <p className="mt-1">{location.name} → {location.command ? COMMAND_VIEW[location.command].label : "AOR unavailable"}{location.evidenceClass ? <span className="text-slate-500"> · {EVIDENCE_CLASS_LABEL[location.evidenceClass]}</span> : null}</p>
             {location.contested ? <p className="mt-1 text-rose-200/90">Sources disagree on this assignment.</p> : null}
             {location.disputedSovereignty ? <p className="mt-1 text-rose-200/90">Sovereignty is disputed.</p> : null}
@@ -323,7 +323,7 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
 
           {evaluated ? (
             <div aria-label="Requirement categories">
-              <p className={SECTION_HEADING}>By category</p>
+              <p className={SECTION_HEADING}>By Category</p>
               <ul className="mt-2 divide-y divide-white/[.05]">
                 {(["immunization", "malaria_chemoprophylaxis", "infectious_disease_screening", "medical_screening", "medical_examination", "waiver_disqualifying_condition"] as RequirementCategory[]).map((category) => {
                   const summary = result.categories[category];
@@ -336,7 +336,7 @@ export function AorMedicalRequirements({ location, split, directory, inputs, set
 
           {evaluated ? (
             <div aria-label="Authority layers and source coverage" data-testid="aor-layer-coverage">
-              <p className={SECTION_HEADING}>Sources and coverage</p>
+              <p className={SECTION_HEADING}>Sources and Coverage</p>
               <p className="mt-1 text-[12px] text-slate-500">Four rule classes are kept apart. None replaces another, and CDC/WHO guidance never becomes a requirement.</p>
               <ul className="mt-2 space-y-2">
                 {(Object.keys(LAYER_LABEL) as AuthorityLayer[]).map((layer) => {

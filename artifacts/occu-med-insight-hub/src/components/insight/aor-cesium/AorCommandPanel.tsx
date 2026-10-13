@@ -30,10 +30,10 @@ export function AorCommandPanel({ command, directory, onPick, onClose }: { comma
   );
 
   return (
-    <aside data-testid="aor-command-panel" className="pointer-events-auto absolute bottom-4 right-4 top-4 z-30 flex w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[22px] border border-white/[.09] bg-[#050d14]/82 text-white shadow-[0_18px_60px_rgba(0,0,0,.5)] backdrop-blur-2xl">
+    <aside data-testid="aor-command-panel" className="lg-glass-panel pointer-events-auto absolute bottom-4 right-4 top-4 z-30 flex w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[28px] text-white">
       <header className="flex items-start justify-between gap-3 border-b border-white/[.07] px-4 py-3">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[.16em] text-cyan-100/45">Combatant command</p>
+          <p className="text-[11px] font-semibold text-cyan-100/45">Combatant command</p>
           <h2 className="text-[15px] font-bold leading-5"><span className="mr-2 inline-block h-2 w-2 rounded-full" style={{ background: view.color }} />{view.label}</h2>
           <p className="mt-0.5 text-[12px] leading-4 text-slate-400">{summary ? `${summary.total} locations in the registry — ${summary.sovereign} sovereign, ${summary.entities} territories and other entities.` : `${members.length} locations.`} Select one to see its health and medical requirements.</p>
           <p className="mt-0.5 text-[11px] leading-3 text-slate-500">{[...classCounts].map(([key, count]) => `${count} ${key === "unknown" ? "unclassified" : EVIDENCE_CLASS_LABEL[key as keyof typeof EVIDENCE_CLASS_LABEL].toLowerCase()}`).join(" · ")}</p>
@@ -48,8 +48,8 @@ export function AorCommandPanel({ command, directory, onPick, onClose }: { comma
       {tab === "news" ? <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2"><AorCommandNews key={command} command={command} active /></div> : <>
       <div className="border-b border-white/[.06] px-3 py-2"><input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder={`Filter ${view.short} locations`} aria-label={`Filter ${view.short} locations`} className="min-h-8 w-full rounded-lg border border-white/[.08] bg-black/25 px-3 text-[13px] text-white outline-none placeholder:text-slate-600" /></div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-        {sovereign.length ? <section><h3 className="text-[12px] font-black uppercase tracking-[.14em] text-slate-400">Sovereign states ({sovereign.length})</h3><ul>{sovereign.map(row)}</ul></section> : null}
-        {entities.length ? <section className="mt-3"><h3 className="text-[12px] font-black uppercase tracking-[.14em] text-slate-400">Territories, dependencies and other entities ({entities.length})</h3><ul>{entities.map(row)}</ul></section> : null}
+        {sovereign.length ? <section><h3 className="text-[12px] font-semibold text-slate-400">Sovereign states ({sovereign.length})</h3><ul>{sovereign.map(row)}</ul></section> : null}
+        {entities.length ? <section className="mt-3"><h3 className="text-[12px] font-semibold text-slate-400">Territories, dependencies and other entities ({entities.length})</h3><ul>{entities.map(row)}</ul></section> : null}
         {!shown.length ? <p className="py-3 text-[13px] text-slate-500">No location matches “{filter}”.</p> : null}
       </div>
       </>}

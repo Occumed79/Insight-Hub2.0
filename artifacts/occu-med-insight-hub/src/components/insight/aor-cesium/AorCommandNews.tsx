@@ -45,7 +45,7 @@ function SourceRow({ source }: { source: NewsSourceReport }) {
     <li data-testid="aor-news-source" data-source-id={source.sourceId} data-status={source.status} className="rounded-lg border border-white/[.06] px-2.5 py-2">
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 text-[13px] font-bold leading-4 text-white/90">{source.sourceName}</p>
-        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-black uppercase tracking-[.06em] ${STATUS_STYLE[source.status]}`}><Icon size={9} aria-hidden />{NEWS_STATUS_LABEL[source.status]}</span>
+        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[source.status]}`}><Icon size={9} aria-hidden />{NEWS_STATUS_LABEL[source.status]}</span>
       </div>
       <p className="mt-0.5 text-[12px] leading-4 text-slate-400">
         {source.method ? `${NEWS_METHOD_LABEL[source.method]} · ` : ""}{source.itemCount} item{source.itemCount === 1 ? "" : "s"} · last successful fetch {dateTimeText(source.lastSuccessfulFetch)}
@@ -72,9 +72,9 @@ function ItemRow({ item, reference, command }: { item: NewsItem; reference: stri
   return (
     <li data-testid="aor-news-item" data-kind={item.kind} data-health={item.healthTerms.length ? "true" : "false"} data-new={isNew ? "true" : "false"} data-updated={isUpdated ? "true" : "false"} className="border-b border-white/[.05] py-2">
       <div className="flex flex-wrap items-center gap-1">
-        <span data-testid="aor-news-kind" className="rounded-full border border-white/10 px-1.5 py-px text-[11px] font-black uppercase tracking-[.06em] text-slate-300">{NEWS_KIND_LABEL[item.kind]}</span>
-        {isNew ? <span data-testid="aor-news-badge-new" className="inline-flex items-center gap-0.5 rounded-full border border-cyan-300/40 bg-cyan-300/10 px-1.5 py-px text-[11px] font-black uppercase tracking-[.06em] text-cyan-100"><Sparkles size={8} aria-hidden />New</span> : null}
-        {isUpdated ? <span data-testid="aor-news-badge-updated" title={item.lastChange ? `Changed ${item.lastChange.fields.join(", ")} on ${dateTimeText(item.lastChange.at)}` : undefined} className="inline-flex items-center gap-0.5 rounded-full border border-amber-300/40 bg-amber-300/10 px-1.5 py-px text-[11px] font-black uppercase tracking-[.06em] text-amber-100"><RefreshCw size={8} aria-hidden />Updated</span> : null}
+        <span data-testid="aor-news-kind" className="rounded-full border border-white/10 px-1.5 py-px text-[11px] font-semibold text-slate-300">{NEWS_KIND_LABEL[item.kind]}</span>
+        {isNew ? <span data-testid="aor-news-badge-new" className="inline-flex items-center gap-0.5 rounded-full border border-cyan-300/40 bg-cyan-300/10 px-1.5 py-px text-[11px] font-semibold text-cyan-100"><Sparkles size={8} aria-hidden />New</span> : null}
+        {isUpdated ? <span data-testid="aor-news-badge-updated" title={item.lastChange ? `Changed ${item.lastChange.fields.join(", ")} on ${dateTimeText(item.lastChange.at)}` : undefined} className="inline-flex items-center gap-0.5 rounded-full border border-amber-300/40 bg-amber-300/10 px-1.5 py-px text-[11px] font-semibold text-amber-100"><RefreshCw size={8} aria-hidden />Updated</span> : null}
         {item.lastKnownData ? <span className="inline-flex items-center gap-0.5 text-[12px] text-amber-200/90"><History size={8} aria-hidden />Last-known item</span> : null}
       </div>
       <a href={item.url} target="_blank" rel="noreferrer" className="mt-1 block text-[14px] font-bold leading-4 text-white/90 hover:text-cyan-50">{item.title} <ExternalLink size={9} className="inline" aria-hidden /></a>
@@ -183,14 +183,14 @@ export function AorCommandNews({ command, active }: { command: CommandId; active
       </div>
 
       <div className="mt-3 flex items-center justify-between">
-        <h3 data-testid="aor-news-count" className="text-[12px] font-black uppercase tracking-[.14em] text-slate-400">Items ({shown.length}{filtered ? ` of ${result.data.items.length}` : ""}) · newest first</h3>
+        <h3 data-testid="aor-news-count" className="text-[12px] font-semibold text-slate-400">Items ({shown.length}{filtered ? ` of ${result.data.items.length}` : ""}) · newest first</h3>
         {filtered ? <button type="button" data-testid="aor-news-clear" onClick={clear} className="text-[12px] font-bold text-cyan-100/80 underline">Clear filters</button> : null}
       </div>
       {shown.length ? <ul>{shown.map((item) => <ItemRow key={item.id} item={item} reference={generatedAt} command={COMMAND_VIEW[command].short} />)}</ul> : result.data.coverage === "no_source_available" ? null : (
         <p data-testid="aor-news-empty" className="py-3 text-[13px] text-slate-500">{filtered ? "No item matches these filters. Health matching uses only keywords in an item's own title or description." : "No items were read from the sources."}</p>
       )}
 
-      <h3 className="mt-4 text-[12px] font-black uppercase tracking-[.14em] text-slate-400">Source monitoring</h3>
+      <h3 className="mt-4 text-[12px] font-semibold text-slate-400">Source monitoring</h3>
       <ul className="mt-1 space-y-1.5">{result.data.sources.map((source) => <SourceRow key={source.sourceId} source={source} />)}</ul>
       <ul className="mt-3 space-y-1 pb-2">{result.data.limitations.slice(1).map((text) => <li key={text} className="text-[12px] leading-4 text-slate-500">{text}</li>)}</ul>
     </div>

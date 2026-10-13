@@ -5,6 +5,7 @@ import "./styles/foundation.css";
 import "leaflet/dist/leaflet.css";
 import "./styles/app-entry.css";
 import "./styles/glass-recovery.css";
+import "./styles/liquid-glass.css";
 
 class AppErrorBoundary extends Component<
   { children: ReactNode },

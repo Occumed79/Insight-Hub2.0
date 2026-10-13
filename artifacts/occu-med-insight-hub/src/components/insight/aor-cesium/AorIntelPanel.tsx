@@ -34,7 +34,7 @@ function safeUrl(value: string) {
 
 export function FreshnessBadge({ freshness }: { freshness: Freshness | null }) {
   if (!freshness) return null;
-  return <span className={`rounded-full border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-[.08em] ${FRESHNESS_TONE[freshness]}`}>{FRESHNESS_LABELS[freshness]}</span>;
+  return <span className={`rounded-full border px-1.5 py-0.5 text-[11px] font-semibold ${FRESHNESS_TONE[freshness]}`}>{FRESHNESS_LABELS[freshness]}</span>;
 }
 
 function Chip({ children, tone = "border-white/10 text-slate-300" }: { children: ReactNode; tone?: string }) {
@@ -77,9 +77,9 @@ function RuleDetails({ record }: { record: EvidenceRecord }) {
   return (
     <div className="mt-1.5">
       <details open={false}>
-        <summary className="cursor-pointer text-[11px] font-black uppercase tracking-[.12em] text-cyan-100/55">Rule conditions, authority and freshness</summary>
+        <summary className="cursor-pointer text-[11px] font-semibold text-cyan-100/55">Rule conditions, authority and freshness</summary>
         <dl className="mt-1 rounded-lg border border-white/[.06] bg-white/[.02] px-2">
-          {extra.conditions.map((condition) => <div key={condition.label} className="grid grid-cols-[96px_1fr] gap-2 border-b border-white/[.04] py-1 text-[12px] leading-4 last:border-b-0"><dt className="text-[11px] font-black uppercase tracking-[.08em] text-slate-500">{condition.label}</dt><dd className="break-words text-slate-200">{condition.value}</dd></div>)}
+          {extra.conditions.map((condition) => <div key={condition.label} className="grid grid-cols-[96px_1fr] gap-2 border-b border-white/[.04] py-1 text-[12px] leading-4 last:border-b-0"><dt className="text-[11px] font-semibold text-slate-500">{condition.label}</dt><dd className="break-words text-slate-200">{condition.value}</dd></div>)}
         </dl>
         {extra.alsoStatedBy?.length ? <div className="mt-1.5 text-[12px] leading-4 text-slate-400"><b className="text-slate-300">Also stated, not shown as current:</b>{extra.alsoStatedBy.map((other) => <p key={other.sourceUrl + other.statement} className="mt-0.5">{other.authority} ({other.verificationStatus}{other.publishedAt ? `, ${other.publishedAt.slice(0, 10)}` : ""}): {other.statement}</p>)}</div> : null}
         {extra.supportingSources?.length ? <ul className="mt-1.5 space-y-0.5 text-[12px] leading-4 text-slate-500">{extra.supportingSources.map((source) => { const href = safeUrl(source.url); return <li key={source.url}>{href ? <a href={href} target="_blank" rel="noreferrer" className="font-bold text-cyan-100/65 hover:text-cyan-50">{source.authority}</a> : source.authority} — {source.note}</li>; })}</ul> : null}
@@ -122,9 +122,9 @@ function CommandRuleDetails({ record }: { record: EvidenceRecord }) {
   return (
     <div className="mt-1.5">
       <details>
-        <summary className="cursor-pointer text-[11px] font-black uppercase tracking-[.12em] text-pink-100/60">Command rule detail</summary>
+        <summary className="cursor-pointer text-[11px] font-semibold text-pink-100/60">Command rule detail</summary>
         <dl className="mt-1 rounded-lg border border-white/[.06] bg-white/[.02] px-2">
-          {shown.map(([label, value]) => <div key={label} className="grid grid-cols-[96px_1fr] gap-2 border-b border-white/[.04] py-1 text-[12px] leading-4 last:border-b-0"><dt className="text-[11px] font-black uppercase tracking-[.08em] text-slate-500">{label}</dt><dd className="text-slate-300">{value}</dd></div>)}
+          {shown.map(([label, value]) => <div key={label} className="grid grid-cols-[96px_1fr] gap-2 border-b border-white/[.04] py-1 text-[12px] leading-4 last:border-b-0"><dt className="text-[11px] font-semibold text-slate-500">{label}</dt><dd className="text-slate-300">{value}</dd></div>)}
         </dl>
       </details>
       {rule.sourceGaps.length ? <p className="mt-1 text-[11px] leading-3 text-amber-100/70"><b>SOURCE_GAP</b> — in the source document, not extracted: {rule.sourceGaps.join("; ")}.</p> : null}
@@ -155,7 +155,7 @@ function EvidenceCard({ record, highlighted, onFocus }: { record: EvidenceRecord
       {record.geographyNote ? <p className="mt-1 text-[12px] leading-4 text-slate-500">Geography ({pretty(record.geographyLevel)}): {record.geographyNote}</p> : <p className="mt-1 text-[12px] text-slate-500">Geography: {pretty(record.geographyLevel)}</p>}
       <RuleDetails record={record} />
       <CommandRuleDetails record={record} />
-      {record.evidence ? <details className="mt-1"><summary className="cursor-pointer text-[11px] font-black uppercase tracking-[.12em] text-cyan-100/45">Source evidence</summary><p className="mt-1 whitespace-pre-wrap text-[12px] leading-4 text-slate-400">{record.evidence}</p></details> : null}
+      {record.evidence ? <details className="mt-1"><summary className="cursor-pointer text-[11px] font-semibold text-cyan-100/45">Source evidence</summary><p className="mt-1 whitespace-pre-wrap text-[12px] leading-4 text-slate-400">{record.evidence}</p></details> : null}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
         {url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-bold text-cyan-100/70 hover:text-cyan-50">{record.sourceName}<ArrowUpRight size={9} /></a> : <span className="font-bold text-slate-400">{record.sourceName}</span>}
         {record.publishedAt ? <span>Published {formatDate(record.publishedAt)}</span> : null}
@@ -169,7 +169,7 @@ function EvidenceCard({ record, highlighted, onFocus }: { record: EvidenceRecord
 
 function MalariaModel({ record }: { record: EvidenceRecord }) {
   const model = (record.extra?.malaria ?? {}) as { riskScope?: string; areasMentioned?: string | null; places?: Array<{ name: string; kind: string; risk: "risk" | "no_risk"; seasonality: string | null; elevationLimitMeters: number | null }>; seasonality?: string | null; altitudeNote?: string | null; altitudeLimitMeters?: number | null; altitudeScope?: string | null; altitudeScopeNote?: string | null; preventionDrugs?: string[]; preventionStatement?: string | null };
-  const row = (label: string, value: ReactNode) => <div className="grid grid-cols-[92px_1fr] gap-2 border-b border-white/[.05] py-1.5 text-[13px] leading-4"><dt className="text-[11px] font-black uppercase tracking-[.1em] text-slate-500">{label}</dt><dd className="text-slate-200">{value}</dd></div>;
+  const row = (label: string, value: ReactNode) => <div className="grid grid-cols-[92px_1fr] gap-2 border-b border-white/[.05] py-1.5 text-[13px] leading-4"><dt className="text-[11px] font-semibold text-slate-500">{label}</dt><dd className="text-slate-200">{value}</dd></div>;
   const stated = (value?: string | null) => value || <span className="text-slate-500">Not stated in the retrieved source text</span>;
   return (
     <dl className="mb-2 rounded-xl border border-amber-200/10 bg-amber-200/[.03] px-3 py-1">
@@ -197,7 +197,7 @@ function YellowBookCard({ record, evidenceById, onSelectEvidence }: { record: Ev
       <p className="mt-0.5 text-[13px] leading-4 text-slate-400">{record.summary}</p>
       {links.length ? <div className="mt-1 flex flex-wrap gap-1"><span className="text-[11px] text-slate-500">Linked to:</span>{links.slice(0, 5).map((link) => <button key={link.evidenceId} type="button" onClick={() => onSelectEvidence(link.evidenceId)} className="rounded-full border border-cyan-200/15 px-1.5 py-0.5 text-[11px] font-bold text-cyan-100/70 hover:bg-cyan-200/10">{evidenceById.get(link.evidenceId)?.title.slice(0, 34)}</button>)}</div> : null}
       {rules.length || assets.length || extra.keyNotes?.length ? <details className="mt-1.5">
-        <summary className="cursor-pointer text-[11px] font-black uppercase tracking-[.1em] text-slate-500">Chapter rules and source tables (pp. {extra.pages?.[0]}–{extra.pages?.[1]})</summary>
+        <summary className="cursor-pointer text-[11px] font-semibold text-slate-500">Chapter rules and source tables (pp. {extra.pages?.[0]}–{extra.pages?.[1]})</summary>
         {rules.length ? <ul className="mt-1 list-disc space-y-1 pl-4 text-[12px] leading-4 text-slate-300">{rules.map((rule) => <li key={rule}>{rule}</li>)}</ul> : null}
         {assets.length ? <ul className="mt-1.5 space-y-1 text-[12px] leading-4 text-slate-400">{assets.map((asset) => <li key={`${asset.type}-${asset.id}`}><b className="text-slate-300">{asset.title}</b> (p. {asset.page}) — {asset.excerpt}</li>)}</ul> : null}
       </details> : null}
@@ -248,7 +248,7 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
     <li key={observation.id} className="border-b border-white/[.06] py-2.5 last:border-b-0">
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: DIMENSION_COLORS[observation.dimension] }} />
-        <span className="text-[11px] font-black uppercase tracking-[.1em] text-slate-500">{DIMENSION_LABELS[observation.dimension]}</span>
+        <span className="text-[11px] font-semibold text-slate-500">{DIMENSION_LABELS[observation.dimension]}</span>
         <Chip tone={observation.kind === "gap" ? "border-rose-300/30 text-rose-200" : observation.kind === "caveat" ? "border-amber-300/25 text-amber-200" : "border-emerald-300/25 text-emerald-200"}>{observation.kind}</Chip>
         <FreshnessBadge freshness={observation.freshness} />
       </div>
@@ -271,7 +271,7 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
         <p data-testid="aor-what-matters-now" className="rounded-xl border border-cyan-200/10 bg-cyan-200/[.04] px-3 py-2 text-[14px] leading-5 text-white/90">{intel.whatMattersNow.summary}</p>
         {synthesisLoading ? <p className="mt-2 flex items-center gap-2 text-[12px] text-slate-500"><Loader2 size={10} className="animate-spin" />Preparing evidence-checked AI briefing…</p> : null}
         {synthesis?.status === "applied" ? <section data-testid="aor-ai-briefing" className="mt-2 rounded-xl border border-violet-200/12 bg-violet-200/[.035] px-3 py-2">
-          <h3 className="text-[11px] font-black uppercase tracking-[.12em] text-violet-200/80">AI briefing — every line cites evidence</h3>
+          <h3 className="text-[11px] font-semibold text-violet-200/80">AI briefing — every line cites evidence</h3>
           <ol className="mt-1.5 space-y-2">{synthesis.statements.map((statement, index) => (
             <li key={index} className="text-[13px] leading-4 text-slate-200">{statement.text}
               <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">{statement.evidenceIds.filter((id) => evidenceById.has(id)).slice(0, 4).map((id, i) => <button key={id} type="button" onClick={() => onSelectEvidence(id)} title={evidenceById.get(id)?.title} className="rounded-full border border-violet-200/20 px-1.5 text-[11px] font-bold text-violet-100/80 hover:bg-violet-200/10">[{i + 1}]</button>)}</span>
@@ -281,7 +281,7 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
         </section> : synthesis && synthesis.status !== "not_configured" ? <p className="mt-2 text-[12px] leading-4 text-slate-500">AI briefing not shown: {synthesis.note}</p> : null}
         <p className="mt-1 text-[11px] leading-4 text-slate-500">Assembled by {intel.whatMattersNow.method.replace(/-/g, " ")} from the evidence below. Language-model synthesis is {intel.whatMattersNow.llmSynthesis.replace(/_/g, " ")}. No composite risk score is calculated.</p>
         <ul className="mt-2">{intel.whatMattersNow.observations.map(observationCard)}</ul>
-        {intel.limitations.length ? <details className="mt-3"><summary className="cursor-pointer text-[11px] font-black uppercase tracking-[.12em] text-slate-500">How to read this</summary><ul className="mt-1 list-disc space-y-1 pl-4 text-[12px] leading-4 text-slate-500">{intel.limitations.map((item) => <li key={item}>{item}</li>)}</ul></details> : null}
+        {intel.limitations.length ? <details className="mt-3"><summary className="cursor-pointer text-[11px] font-semibold text-slate-500">How to read this</summary><ul className="mt-1 list-disc space-y-1 pl-4 text-[12px] leading-4 text-slate-500">{intel.limitations.map((item) => <li key={item}>{item}</li>)}</ul></details> : null}
         {lens}
       </div>;
     }
@@ -300,7 +300,7 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
     const empty = !records.length ? <div className="py-3 text-[13px] leading-4 text-slate-400"><p>No evidence records for {DIMENSION_LABELS[activeTab].toLowerCase()}. This is not proof of absence — source status:</p><ul className="mt-2 space-y-1">{statuses.map((source) => <li key={source.sourceId} className="text-[12px]"><b className="text-white/70">{source.sourceName}</b> — <span className={STATUS_TONE[source.status]}>{STATUS_LABELS[source.status]}</span>{source.note ? <span className="text-slate-500"> · {source.note}</span> : null}</li>)}</ul></div> : null;
 
     if (activeTab === "health_vaccines") {
-      const group = (title: string, items: EvidenceRecord[], note?: string) => items.length ? <section className="mb-3"><h3 className="text-[12px] font-black uppercase tracking-[.14em] text-slate-400">{title}</h3>{note ? <p className="mb-1 text-[12px] leading-4 text-slate-500">{note}</p> : null}{items.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</section> : null;
+      const group = (title: string, items: EvidenceRecord[], note?: string) => items.length ? <section className="mb-3"><h3 className="text-[12px] font-semibold text-slate-400">{title}</h3>{note ? <p className="mb-1 text-[12px] leading-4 text-slate-500">{note}</p> : null}{items.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</section> : null;
       const entry = intel.sources.find((s) => s.sourceId === "destination-entry-requirements");
       const isRule = (r: EvidenceRecord) => Boolean(r.extra?.vaccineRule);
       const ruleRecords = records.filter((r) => (r.category === "entry_requirement" || r.category === "exit_requirement") && isRule(r));
@@ -323,12 +323,12 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
         {entry && entry.status !== "ok" && !ruleRecords.length && !coverage.length ? <p className="mb-3 rounded-lg border border-amber-300/15 bg-amber-300/[.04] px-3 py-2 text-[13px] leading-4 text-amber-100/80">{entry.note || "Entry requirements were not evaluated."}</p> : null}
         {group("Destination disease risks (CDC)", records.filter((r) => r.category === "destination_disease_risk"))}
         {group("Childhood immunization coverage (WHO/UNICEF WUENIC)", records.filter((r) => r.category === "immunization_coverage"), "Annual national programme estimates for the resident population — not a traveler recommendation and not current conditions.")}
-        {yellowBook.length ? <section className="mb-3"><h3 className="text-[12px] font-black uppercase tracking-[.14em] text-slate-400">CDC Yellow Book reference</h3><p className="mb-1 text-[12px] leading-4 text-slate-500">Clinical and operational chapters for diseases named above. Reference context, not current country guidance.</p>{yellowBook.map((record) => <YellowBookCard key={record.id} record={record} evidenceById={evidenceById} onSelectEvidence={onSelectEvidence} />)}</section> : null}
+        {yellowBook.length ? <section className="mb-3"><h3 className="text-[12px] font-semibold text-slate-400">CDC Yellow Book reference</h3><p className="mb-1 text-[12px] leading-4 text-slate-500">Clinical and operational chapters for diseases named above. Reference context, not current country guidance.</p>{yellowBook.map((record) => <YellowBookCard key={record.id} record={record} evidenceById={evidenceById} onSelectEvidence={onSelectEvidence} />)}</section> : null}
         {group("Other health guidance", records.filter((r) => !["routine_vaccine", "travel_vaccine", "entry_requirement", "exit_requirement", "ihr_temporary_recommendation", "entry_rule_conflict", "entry_requirement_coverage", "rule_source_check", "destination_disease_risk", "immunization_coverage", "yellow_book_reference"].includes(r.category)))}
       </div>;
     }
     if (activeTab === "command_policy") {
-      const group = (title: string, items: EvidenceRecord[], note?: string) => items.length ? <section className="mb-3"><h3 className="text-[12px] font-black uppercase tracking-[.14em] text-slate-400">{title}</h3>{note ? <p className="mb-1 text-[12px] leading-4 text-slate-500">{note}</p> : null}{items.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</section> : null;
+      const group = (title: string, items: EvidenceRecord[], note?: string) => items.length ? <section className="mb-3"><h3 className="text-[12px] font-semibold text-slate-400">{title}</h3>{note ? <p className="mb-1 text-[12px] leading-4 text-slate-500">{note}</p> : null}{items.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</section> : null;
       const ruleRecords = records.filter((r) => r.category === "command_rule");
       const domainOf = (r: EvidenceRecord) => String((r.extra?.commandRule as CommandRuleView | undefined)?.domain ?? "");
       const waiver = ruleRecords.filter((r) => domainOf(r) === "waiver");
@@ -370,7 +370,7 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
       const active = ENVIRONMENT_KEYS.filter((key) => environment[key]);
       return <div>
         <section className="mb-3" aria-label="Deployment environment factors">
-          <h3 className="text-[12px] font-black uppercase tracking-[.14em] text-slate-400">Deployment environment</h3>
+          <h3 className="text-[12px] font-semibold text-slate-400">Deployment environment</h3>
           <p className="mb-1.5 text-[12px] leading-4 text-slate-500">Select factors that apply to the assignment. They are shown against the evidence below and carried into the condition × deployment review.</p>
           <div className="grid grid-cols-2 gap-1.5">{ENVIRONMENT_KEYS.map((key) => <button key={key} type="button" aria-pressed={environment[key]} onClick={() => onToggleEnvironment(key)} className={`min-h-9 rounded-[11px] border px-2 text-left text-[12px] font-bold transition ${environment[key] ? "border-amber-100/20 bg-amber-200/[.08] text-amber-50" : "border-white/[.06] bg-white/[.02] text-slate-400 hover:bg-white/[.045]"}`}>{ENVIRONMENT_LABELS[key]}</button>)}</div>
           {active.length ? <ul className="mt-2 space-y-1.5">{active.map((key) => { const info = related(key); return <li key={key} className="rounded-lg border border-white/[.06] px-2.5 py-1.5 text-[12px] leading-4 text-slate-300"><b className="text-white/85">{ENVIRONMENT_LABELS[key]}</b> — {info.text}{info.ids.map((id) => <button key={id} type="button" onClick={() => onSelectEvidence(id)} className="ml-1 rounded-full border border-cyan-200/15 px-1.5 text-[11px] font-bold text-cyan-100/70 hover:bg-cyan-200/10">evidence</button>)}</li>; })}</ul> : null}
@@ -390,10 +390,10 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
   const facts = location ? [geographicClassLabel(location), location.administering ? `Administered by ${location.administering}` : null].filter(Boolean).join(" · ") : "";
 
   return (
-    <aside data-testid="aor-intel-panel" className="pointer-events-auto absolute bottom-4 right-4 top-4 z-30 flex w-[min(520px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[22px] border border-white/[.09] bg-[#050d14]/90 text-white shadow-[0_18px_60px_rgba(0,0,0,.5)] backdrop-blur-2xl">
-      <header className="flex items-start justify-between gap-3 border-b border-white/[.07] px-5 pb-3 pt-4">
+    <aside data-testid="aor-intel-panel" className="lg-glass-panel pointer-events-auto absolute bottom-4 right-4 top-4 z-30 flex w-[min(520px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[28px] text-white">
+      <header className="flex items-start justify-between gap-3 px-5 pb-2 pt-5">
         <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[.14em] text-cyan-100/60">{location?.command ? COMMAND_VIEW[location.command].label : split ? "Split ISO entity" : "Location"}</p>
+          <p className="text-[12px] font-semibold text-slate-400">{location?.command ? COMMAND_VIEW[location.command].label : split ? "Split ISO entity" : "Location"}</p>
           <h2 data-testid="aor-panel-title" className="mt-0.5 text-[22px] font-semibold leading-7 tracking-[-.01em]">{displayName}</h2>
           {location ? (
             <p className="mt-1 text-[13px] leading-5 text-slate-300">
@@ -409,20 +409,20 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
             </p>
           ) : null}
         </div>
-        <button type="button" onClick={onClose} aria-label="Close country panel" className="rounded-full border border-white/10 p-1.5 text-slate-400 hover:text-white"><X size={13} /></button>
+        <button type="button" onClick={onClose} aria-label="Close country panel" className="lg-press grid h-8 w-8 place-items-center rounded-full bg-white/[.08] text-slate-300 hover:bg-white/[.14] hover:text-white"><X size={16} /></button>
       </header>
       {split ? null : (
         // One scrolling row of underlined tabs instead of three wrapped rows of pills.
-        <nav className="flex gap-5 overflow-x-auto border-b border-white/[.07] px-5 pr-10 [mask-image:linear-gradient(to_right,black_calc(100%-48px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Intelligence categories">
+        <nav className="flex gap-1 overflow-x-auto px-4 pb-1 pr-10 [mask-image:linear-gradient(to_right,black_calc(100%-48px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Intelligence categories">
           {tabs.map(([id, label]) => {
             const count = id === "summary" || id === "sources" || id === "medical" ? null : byDimension.get(id)?.length ?? 0;
             const active = activeTab === id;
-            return <button key={id} type="button" data-testid={`aor-tab-${id}`} aria-pressed={active} onClick={() => setActiveTab(id)} className={`-mb-px shrink-0 whitespace-nowrap border-b-2 py-2.5 text-[13px] font-semibold transition ${active ? "border-cyan-300 text-white" : "border-transparent text-slate-400 hover:text-slate-200"}`}>{label}{count ? <span className="ml-1.5 text-[12px] font-normal text-slate-500">{count}</span> : null}{id === "medical" && medicalCounts?.REQUIRED ? <span className="ml-1.5 rounded-full bg-rose-400/20 px-1.5 text-[11px] text-rose-100">{medicalCounts.REQUIRED}</span> : null}</button>;
+            return <button key={id} type="button" data-testid={`aor-tab-${id}`} aria-pressed={active} onClick={() => setActiveTab(id)} className={`lg-press shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold ${active ? "lg-lens" : "text-slate-400 hover:bg-white/[.06] hover:text-slate-200"}`}>{label}{count ? <span className="ml-1.5 text-[12px] font-normal text-slate-500">{count}</span> : null}{id === "medical" && medicalCounts?.REQUIRED ? <span className="ml-1.5 rounded-full bg-rose-400/20 px-1.5 text-[11px] text-rose-100">{medicalCounts.REQUIRED}</span> : null}</button>;
           })}
         </nav>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{body()}</div>
-      {intel && !split ? <footer className="border-t border-white/[.06] px-4 py-2 text-[11px] text-slate-600">Generated {formatDate(intel.generatedAt)} · evidence is retrieved server-side and cached; each record shows its own retrieval date.</footer> : null}
+      <div className="lg-scroll-edge min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-5">{body()}</div>
+      {intel && !split ? <footer className="px-5 pb-3 pt-1 text-[11px] text-slate-500">Generated {formatDate(intel.generatedAt)} · evidence is retrieved server-side and cached; each record shows its own retrieval date.</footer> : null}
     </aside>
   );
 }

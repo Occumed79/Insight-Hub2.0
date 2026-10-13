@@ -241,10 +241,10 @@ export function AorFlatMap(props: Props) {
           {view.level !== "country" && activeLayers.has("disasters") ? worldEvents.map((event) => <circle key={event.id} cx={round(X(event.lon))} cy={round(Y(event.lat))} r={markerRadius * 0.7} fill={DIMENSION_COLORS.disasters} fillOpacity={0.85} stroke="rgba(255,255,255,.7)" strokeWidth={1} vectorEffect="non-scaling-stroke" pointerEvents="none" />) : null}
         </g>
       </svg>
-      <div className="absolute bottom-16 left-4 z-10 flex flex-col overflow-hidden rounded-xl border border-white/[.09] bg-black/45 backdrop-blur-xl">
-        <button type="button" aria-label="Zoom in" onClick={() => zoom(1 / 1.6)} className="grid h-8 w-8 place-items-center text-white/80 hover:bg-white/10"><Plus size={13} /></button>
-        <button type="button" aria-label="Zoom out" onClick={() => zoom(1.6)} className="grid h-8 w-8 place-items-center border-t border-white/[.06] text-white/80 hover:bg-white/10"><Minus size={13} /></button>
-        <button type="button" aria-label="Reset to world view" onClick={() => setCamera({ ...WORLD, span: Math.max(WORLD.span, 190 * aspect) })} className="grid h-8 w-8 place-items-center border-t border-white/[.06] text-white/80 hover:bg-white/10"><RotateCcw size={12} /></button>
+      <div className="lg-glass absolute bottom-[76px] left-4 z-10 flex flex-col gap-0.5 rounded-full p-1" role="group" aria-label="Zoom">
+        <button type="button" aria-label="Zoom in" onClick={() => zoom(1 / 1.6)} className="lg-press grid h-9 w-9 place-items-center rounded-full text-slate-200 hover:bg-white/[.08]"><Plus size={16} /></button>
+        <button type="button" aria-label="Zoom out" onClick={() => zoom(1.6)} className="lg-press grid h-9 w-9 place-items-center rounded-full text-slate-200 hover:bg-white/[.08]"><Minus size={16} /></button>
+        <button type="button" aria-label="Reset to world view" onClick={() => setCamera({ ...WORLD, span: Math.max(WORLD.span, 190 * aspect) })} className="lg-press grid h-9 w-9 place-items-center rounded-full text-slate-200 hover:bg-white/[.08]"><RotateCcw size={15} /></button>
       </div>
     </div>
   );
