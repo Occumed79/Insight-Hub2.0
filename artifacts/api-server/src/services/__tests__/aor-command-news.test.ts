@@ -151,6 +151,20 @@ test("discoverDirectoryFeeds: reads an RSS directory page, classifies each feed 
   assert.equal(classifyFeedKind("Something else"), "news");
 });
 
+test("discoverDirectoryFeeds: page furniture on a /rss/ page (meta content, viewstate, data-* selectors, bare tokens) is never taken for a feed", () => {
+  // Shapes seen in the live monitor log for www.centcom.mil/rss/ and www.southcom.mil/RSS/: each was resolved under the directory and fetched as a "feed".
+  const furniture = `<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta name="description" content="The official website for the U.S. Central Command">
+<meta name="robots" content="INDEX, FOLLOW"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="author" content="dma.WebSD@mail.mil"></head><body>
+<input type="hidden" name="__VIEWSTATEGENERATOR" value="CA0B0334"><input type="hidden" name="__VIEWSTATE" value="m0ZWKfacxIegAOQUMCMyD6H2s86t/QHTQ+RlJKp5lHx==">
+<button data-toggle="collapse" data-target=".navbar-collapse" data-expanded="false">Menu</button></body></html>`;
+  assert.deepEqual(discoverDirectoryFeeds(furniture, "https://www.centcom.mil/rss/"), []);
+  // Real feed addresses on the same page are still found, including ones carried by a data attribute or written as text.
+  const withFeeds = furniture.replace("</body>", `<a href="/DesktopModules/ArticleCS/RSS.ashx?ContentType=9&amp;Site=808">Press Releases</a><div data-feed="/DesktopModules/ArticleCS/RSS.ashx?ContentType=1&amp;Site=808"></div>https://www.centcom.mil/DesktopModules/ArticleCS/RSS.ashx?ContentType=400&amp;Site=808</body>`);
+  const found = discoverDirectoryFeeds(withFeeds, "https://www.centcom.mil/rss/");
+  assert.equal(found.length, 3);
+  assert.ok(found.every((feed) => /\/DesktopModules\/ArticleCS\/RSS\.ashx\?ContentType=\d+&Site=808$/.test(feed.url)));
+});
+
 test("parseListing keeps same-site article links with real titles, reads the date the page states next to each, and invents none", () => {
   const items = parseListing(LISTING, "https://www.eucom.mil/media-gallery/press-releases");
   assert.deepEqual(items.map((entry) => [entry.url, entry.publishedAt]), [
@@ -347,6 +361,30 @@ test("results are reused for 30 minutes; failures retry after 5; an explicit ref
   assert.equal(early.calls.length, 0);
   const retry = deps({}, "2026-10-11T12:06:00Z", failStore);
   await collectSource(source("centcom-press-releases"), retry);
+  assert.ok(retry.calls.length > 0);
+});
+
+test("a site that refuses every address (403) is backed off for 6 hours, even on forced refresh, and says so; other failures keep the 5-minute retry", async () => {
+  const store = createMemoryStore();
+  const refused = { [`${EU}/syndication-feed/rss/documents`]: { status: 403 }, [`${EU}/syndication-feed/atom/documents`]: { status: 403 } };
+  const first = await collectSource(source("eucom-documents"), deps(refused, "2026-10-11T12:00:00Z", store));
+  assert.equal(first.report.status, "source_unavailable");
+  assert.match(first.report.note ?? "", /refused automated requests.*every 6 hours/);
+  const forced = deps(refused, "2026-10-11T14:00:00Z", store);
+  await collectSource(source("eucom-documents"), forced, { refresh: true });
+  assert.equal(forced.calls.length, 0, "a forced refresh inside the back-off must not re-request a refusing site");
+  const later = deps(refused, "2026-10-11T18:01:00Z", store);
+  await collectSource(source("eucom-documents"), later, { refresh: true });
+  assert.ok(later.calls.length > 0);
+  // A timeout plus a 403 (AFRICOM's live pattern) is still a refusal; a 503 plus a 403 is not.
+  const mixedStore = createMemoryStore();
+  const mixed = await collectSource(source("eucom-documents"), deps({ [`${EU}/syndication-feed/rss/documents`]: { throws: "ETIMEDOUT" }, [`${EU}/syndication-feed/atom/documents`]: { status: 403 } }, "2026-10-11T12:00:00Z", mixedStore));
+  assert.match(mixed.report.note ?? "", /every 6 hours/);
+  const outageStore = createMemoryStore();
+  const outage = await collectSource(source("eucom-documents"), deps({ [`${EU}/syndication-feed/rss/documents`]: { status: 503 }, [`${EU}/syndication-feed/atom/documents`]: { status: 403 } }, "2026-10-11T12:00:00Z", outageStore));
+  assert.equal(outage.report.note, null);
+  const retry = deps({}, "2026-10-11T12:06:00Z", outageStore);
+  await collectSource(source("eucom-documents"), retry);
   assert.ok(retry.calls.length > 0);
 });
 

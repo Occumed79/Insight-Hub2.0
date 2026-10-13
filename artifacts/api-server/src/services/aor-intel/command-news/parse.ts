@@ -150,8 +150,14 @@ export function discoverDirectoryFeeds(html: string, base: string, limit = 16): 
   const baseUrl = new URL(base);
   const host = baseUrl.hostname.replace(/^www\./, "");
   const found: DiscoveredFeed[] = [];
-  const add = (href: string | undefined, label: string) => {
-    const url = href ? safeUrl(href, base) : null;
+  // `addressOnly`: the value came from a non-link attribute or page text, so it must already be written as an address (absolute or root-relative).
+  const add = (href: string | undefined, label: string, addressOnly = false) => {
+    const raw = href?.trim() ?? "";
+    // The address as written must itself look like a feed. Testing only the resolved path let any relative token on a page under /rss/
+    // (meta content, viewstate, CSS selectors, "false") pass as /rss/<token>; on live DNN directory pages that produced ~15 bogus fetches per run.
+    if (!raw || /\s/.test(raw) || !FEED_HREF.test(raw)) return;
+    if (addressOnly && !/^(?:https?:)?\/\//i.test(raw) && !raw.startsWith("/")) return;
+    const url = safeUrl(raw, base);
     if (!url) return;
     const parsed = new URL(url);
     if (parsed.hostname.replace(/^www\./, "") !== host || !FEED_HREF.test(parsed.pathname + parsed.search)) return;
@@ -167,8 +173,8 @@ export function discoverDirectoryFeeds(html: string, base: string, limit = 16): 
     if (/rel=["']?alternate/i.test(tag) && /type=["']application\/(rss|atom)\+xml/i.test(tag)) add(tag.match(/href=["']([^"']+)["']/i)?.[1], tag.match(/title=["']([^"']+)["']/i)?.[1] ?? "");
   }
   // Addresses carried by other attributes (data-href, <option value>, <input value>) or written out as text.
-  for (const match of html.matchAll(/\b(?:data-[\w-]+|value|content|data-url|data-feed)=["']([^"']+)["']/gi)) add(match[1], "");
-  for (const match of html.matchAll(/https?:\/\/[^\s"'<>)]+/gi)) add(match[0].replace(/[.,;]+$/, ""), "");
+  for (const match of html.matchAll(/\b(?:data-[\w-]+|value|content|data-url|data-feed)=["']([^"']+)["']/gi)) add(match[1], "", true);
+  for (const match of html.matchAll(/https?:\/\/[^\s"'<>)]+/gi)) add(match[0].replace(/[.,;]+$/, ""), "", true);
   const rssKeys = new Set(found.filter((entry) => entry.format === "rss").map((entry) => entry.url.replace(/\/rss\//i, "/atom/")));
   return found.filter((entry) => !(entry.format === "atom" && rssKeys.has(entry.url))).slice(0, limit);
 }

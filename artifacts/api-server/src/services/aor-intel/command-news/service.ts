@@ -131,6 +131,15 @@ interface Stored { v: 2; records: TrackedRecord[]; report: NewsSourceReport }
 const FRESH_MS = 30 * 60_000;
 const FAILURE_RETRY_MS = 5 * 60_000;
 const MIN_REFRESH_MS = 60_000;
+/** A site that refused every address (401/403) is not retried for this long, even on a forced refresh: the block will not clear in minutes, and re-requesting every run only invites a harder block. */
+const BLOCKED_RETRY_MS = 6 * 3_600_000;
+const BLOCKED_NOTE = "The site refused automated requests from this server (HTTP 401/403). It is retried every 6 hours, not on every refresh.";
+
+/** Every address failed, at least one with 401/403, and the rest only with 401/403 or a network error (no 404 or parse failure). */
+function refusedByOperator(feeds: Array<{ status: string; httpStatus: number | null }>): boolean {
+  const refused = (code: number | null) => code === 401 || code === 403;
+  return feeds.length > 0 && feeds.every((feed) => feed.status === "unavailable" && (refused(feed.httpStatus) || feed.httpStatus === null)) && feeds.some((feed) => refused(feed.httpStatus));
+}
 const KEEP_MS = 90 * 24 * 3_600_000;
 const FORGET_MS = 60 * 24 * 3_600_000;
 const MAX_TRACKED_PER_SOURCE = 200;
@@ -335,7 +344,8 @@ async function collectSourceNow(source: CommandNewsSource, deps: NewsDeps, optio
   const cached = await loadStored(source, deps);
   if (cached) {
     const since = ageMs(cached.report.lastAttemptedFetch, now);
-    const limit = options.refresh ? MIN_REFRESH_MS : cached.report.status === "source_unavailable" ? FAILURE_RETRY_MS : FRESH_MS;
+    const blocked = (cached.report.status === "source_unavailable" || cached.report.status === "stale_cache") && refusedByOperator(cached.report.feeds);
+    const limit = blocked ? BLOCKED_RETRY_MS : options.refresh ? MIN_REFRESH_MS : cached.report.status === "source_unavailable" ? FAILURE_RETRY_MS : FRESH_MS;
     if (since < limit) return cached;
   }
   const stamp = now.toISOString();
@@ -377,14 +387,15 @@ async function collectSourceNow(source: CommandNewsSource, deps: NewsDeps, optio
   } else {
     const message = found.feeds.length ? found.feeds.map((feed) => `${feed.error ?? "failed"}`).filter((text, index, all) => all.indexOf(text) === index).join("; ").slice(0, 400) : "No address is registered for this source.";
     const httpStatus = found.feeds.find((feed) => feed.httpStatus)?.httpStatus ?? null;
+    const blockedNote = refusedByOperator(found.feeds) ? BLOCKED_NOTE : null;
     stored = previousRecords.length
       ? {
         v: 2, records: previousRecords,
-        report: { ...cached!.report, status: "stale_cache", httpStatus, itemCount: previousRecords.length, trackedCount: previousRecords.length, lastAttemptedFetch: stamp, sourceError: message, note: "The latest refresh failed; these are the last items successfully retrieved.", lastKnownData: true, feeds: found.feeds },
+        report: { ...cached!.report, status: "stale_cache", httpStatus, itemCount: previousRecords.length, trackedCount: previousRecords.length, lastAttemptedFetch: stamp, sourceError: message, note: `The latest refresh failed; these are the last items successfully retrieved.${blockedNote ? ` ${blockedNote}` : ""}`, lastKnownData: true, feeds: found.feeds },
       }
       : {
         v: 2, records: [],
-        report: { ...baseReport(source), status: "source_unavailable", method: null, feedUrl: null, httpStatus, itemCount: 0, trackedCount: 0, lastAttemptedFetch: stamp, lastSuccessfulFetch: cached?.report.lastSuccessfulFetch ?? null, sourceError: message, note: null, lastKnownData: false, feeds: found.feeds },
+        report: { ...baseReport(source), status: "source_unavailable", method: null, feedUrl: null, httpStatus, itemCount: 0, trackedCount: 0, lastAttemptedFetch: stamp, lastSuccessfulFetch: cached?.report.lastSuccessfulFetch ?? null, sourceError: message, note: blockedNote, lastKnownData: false, feeds: found.feeds },
       };
   }
   await deps.store.set(storageKey(source), stored, KEEP_MS, now).catch(() => undefined);
