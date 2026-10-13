@@ -13,12 +13,14 @@ import { buildObservations, summarize } from "./rules";
 import type { AdapterContext, AdapterResult, CountryIntelResponse } from "./types";
 import { errorText } from "./util";
 
-type Adapter = { id: string; run: (ctx: AdapterContext, store: CacheStore) => Promise<AdapterResult>; ttlMs: number };
+type Adapter = { id: string; run: (ctx: AdapterContext, store: CacheStore) => Promise<AdapterResult>; ttlMs: number; cacheVersion?: number };
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const ADAPTERS: Adapter[] = [
-  { id: "cdc-travelers-health", run: cdcGuidanceAdapter, ttlMs: 6 * HOUR },
+  // Parsed records persist across deployments. Ignore records from the old
+  // classifier, which duplicated yellow fever and flattened regional exceptions.
+  { id: "cdc-travelers-health", run: cdcGuidanceAdapter, ttlMs: 6 * HOUR, cacheVersion: 4 },
   { id: "cdc-travel-notices", run: cdcNoticesAdapter, ttlMs: 30 * MINUTE },
   { id: "who-don", run: whoOutbreaksAdapter, ttlMs: HOUR },
   { id: "gdacs", run: gdacsAdapter, ttlMs: 15 * MINUTE },
@@ -62,7 +64,7 @@ function withFetchMeta(live: AdapterResult, now: Date, previous: AdapterResult |
 }
 
 async function runWithCache(adapter: Adapter, ctx: AdapterContext, store: CacheStore): Promise<AdapterResult> {
-  const key = `aor-intel:v3:${adapter.id}:${ctx.country.iso2}`;
+  const key = `aor-intel:v${adapter.cacheVersion ?? 3}:${adapter.id}:${ctx.country.iso2}`;
   const now = ctx.now();
   const cached = await store.get<AdapterResult>(key);
   if (cached && Date.parse(cached.expiresAt) > now.getTime()) return cached.payload;
