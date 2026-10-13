@@ -60,7 +60,6 @@
     "artifacts/api-server/src/routes/aor-yellow-book-assets.ts",
     "artifacts/api-server/src/routes/aor-respiratory-surveillance.ts",
     "artifacts/api-server/src/routes/aor-immunization.ts",
-    "artifacts/api-server/src/routes/aor-fungal-burden.ts",
     "artifacts/occu-med-insight-hub/tests/occupational-intelligence.spec.ts",
     "artifacts/occu-med-insight-hub/tests/aor-consolidation.spec.ts",
     "artifacts/occu-med-insight-hub/tests/injury-hologram.spec.ts",
@@ -107,6 +106,7 @@
     "^artifacts/api-server/src/services/jobIntelligenceService\\.ts$",
     "^artifacts/occu-med-insight-hub/src/pages/(job-intelligence[^/]*|reviewer-job-intelligence|reviewer-standards-intelligence)\\.(tsx|css)$",
     "^artifacts/occu-med-insight-hub/src/pages/reviewer-clinical-calculators(?:-experience)?\\.(?:tsx|css)$",
-    "^artifacts/occu-med-insight-hub/tests/clinical-calculators\\.spec\\.ts$"
+    "^artifacts/occu-med-insight-hub/tests/clinical-calculators\\.spec\\.ts$",
+    "^artifacts/api-server/src/routes/aor-fungal-burden\\.ts$"
   ]
 }

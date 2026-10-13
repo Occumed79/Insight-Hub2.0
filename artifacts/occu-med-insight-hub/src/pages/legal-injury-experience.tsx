@@ -1,6 +1,5 @@
 import LegalInjuryIntelligence from "./legal-injury-intelligence-v2";
 import "./legal-injury-experience.css";
-import "../styles/glass-recovery.css";
 
 export default function LegalInjuryExperience() {
   return (
