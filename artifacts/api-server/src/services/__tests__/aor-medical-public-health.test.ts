@@ -31,6 +31,14 @@ test("mixed CDC yellow-fever guidance stays conditional and is mapped only once"
   const publicItems = evaluated.requirements.filter((item) => item.layer === "public_health");
   assert.equal(publicItems.length, 2);
   assert.ok(publicItems.every((item) => item.status === "CONDITIONAL"));
+  // An unexpired database copy from the previous classifier must not survive
+  // deployment as the current result. Other adapters retain their cache keys.
+  const store = createMemoryStore();
+  await store.set("aor-intel:v3:cdc-travelers-health:KE", { ...adapter, records: adapter.records.map((record) => ({ ...record, recommendationType: "not_routinely_recommended" })) }, 6 * 60 * 60_000, NOW);
+  const live = await resolveMedicalApplicabilityWithPublicHealth(query(), deps({ "/api/aor/travel-health": payload, "/api/aor/travel-notices": { available: true, notices: [] }, "/api/aor/health-outbreaks": { available: true, outbreaks: [] } }, store));
+  assert.equal(live.requirements.filter((item) => item.layer === "public_health").length, 2);
+  assert.ok(live.requirements.filter((item) => item.layer === "public_health").every((item) => item.status === "CONDITIONAL"));
+  assert.ok(await store.get("aor-intel:v4:cdc-travelers-health:KE"));
 });
 
 test("CDC section extraction ignores navigation labels and retains recommendation evidence", async () => {
