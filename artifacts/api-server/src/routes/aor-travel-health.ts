@@ -101,11 +101,13 @@ function linksFromHtml(value: string): SourceLink[] {
 }
 
 function section(raw: string, start: string, end: string) {
-  const lower = raw.toLowerCase();
-  const startAt = lower.indexOf(start.toLowerCase());
-  if (startAt < 0) return "";
-  const endAt = lower.indexOf(end.toLowerCase(), startAt + start.length);
-  return raw.slice(startAt, endAt < 0 ? raw.length : endAt);
+  // The table of contents repeats these labels before the actual sections.
+  // Match headings, rather than the first occurrence of their text in a link.
+  const headings = [...raw.matchAll(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/gi)];
+  const first = headings.find((heading) => normalize(plainText(heading[1])) === normalize(start));
+  if (!first || first.index === undefined) return "";
+  const last = headings.find((heading) => heading.index! > first.index! && normalize(plainText(heading[1])) === normalize(end));
+  return raw.slice(first.index, last?.index ?? raw.length);
 }
 
 function tableRows(raw: string) {
@@ -249,7 +251,7 @@ function diseaseCategory(value: string) {
   return value || "Other";
 }
 
-function parseTravelHealth(country: string, raw: string, sourceUrl: string, cacheState: "fresh" | "refreshed" | "stale") {
+export function parseTravelHealth(country: string, raw: string, sourceUrl: string, cacheState: "fresh" | "refreshed" | "stale") {
   const vaccineSection = section(raw, "Vaccines and Medicines", "Non-Vaccine-Preventable Diseases");
   const diseaseSection = section(raw, "Non-Vaccine-Preventable Diseases", "Stay Healthy and Safe");
   const noticeSection = section(raw, "Travel Health Notices", "Vaccines and Medicines");

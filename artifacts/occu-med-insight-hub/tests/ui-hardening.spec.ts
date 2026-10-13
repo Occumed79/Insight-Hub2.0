@@ -289,23 +289,16 @@ test("core intelligence routes load through lazy boundaries without browser erro
   expect(pageErrors).toEqual([]);
 });
 
-test("reviewed intelligence hierarchy aliases and calculator workstation remain enforced", async ({ page }) => {
+test("held calculator routes preserve navigation aliases without loading retired content", async ({ page }) => {
   const pageErrors = collectPageErrors(page);
-
   await page.goto("/industry-injury-benchmarks");
-  await expect(page.getByRole("heading", { name: "Industry Impact Calculator", exact: true })).toBeVisible();
-  await expect(page.getByLabel("Workforce size (headcount or FTE)")).toBeVisible();
+  await expect(page.locator('[data-rebuild-hold="true"][data-workspace="industry-impact"]')).toBeVisible();
   await expect(page.locator('a[aria-current="page"]').filter({ hasText: "Industry Impact Calculator" })).toHaveCount(2);
-  await expect(page.locator('nav[aria-label="Insight Hub intelligence tools"] a').filter({ hasText: "Industry Injury Benchmarks" })).toHaveCount(0);
   await expectNoDocumentOverflow(page);
-
   await page.goto("/occupational-calculators");
-  await expect(page.getByRole("heading", { name: "Occupational Calculators", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Workforce Health" }).click();
-  await expect(page.getByText("Age-Based Chronic Conditions", { exact: true })).toBeVisible();
-  await expect(page.getByText("Aggravation & Comorbidity Overlap", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-rebuild-hold="true"][data-workspace="occupational-calculators"]')).toBeVisible();
+  await expect(page.locator("main")).toBeEmpty();
   await expectNoDocumentOverflow(page);
-
   expect(pageErrors).toEqual([]);
 });
 
@@ -365,13 +358,11 @@ test("known entity automatically loads federal awards", async ({ page }) => {
   await expect(page.getByText("No employer selected")).toHaveCount(0);
 });
 
-test("calculators open with clearly labeled non-zero sample", async ({ page }) => {
-  await page.route("**/api/occupational-discovery/bls-overview", (route) => fulfillJson(route, { ok: true, sectors: [] }));
+test("calculator rebuild hold does not expose legacy sample calculations", async ({ page }) => {
   await page.goto("/occupational-calculators");
-  await expect(page.getByText(/Sample scenario — replace with employer values/i)).toBeVisible();
-  await expect(page.getByText("3.2", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /Reset shared context/i }).click();
-  await expect(page.getByText("Waiting for inputs")).toBeVisible();
+  await expect(page.locator('[data-rebuild-hold="true"][data-workspace="occupational-calculators"]')).toBeVisible();
+  await expect(page.locator("main")).toBeEmpty();
+  await expect(page.getByText(/Sample scenario — replace with employer values/i)).toHaveCount(0);
 });
 
 test("legal intelligence auto-loads a known entity and excludes generic litigation", async ({ page }) => {
@@ -388,17 +379,13 @@ test("legal intelligence auto-loads a known entity and excludes generic litigati
   await expect(page.getByText("Vendor v. V2X", { exact: true })).toHaveCount(0);
 });
 
-test("SEC resolves the Insight Hub roster and automatically requests EDGAR filings", async ({ page }) => {
-  let feedRequests = 0;
-  await page.addInitScript(() => sessionStorage.clear());
-  await page.route("**/api/entities/roster", (route) => fulfillJson(route, { entities: [{ id: "v2x", name: "V2X", source: "prospect" }, { id: "dynamic", name: "Dynamic Public Corp", source: "client" }] }));
-  await page.route("**/api/sec-filings/search?**", (route) => fulfillJson(route, { query: "Dynamic Public Corp", issuers: [{ cik: "0000123456", name: "Dynamic Public Corp", ticker: "DPC", exchange: "NYSE" }], source: "SEC", fetchedAt: "2026-08-20" }));
-  await page.route("**/api/sec-filings/feed", (route) => { feedRequests += 1; return fulfillJson(route, { startedAt: "2026-08-20", completedAt: "2026-08-20", source: "SEC EDGAR", freshness: "live", issuerCount: 2, filingCount: 1, forms: ["10-K"], errors: [], filings: [{ id: "f1", cik: "0001601548", companyName: "V2X, Inc.", ticker: "VVX", accessionNumber: "1", form: "10-K", filingDate: "2026-08-01", isXbrl: true, isInlineXbrl: true, filingUrl: "https://sec.gov/f1" }] }); });
+test("SEC rebuild hold retains its route without issuing EDGAR or roster requests", async ({ page }) => {
+  const requests: string[] = [];
+  page.on("request", (request) => { if (/\/api\/(sec-filings\/|entities\/roster)/.test(request.url())) requests.push(request.url()); });
   await page.goto("/sec-filings");
-  await expect(page.getByText("V2X, Inc.", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Dynamic Public Corp", { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /10-K/ }).first()).toBeVisible();
-  expect(feedRequests).toBeGreaterThan(0);
+  await expect(page.locator('[data-rebuild-hold="true"][data-workspace="sec-filings"][data-page-identity="sec-filings"]')).toBeVisible();
+  await expect(page.locator("main")).toBeEmpty();
+  expect(requests).toEqual([]);
 });
 
 test("Federal pipeline keeps hardware out, validates type evidence, and exposes SAM zero diagnostics", async ({ page }) => {
@@ -422,10 +409,9 @@ test("Federal pipeline keeps hardware out, validates type evidence, and exposes 
   await expect(page.getByText("Gantry crane roof painting", { exact: true })).toHaveCount(0);
 });
 
-test("industry impact sample is non-zero, labeled, and clearable", async ({ page }) => {
+test("industry impact rebuild hold does not expose legacy sample estimates", async ({ page }) => {
   await page.goto("/industry-impact-calculator");
-  await expect(page.getByText(/Demo \/ sample scenario — replace with employer values/i)).toBeVisible();
-  await expect(page.getByText("16.0", { exact: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Clear sample scenario" }).click();
-  await expect(page.getByText("16.0", { exact: true })).toHaveCount(0);
+  await expect(page.locator('[data-rebuild-hold="true"][data-workspace="industry-impact"]')).toBeVisible();
+  await expect(page.locator("main")).toBeEmpty();
+  await expect(page.getByText(/Demo \/ sample scenario — replace with employer values/i)).toHaveCount(0);
 });

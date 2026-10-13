@@ -1,6 +1,6 @@
 import type { CommandId } from "./aor-directory";
 
-export type GlobeView = {
+export type MapView = {
   level: "world" | "aor" | "country";
   aorId: CommandId | null;
   /** Directory location id (e.g. "KEN", "GEO:UNITED_STATES_HAWAII"). */
@@ -9,4 +9,3 @@ export type GlobeView = {
   splitIso3: string | null;
   nonce: number;
 };
-export type GlobeStatus = { state: "loading" | "ready" | "error"; message?: string; fatal?: boolean; retryable?: boolean };

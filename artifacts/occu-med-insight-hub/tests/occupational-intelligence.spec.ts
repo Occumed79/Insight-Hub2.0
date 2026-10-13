@@ -195,40 +195,26 @@ test("Occupational Data Explorer renders official sources through the working we
   await expectNoHorizontalOverflow(page);
 });
 
-test("Industry Impact uses the reviewed workforce-driven BLS scenario model", async ({ page }) => {
+test("industry-impact hold does not invoke the preserved legacy workspace", async ({ page }) => {
+  const requests: string[] = [];
+  page.on("request", (request) => { if (new RegExp('/api/(bls|occupational-discovery)/').test(request.url())) requests.push(request.url()); });
   await page.goto("/industry-impact-calculator");
-  await expect(page.getByRole("heading", { name: "Industry Impact Calculator" })).toBeVisible();
-  await expect(page.getByText("Prepared BLS industry library", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /Construction/ }).first().click();
-  await page.getByLabel("Workforce size (headcount or FTE)").fill("100");
-  await page.getByLabel("Observed employer TRIR").fill("4");
-  await page.getByLabel("Target TRIR").fill("2");
-  await expect(page.getByText("Affected workers / recordables", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Employer vs official BLS benchmark", { exact: true })).toBeVisible();
-  await expect(page.getByText("Five-year linear scenario path", { exact: true })).toBeVisible();
-  await expectNoHorizontalOverflow(page);
+  const workspace = page.locator('[data-rebuild-hold="true"][data-workspace="industry-impact"]');
+  await expect(workspace).toBeVisible();
+  await expect(workspace.locator("main")).toBeEmpty();
+  await expect(workspace.locator("main")).toHaveAttribute("aria-hidden", "true");
+  expect(requests).toEqual([]);
 });
 
-test("Calculator workstation exposes workforce health, live O*NET job evidence, readiness, and schedule exposure", async ({ page }) => {
+test("occupational-calculators hold does not invoke the preserved legacy workspace", async ({ page }) => {
+  const requests: string[] = [];
+  page.on("request", (request) => { if (new RegExp('/api/occupational-discovery/').test(request.url())) requests.push(request.url()); });
   await page.goto("/occupational-calculators");
-  await expect(page.getByRole("heading", { name: "Occupational Calculators" })).toBeVisible();
-  await expect(page.getByText("11", { exact: true }).first()).toBeVisible();
-
-  await page.getByRole("button", { name: "Workforce Health" }).click();
-  await expect(page.getByText("Age-Based Chronic Conditions", { exact: true })).toBeVisible();
-  await expect(page.getByText("Aggravation & Comorbidity Overlap", { exact: true })).toBeVisible();
-
-  await page.getByRole("button", { name: "Job & Exposure" }).click();
-  await page.getByRole("button", { name: /Condition × Job Demands/ }).click();
-  await page.getByPlaceholder("aircraft mechanic").fill("Aircraft mechanic");
-  await page.getByRole("button", { name: "Lookup", exact: true }).click();
-  await expect(page.getByText("Aircraft Mechanics and Service Technicians", { exact: true }).first()).toBeVisible();
-
-  await page.getByRole("button", { name: "Readiness" }).click();
-  await expect(page.getByText("Deployment Readiness", { exact: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Job & Exposure" }).click();
-  await expect(page.getByText("Shift & Fatigue Exposure", { exact: true }).first()).toBeVisible();
-  await expectNoHorizontalOverflow(page);
+  const workspace = page.locator('[data-rebuild-hold="true"][data-workspace="occupational-calculators"]');
+  await expect(workspace).toBeVisible();
+  await expect(workspace.locator("main")).toBeEmpty();
+  await expect(workspace.locator("main")).toHaveAttribute("aria-hidden", "true");
+  expect(requests).toEqual([]);
 });
 
 test("O*NET Master Tool renders the official O*NET site through the working webview", async ({ page }) => {
@@ -241,17 +227,13 @@ test("O*NET Master Tool renders the official O*NET site through the working webv
   await expectNoHorizontalOverflow(page);
 });
 
-test("Drug Checker surfaces FDA label evidence and regimen overlap without fabricated severity", async ({ page }) => {
+test("drug-checker hold does not invoke the preserved legacy workspace", async ({ page }) => {
+  const requests: string[] = [];
+  page.on("request", (request) => { if (new RegExp('/api/drug-checker/').test(request.url())) requests.push(request.url()); });
   await page.goto("/drug-checker");
-  await page.getByPlaceholder("Add medication").fill("gabapentin");
-  await page.getByRole("button", { name: /gabapentin 300 MG Oral Capsule/ }).click();
-  await expect(page.getByText("FDA label intelligence", { exact: true })).toBeVisible();
-  await expect(page.getByText("Alertness / psychomotor").first()).toBeVisible();
-
-  await page.getByPlaceholder("Add medication").fill("metoprolol");
-  await page.getByRole("button", { name: /metoprolol succinate 50 MG Extended Release Oral Tablet/ }).click();
-  await expect(page.getByText("Cross-medication evidence", { exact: true })).toBeVisible();
-  await expect(page.getByText("Shared occupational domains", { exact: true })).toBeVisible();
-  await expect(page.getByText("No fabricated interaction severity score is calculated.")).toBeVisible();
-  await expectNoHorizontalOverflow(page);
+  const workspace = page.locator('[data-rebuild-hold="true"][data-workspace="drug-checker"]');
+  await expect(workspace).toBeVisible();
+  await expect(workspace.locator("main")).toBeEmpty();
+  await expect(workspace.locator("main")).toHaveAttribute("aria-hidden", "true");
+  expect(requests).toEqual([]);
 });

@@ -11,8 +11,31 @@ import { publicHealthFromAdapterResults, resolveMedicalApplicabilityWithPublicHe
 import { cdcGuidanceAdapter } from "../aor-intel/adapters";
 import { resolveCountry } from "../aor-intel/geo";
 import type { AdapterContext } from "../aor-intel/types";
+import { parseTravelHealth } from "../../routes/aor-travel-health";
 
 const NOW = new Date("2026-10-12T12:00:00Z");
+
+test("CDC section extraction ignores navigation labels and retains recommendation evidence", async () => {
+  const html = `<html><nav><a href="#vaccines">Vaccines and Medicines</a><a href="#diseases">Non-Vaccine-Preventable Diseases</a><a href="#safe">Stay Healthy and Safe</a></nav>
+    <h3>Travel Health Notices</h3><h4>Example destination notice</h4>
+    <h3>Vaccines and Medicines</h3><table>
+      <tr><th>Vaccines for disease</th><th>Recommendations</th></tr>
+      <tr><td>Hepatitis A</td><td>Recommended for unvaccinated travelers.</td></tr>
+      <tr><td>Malaria</td><td>CDC recommends prescription medicine in the risk areas listed here.</td></tr>
+    </table><h3>Non-Vaccine-Preventable Diseases</h3><table>
+      <tr><td>Leptospirosis</td><td>Freshwater contact</td><td>Avoid contaminated water.</td></tr>
+    </table><h3>Stay Healthy and Safe</h3><table><tr><td>Page furniture</td><td>Excluded</td></tr></table></html>`;
+  const payload = parseTravelHealth("Kenya", html, "https://wwwnc.cdc.gov/travel/destinations/traveler/none/Kenya", "refreshed");
+  assert.deepEqual(payload.vaccines.map((item) => item.name), ["Hepatitis A"]);
+  assert.equal(payload.malaria?.name, "Malaria");
+  assert.deepEqual(payload.diseases.map((item) => item.name), ["Leptospirosis"]);
+  assert.deepEqual(payload.notices, ["Example destination notice"]);
+  const result = await cdcGuidanceAdapter({ country: resolveCountry("KE")!, now: () => NOW, internalJson: async () => payload, externalJson: async () => ({}), env: () => undefined });
+  const mapped = publicHealthFromAdapterResults([result]);
+  assert.ok(mapped.inputs.some((item) => item.topic === "Hepatitis A" && item.kind === "recommendation"));
+  assert.ok(mapped.inputs.some((item) => item.category === "malaria_chemoprophylaxis"));
+  assert.ok(mapped.inputs.every((item) => item.url === payload.sourceUrl));
+});
 
 /* ---------------------------------------------------------------- */
 /* Historical host-nation confidence                                 */
