@@ -8,12 +8,30 @@ import {
   isUnconfirmedHistoricalRule, resolveMedicalApplicability, type MedicalApplicabilityQuery, type MedicalApplicabilityResult, type RequirementItem,
 } from "../aor-intel/command-policy/medical-applicability";
 import { publicHealthFromAdapterResults, resolveMedicalApplicabilityWithPublicHealth } from "../aor-intel/medical-public-health";
-import { cdcGuidanceAdapter } from "../aor-intel/adapters";
+import { cdcGuidanceAdapter, classifyRecommendation, classifyRequirement } from "../aor-intel/adapters";
 import { resolveCountry } from "../aor-intel/geo";
 import type { AdapterContext } from "../aor-intel/types";
 import { parseTravelHealth } from "../../routes/aor-travel-health";
 
 const NOW = new Date("2026-10-12T12:00:00Z");
+
+test("mixed CDC yellow-fever guidance stays conditional and is mapped only once", async () => {
+  const wording = "Vaccine is recommended for all travelers &ge;9 months old except as follows. Vaccine is generally not recommended for travel limited to Nairobi. Direct travel from United States: Vaccine is not required. Travel from countries with risk for YF virus transmission: Vaccine is required for travelers &ge;1 year old.";
+  const html = `<h3>Vaccines and Medicines</h3><table><tr><td>Yellow Fever</td><td>${wording}</td></tr></table><h3>Non-Vaccine-Preventable Diseases</h3><h3>Stay Healthy and Safe</h3>`;
+  const payload = parseTravelHealth("Kenya", html, "https://wwwnc.cdc.gov/travel/destinations/traveler/none/Kenya", "refreshed");
+  assert.match(payload.yellowFever?.recommendation ?? "", /≥9 months/);
+  assert.equal(payload.yellowFever?.status, "consider");
+  assert.equal(classifyRecommendation(payload.yellowFever!.recommendation), "selected_travelers");
+  assert.equal(classifyRequirement(payload.yellowFever!.recommendation), "entry_required_after_transit");
+  const adapter = await cdcGuidanceAdapter({ country: resolveCountry("KE")!, now: () => NOW, internalJson: async () => payload, externalJson: async () => ({}), env: () => undefined });
+  const inputs = publicHealthFromAdapterResults([adapter]).inputs;
+  assert.equal(inputs.filter((item) => item.kind === "recommendation").length, 1);
+  assert.equal(inputs.filter((item) => item.kind === "entry_requirement_language").length, 1);
+  const evaluated = resolveMedicalApplicability({ destination: "Kenya", publicHealth: inputs, now: NOW });
+  const publicItems = evaluated.requirements.filter((item) => item.layer === "public_health");
+  assert.equal(publicItems.length, 2);
+  assert.ok(publicItems.every((item) => item.status === "CONDITIONAL"));
+});
 
 test("CDC section extraction ignores navigation labels and retains recommendation evidence", async () => {
   const html = `<html><nav><a href="#vaccines">Vaccines and Medicines</a><a href="#diseases">Non-Vaccine-Preventable Diseases</a><a href="#safe">Stay Healthy and Safe</a></nav>

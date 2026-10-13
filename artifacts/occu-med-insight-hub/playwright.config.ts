@@ -7,24 +7,26 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: 1,
+  workers: process.env.CI ? 2 : 1,
   reporter: process.env.CI
     ? [["line"], ["html", { outputFolder: "playwright-report", open: "never" }]]
     : "line",
-  timeout: 30_000,
+  timeout: 60_000,
   expect: { timeout: 7_500 },
   use: {
     baseURL,
     browserName: "chromium",
     // Environments whose Chromium build differs from Playwright's pinned one can point at theirs with PW_CHROMIUM_PATH.
-    // Software WebGL (SwiftShader) so the CesiumJS globe can be exercised on machines without a GPU; machines with a GPU are unaffected.
+    // Software WebGL for the injury hologram on machines without a GPU.
     launchOptions: {
       args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"],
       ...(process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : {}),
     },
-    trace: "retain-on-failure",
+    // Record retries rather than every successful interaction. Video startup and
+    // tracing every SVG snapshot consumed much of the test budget on CI runners.
+    trace: "on-first-retry",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: "off",
   },
   projects: [
     {

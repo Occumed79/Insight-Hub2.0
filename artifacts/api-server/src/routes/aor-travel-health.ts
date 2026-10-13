@@ -64,16 +64,22 @@ function decodeEntities(value: string) {
     .replace(/&ndash;/gi, "–")
     .replace(/&mdash;/gi, "—")
     .replace(/&deg;/gi, "°")
+    .replace(/&ge;|&geq;/gi, "≥")
+    .replace(/&le;|&leq;/gi, "≤")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&lsquo;|&rsquo;/gi, "'")
+    .replace(/&ldquo;|&rdquo;/gi, '"')
     .replace(/&#(\d+);/g, (_match, code) => String.fromCharCode(Number(code)));
 }
 
 function plainText(value: string) {
-  return decodeEntities(value)
+  return decodeEntities(value
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<br\s*\/?>/gi, " ")
     .replace(/<li[^>]*>/gi, " • ")
-    .replace(/<[^>]+>/g, " ")
+    .replace(/<[^>]+>/g, " "))
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -140,7 +146,11 @@ function headingDiseases(raw: string) {
 
 function recommendationStatus(recommendation: string) {
   const normalized = normalize(recommendation);
-  if (/not recommended|not required|no malaria transmission|none/.test(normalized)) return "not-routinely-recommended";
+  const negative = /not recommended|not required|no malaria transmission|none/g;
+  if (negative.test(normalized)) {
+    if (/recommended|recommends|should be vaccinated|up to date/.test(normalized.replace(negative, ""))) return "consider";
+    return "not-routinely-recommended";
+  }
   if (/recommended|should be vaccinated|up to date|make sure you are up to date/.test(normalized)) return "recommended";
   if (/consider|may get|risk|some travelers/.test(normalized)) return "consider";
   return "review";

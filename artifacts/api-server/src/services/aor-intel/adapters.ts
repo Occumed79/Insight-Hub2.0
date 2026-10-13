@@ -23,7 +23,13 @@ const TRANSIT_LANGUAGE = /\b(arriving from|coming from|travel(?:ing|ling)? from|
 export function classifyRecommendation(textValue: string, name = ""): RecommendationType {
   const t = normalize(textValue);
   if (/routine/.test(normalize(name)) || /routine vaccines/.test(t)) return "routine";
-  if (/not recommended|not routinely recommended|no malaria transmission|no risk/.test(t)) return "not_routinely_recommended";
+  const negative = /not recommended|not routinely recommended|no malaria transmission|no risk/g;
+  if (negative.test(t)) {
+    // A regional exception does not negate the recommendation for everyone else.
+    const affirmative = t.replace(negative, "");
+    if (/recommended|recommends|should be vaccinated|up to date/.test(affirmative)) return "selected_travelers";
+    return "not_routinely_recommended";
+  }
   if (/some travelers|certain travelers|selected travelers|if you (?:will|plan|are going)|depending on|for travelers who|travelers at (?:higher|increased)/.test(t)) return "selected_travelers";
   if (/consider|may get|talk to your|discuss/.test(t)) return "consider";
   if (/recommended|should be vaccinated|up to date|make sure you are up to date/.test(t)) return "recommended";
@@ -31,6 +37,10 @@ export function classifyRecommendation(textValue: string, name = ""): Recommenda
 }
 
 export function classifyRequirement(textValue: string): RequirementType | null {
+  // CDC may say direct travel needs no certificate, while arrivals from risk
+  // countries do. Preserve that transit condition before considering negation.
+  const affirmative = textValue.replace(/\bnot required|no (?:proof|certificate)|is not a requirement\b/gi, "");
+  if (REQUIREMENT_LANGUAGE.test(affirmative) && TRANSIT_LANGUAGE.test(textValue)) return "entry_required_after_transit";
   if (NEGATED_REQUIREMENT.test(textValue)) return "not_required";
   if (!REQUIREMENT_LANGUAGE.test(textValue)) return null;
   return TRANSIT_LANGUAGE.test(textValue) ? "entry_required_after_transit" : "entry_required";
@@ -244,7 +254,7 @@ export async function cdcGuidanceAdapter(ctx: AdapterContext): Promise<AdapterRe
   for (const item of arr(payload.vaccines).map(row)) {
     const name = str(item.name);
     const recText = str(item.recommendation);
-    if (!name) continue;
+    if (!name || (/yellow fever/i.test(name) && str(row(payload.yellowFever).name))) continue;
     const routine = /routine/i.test(name);
     records.push(makeRecord(ctx, "cdc", {
       ...common,
