@@ -47,7 +47,7 @@ export default defineConfig({
     },
     {
       // The real AOR registry and medical-applicability router, for the AOR Factors browser tests.
-      command: "pnpm --filter @workspace/api-server exec tsx scripts/aor-test-server.ts",
+      command: "pnpm --filter @workspace/api-server exec node --import tsx scripts/aor-test-server.ts",
       url: "http://127.0.0.1:4180/health",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,

@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { intelligenceJson } from "@/lib/intelligence-request";
 import type { AnyRecord, OshaCaseProfile } from "./signals";
 
 export type LookupStatus = "idle" | "resolving" | "correlating" | "mapping" | "ready" | "error";
@@ -17,13 +18,6 @@ const INITIAL: LookupState = { status: "idle", query: "", onet: null, osha: null
 /** Shortest time the "analysis" choreography stays up, so fast responses still read as analysis. */
 const MIN_ANALYSIS_MS = 1500;
 
-async function loadJson(url: string): Promise<any> {
-  const response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload?.error || `Request failed (${response.status}).`);
-  return payload;
-}
-
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -33,17 +27,22 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export function useOccupationLookup() {
   const [state, setState] = useState<LookupState>(INITIAL);
   const run = useRef(0);
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => { run.current += 1; request.current?.abort(); }, []);
 
   const lookup = useCallback(async (raw: string) => {
     const query = raw.trim();
     if (!query) return;
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
     const token = ++run.current;
     const started = performance.now();
-    const alive = () => token === run.current;
+    const alive = () => token === run.current && !controller.signal.aborted;
     setState({ ...INITIAL, status: "resolving", query });
 
     try {
-      const onetPayload = await loadJson(`/api/occupational-discovery/onet/profile?keyword=${encodeURIComponent(query)}`);
+      const onetPayload = await intelligenceJson<AnyRecord>(`/api/occupational-discovery/onet/profile?keyword=${encodeURIComponent(query)}`, { signal: controller.signal });
       if (!alive()) return;
       const profile = onetPayload?.profile ?? null;
       const resolved = profile?.occupation;
@@ -56,7 +55,7 @@ export function useOccupationLookup() {
           const params = new URLSearchParams();
           if (resolved.code) params.set("soc", resolved.code);
           if (resolved.title) params.set("title", resolved.title);
-          const payload = await loadJson(`/api/occupational-discovery/osha-occupation-profile?${params.toString()}`);
+          const payload = await intelligenceJson<AnyRecord>(`/api/occupational-discovery/osha-occupation-profile?${params.toString()}`, { signal: controller.signal });
           osha = payload?.profile ?? null;
         } catch (error) {
           oshaError = error instanceof Error ? error.message : "OSHA occupation case profile failed.";
@@ -79,6 +78,7 @@ export function useOccupationLookup() {
 
   const reset = useCallback(() => {
     run.current += 1;
+    request.current?.abort();
     setState(INITIAL);
   }, []);
 

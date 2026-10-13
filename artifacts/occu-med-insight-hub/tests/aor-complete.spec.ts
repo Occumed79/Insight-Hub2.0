@@ -362,3 +362,26 @@ test("the setup notice never covers the search results, and Escape closes the la
   await page.keyboard.press("Escape");
   await expect(page.getByLabel("Map layers")).toHaveCount(0);
 });
+
+
+test("a failed globe render recovers to an interactive map", async ({ page }) => {
+  test.setTimeout(90_000);
+  await routeAorBackend(page);
+  await routeIonStandIn(page, { imagery: "local" });
+  await page.addInitScript(() => {
+    const draw = WebGL2RenderingContext.prototype.drawElements;
+    WebGL2RenderingContext.prototype.drawElements = function(...args) {
+      if ((window as unknown as { failGlobeRender?: boolean }).failGlobeRender) throw new Error("GPU render failed during navigation");
+      return draw.apply(this, args);
+    };
+  });
+  await page.goto("/aor-factors");
+  await expect(page.locator("canvas")).toHaveCount(1, { timeout: 60_000 });
+  await page.evaluate(() => { (window as unknown as { failGlobeRender: boolean }).failGlobeRender = true; });
+  await page.getByTestId("aor-chip-EUCOM").click();
+  await expect(page.getByTestId("aor-flat-map")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".cesium-widget-errorPanel")).toHaveCount(0);
+  await search(page, "Germany");
+  await page.getByTestId("aor-search-result").first().click();
+  await expect(page.getByTestId("aor-panel-title")).toHaveText("Germany");
+});

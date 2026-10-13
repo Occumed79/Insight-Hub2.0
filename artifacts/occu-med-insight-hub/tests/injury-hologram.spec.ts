@@ -172,13 +172,8 @@ test.describe("scan lifecycle", () => {
     const mask = await page.locator(".hs-scan-clip").evaluate((el) => getComputedStyle(el).maskImage || getComputedStyle(el).webkitMaskImage);
     expect(mask).toMatch(/hologram-silhouette\.png/);
 
-    // WebGL (Strands) is live while scanning, when the browser supports it.
-    const webgl2 = await page.evaluate(() => !!document.createElement("canvas").getContext("webgl2"));
-    if (webgl2) {
-      const canvases = page.locator(".hs-scan canvas, .hi-loading-orb canvas");
-      await expect(canvases.first()).toBeVisible();
-      expect(await canvases.count()).toBeGreaterThanOrEqual(2);
-    }
+    // The temporary scanner uses CSS/SVG, so it does not allocate WebGL contexts.
+    await expect(page.locator(".hs-stage canvas")).toHaveCount(0);
   });
 
   test("submitting an occupation runs a temporary scan that ends when the lookup completes", async ({ page }) => {
@@ -544,4 +539,39 @@ test.describe("responsive layout", () => {
       expect(problems).toEqual([]);
     });
   }
+});
+
+
+test("a stalled occupation request ends processing and allows another search", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.clock.install();
+  const gate = await mockApis(page, { hold: true });
+  await page.goto("/injuries-medical-conditions");
+  await waitForBootToFinish(page);
+  await runOccupation(page);
+  await expect(page.getByRole("status")).toContainText(/resolving occupation/i);
+  await page.clock.fastForward(45_000);
+  await expect(page.getByRole("status")).toContainText(/timed out/i);
+  await expect(page.getByRole("button", { name: /Build injury profile/i })).toBeEnabled();
+  await page.clock.fastForward(500);
+  await expect(scan(page)).toHaveCount(0);
+  gate.release();
+});
+
+test("switching health modes cancels the previous mode's processing", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.clock.install();
+  const gate = await mockApis(page, { hold: true });
+  await page.goto("/injuries-medical-conditions");
+  await waitForBootToFinish(page);
+  await runOccupation(page);
+  await page.getByRole("tab", { name: "Medical Conditions" }).click();
+  await page.getByLabel("MEDICAL CONDITION").fill("diab");
+  await page.getByRole("button", { name: "Diabetes", exact: true }).click();
+  await page.getByRole("tab", { name: "Injury Intelligence" }).click();
+  await page.clock.fastForward(500);
+  await expect(page.getByRole("status")).toContainText(/standby/i);
+  await expect(scan(page)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Build injury profile/i })).toBeEnabled();
+  gate.release();
 });

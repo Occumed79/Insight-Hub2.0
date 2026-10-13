@@ -98,6 +98,10 @@ export function AorCesiumGlobe(props: Props) {
     let viewer: Viewer | null = null;
     // A fatal report is final: later terrain/ready/render events must not overwrite it before the workspace has switched to the 2D map.
     let failed = false;
+    let startupTimer: number | undefined;
+    let handler: InstanceType<CesiumModule["ScreenSpaceEventHandler"]> | null = null;
+    let removeReadyListener: (() => void) | undefined;
+    let removeContextListener: (() => void) | undefined;
     const report = (next: GlobeStatus) => { if (failed || cancelled) return; if (next.state === "error" && next.fatal) failed = true; propsRef.current.onStatus(next); };
     (async () => {
       try {
@@ -112,14 +116,14 @@ export function AorCesiumGlobe(props: Props) {
         const imageryLayer = Cesium.ImageryLayer.fromProviderAsync(Cesium.createWorldImageryAsync({ style: Cesium.IonWorldImageryStyle.AERIAL_WITH_LABELS }));
         const terrain = Cesium.Terrain.fromWorldTerrain({ requestVertexNormals: true, requestWaterMask: true });
         imageryLayer.errorEvent.addEventListener((error: { message?: string }) => {
-          report({ state: "error", fatal: true, message: `Cesium ion imagery did not load${error?.message ? `: ${error.message}` : ""}. The ion token may be invalid or ion unreachable` });
+          report({ state: "error", fatal: true, retryable: true, message: `Cesium ion imagery did not load${error?.message ? `: ${error.message}` : ""}. The ion token may be invalid or ion unreachable` });
         });
         terrain.errorEvent.addEventListener((error: { message?: string }) => {
           const reason = error?.message || "";
           // A token rejection / exhausted quota needs the alternate account,
           // not a terrain-only fallback that keeps using a throttled token.
           if (/\b(401|403|429)\b|rate[\s-]*limit|quota|too many requests|unauthorized|forbidden|invalid token/i.test(reason)) {
-            report({ state: "error", fatal: true, message: `Cesium ion World Terrain authorization or rate limit failure${reason ? `: ${reason}` : ""}.` });
+            report({ state: "error", fatal: true, retryable: true, message: `Cesium ion World Terrain authorization or rate limit failure${reason ? `: ${reason}` : ""}.` });
             return;
           }
           // Other terrain errors keep imagery visible on a smooth ellipsoid.
@@ -132,6 +136,7 @@ export function AorCesiumGlobe(props: Props) {
           animation: false, timeline: false, baseLayerPicker: false, geocoder: false, homeButton: false,
           sceneModePicker: false, navigationHelpButton: false, fullscreenButton: false, infoBox: false,
           selectionIndicator: false, vrButton: false,
+          showRenderLoopErrors: false, targetFrameRate: 30,
           // Render on change instead of every frame: the globe is idle most of the time and the effects below request a frame when they change the scene.
           requestRenderMode: true, maximumRenderTimeChange: Number.POSITIVE_INFINITY,
           baseLayer: imageryLayer,
@@ -144,8 +149,8 @@ export function AorCesiumGlobe(props: Props) {
         scene.globe.showGroundAtmosphere = true;
         scene.backgroundColor = Cesium.Color.fromCssColorString("#01050a");
         // Cesium-native image quality only: device-resolution rendering, finer terrain/imagery tiles and edge smoothing.
-        viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, 2);
-        scene.globe.maximumScreenSpaceError = 1.6;
+        viewer.resolutionScale = 1;
+        scene.globe.maximumScreenSpaceError = 2;
         scene.postProcessStages.fxaa.enabled = true;
         viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
         camera.setView({ destination: Cesium.Cartesian3.fromDegrees(WORLD_VIEW.lon, WORLD_VIEW.lat, WORLD_VIEW.height) });
@@ -164,15 +169,18 @@ export function AorCesiumGlobe(props: Props) {
           cluster.billboard.image = clusterIcon(entities.length);
         });
         const members = new Cesium.CustomDataSource("aor-members");
-        await viewer.dataSources.add(overlay);
-        await viewer.dataSources.add(members);
-        await viewer.dataSources.add(points);
+        // add() resolves asynchronously. Do not resume setup after a tab switch destroyed this viewer.
+        for (const source of [overlay, members, points]) {
+          if (cancelled || viewer.isDestroyed()) return;
+          await viewer.dataSources.add(source);
+        }
+        if (cancelled || viewer.isDestroyed()) return;
         overlayRef.current = overlay;
         membersRef.current = members;
         pointsRef.current = points;
         if (!cancelled) setRevision((value) => value + 1);
 
-        const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
         const groundPoint = (position: { x: number; y: number }) => {
           if (!viewer) return null;
           const ray = viewer.camera.getPickRay(new Cesium.Cartesian2(position.x, position.y));
@@ -224,20 +232,38 @@ export function AorCesiumGlobe(props: Props) {
           propsRef.current.onHoverCountry(hit ? directory?.byBoundaryIso2.get(hit.iso2)?.name ?? directory?.splitByBoundaryIso2.get(hit.iso2)?.name ?? hit.name : null);
         }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
-        // Report readiness once the first terrain/imagery frame has rendered.
-        const removeListener = viewer.scene.globe.tileLoadProgressEvent.addEventListener((remaining: number) => {
-          if (remaining === 0) { removeListener(); report({ state: "ready" }); }
+        // Only loaded tiles mean ready. A timer must not declare a blank or failed globe healthy.
+        removeReadyListener = viewer.scene.globe.tileLoadProgressEvent.addEventListener((remaining: number) => {
+          if (remaining === 0 && imageryLayer.ready) {
+            window.clearTimeout(startupTimer);
+            removeReadyListener?.();
+            removeReadyListener = undefined;
+            report({ state: "ready" });
+          }
         });
         viewer.scene.renderError.addEventListener((_scene: unknown, error: unknown) => {
-          report({ state: "error", message: error instanceof Error ? error.message : "Cesium render error." });
+          report({ state: "error", fatal: true, retryable: false, message: error instanceof Error ? error.message : "Cesium render error." });
         });
-        window.setTimeout(() => { report({ state: "ready" }); }, 12_000);
+        const canvas = viewer.scene.canvas;
+        const contextLost = (event: Event) => {
+          event.preventDefault();
+          report({ state: "error", fatal: true, retryable: false, message: "The graphics context was lost." });
+        };
+        canvas.addEventListener("webglcontextlost", contextLost);
+        removeContextListener = () => canvas.removeEventListener("webglcontextlost", contextLost);
+        startupTimer = window.setTimeout(() => {
+          report({ state: "error", fatal: true, retryable: true, message: "Cesium terrain and imagery timed out." });
+        }, 30_000);
       } catch (error) {
         report({ state: "error", fatal: true, message: error instanceof Error ? error.message : "Cesium failed to start." });
       }
     })();
     return () => {
       cancelled = true;
+      window.clearTimeout(startupTimer);
+      removeReadyListener?.();
+      removeContextListener?.();
+      if (handler && !handler.isDestroyed()) handler.destroy();
       viewerRef.current = null;
       overlayRef.current = null;
       pointsRef.current = null;
@@ -341,7 +367,7 @@ export function AorCesiumGlobe(props: Props) {
     const { index, view, directory, showAorShading } = props;
     if (!Cesium || !overlay || !index) return;
     overlay.entities.removeAll();
-    if (!directory || !showAorShading) return;
+    if (!directory || !showAorShading) { viewerRef.current?.scene.requestRender(); return; }
     const selectedLocation = view.locationId ? directory.byId.get(view.locationId) ?? null : null;
     const selectedIso2 = selectedLocation?.boundaryIso2 ?? (view.splitIso3 ? directory.splitByIso3.get(view.splitIso3)?.boundaryIso2 ?? null : null);
     for (const location of directory.directory.locations) {
@@ -414,7 +440,7 @@ export function AorCesiumGlobe(props: Props) {
         shaded.add(key);
         const entry = index.byIso2.get(record.geometry.iso2);
         if (entry) addCountryFill(Cesium, overlay, entry, DIMENSION_COLORS[record.dimension], 0.1, `layer-fill-${record.dimension}`);
-      } else if (record.geometry.type === "Point") {
+      } else if (record.geometry.type === "Point" && !points.entities.getById(`pt:${record.id}`)) {
         const [lon, lat] = record.geometry.coordinates;
         points.entities.add({
           id: `pt:${record.id}`,

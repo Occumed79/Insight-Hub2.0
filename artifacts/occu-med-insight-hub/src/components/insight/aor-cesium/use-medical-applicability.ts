@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { intelligenceJson } from "@/lib/intelligence-request";
 import { medicalQueryString, type MedicalApplicability, type MedicalInputs } from "./aor-medical-types";
 
 export type MedicalState = { result: MedicalApplicability | null; loading: boolean; error: string; revision: number };
@@ -28,10 +29,8 @@ export function useMedicalApplicability(destination: string | null, destinationI
     setState((current) => ({ result: changedDestination ? null : current.result, loading: true, error: "", revision: current.revision }));
     const timer = window.setTimeout(async () => {
       try {
-        const response = await fetch(`/api/aor/medical-applicability?${query}`, { headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal });
-        const payload = (await response.json().catch(() => ({}))) as MedicalApplicability;
+        const payload = await intelligenceJson<MedicalApplicability>(`/api/aor/medical-applicability?${query}`, { signal: controller.signal });
         if (sequence.current !== mine) return;
-        if (!response.ok && !payload.status) throw new Error(payload.error || `Medical applicability request failed (${response.status}).`);
         setState((current) => ({ result: payload, loading: false, error: payload.status === "LOCATION_NOT_FOUND" ? payload.error || "This location was not found in the directory." : "", revision: current.revision + 1 }));
       } catch (error) {
         if (controller.signal.aborted || sequence.current !== mine) return;

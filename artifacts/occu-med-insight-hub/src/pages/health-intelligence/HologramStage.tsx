@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   GROUP_LABEL,
   HOLOGRAM_IMAGE,
@@ -9,7 +9,6 @@ import {
 } from "./anatomy";
 import LoadingOrb from "./LoadingOrb";
 import { heatColor, indexByGroup, type Signal, type SignalMode } from "./signals";
-import Strands, { STRANDS_DEFAULTS, type StrandsParams } from "./Strands";
 
 const IMG_W = HOLOGRAM_IMAGE.width;
 const IMG_H = HOLOGRAM_IMAGE.height;
@@ -31,26 +30,10 @@ export interface HologramStageProps {
 
 /**
  * The scan is one coordinated sequence driven by the sphere: beams leave the sphere for each
- * head, then one shared Strands band sweeps both figures head -> feet at the same height. The
+ * head, then one shared light band sweeps both figures head -> feet at the same height. The
  * band is clipped to the body silhouettes so energy can only ever appear on the anatomy.
  */
 function BodyScan({ exiting }: { exiting: boolean }) {
-  const params = useRef<StrandsParams>({
-    ...STRANDS_DEFAULTS,
-    colors: ["#FFE9A8", "#FFB020", "#FFD24A", "#FF8A00"],
-    count: 6,
-    speed: 0.9,
-    amplitude: 0.45,
-    waviness: 1.4,
-    thickness: 0.5,
-    intensity: 0.8,
-    glow: 2.2,
-    taper: 3,
-    scale: 2.6,
-    saturation: 1.12,
-    opacity: 0.85,
-  });
-
   return (
     <div
       className={`hs-scan${exiting ? " is-exiting" : ""}`}
@@ -67,7 +50,7 @@ function BodyScan({ exiting }: { exiting: boolean }) {
       <div className="hs-scan-clip">
         <div className="hs-scan-band">
           <span className="hs-scan-trail" />
-          <div className="hs-scan-strands"><Strands paramsRef={params} maxDpr={1} /></div>
+          <div className="hs-scan-strands" />
           <span className="hs-scan-line" />
         </div>
       </div>
