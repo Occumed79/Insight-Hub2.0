@@ -99,7 +99,7 @@ test("Selecting a country shows evidence-linked What Matters Now with recommenda
   await expect(cards.filter({ hasText: "Yellow Fever vaccine" })).not.toContainText(/entry requirement/i);
 });
 
-test("AI briefing cites evidence; Yellow Book, WUENIC and environment factors appear in the panel", async ({ page }) => {
+test("AI briefing cites evidence; Yellow Book, WUENIC and environment evidence appears automatically in the panel", async ({ page }) => {
   await routeAorBackend(page);
   // These tests exercise the panel, so they run on the 2D map (no token): the panel and registry are the same on both engines, and
   // software-WebGL rendering of the 3D globe is covered by aor-complete.spec.ts.
@@ -107,9 +107,6 @@ test("AI briefing cites evidence; Yellow Book, WUENIC and environment factors ap
   await page.route("**/api/aor/global-watch", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, earthquakes: [], disasters: [] }) }));
   await page.route("**/api/aor/country-intel/synthesis?iso2=KE", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(kenyaSynthesis) }));
   await page.route("**/api/aor/country-intel?iso2=KE", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(kenyaIntel) }));
-  let lensBody: { workContext?: string } = {};
-  await page.route("**/api/aor/country-condition-lens", async (route) => { lensBody = route.request().postDataJSON(); await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, classification: "Reviewer consideration — not a determination", considerations: [] }) }); });
-
   await page.goto("/aor-factors");
   await page.getByLabel("Find a country or territory").fill("Ken");
   await page.getByRole("button", { name: /Kenya/ }).click();
@@ -128,18 +125,13 @@ test("AI briefing cites evidence; Yellow Book, WUENIC and environment factors ap
   await expect(panel).toContainText("MCV1 coverage 85%");
 
   await panel.getByRole("button", { name: /Environment/ }).first().click();
-  const heat = panel.getByRole("button", { name: "Heat exposure", exact: true });
-  await heat.click();
-  await expect(heat).toHaveAttribute("aria-pressed", "true");
-  await expect(panel).toContainText("Climatological reference");
-  await panel.getByRole("button", { name: "Night / circadian disruption", exact: true }).click();
-  await expect(panel).toContainText("no country data source");
-
+  await expect(panel).toContainText("Hottest month FEB");
+  await expect(panel.locator("input, select, textarea, [role='switch']")).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "Heat exposure", exact: true })).toHaveCount(0);
   await panel.getByTestId("aor-tab-summary").click();
-  await panel.getByText("Medical condition × deployment context").click();
-  await panel.getByPlaceholder("Condition").fill("asthma");
-  await panel.getByRole("button", { name: "Evaluate considerations" }).click();
-  await expect.poll(() => lensBody.workContext ?? "").toContain("Heat exposure; Night / circadian disruption");
+  await expect(panel).not.toContainText("Medical condition × deployment context");
+  await expect(panel.getByRole("button", { name: "Evaluate considerations" })).toHaveCount(0);
+
 });
 
 test("source-coordinate evidence focuses the 2D map without a globe", async ({ page }) => {
