@@ -2,11 +2,10 @@ import { useMemo, type ReactNode } from "react";
 import { AlertTriangle, ArrowUpRight, ChevronRight, Crosshair, Loader2, X } from "lucide-react";
 import { AorMedicalRequirements } from "./AorMedicalRequirements";
 import { COMMAND_VIEW, EVIDENCE_CLASS_LABEL, geographicClassLabel, type DirectoryIndex, type DirectoryLocation, type SplitParent } from "./aor-directory";
-import type { MedicalInputs } from "./aor-medical-types";
 import type { MedicalState } from "./use-medical-applicability";
 import {
-  DIMENSIONS, DIMENSION_COLORS, DIMENSION_LABELS, ENVIRONMENT_KEYS, ENVIRONMENT_LABELS, FRESHNESS_LABELS, STATUS_LABELS,
-  type CountryIntel, type Dimension, type EnvironmentKey, type EvidenceRecord, type Freshness, type Observation, type SourceStatus, type SynthesisResponse,
+  DIMENSIONS, DIMENSION_COLORS, DIMENSION_LABELS, FRESHNESS_LABELS, STATUS_LABELS,
+  type CountryIntel, type Dimension, type EvidenceRecord, type Freshness, type Observation, type SourceStatus, type SynthesisResponse,
 } from "./aor-intel-types";
 
 const FRESHNESS_TONE: Record<Freshness, string> = {
@@ -225,17 +224,12 @@ type Props = {
   onSelectEvidence: (id: string) => void;
   onPickLocation: (id: string) => void;
   onClose: () => void;
-  lens: ReactNode;
   synthesis: SynthesisResponse | null;
   synthesisLoading: boolean;
-  environment: Record<EnvironmentKey, boolean>;
-  onToggleEnvironment: (key: EnvironmentKey) => void;
-  medicalInputs: MedicalInputs;
-  setMedicalInputs: (updater: (current: MedicalInputs) => MedicalInputs) => void;
   medical: MedicalState;
 };
 
-export function AorIntelPanel({ intel, loading, error, intelUnavailable, location, split, directory, displayName, activeTab, setActiveTab, highlightedId, onFocusEvidence, onSelectEvidence, onPickLocation, onClose, lens, synthesis, synthesisLoading, environment, onToggleEnvironment, medicalInputs, setMedicalInputs, medical }: Props) {
+export function AorIntelPanel({ intel, loading, error, intelUnavailable, location, split, directory, displayName, activeTab, setActiveTab, highlightedId, onFocusEvidence, onSelectEvidence, onPickLocation, onClose, synthesis, synthesisLoading, medical }: Props) {
   const byDimension = useMemo(() => {
     const map = new Map<Dimension, EvidenceRecord[]>();
     for (const record of intel?.evidence ?? []) map.set(record.dimension, [...(map.get(record.dimension) ?? []), record]);
@@ -260,7 +254,7 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
 
   const body = () => {
     if (activeTab === "medical" || split) {
-      return <AorMedicalRequirements location={location} split={split} directory={directory} inputs={medicalInputs} setInputs={setMedicalInputs} state={medical} onPickLocation={onPickLocation} />;
+      return <AorMedicalRequirements location={location} split={split} directory={directory} state={medical} onPickLocation={onPickLocation} />;
     }
     if (intelUnavailable) return <p data-testid="aor-intel-unavailable" className="py-4 text-callout leading-5 text-slate-300"><AlertTriangle size={11} className="mr-1 inline text-amber-300" />{intelUnavailable} Nothing is shown here in its place: Health &amp; Medical Requirements for this location is still calculated from the command policy and host-nation rules.</p>;
     if (loading) return <p className="flex items-center gap-2 py-6 text-callout text-slate-400"><Loader2 size={12} className="animate-spin" />Retrieving sources for {displayName}…</p>;
@@ -282,7 +276,6 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
         <p className="mt-1 text-caption leading-4 text-slate-500">Assembled by {intel.whatMattersNow.method.replace(/-/g, " ")} from the evidence below. Language-model synthesis is {intel.whatMattersNow.llmSynthesis.replace(/_/g, " ")}. No composite risk score is calculated.</p>
         <ul className="mt-2">{intel.whatMattersNow.observations.map(observationCard)}</ul>
         {intel.limitations.length ? <details className="mt-3"><summary className="cursor-pointer text-caption font-semibold text-slate-500">How to read this</summary><ul className="mt-1 list-disc space-y-1 pl-4 text-footnote leading-4 text-slate-500">{intel.limitations.map((item) => <li key={item}>{item}</li>)}</ul></details> : null}
-        {lens}
       </div>;
     }
     if (activeTab === "sources") {
@@ -357,26 +350,7 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
     }
     if (activeTab === "environment") {
       const sortedEnv = [...records].sort((a, b) => (Date.parse(b.publishedAt || "") || 0) - (Date.parse(a.publishedAt || "") || 0));
-      const malariaRecord = (byDimension.get("malaria") ?? []).find((r) => r.category === "malaria");
-      const altitudeLimit = ((malariaRecord?.extra?.malaria ?? {}) as { altitudeLimitMeters?: number | null }).altitudeLimitMeters ?? null;
-      const related = (key: EnvironmentKey): { text: string; ids: string[] } => {
-        const climate = records.filter((r) => r.category === "climatology");
-        const air = records.filter((r) => r.category === "air_quality_station");
-        if (key === "heat" || key === "cold") return climate.length ? { text: `Climatological reference: ${climate[0].summary}`, ids: [climate[0].id] } : { text: "No climatology record is available for this country (see source status).", ids: [] };
-        if (key === "poorAir") return air.length ? { text: `${air.length} station reading${air.length === 1 ? "" : "s"} from OpenAQ (latest values, not an AQI).`, ids: air.slice(0, 1).map((r) => r.id) } : { text: "No fresh station reading is available (OpenAQ key, coverage or recency). Dust and smoke are not otherwise evaluated.", ids: [] };
-        if (key === "altitude") return malariaRecord && altitudeLimit ? { text: `CDC malaria text states a transmission limit at ${altitudeLimit.toLocaleString()} m; elevation is not drawn on this 2D map. Country elevation itself is not evaluated.`, ids: [malariaRecord.id] } : { text: "No elevation data source is connected for this country.", ids: [] };
-        return { text: "Deployment-context factor with no country data source; it only feeds the condition × deployment review.", ids: [] };
-      };
-      const active = ENVIRONMENT_KEYS.filter((key) => environment[key]);
-      return <div>
-        <section className="mb-3" aria-label="Deployment environment factors">
-          <h3 className="text-footnote font-semibold text-slate-400">Deployment environment</h3>
-          <p className="mb-1.5 text-footnote leading-4 text-slate-500">Select factors that apply to the assignment. They are shown against the evidence below and carried into the condition × deployment review.</p>
-          <div className="grid grid-cols-2 gap-1.5">{ENVIRONMENT_KEYS.map((key) => <button key={key} type="button" aria-pressed={environment[key]} onClick={() => onToggleEnvironment(key)} className={`min-h-9 rounded-[10px] border px-2 text-left text-footnote font-bold transition ${environment[key] ? "border-amber-100/20 bg-amber-200/[.08] text-amber-50" : "border-white/[.06] bg-white/[.02] text-slate-400 hover:bg-white/[.045]"}`}>{ENVIRONMENT_LABELS[key]}</button>)}</div>
-          {active.length ? <ul className="mt-2 space-y-1.5">{active.map((key) => { const info = related(key); return <li key={key} className="rounded-[10px] border border-white/[.06] px-2.5 py-1.5 text-footnote leading-4 text-slate-300"><b className="text-white/85">{ENVIRONMENT_LABELS[key]}</b> — {info.text}{info.ids.map((id) => <button key={id} type="button" onClick={() => onSelectEvidence(id)} className="ml-1 rounded-full border border-cyan-200/15 px-1.5 text-caption font-bold text-cyan-100/70 hover:bg-cyan-200/10">evidence</button>)}</li>; })}</ul> : null}
-        </section>
-        {empty}{sortedEnv.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}
-      </div>;
+      return <div>{empty}{sortedEnv.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</div>;
     }
     const sorted = [...records].sort((a, b) => (Date.parse(b.publishedAt || "") || 0) - (Date.parse(a.publishedAt || "") || 0));
     return <div>{empty}{sorted.map((record) => <EvidenceCard key={record.id} record={record} highlighted={record.id === highlightedId} onFocus={onFocusEvidence} />)}</div>;
@@ -384,7 +358,6 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
 
   const parent = location?.parentId ? directory?.byId.get(location.parentId) ?? null : null;
   const children = location ? directory?.childrenOf.get(location.id) ?? [] : [];
-  const medicalCounts = medical.result?.byStatus;
   const tabs: Array<[PanelTab, string]> = [["medical", "Medical requirements"], ["summary", "Briefing"], ...DIMENSIONS.map((d) => [d, DIMENSION_LABELS[d]] as [PanelTab, string]), ["sources", "Sources"]];
   // One readable line instead of a pile of chips. How the AOR was assigned (evidence class) lives in the requirements panel's "About this result".
   const facts = location ? [geographicClassLabel(location), location.administering ? `Administered by ${location.administering}` : null].filter(Boolean).join(" · ") : "";
@@ -417,7 +390,7 @@ export function AorIntelPanel({ intel, loading, error, intelUnavailable, locatio
           {tabs.map(([id, label]) => {
             const count = id === "summary" || id === "sources" || id === "medical" ? null : byDimension.get(id)?.length ?? 0;
             const active = activeTab === id;
-            return <button key={id} type="button" data-testid={`aor-tab-${id}`} aria-pressed={active} onClick={() => setActiveTab(id)} className={`lg-press shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-callout font-semibold ${active ? "lg-lens" : "text-slate-400 hover:bg-white/[.06] hover:text-slate-200"}`}>{label}{count ? <span className="ml-1.5 text-footnote font-normal tabular-nums text-slate-500">{count}</span> : null}{id === "medical" && medicalCounts?.REQUIRED ? <span className="ml-1.5 rounded-full bg-rose-400/20 px-1.5 text-caption text-rose-100">{medicalCounts.REQUIRED}</span> : null}</button>;
+            return <button key={id} type="button" data-testid={`aor-tab-${id}`} aria-pressed={active} onClick={() => setActiveTab(id)} className={`lg-press shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-callout font-semibold ${active ? "lg-lens" : "text-slate-400 hover:bg-white/[.06] hover:text-slate-200"}`}>{label}{count ? <span className="ml-1.5 text-footnote font-normal tabular-nums text-slate-500">{count}</span> : null}</button>;
           })}
         </nav>
       )}

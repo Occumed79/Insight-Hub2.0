@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Globe2, Layers, Loader2, Search } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertTriangle, Globe2, Loader2, Search } from "lucide-react";
 import { intelligenceJson as getJson } from "@/lib/intelligence-request";
 import { Sidebar } from "@/components/insight/Sidebar";
 import { AorCommandPanel } from "./AorCommandPanel";
@@ -9,12 +9,11 @@ import {
   buildDirectoryIndex, COMMAND_ORDER, COMMAND_VIEW, degradedDirectory, searchLocal, type AorDirectory, type CommandId, type DirectoryIndex, type DirectoryLocation, type SplitParent,
 } from "./aor-directory";
 import { indexBoundaries, type CountryIndex } from "./aor-geo";
-import { EMPTY_MEDICAL_INPUTS, type MedicalInputs } from "./aor-medical-types";
+import { EMPTY_MEDICAL_INPUTS } from "./aor-medical-types";
 import type { MapView } from "./aor-view";
 import { useMedicalApplicability } from "./use-medical-applicability";
-import { DIMENSIONS, DIMENSION_COLORS, DIMENSION_LABELS, ENVIRONMENT_KEYS, ENVIRONMENT_LABELS, type CountryIntel, type Dimension, type EnvironmentKey, type EvidenceRecord, type SynthesisResponse, type WorldEvent } from "./aor-intel-types";
+import { DIMENSIONS, type CountryIntel, type Dimension, type EvidenceRecord, type SynthesisResponse, type WorldEvent } from "./aor-intel-types";
 
-type LensResponse = { ok: boolean; classification: string; considerations: Array<{ ruleId: string; classification: string; summary: string; matchedTerms: string[]; countrySignals: string[]; evidenceText: string }> };
 type SearchResults = { locations: DirectoryLocation[]; splitParents: SplitParent[] };
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : "Request failed.");
@@ -29,21 +28,10 @@ export default function AorCesiumWorkspace() {
   const [intelLoading, setIntelLoading] = useState(false);
   const [intelError, setIntelError] = useState("");
   const [intelUnavailable, setIntelUnavailable] = useState<string | null>(null);
-  const [activeLayers, setActiveLayers] = useState<Set<Dimension>>(new Set(DIMENSIONS));
-  const [showAorShading, setShowAorShading] = useState(true);
-  const [showMarkers, setShowMarkers] = useState(true);
-  const [layersOpen, setLayersOpen] = useState(false);
-  const layersRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!layersOpen) return;
-    const close = (event: KeyboardEvent | PointerEvent) => {
-      if (event instanceof KeyboardEvent) { if (event.key === "Escape") setLayersOpen(false); return; }
-      if (layersRef.current && !layersRef.current.contains(event.target as Node)) setLayersOpen(false);
-    };
-    window.addEventListener("keydown", close);
-    window.addEventListener("pointerdown", close);
-    return () => { window.removeEventListener("keydown", close); window.removeEventListener("pointerdown", close); };
-  }, [layersOpen]);
+  // Selection displays source-backed details, following Apple’s map callout interaction:
+  // https://developer.apple.com/documentation/mapkitjs/annotations
+  // Map overlays load automatically; this workspace has no assignment/configuration form.
+  const activeLayers = useRef<Set<Dimension>>(new Set(DIMENSIONS)).current;
   const [activeTab, setActiveTab] = useState<PanelTab>("medical");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [focusEvidence, setFocusEvidence] = useState<{ id: string; nonce: number } | null>(null);
@@ -57,18 +45,6 @@ export default function AorCesiumWorkspace() {
   useEffect(() => () => { requestRef.current += 1; selectionRequest.current?.abort(); }, []);
   const [synthesis, setSynthesis] = useState<SynthesisResponse | null>(null);
   const [synthesisLoading, setSynthesisLoading] = useState(false);
-  const [environment, setEnvironment] = useState<Record<EnvironmentKey, boolean>>({ heat: false, cold: false, altitude: false, poorAir: false, fatigue: false, ppe: false, night: false });
-  const [medicalInputs, setMedicalInputsState] = useState<MedicalInputs>(EMPTY_MEDICAL_INPUTS);
-  const setMedicalInputs = useCallback((updater: (current: MedicalInputs) => MedicalInputs) => setMedicalInputsState(updater), []);
-
-  // Lens (retained from the earlier AOR build): transient medical-condition x deployment-context evaluation.
-  const [condition, setCondition] = useState("");
-  const [medication, setMedication] = useState("");
-  const [workContext, setWorkContext] = useState("");
-  const [lens, setLens] = useState<LensResponse | null>(null);
-  const [lensError, setLensError] = useState("");
-  const [lensLoading, setLensLoading] = useState(false);
-
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
@@ -106,15 +82,14 @@ export default function AorCesiumWorkspace() {
   const split = view.splitIso3 ? directory?.splitByIso3.get(view.splitIso3) ?? null : null;
   const selectedAorId: CommandId | null = view.aorId;
   const displayName = split?.name || location?.name || intel?.country.name || view.locationId || "";
-  const intelIso2 = location?.countryIntelIso2 ?? null;
 
-  const medical = useMedicalApplicability(location ? location.id : null, location ? location.iso3 ?? location.id : null, medicalInputs);
+  const medical = useMedicalApplicability(location ? location.id : null, location ? location.iso3 ?? location.id : null, EMPTY_MEDICAL_INPUTS);
 
   const resetSelection = useCallback(() => {
     requestRef.current += 1;
     selectionRequest.current?.abort();
-    setLensLoading(false); setFocusEvidence(null);
-    setIntel(null); setIntelError(""); setIntelLoading(false); setIntelUnavailable(null); setHighlightedId(null); setLens(null); setLensError(""); setSynthesis(null); setSynthesisLoading(false);
+    setFocusEvidence(null);
+    setIntel(null); setIntelError(""); setIntelLoading(false); setIntelUnavailable(null); setHighlightedId(null); setSynthesis(null); setSynthesisLoading(false);
   }, []);
 
   const goWorld = useCallback(() => {
@@ -197,40 +172,6 @@ export default function AorCesiumWorkspace() {
     return () => { active = false; controller.abort(); window.clearTimeout(timer); };
   }, [query, directory]);
 
-  const toggleLayer = (dimension: Dimension) => setActiveLayers((current) => { const next = new Set(current); if (next.has(dimension)) next.delete(dimension); else next.add(dimension); return next; });
-  const layerCounts = useMemo(() => { const counts = new Map<Dimension, number>(); for (const record of intel?.evidence ?? []) counts.set(record.dimension, (counts.get(record.dimension) ?? 0) + 1); return counts; }, [intel]);
-
-  async function runLens() {
-    const context = [workContext.trim(), ...ENVIRONMENT_KEYS.filter((key) => environment[key]).map((key) => ENVIRONMENT_LABELS[key])].filter(Boolean).join("; ");
-    if (!intelIso2 || (!condition.trim() && !medication.trim() && !context)) return;
-    const request = requestRef.current;
-    setLensLoading(true); setLensError("");
-    try {
-      const payload = await getJson<LensResponse>("/api/aor/country-condition-lens", {
-        method: "POST", signal: selectionRequest.current?.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ iso2: intelIso2, condition: condition.trim(), medication: medication.trim(), workContext: context }),
-      });
-      if (requestRef.current === request) setLens(payload);
-    } catch (error) { if (requestRef.current === request) { setLens(null); setLensError(errorText(error)); } }
-    finally { if (requestRef.current === request) setLensLoading(false); }
-  }
-
-  const lensBlock = intelIso2 ? (
-    <details className="mt-3 border-t border-white/[.06] pt-3">
-      <summary className="cursor-pointer text-caption font-semibold text-slate-500">Medical condition × deployment context (transient, not stored)</summary>
-      {ENVIRONMENT_KEYS.some((key) => environment[key]) ? <p className="mt-1.5 text-footnote leading-4 text-slate-400">Environment factors included: {ENVIRONMENT_KEYS.filter((key) => environment[key]).map((key) => ENVIRONMENT_LABELS[key]).join(", ")}</p> : null}
-      <div className="mt-2 space-y-1.5">
-        {([["Condition", condition, setCondition], ["Medication", medication, setMedication], ["Work context", workContext, setWorkContext]] as const).map(([label, value, setter]) => (
-          <input key={label} value={value} onChange={(event) => setter(event.target.value)} placeholder={label} aria-label={label} autoComplete="off" className="min-h-8 w-full rounded-[10px] border border-white/[.08] bg-black/25 px-3 text-callout text-white outline-none placeholder:text-slate-600" />
-        ))}
-        <button type="button" onClick={() => void runLens()} disabled={lensLoading || (!condition.trim() && !medication.trim() && !workContext.trim() && !ENVIRONMENT_KEYS.some((key) => environment[key]))} className="min-h-8 w-full rounded-[10px] border border-cyan-100/15 bg-cyan-200/[.06] text-callout font-bold text-cyan-50/80 disabled:opacity-40">{lensLoading ? "Evaluating…" : "Evaluate considerations"}</button>
-        {lensError ? <p className="text-footnote text-amber-100/70">{lensError}</p> : null}
-        {lens ? <div className="pt-1"><p className="text-callout font-bold text-white/85">{lens.classification}</p>{lens.considerations.map((item) => <div key={item.ruleId} className="mt-1.5 border-t border-white/[.05] pt-1.5 text-footnote leading-4 text-slate-400"><b className="text-white/75">{item.classification}</b> — {item.summary}{item.evidenceText ? <p className="mt-0.5 text-slate-500">{item.evidenceText}</p> : null}</div>)}</div> : null}
-      </div>
-    </details>
-  ) : null;
-
   const crumb = (label: string, onClick?: () => void, current = false) => <button type="button" onClick={onClick} disabled={!onClick || current} className={`lg-press rounded-full px-2.5 py-1 text-callout font-semibold ${current ? "text-white" : "text-slate-300 hover:text-white"}`}>{label}</button>;
   const commandSummary = (id: CommandId) => directory?.directory.commands.find((entry) => entry.id === id);
   const searchHasResults = results.locations.length > 0 || results.splitParents.length > 0;
@@ -249,8 +190,8 @@ export default function AorCesiumWorkspace() {
             activeLayers={activeLayers}
             worldEvents={worldEvents}
             focusEvidence={focusEvidence}
-            showAorShading={showAorShading}
-            showMarkers={showMarkers}
+            showAorShading
+            showMarkers
             rightInsetPx={panelOpen ? 536 : view.level === "aor" ? 376 : 0}
             onPickLocation={goLocation}
             onPickSplit={goSplit}
@@ -285,22 +226,6 @@ export default function AorCesiumWorkspace() {
           </div>
         </div>
 
-        {/* Compact layer selector */}
-        <div ref={layersRef} className="absolute bottom-5 left-4 z-30">
-          {layersOpen ? <ul className="lg-glass-panel absolute bottom-12 left-0 w-72 overflow-hidden rounded-[20px] p-1.5" aria-label="Map layers">
-              <li className="px-3 pb-1 pt-2 text-footnote font-semibold text-slate-400">Registry Overlays</li>
-              <li><button type="button" data-testid="aor-toggle-shading" aria-pressed={showAorShading} onClick={() => setShowAorShading((value) => !value)} className="flex w-full items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-left text-callout text-white/90 hover:bg-white/[.08]"><span className="h-2 w-2 rounded-full border border-cyan-200" style={{ background: showAorShading ? "#67e8f9" : "transparent" }} /><span className="flex-1">AOR shading by command</span></button></li>
-              <li><button type="button" data-testid="aor-toggle-markers" aria-pressed={showMarkers} onClick={() => setShowMarkers((value) => !value)} className="flex w-full items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-left text-callout text-white/90 hover:bg-white/[.08]"><span className="h-2 w-2 rounded-full border border-cyan-200" style={{ background: showMarkers ? "#67e8f9" : "transparent" }} /><span className="flex-1">Markers for locations without a boundary</span>{directory ? <span className="text-footnote tabular-nums text-slate-500">{directory.directory.withoutPolygonCount}</span> : null}</button></li>
-              <li className="px-3 pb-1 pt-3 text-footnote font-semibold text-slate-400">Intelligence Layers</li>
-              {DIMENSIONS.map((dimension) => <li key={dimension}><button type="button" aria-pressed={activeLayers.has(dimension)} onClick={() => toggleLayer(dimension)} className="flex w-full items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-left text-callout text-white/90 hover:bg-white/[.08]"><span className="h-2 w-2 rounded-full" style={{ background: activeLayers.has(dimension) ? DIMENSION_COLORS[dimension] : "transparent", border: `1px solid ${DIMENSION_COLORS[dimension]}` }} /><span className="flex-1">{DIMENSION_LABELS[dimension]}</span>{layerCounts.get(dimension) ? <span className="text-footnote tabular-nums text-slate-500">{layerCounts.get(dimension)}</span> : null}</button></li>)}
-              <li className="mt-1 border-t border-white/[.08] px-3 py-2.5 text-footnote leading-4 text-slate-400">Points use real source coordinates. Country shading appears only where a source covers the whole country. Text-only geography is listed in the panel, not drawn. Locations without a boundary are points, never outlines.</li>
-            </ul> : null}
-          <div className="lg-glass pointer-events-auto relative flex items-center gap-0.5 rounded-full p-1" role="group" aria-label="Map controls">
-            <button type="button" onClick={() => setLayersOpen((open) => !open)} aria-expanded={layersOpen} className={`lg-press inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-callout font-semibold ${layersOpen ? "lg-lens" : "text-slate-200 hover:bg-white/[.06]"}`}><Layers size={15} />Layers · {activeLayers.size}/{DIMENSIONS.length}</button>
-
-          </div>
-        </div>
-
         {hoverName && view.level !== "country" ? <div className="lg-glass pointer-events-none absolute bottom-5 left-1/2 z-20 -translate-x-1/2 rounded-full px-4 py-1.5 text-callout font-semibold">{hoverName}</div> : null}
         {view.level === "world" && worldEvents.length && activeLayers.has("disasters") ? <div className="lg-glass pointer-events-none absolute bottom-5 right-4 z-20 rounded-full px-3.5 py-1.5 text-footnote text-slate-300">{worldEvents.length} recent global events (USGS M5.5+ and GDACS) at source coordinates</div> : null}
 
@@ -323,13 +248,8 @@ export default function AorCesiumWorkspace() {
             onSelectEvidence={selectEvidence}
             onPickLocation={goLocation}
             onClose={() => setPanelOpen(false)}
-            lens={lensBlock}
             synthesis={synthesis}
             synthesisLoading={synthesisLoading}
-            environment={environment}
-            onToggleEnvironment={(key) => setEnvironment((current) => ({ ...current, [key]: !current[key] }))}
-            medicalInputs={medicalInputs}
-            setMedicalInputs={setMedicalInputs}
             medical={medical}
           />
         ) : null}
