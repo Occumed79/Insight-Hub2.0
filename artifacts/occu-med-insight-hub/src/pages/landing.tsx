@@ -86,7 +86,7 @@ function PortalCard({ portal, index }: { portal: PortalConfig; index: number }) 
       className={`portal-card glass-card group relative h-full min-h-[300px] overflow-hidden rounded-[32px] p-[6px] ${missingExternalUrl ? "opacity-70" : ""}`}
       style={{ position: "relative" }}
     >
-      <div className="portal-card-inner relative rounded-[26px] px-3 pb-3 pt-3">
+      <div className="portal-card-inner relative h-full rounded-[26px] px-3 pb-3 pt-3">
         <div className="absolute left-6 top-6 z-10 h-7 w-7 rounded-full border border-cyan-200/40 bg-cyan-200/14 shadow-[0_0_28px_rgba(34,211,238,.34)]" />
         <PortalArt kind={portal.imageKind} />
         <div className="px-3 pb-3 pt-5">
@@ -265,7 +265,7 @@ export default function Landing() {
             Manage portal links
           </button>
         </motion.div>
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
+        <div className="mt-10 grid auto-rows-fr gap-5 md:grid-cols-3">
           {resolvedPortalCards.map((portal, index) => (
             <PortalCard key={portal.title} portal={portal} index={index} />
           ))}
