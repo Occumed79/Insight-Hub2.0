@@ -18,10 +18,10 @@ const LEGACY_EXTERNAL_PORTAL_LINKS: Record<PortalLinkKey, string> = {
 };
 
 export const portalCards: PortalConfig[] = [
-  { title: "Intelligence Tools", description: "Open the searchable intelligence workspace and use its sidebar to access Competitors, Federal Agencies, State Agencies, SEC, FEC, BLS, O*NET, Federal Awards, Legal References, DBA, and AOR tools.", href: "/competitors", mode: "internal", imageKind: "profile" },
-  { title: "Global Locations", description: "Convert public headcount, WC benchmarks, and methodology assumptions into executive cost signals.", href: "/geographic-data", mode: "internal", imageKind: "quant" },
-  { title: "Global Location Overlap", description: "Compare up to four companies on one worldwide map, reveal shared operating markets, and prioritize where a provider network can support multiple employers.", href: "/location-overlap", mode: "internal", imageKind: "geo" },
-  { title: "Clients Service Map", description: "Open the configured relationship workspace for entity records, needs, and decision patterns.", href: LEGACY_EXTERNAL_PORTAL_LINKS.entity, mode: "external", imageKind: "entity", portalKey: "entity" },
-  { title: "Admin for Map", description: "Open the configured discovery workspace for employer research and business development targeting.", href: LEGACY_EXTERNAL_PORTAL_LINKS.discovery, mode: "external", imageKind: "discovery", portalKey: "discovery" },
-  { title: "DocBox", description: "Open the configured agency workspace for program and contract intelligence.", href: LEGACY_EXTERNAL_PORTAL_LINKS.federal, mode: "external", imageKind: "federal", portalKey: "federal" },
+  { title: "Intelligence Tools", description: "Search company, agency, and occupational health intelligence.", href: "/competitors", mode: "internal", imageKind: "profile" },
+  { title: "Global Locations", description: "Explore headcount and workforce cost estimates.", href: "/geographic-data", mode: "internal", imageKind: "quant" },
+  { title: "Global Location Overlap", description: "Compare company locations and shared markets.", href: "/location-overlap", mode: "internal", imageKind: "geo" },
+  { title: "Clients Service Map", description: "View client locations and service needs.", href: LEGACY_EXTERNAL_PORTAL_LINKS.entity, mode: "external", imageKind: "entity", portalKey: "entity" },
+  { title: "Admin for Map", description: "Manage map research and employer discovery.", href: LEGACY_EXTERNAL_PORTAL_LINKS.discovery, mode: "external", imageKind: "discovery", portalKey: "discovery" },
+  { title: "DocBox", description: "Access program and contract intelligence.", href: LEGACY_EXTERNAL_PORTAL_LINKS.federal, mode: "external", imageKind: "federal", portalKey: "federal" },
 ];
