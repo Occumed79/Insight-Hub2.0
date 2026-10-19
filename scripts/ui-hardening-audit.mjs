@@ -36,7 +36,7 @@ const checks = [
   [sidebar.includes('aria-label="Insight Hub intelligence tools"'), "navigation has an accessible label"],
   [main.includes("class AppErrorBoundary"), "global UI error boundary exists"],
   [main.includes('role="alert"'), "crash recovery surface is announced accessibly"],
-  [landing.includes('import * as DialogPrimitive from "@radix-ui/react-dialog"') && landing.includes("<DialogPrimitive.Content") && landing.includes("onCloseAutoFocus"), "landing link manager uses managed modal focus behavior"],
+  [!landing.includes("Manage portal links") && !landing.includes("PortalLinkManager") && !landing.includes("/api/portal-links") && browserSuite.includes('name: "Manage portal links" '), "retired portal-link management is inaccessible from the landing page"],
   [app.includes("React.lazy") && app.includes("React.Suspense"), "workspace routes remain code-split behind a suspense boundary"],
   [app.includes('role="status"') && app.includes("Loading workspace"), "route loading state remains accessible"],
   [companyLibrary.includes('import * as DialogPrimitive from "@radix-ui/react-dialog"'), "Company Library details use managed modal primitives"],
