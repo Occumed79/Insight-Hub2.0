@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+// Shared by AOR Factors and the company intelligence map; not exclusive to State Agencies.
+import stateMapGeometryRouter from "./state-map-geometry";
 import aorSourcePolicyRouter from "./aor-source-policy";
 import coreLiveSearchRouter from "./core-live-search";
 import fmcsaRouter from "./fmcsa";
@@ -48,6 +50,7 @@ import onetResolverRouter from "./onet-resolver";
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(stateMapGeometryRouter);
 router.use(aorSourcePolicyRouter);
 router.use(coreLiveSearchRouter);
 router.use(fmcsaRouter);
