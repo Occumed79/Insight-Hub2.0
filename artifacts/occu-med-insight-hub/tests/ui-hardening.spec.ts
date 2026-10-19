@@ -1,11 +1,5 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
-const portalLinks = {
-  entity: "/competitors",
-  discovery: "/geographic-data",
-  federal: "/federal-agencies",
-};
-
 const savedGeographicEntities = [
   {
     id: 1,
@@ -159,7 +153,6 @@ async function installDeterministicApi(page: Page) {
     const url = new URL(request.url());
     const path = url.pathname;
 
-    if (path.endsWith("/api/portal-links")) return fulfillJson(route, { links: portalLinks });
     if (path.endsWith("/api/entities/saved")) return fulfillJson(route, { ok: true, entities: savedGeographicEntities });
     if (path.endsWith("/api/hiring-intelligence/analyze")) return fulfillJson(route, hiringFixture);
     if (path.endsWith("/api/occupational-discovery/bls-overview")) return fulfillJson(route, blsOverviewFixture);
@@ -204,33 +197,20 @@ test.beforeEach(async ({ page }) => {
   await installDeterministicApi(page);
 });
 
-test("landing page is contained and portal-link modal is keyboard-safe", async ({ page }) => {
+test("landing page shows only active portals with no legacy-link access", async ({ page }) => {
   const pageErrors = collectPageErrors(page);
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Insight Hub", exact: true })).toBeVisible();
-  await expectNoDocumentOverflow(page);
-
-  const openButton = page.getByRole("button", { name: "Manage portal links" });
-  await openButton.focus();
-  await openButton.click();
-
-  const dialog = page.getByRole("dialog", { name: "Manage portal links" });
-  await expect(dialog).toBeVisible();
-  const box = await dialog.boundingBox();
-  const viewport = page.viewportSize();
-  expect(box).not.toBeNull();
-  expect(viewport).not.toBeNull();
-  if (box && viewport) {
-    expect(box.x).toBeGreaterThanOrEqual(0);
-    expect(box.y).toBeGreaterThanOrEqual(0);
-    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
-    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
+  for (const title of ["Intelligence Tools", "Global Locations", "Global Location Overlap"]) {
+    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   }
-
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
-  await expect(openButton).toBeFocused();
+  for (const title of ["Clients Service Map", "Admin for Map", "DocBox"]) {
+    await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
+  }
+  await expect(page.getByRole("button", { name: "Manage portal links" })).toHaveCount(0);
+  await expect(page.locator('main a')).toHaveCount(3);
+  await expectNoDocumentOverflow(page);
   expect(pageErrors).toEqual([]);
 });
 
