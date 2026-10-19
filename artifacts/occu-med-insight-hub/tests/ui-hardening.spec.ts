@@ -209,6 +209,12 @@ test("landing page is contained and portal-link modal is keyboard-safe", async (
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Insight Hub", exact: true })).toBeVisible();
+  for (const title of ["Intelligence Tools", "Global Locations", "Global Location Overlap"]) {
+    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  }
+  for (const title of ["Clients Service Map", "Admin for Map", "DocBox"]) {
+    await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
+  }
   await expectNoDocumentOverflow(page);
 
   const openButton = page.getByRole("button", { name: "Manage portal links" });
