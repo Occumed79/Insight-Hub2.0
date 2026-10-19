@@ -3,7 +3,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { portalCards } from "@/data/portals";
+import { LEGACY_EXTERNAL_PORTAL_LINKS, portalCards } from "@/data/portals";
 import type { PortalConfig, PortalLinkKey } from "@/data/portals";
 import occuMedLogoDataUrl from "@/assets/occu-med-logo-data";
 
@@ -27,11 +27,7 @@ const portalLinkLabels: Record<PortalLinkKey, string> = {
 };
 
 function initialPortalLinks(): PortalLinks {
-  return {
-    entity: portalCards.find((portal) => portal.portalKey === "entity")?.href ?? "",
-    discovery: portalCards.find((portal) => portal.portalKey === "discovery")?.href ?? "",
-    federal: portalCards.find((portal) => portal.portalKey === "federal")?.href ?? "",
-  };
+  return { ...LEGACY_EXTERNAL_PORTAL_LINKS };
 }
 
 function OccuMedWordmark() {
