@@ -18,13 +18,11 @@ for (const route of [
   "/prospects",
   "/clients",
   "/competitors",
-  "/federal-agencies",
-  "/state-agencies",
+  "/injuries-medical-conditions",
+  "/aor-factors",
+  "/onet-master-tool",
+  "/occupational-data-explorer",
   "/fec-filings",
-  "/federal-awards",
-  "/public-legal-references",
-  "/industry-impact-calculator",
-  "/industry-injury-benchmarks",
 ]) {
   assert.ok(app.includes(`path=\"${route}\"`), `Hub 2 is missing route ${route}`);
 }
@@ -42,12 +40,15 @@ assert.ok(
 );
 
 for (const expected of [
-  '{ href: "/federal-agencies", label: "Federal Agencies"',
-  '{ href: "/state-agencies", label: "State Agencies"',
-  '{ href: "/industry-impact-calculator", label: "Industry Impact Calculator"',
+  '{ href: "/injuries-medical-conditions", label: "Injuries & Medical Conditions"',
+  '{ href: "/aor-factors", label: "AOR Factors"',
+  '{ href: "/onet-master-tool", label: "O*NET Master Tool"',
+  '{ href: "/occupational-data-explorer", label: "Occupational Data Explorer"',
 ]) {
-  assert.ok(sidebar.includes(expected), `Hub 2 sidebar is missing reviewed destination ${expected}`);
+  assert.ok(sidebar.includes(expected), `Retained navigation destination missing ${expected}`);
 }
+assert.equal((sidebar.match(/\{ href: "\//g) || []).length, 4, "Only four tools may appear in sidebar navigation");
+assert.ok(sidebar.includes('aria-label="Back to landing page"'), "Sidebar must have a Back button");
 
 for (const forbidden of [
   '{ href: "/entities", label: "Entities"',
@@ -59,10 +60,6 @@ for (const forbidden of [
   assert.ok(!sidebar.includes(forbidden), `Reviewed hierarchy forbids primary navigation entry ${forbidden}`);
 }
 
-assert.ok(
-  app.includes('<Route path="/industry-injury-benchmarks" component={IndustryImpactCalculatorRoute} />'),
-  "Legacy Industry Injury Benchmarks URL must resolve to Industry Impact",
-);
 assert.ok(
   !app.includes('component={JobIntelligenceRoute}') && !apiIndex.includes('jobIntelligenceRouter') && !apiIndex.includes('standardsIntelligenceRouter'),
   "Retired Job Intelligence and case-evaluator API routes must not be resurrected",
@@ -102,8 +99,6 @@ for (const forbidden of [
 
 for (const expected of [
   "useEmployerWorkflow",
-  'href="/federal-awards"',
-  'href="/public-legal-references"',
   'href="/fec-filings"',
   "Selected Company",
 ]) {
@@ -138,7 +133,7 @@ console.log(
     frontendRoutes: 11,
     publicCompanyLibrary: "neutral-saved-entities",
     relationshipLabelsPublished: false,
-    visibleSidebarDomains: ["federal", "state", "industry-impact", "onet-master-tool"],
+    visibleSidebarDomains: ["injuries-medical-conditions", "aor-factors", "onet-master-tool", "occupational-data-explorer"],
     retainedCompatibilityRoutes: ["entities", "prospects", "clients", "competitors", "fec-filings", "industry-injury-benchmarks"],
     routeLoading: "contextual-company-library-wrapper",
   }),
