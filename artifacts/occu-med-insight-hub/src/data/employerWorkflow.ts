@@ -13,7 +13,6 @@ export type WorkflowStepId =
   | "occupational-exposure"
   | "company-live-intelligence"
   | "workers-comp-coverage"
-  | "dba-intelligence"
   | "source-governance";
 
 export type WorkflowStep = {
@@ -103,20 +102,8 @@ export const WORKFLOW_STEPS: readonly WorkflowStep[] = [
     optionalFields: ["employer"],
   },
   {
-    id: "dba-intelligence",
-    number: 6,
-    label: "Defense Base Act Intelligence",
-    shortLabel: "DBA Intelligence",
-    route: "/dba-intelligence",
-    scope: "country",
-    purpose: "Review public DOL DBA employer, carrier, country, waiver, jurisdiction, and adjudication-reference intelligence.",
-    output: "Employer-name matches, global case atlas, carrier trends, waiver explorer, and source limitations.",
-    requiredFields: ["employer"],
-    optionalFields: ["country", "legalName"],
-  },
-  {
     id: "source-governance",
-    number: 7,
+    number: 6,
     label: "Source Governance & Provenance",
     shortLabel: "Source Governance",
     route: "/source-governance",

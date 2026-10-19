@@ -13,39 +13,21 @@ const QuantifiableData = React.lazy(() => import("@/pages/quantifiable-data"));
 const GeographicData = React.lazy(() => import("@/pages/geographic-data"));
 const LocationOverlap = React.lazy(() => import("@/pages/location-overlap"));
 const HiringIntelligence = React.lazy(() => import("@/pages/hiring-intelligence"));
-const LeadershipMap = React.lazy(() => import("@/pages/leadership-map-experience"));
 const CorporateStructure = React.lazy(() => import("@/pages/corporate-structure"));
 const EmployerWorkflow = React.lazy(() => import("@/pages/employer-workflow"));
 const EmployerIntelligence = React.lazy(() => import("@/pages/employer-intelligence"));
 const EntityResolution = React.lazy(() => import("@/pages/entity-resolution"));
 const OccupationalExposure = React.lazy(() => import("@/pages/occupational-exposure"));
 const CorporateSignals = React.lazy(() => import("@/pages/company-live-intelligence"));
-const SecFilings = React.lazy(() => import("@/pages/sec-filings-experience"));
 const WorkersCompCoverage = React.lazy(() => import("@/pages/workers-comp-coverage"));
-const DbaIntelligence = React.lazy(() => import("@/pages/dba-intelligence"));
 const SourceGovernance = React.lazy(() => import("@/pages/source-governance"));
-const WarCostsIntelligence = React.lazy(() => import("@/pages/war-costs-intelligence-experience"));
-const WarCostsMap = React.lazy(() => import("@/pages/war-costs-map-experience"));
-const WarCostsTools = React.lazy(() => import("@/pages/war-costs-tools-experience"));
-const WarCostsSpecialTools = React.lazy(() => import("@/pages/war-costs-special-tools-experience"));
-const WarCostsVisualizations = React.lazy(() => import("@/pages/war-costs-visualizations-experience"));
-const WarCostsAccountability = React.lazy(() => import("@/pages/war-costs-accountability-experience"));
-const WarCostsSiteEvidence = React.lazy(() => import("@/pages/war-costs-site-evidence-experience"));
 const ReviewerInjuriesMedicalPage = React.lazy(() => import("@/pages/reviewer-injuries-medical"));
 const ReviewerAorFactorsPage = React.lazy(() => import("@/pages/reviewer-aor-factors-experience"));
-const ReviewerDrugCheckerPage = React.lazy(() => import("@/pages/reviewer-drug-checker-experience"));
-const ReviewerStandardsIntelligencePage = React.lazy(() => import("@/pages/reviewer-standards-experience"));
 const EntitiesPage = React.lazy(() => import("@/pages/entities-contextual").then((module) => ({ default: module.ContextualEntitiesPage })));
 const CompetitorsPage = React.lazy(() => import("@/pages/core-intelligence").then((module) => ({ default: module.CompetitorsPage })));
-const FederalAgenciesPage = React.lazy(() => import("@/pages/federal-agencies-experience"));
-const StateAgenciesPage = React.lazy(() => import("@/pages/state-agencies-experience"));
 const FecFilingsPage = React.lazy(() => import("@/pages/entity-public-intelligence").then((module) => ({ default: module.EntityFecFilingsPage })));
-const FederalAwardsPage = React.lazy(() => import("@/pages/federal-awards-experience"));
-const LegalReferencesPage = React.lazy(() => import("@/pages/legal-injury-experience"));
 const OnetMasterTool = React.lazy(() => import("@/pages/onet-master-tool"));
 const OccupationalDataExplorer = React.lazy(() => import("@/pages/occupational-data-explorer"));
-const IndustryImpactCalculator = React.lazy(() => import("@/pages/industry-impact-experience"));
-const OccupationalCalculators = React.lazy(() => import("@/pages/occupational-calculators-experience"));
 
 const queryClient = new QueryClient();
 
@@ -72,33 +54,15 @@ function CompetitorsLoading() {
 function EntitiesRoute() { return <EntitiesPage defaultTab="prospects" />; }
 function ClientsRoute() { return <EntitiesPage defaultTab="clients" />; }
 function CompetitorsRoute() { return <React.Suspense fallback={<CompetitorsLoading />}><CompetitorsPage /></React.Suspense>; }
-function FederalAgenciesRoute() { return <FederalAgenciesPage />; }
-function StateAgenciesRoute() { return <StateAgenciesPage />; }
 
 // Protected tools mount without alteration; their own components retain the
 // reviewed presentation while App contributes no visible workspace system.
-function DbaRoute() { return <DbaIntelligence />; }
 function OnetMasterToolRoute() { return <OnetMasterTool />; }
 function OccupationalDataExplorerRoute() { return <OccupationalDataExplorer />; }
 
-function SecFilingsRoute() { return <SecFilings />; }
-function LeadershipMapRoute() { return <LeadershipMap />; }
 function FecFilingsRoute() { return <FecFilingsPage />; }
-function IndustryImpactCalculatorRoute() { return <IndustryImpactCalculator />; }
-function OccupationalCalculatorsRoute() { return <OccupationalCalculators />; }
-function FederalAwardsRoute() { return <FederalAwardsPage />; }
-function LegalReferencesRoute() { return <LegalReferencesPage />; }
-function WarCostsRoute() { return <WarCostsIntelligence />; }
-function WarCostsMapRoute() { return <WarCostsMap />; }
-function WarCostsToolsRoute() { return <WarCostsTools />; }
-function WarCostsSpecialToolsRoute() { return <WarCostsSpecialTools />; }
-function WarCostsVisualizationsRoute() { return <WarCostsVisualizations />; }
-function WarCostsAccountabilityRoute() { return <WarCostsAccountability />; }
-function WarCostsSiteEvidenceRoute() { return <WarCostsSiteEvidence />; }
 function InjuriesMedicalRoute() { return <ReviewerInjuriesMedicalPage />; }
 function AorRoute() { return <ReviewerAorFactorsPage />; }
-function DrugCheckerRoute() { return <ReviewerDrugCheckerPage />; }
-function StandardsRoute() { return <ReviewerStandardsIntelligencePage />; }
 
 function StandaloneMapPage({ children }: { children: React.ReactNode }) {
   return (
@@ -123,32 +87,12 @@ function Router() {
         <Route path="/prospects" component={EntitiesRoute} />
         <Route path="/clients" component={ClientsRoute} />
         <Route path="/competitors" component={CompetitorsRoute} />
-        <Route path="/federal-agencies" component={FederalAgenciesRoute} />
-        <Route path="/state-agencies" component={StateAgenciesRoute} />
-        <Route path="/sec-filings" component={SecFilingsRoute} />
-        <Route path="/leadership-map" component={LeadershipMapRoute} />
-        <Route path="/dba-intelligence" component={DbaRoute} />
         <Route path="/fec-filings" component={FecFilingsRoute} />
         <Route path="/injuries-medical-conditions" component={InjuriesMedicalRoute} />
         <Route path="/aor-factors" component={AorRoute} />
         <Route path="/aor-risk-intelligence" component={AorRoute} />
-        <Route path="/drug-checker" component={DrugCheckerRoute} />
-        <Route path="/standards-intelligence" component={StandardsRoute} />
-        <Route path="/industry-injury-benchmarks" component={IndustryImpactCalculatorRoute} />
         <Route path="/onet-master-tool" component={OnetMasterToolRoute} />
         <Route path="/occupational-data-explorer" component={OccupationalDataExplorerRoute} />
-        <Route path="/industry-impact-calculator" component={IndustryImpactCalculatorRoute} />
-        <Route path="/occupational-calculators" component={OccupationalCalculatorsRoute} />
-        <Route path="/war-costs-intelligence" component={WarCostsRoute} />
-        <Route path="/war-costs" component={WarCostsRoute} />
-        <Route path="/war-costs-map" component={WarCostsMapRoute} />
-        <Route path="/war-costs-tools" component={WarCostsToolsRoute} />
-        <Route path="/war-costs-special-tools" component={WarCostsSpecialToolsRoute} />
-        <Route path="/war-costs-visualizations" component={WarCostsVisualizationsRoute} />
-        <Route path="/war-costs-accountability" component={WarCostsAccountabilityRoute} />
-        <Route path="/war-costs-site-evidence" component={WarCostsSiteEvidenceRoute} />
-        <Route path="/federal-awards" component={FederalAwardsRoute} />
-        <Route path="/public-legal-references" component={LegalReferencesRoute} />
         <Route path="/geographic-footprint" component={GlobalLocationsRoute} />
         <Route path="/geographic-data" component={GlobalLocationsRoute} />
         <Route path="/location-overlap" component={GlobalLocationOverlapRoute} />

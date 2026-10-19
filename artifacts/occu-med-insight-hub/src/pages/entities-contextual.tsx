@@ -1,5 +1,5 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { CircleDollarSign, Landmark, Scale, X } from "lucide-react";
+import { Landmark, X } from "lucide-react";
 import { Link } from "wouter";
 import { useEmployerWorkflow } from "@/components/insight/EmployerWorkflowContext";
 import { PublicCompanyLibraryPage } from "@/pages/public-company-library";
@@ -25,9 +25,7 @@ export function ContextualEntitiesPage({ defaultTab: _defaultTab = "prospects" }
         <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-[.18em] text-cyan-100/42">Selected Company</p><p className="mt-1 truncate text-sm font-black">{selected}</p></div>
         <button type="button" onClick={() => updateContext({ employer: "", legalName: "" })} aria-label="Clear selected company" className="rounded-lg border border-white/8 p-1.5 text-cyan-100/45 hover:text-white"><X size={14} /></button>
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <Link href="/federal-awards" className="rounded-xl border border-emerald-200/14 bg-emerald-300/[0.055] p-3 text-center transition hover:border-emerald-200/26"><CircleDollarSign size={16} className="mx-auto text-emerald-200/70" /><p className="mt-1 text-[9px] font-black">Federal Awards</p></Link>
-        <Link href="/public-legal-references" className="rounded-xl border border-violet-200/14 bg-violet-300/[0.055] p-3 text-center transition hover:border-violet-200/26"><Scale size={16} className="mx-auto text-violet-200/70" /><p className="mt-1 text-[9px] font-black">Legal & Injury</p></Link>
+      <div className="grid grid-cols-1 gap-2">
         <Link href="/fec-filings" className="rounded-xl border border-cyan-200/14 bg-cyan-300/[0.055] p-3 text-center transition hover:border-cyan-200/26"><Landmark size={16} className="mx-auto text-cyan-200/70" /><p className="mt-1 text-[9px] font-black">FEC Evidence</p></Link>
       </div>
     </aside> : null}

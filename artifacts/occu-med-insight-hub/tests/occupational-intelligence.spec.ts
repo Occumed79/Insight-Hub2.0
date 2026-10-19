@@ -195,28 +195,6 @@ test("Occupational Data Explorer renders official sources through the working we
   await expectNoHorizontalOverflow(page);
 });
 
-test("industry-impact hold does not invoke the preserved legacy workspace", async ({ page }) => {
-  const requests: string[] = [];
-  page.on("request", (request) => { if (new RegExp('/api/(bls|occupational-discovery)/').test(request.url())) requests.push(request.url()); });
-  await page.goto("/industry-impact-calculator");
-  const workspace = page.locator('[data-rebuild-hold="true"][data-workspace="industry-impact"]');
-  await expect(workspace).toBeVisible();
-  await expect(workspace.locator("main")).toBeEmpty();
-  await expect(workspace.locator("main")).toHaveAttribute("aria-hidden", "true");
-  expect(requests).toEqual([]);
-});
-
-test("occupational-calculators hold does not invoke the preserved legacy workspace", async ({ page }) => {
-  const requests: string[] = [];
-  page.on("request", (request) => { if (new RegExp('/api/occupational-discovery/').test(request.url())) requests.push(request.url()); });
-  await page.goto("/occupational-calculators");
-  const workspace = page.locator('[data-rebuild-hold="true"][data-workspace="occupational-calculators"]');
-  await expect(workspace).toBeVisible();
-  await expect(workspace.locator("main")).toBeEmpty();
-  await expect(workspace.locator("main")).toHaveAttribute("aria-hidden", "true");
-  expect(requests).toEqual([]);
-});
-
 test("O*NET Master Tool renders the official O*NET site through the working webview", async ({ page }) => {
   await page.goto("/onet-master-tool");
   await expect(page.getByRole("heading", { name: "O*NET Master Tool" })).toBeVisible();
@@ -227,13 +205,3 @@ test("O*NET Master Tool renders the official O*NET site through the working webv
   await expectNoHorizontalOverflow(page);
 });
 
-test("drug-checker hold does not invoke the preserved legacy workspace", async ({ page }) => {
-  const requests: string[] = [];
-  page.on("request", (request) => { if (new RegExp('/api/drug-checker/').test(request.url())) requests.push(request.url()); });
-  await page.goto("/drug-checker");
-  const workspace = page.locator('[data-rebuild-hold="true"][data-workspace="drug-checker"]');
-  await expect(workspace).toBeVisible();
-  await expect(workspace.locator("main")).toBeEmpty();
-  await expect(workspace.locator("main")).toHaveAttribute("aria-hidden", "true");
-  expect(requests).toEqual([]);
-});

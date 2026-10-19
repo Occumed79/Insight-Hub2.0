@@ -390,22 +390,6 @@ function outbreakTrackerCards(html: string) {
   return cards.slice(0, 30);
 }
 
-router.get("/war-costs/defense-presence", async (req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  const force = String(req.query.refresh ?? "") === "1";
-  try { res.json(await allenDefensePresence(force)); }
-  catch (error) {
-    res.status(502).json({
-      ok: false,
-      partial: true,
-      source: { name: "Michael Allen / troopdata", dashboard: ALLEN_DASHBOARD },
-      current: [],
-      construction: [],
-      warnings: [error instanceof Error ? error.message : "Allen defense-presence source failed."],
-    });
-  }
-});
-
 router.get("/aor/epidemic-history", async (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
   try { res.json(await epidemicHistory()); }

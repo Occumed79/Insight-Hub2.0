@@ -5,7 +5,7 @@ import { isConfigured as isOnetConfigured } from "../services/onetService";
 
 const router: IRouter = Router();
 
-type SourceCategory = "injury" | "occupation" | "entity" | "company" | "workers-comp" | "dba";
+type SourceCategory = "injury" | "occupation" | "entity" | "company" | "workers-comp";
 type SourceMode = "live-api" | "manual-live" | "database-import" | "static-index" | "official-workbook";
 type SourceState = "ready" | "partial" | "disabled" | "not-configured";
 type ConfidenceTier = "high" | "moderate" | "context-only";
@@ -218,25 +218,6 @@ async function getRegistry(): Promise<GovernedSource[]> {
       limitations: ["State definitions and publication practices differ.", "Unindexed does not mean unavailable.", "Most sources are aggregate rather than claim-level."],
       safeguards: ["No national completeness claim", "Manual verification status", "No claim-validity inference"],
     },
-    {
-      id: "dol-dba",
-      label: "DOL Defense Base Act Public Sources",
-      authority: "U.S. Department of Labor — OWCP/DLHWC",
-      category: "dba",
-      mode: "official-workbook",
-      workspaces: ["DBA Intelligence", "Entity Resolution"],
-      configured: true,
-      enabled: true,
-      state: "ready",
-      environmentKeys: [],
-      internalEndpoint: "/api/dba/intelligence",
-      sourceUrl: "https://www.dol.gov/agencies/owcp/dlhwc/lsdbareports",
-      provenance: { official: true, serverSide: true, reviewRequired: true, evidenceUnit: "Public cumulative DBA workbook row or official reference" },
-      confidence: { tier: "moderate", rationale: "Official administrative case-summary and waiver sources; employer-name matching and suppression require review." },
-      freshness: { policy: "Manual scan of official DOL sources" },
-      limitations: ["A case count is not necessarily a unique injury, accepted claim, casualty, or compensable event.", "Privacy-suppressed values are unknown, not zero.", "Public reports can be delayed or changed."],
-      safeguards: ["No claimant data", "No liability or safety inference", "Suppression-aware parsing", "Manual request only"],
-    },
   ];
 }
 
@@ -260,11 +241,10 @@ router.get("/source-governance/overview", async (_req: Request, res: Response) =
       sources,
       workflows: [
         { id: "employer", label: "Employer Intelligence", dependsOn: ["osha-ita", "bls-iif", "onet", "workers-comp-index"] },
-        { id: "entity", label: "Entity Resolution", dependsOn: ["sam", "sec-edgar", "osha-ita", "courtlistener", "usaspending", "dol-dba"] },
+        { id: "entity", label: "Entity Resolution", dependsOn: ["sam", "sec-edgar", "osha-ita", "courtlistener", "usaspending"] },
         { id: "exposure", label: "Exposure Matrix", dependsOn: ["onet", "osha-ita", "bls-iif"] },
         { id: "company-live", label: "Company Live Intel", dependsOn: ["sam", "sec-edgar", "courtlistener", "usaspending"] },
         { id: "workers-comp", label: "Workers’ Comp Coverage", dependsOn: ["workers-comp-index"] },
-        { id: "dba", label: "DBA Intelligence", dependsOn: ["dol-dba"] },
       ],
       governance: {
         manualOnly: "Live and workbook requests run only after a user-triggered action in the responsible workspace.",

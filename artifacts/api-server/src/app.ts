@@ -83,34 +83,8 @@ app.get("/api/map-config", (_req, res) => {
   });
 });
 
-// Defense 3D/globe rendering uses the separately provisioned second MapTiler
-// key. Keep this runtime-only so the credential is never baked into a bundle.
-app.get("/api/war-costs/map-config", (_req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  const apiKey = process.env.MAP_TILER_API_KEY_2?.trim() ?? "";
-  res.status(apiKey ? 200 : 503).json({
-    configured: Boolean(apiKey),
-    apiKey,
-    sdkVersion: "4.0.2",
-    provider: "MapTiler",
-  });
-});
-
-// Keep the existing ArcGIS 2D renderer available as the Defense map's flat
-// operational view while the MapTiler globe provides the 3D spatial view.
-app.get("/api/war-costs/arcgis-config", (_req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  const apiKey = process.env.ARCGIS_API_KEY?.trim() ?? "";
-  res.status(apiKey ? 200 : 503).json({
-    configured: Boolean(apiKey),
-    apiKey,
-    sdkVersion: "5.1",
-    provider: "ArcGIS",
-  });
-});
-
-// Keep all provider credentials and failover logic on the server for both AOR
-// and Defense map coordinate resolution.
+// Keep all provider credentials and failover logic on the server for AOR
+// and other retained map coordinate-resolution consumers.
 app.use("/api", geospatialResolverRouter);
 app.use("/api", router);
 
