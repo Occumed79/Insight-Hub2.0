@@ -288,6 +288,20 @@ test("retired Job Intelligence is absent from navigation; O*NET remains availabl
   await expect(page.locator('nav[aria-label="Insight Hub intelligence tools"] a').filter({ hasText: "Job Intelligence" })).toHaveCount(0);
 });
 
+test("Global Locations uses the full canvas without shared navigation", async ({ page }) => {
+  const pageErrors = collectPageErrors(page);
+  await page.goto("/geographic-data");
+
+  await expect(page.getByRole("heading", { name: "Locations", exact: true })).toBeVisible();
+  await expect(page.locator(".insight-sidebar")).toHaveCount(0);
+  await expect(page.locator('nav[aria-label="Insight Hub intelligence tools"]')).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Back to the Insight Hub landing page" })).toBeVisible();
+  const contentLeft = await page.locator("main > section").evaluate((element) => element.getBoundingClientRect().left);
+  expect(contentLeft).toBeLessThanOrEqual(1);
+  await expectNoDocumentOverflow(page);
+  expect(pageErrors).toEqual([]);
+});
+
 test("active Location Overlap Leaflet map renders safely", async ({ page }) => {
   const pageErrors = collectPageErrors(page);
   await page.goto("/location-overlap");
