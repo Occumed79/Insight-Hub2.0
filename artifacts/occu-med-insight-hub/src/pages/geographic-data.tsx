@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { Sidebar } from "@/components/insight/Sidebar";
 import { GlassCard } from "@/components/insight/GlassCard";
 import {
   LocationsGlobeMap,
@@ -219,8 +218,7 @@ export default function GeographicData() {
 
   return (
     <main className="aurora-bg min-h-screen overflow-x-hidden text-white">
-      <Sidebar />
-      <section className="relative z-10 px-4 pb-10 pt-6 lg:ml-[210px] lg:px-7">
+      <section className="relative z-10 px-4 pb-10 pt-20 lg:px-7">
         <header className="mb-4 flex flex-col gap-2 px-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-100/38">Tab 1</p>
