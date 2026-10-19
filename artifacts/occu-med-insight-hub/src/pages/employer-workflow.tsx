@@ -42,10 +42,6 @@ import {
   type CompanyLiveResponse,
 } from "@/data/companyLiveIntelligenceApi";
 import {
-  runDbaIntelligence,
-  type DbaIntelligenceResponse,
-} from "@/data/dbaIntelligenceApi";
-import {
   loadSourceGovernance,
   type SourceGovernanceResponse,
 } from "@/data/sourceGovernanceApi";
@@ -68,7 +64,6 @@ const CONTEXT_FIELDS: Array<{
   { key: "state", label: "State code", placeholder: "Optional two-letter state code", icon: MapPin },
   { key: "jobTitle", label: "Public job title", placeholder: "Optional occupation or position title", icon: BriefcaseBusiness },
   { key: "naics", label: "NAICS", placeholder: "Optional public industry code", icon: Hash },
-  { key: "country", label: "Country", placeholder: "Optional country for DBA context", icon: Globe2 },
 ];
 
 const CORE_STEP_IDS: WorkflowStepId[] = [
@@ -89,11 +84,9 @@ export default function EmployerWorkflow() {
 
   const [coreBrief, setCoreBrief] = useState<PublicEmployerBrief | null>(null);
   const [companyLive, setCompanyLive] = useState<CompanyLiveResponse | null>(null);
-  const [dba, setDba] = useState<DbaIntelligenceResponse | null>(null);
   const [governance, setGovernance] = useState<SourceGovernanceResponse | null>(null);
   const [coreLoading, setCoreLoading] = useState(false);
   const [liveLoading, setLiveLoading] = useState(false);
-  const [dbaLoading, setDbaLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const completedCount = completedStepIds.length;
@@ -112,7 +105,6 @@ export default function EmployerWorkflow() {
   function invalidateResults(): void {
     setCoreBrief(null);
     setCompanyLive(null);
-    setDba(null);
     setGovernance(null);
     setErrors({});
     for (const step of WORKFLOW_STEPS) reopenStep(step.id);
@@ -188,34 +180,11 @@ export default function EmployerWorkflow() {
     }
   }
 
-  async function runDbaScan(): Promise<void> {
-    if (!context.employer.trim()) {
-      setErrors((current) => ({ ...current, dba: "Enter a public employer name first." }));
-      return;
-    }
-
-    setDbaLoading(true);
-    setErrors((current) => ({ ...current, dba: "" }));
-    try {
-      const result = await runDbaIntelligence(context.legalName.trim() || context.employer.trim());
-      setDba(result);
-      markStepComplete("dba-intelligence");
-    } catch (error) {
-      setErrors((current) => ({
-        ...current,
-        dba: error instanceof Error ? error.message : "Defense Base Act scan failed.",
-      }));
-    } finally {
-      setDbaLoading(false);
-    }
-  }
-
   function handleClear(): void {
     if (typeof window !== "undefined" && !window.confirm("Clear this tab-scoped public-source workflow and all displayed results?")) return;
     clearWorkflow();
     setCoreBrief(null);
     setCompanyLive(null);
-    setDba(null);
     setGovernance(null);
     setErrors({});
   }
@@ -227,7 +196,7 @@ export default function EmployerWorkflow() {
         <HeaderBar
           eyebrow="Unified Employer Workflow"
           title="Public-Source Employer Intelligence Brief"
-          subtitle="Run substantive employer, entity, occupation, workers’ compensation, company-live, DBA, and source-governance intelligence from one command center, then open any detailed workspace for deeper review."
+          subtitle="Run substantive employer, entity, occupation, workers’ compensation, company-live and source-governance intelligence from one command center, then open any detailed workspace for deeper review."
         />
 
         <GlassCard className="mb-6 border-rose-200/18 p-4">
@@ -262,7 +231,7 @@ export default function EmployerWorkflow() {
                 {hasEmployer ? context.employer : "Enter one public employer and build an evidence brief."}
               </h1>
               <p className="mt-4 max-w-3xl text-sm leading-7 text-cyan-100/58">
-                The baseline run resolves public entity evidence, searches imported OSHA records, compares BLS industry benchmarks, normalizes the occupation through O*NET, reviews state workers’ compensation source coverage, scores service-fit context, and verifies source governance. Company-live and DBA scans remain separate explicit actions.
+                The baseline run resolves public entity evidence, searches imported OSHA records, compares BLS industry benchmarks, normalizes the occupation through O*NET, reviews state workers’ compensation source coverage, scores service-fit context, and verifies source governance. Company-live scans remain separate explicit actions.
               </p>
 
               <div className="mt-6 flex flex-wrap gap-3">
@@ -372,19 +341,6 @@ export default function EmployerWorkflow() {
             {companyLive && <CompanyLiveSummary result={companyLive} />}
           </ManualScanPanel>
 
-          <ManualScanPanel
-            eyebrow="Defense Base Act"
-            title="DOL DBA Intelligence"
-            description="Manually scan official public DOL employer, carrier, country, waiver, jurisdiction, and performance sources. Suppressed values remain unknown, never zero."
-            icon={<Globe2 size={20} />}
-            loading={dbaLoading}
-            disabled={!hasEmployer}
-            actionLabel={dba ? "Rerun DBA scan" : "Run DBA scan"}
-            onRun={() => void runDbaScan()}
-            error={errors.dba}
-          >
-            {dba && <DbaSummary result={dba} country={context.country} />}
-          </ManualScanPanel>
         </section>
 
         <section className="mt-8">
@@ -671,38 +627,6 @@ function CompanyLiveSummary({ result }: { result: CompanyLiveResponse }) {
           <p className="mt-1 text-[10px] leading-5 text-violet-100/42">{signal.summary}</p>
         </div>
       ))}
-    </div>
-  );
-}
-
-function DbaSummary({ result, country }: { result: DbaIntelligenceResponse; country: string }) {
-  const countryMatch = country.trim()
-    ? result.caseReports.countries.find((record) => record.name.toLowerCase().includes(country.trim().toLowerCase()))
-    : null;
-  const employerMatches = result.caseReports.queryMatches.slice(0, 4);
-
-  return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <MiniMetric label="Employer matches" value={String(result.caseReports.queryMatches.length)} />
-        <MiniMetric label="Active waivers" value={String(result.summary.activeWaivers)} />
-      </div>
-      {countryMatch && (
-        <div className="rounded-2xl border border-cyan-100/10 bg-cyan-300/[0.035] p-3">
-          <p className="text-xs font-semibold text-cyan-50">{countryMatch.name}</p>
-          <p className="mt-1 text-[10px] text-cyan-100/42">Published cumulative cases: {countryMatch.counts.total ?? "Suppressed / unavailable"}</p>
-        </div>
-      )}
-      {employerMatches.map((record) => (
-        <div key={record.id} className="rounded-2xl border border-violet-100/10 bg-violet-300/[0.035] p-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold text-violet-50">{record.name}</p>
-            <span className="text-xs font-black text-violet-100">{record.counts.total ?? "—"}</span>
-          </div>
-          <p className="mt-1 text-[10px] text-violet-100/42">Match {Math.round((record.matchScore ?? 0) * 100)}% · {record.suppressed ? "suppressed cells present" : "published values"}</p>
-        </div>
-      ))}
-      {result.warnings.slice(0, 3).map((warning) => <p key={warning} className="text-[10px] leading-5 text-amber-100/48">{warning}</p>)}
     </div>
   );
 }
